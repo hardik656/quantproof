@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuantProof — Institutional-Grade Algo Validation</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #080a0f;
+    --deep: #0d1117;
+    --surface: #131920;
+    --border: #1e2d3d;
+    --accent: #00ff88;
+    --accent2: #ff4444;
+    --accent3: #ffaa00;
+    --text: #e8edf2;
+    --muted: #5a7a8a;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* SCANLINE EFFECT */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ========== HEADER ========== */
+  header {
+    padding: 32px 0 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 60px;
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 24px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--accent);
+    display: grid;
+    place-items: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--accent);
+    position: relative;
+    animation: pulse-border 3s infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
+  }
+
+  .logo-name {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-name span { color: var(--accent); }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(0,255,136,0.3);
+    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  /* ========== HERO ========== */
+  .hero {
+    text-align: center;
+    margin-bottom: 64px;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    display: inline-block;
+  }
+
+  .hero h1 {
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+    position: relative;
+  }
+
+  .hero p {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 540px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    margin-top: 40px;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 28px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ========== UPLOAD ZONE ========== */
+  .upload-section {
+    margin-bottom: 64px;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .upload-zone {
+    border: 2px dashed var(--border);
+    padding: 64px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    background: var(--deep);
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,255,136,0.03);
+  }
+
+  .upload-zone:hover .upload-icon {
+    transform: translateY(-4px);
+    color: var(--accent);
+  }
+
+  .upload-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+    display: block;
+  }
+
+  .upload-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .upload-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .upload-btn {
+    background: var(--accent);
+    color: var(--black);
+    border: none;
+    padding: 14px 32px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .upload-btn:hover {
+    background: #00cc6e;
+    transform: translateY(-1px);
+  }
+
+  input[type="file"] { display: none; }
+
+  .format-hint {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ========== LOADING ========== */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 80px 0;
+  }
+
+  .loading.active { display: block; }
+
+  .terminal {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 24px;
+    max-width: 500px;
+    margin: 0 auto 32px;
+    text-align: left;
+  }
+
+  .terminal-bar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .t-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .t-dot:nth-child(1) { background: #ff5f57; }
+  .t-dot:nth-child(2) { background: #febc2e; }
+  .t-dot:nth-child(3) { background: #28c840; }
+
+  .terminal-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 6px;
+    opacity: 0;
+    animation: typeIn 0.3s ease forwards;
+  }
+
+  .terminal-line:nth-child(2) { animation-delay: 0.3s; color: var(--text); }
+  .terminal-line:nth-child(3) { animation-delay: 0.6s; }
+  .terminal-line:nth-child(4) { animation-delay: 0.9s; color: var(--text); }
+  .terminal-line:nth-child(5) { animation-delay: 1.2s; }
+  .terminal-line:nth-child(6) { animation-delay: 1.5s; color: var(--accent3); }
+  .terminal-line:nth-child(7) { animation-delay: 1.8s; color: var(--accent3); }
+  .terminal-line:nth-child(8) { animation-delay: 2.1s; color: var(--accent2); }
+  .terminal-line:nth-child(9) { animation-delay: 2.4s; color: var(--accent); }
+
+  @keyframes typeIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ========== RESULTS ========== */
+  .results { display: none; }
+  .results.active { display: block; animation: fadeUp 0.6s ease both; }
+
+  /* SCORE HERO */
+  .score-hero {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 32px;
+    margin-bottom: 40px;
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 40px;
+  }
+
+  .score-circle-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .score-circle {
+    width: 160px;
+    height: 160px;
+    position: relative;
+  }
+
+  .score-circle svg {
+    transform: rotate(-90deg);
+  }
+
+  .score-circle-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+
+  .score-circle-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .score-number {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .score-val {
+    font-family: var(--mono);
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .score-max {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .score-grade {
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: center;
+    padding: 6px 16px;
+    border: 1px solid;
+  }
+
+  .score-meta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 24px;
+  }
+
+  .score-summary {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .meta-item {
+    background: var(--surface);
+    padding: 16px;
+    border-left: 3px solid var(--border);
+  }
+
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .meta-value {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  /* ========== CRASH SIMS ========== */
+  .section-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .crash-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .crash-card {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+
+  .crash-card:hover { transform: translateY(-2px); }
+
+  .crash-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .crash-card.survived::before { background: var(--accent); }
+  .crash-card.warning::before { background: var(--accent3); }
+  .crash-card.failed::before { background: var(--accent2); }
+
+  .crash-year {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .crash-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .crash-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .crash-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .crash-stat {
+    background: var(--surface);
+    padding: 10px;
+    text-align: center;
+  }
+
+  .crash-stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .crash-stat-val {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  .crash-verdict {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 12px;
+    border: 1px solid;
+    font-weight: 600;
+  }
+
+  .crash-card.survived .crash-verdict {
+    border-color: rgba(0,255,136,0.3);
+    color: var(--accent);
+    background: rgba(0,255,136,0.05);
+  }
+
+  .crash-card.warning .crash-verdict {
+    border-color: rgba(255,170,0,0.3);
+    color: var(--accent3);
+    background: rgba(255,170,0,0.05);
+  }
+
+  .crash-card.failed .crash-verdict {
+    border-color: rgba(255,68,68,0.3);
+    color: var(--accent2);
+    background: rgba(255,68,68,0.05);
+  }
+
+  /* ========== CHECKS ========== */
+  .checks-section { margin-bottom: 48px; }
+
+  .category-block { margin-bottom: 32px; }
+
+  .category-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .category-name {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .category-score {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .check-item {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    padding: 16px 20px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .check-item:hover { background: var(--surface); }
+  .check-item.pass { border-left-color: var(--accent); }
+  .check-item.fail { border-left-color: var(--accent2); }
+
+  .check-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .check-name {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .check-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    font-weight: 700;
+  }
+
+  .check-badge.pass { background: rgba(0,255,136,0.15); color: var(--accent); }
+  .check-badge.fail { background: rgba(255,68,68,0.15); color: var(--accent2); }
+
+  .check-score-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .bar-track {
+    width: 100px;
+    height: 4px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    transition: width 1s ease;
+  }
+
+  .check-score-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 32px;
+    text-align: right;
+  }
+
+  .check-details {
+    display: none;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .check-details.open { display: block; }
+
+  .check-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent3);
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: var(--surface);
+  }
+
+  .check-insight {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .check-fix {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.6;
+    padding: 10px 12px;
+    border-left: 3px solid var(--accent3);
+    background: rgba(255,170,0,0.05);
+  }
+
+  .check-fix::before {
+    content: '→ FIX: ';
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent3);
+    font-weight: 700;
+  }
+
+  /* ========== TOP ISSUES / STRENGTHS ========== */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  .insight-card {
+    background: var(--deep);
+    border: 1px solid var(--border);
+    padding: 24px;
+  }
+
+  .insight-card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .insight-card-title.issues { color: var(--accent2); }
+  .insight-card-title.strengths { color: var(--accent); }
+
+  .insight-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .insight-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--border);
+    min-width: 20px;
+    margin-top: 2px;
+  }
+
+  /* ========== RESET BTN ========== */
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 12px 24px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin: 0 auto 64px;
+    display: block;
+  }
+
+  .reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ========== FOOTER ========== */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+    text-align: center;
+  }
+
+  .footer-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  footer .accent { color: var(--accent); }
+
+  @media (max-width: 768px) {
+    .crash-grid { grid-template-columns: 1fr; }
+    .score-hero { grid-template-columns: 1fr; }
+    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+    .insights-grid { grid-template-columns: 1fr; }
+    .stats-row { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">QP</div>
+        <div class="logo-name">Quant<span>Proof</span></div>
+      </div>
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        SYSTEM ONLINE
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <div class="hero" id="heroSection">
+    <div class="hero-tag">// Institutional-Grade Algo Validation</div>
+    <h1>Does your strategy<br>survive the <em>real world?</em></h1>
+    <p>Upload your backtest CSV. Get 20 institutional checks + crash simulations across 2008, 2020, and 2022 in seconds.</p>
+    <div class="stats-row">
+      <div class="stat">
+        <div class="stat-num">20</div>
+        <div class="stat-label">Checks Run</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">3</div>
+        <div class="stat-label">Crash Sims</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">0–100</div>
+        <div class="stat-label">Fundable Score</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">&lt;30s</div>
+        <div class="stat-label">Analysis Time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-zone" id="uploadZone">
+      <span class="upload-icon">📊</span>
+      <div class="upload-title">Drop your backtest CSV here</div>
+      <div class="upload-sub">// CSV with pnl column required</div>
+      <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+        SELECT FILE
+      </button>
+      <input type="file" id="fileInput" accept=".csv">
+      <div class="format-hint">Required column: pnl &nbsp;|&nbsp; Optional: date, ticker, side</div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading" id="loadingSection">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="t-dot"></div>
+        <div class="t-dot"></div>
+        <div class="t-dot"></div>
+      </div>
+      <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
+      <div class="terminal-line">→ Parsing trade data...</div>
+      <div class="terminal-line">→ Running overfitting detection (5 checks)...</div>
+      <div class="terminal-line">→ Computing risk metrics (5 checks)...</div>
+      <div class="terminal-line">→ Testing regime robustness (5 checks)...</div>
+      <div class="terminal-line">→ Simulating execution reality (5 checks)...</div>
+      <div class="terminal-line">→ Running 2008 GFC crash simulation...</div>
+      <div class="terminal-line">→ Running 2020 COVID crash simulation...</div>
+      <div class="terminal-line">→ Running 2022 bear market simulation...</div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" id="resultsSection"></div>
+
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-text">
+      <span class="accent">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
+    </div>
+  </div>
+</footer>
+
+<script>
+  const API_URL = 'http://127.0.0.1:8000'; // Change to your Render URL when deployed
+
+  // ========== DRAG & DROP ==========
+  const zone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  // ========== FILE HANDLER ==========
+  async function handleFile(file) {
+    if (!file.name.endsWith('.csv')) {
+      alert('Please upload a CSV file');
+      return;
+    }
+
+    // Show loading
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('loadingSection').classList.add('active');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch(`${API_URL}/validate`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Validation failed');
+      }
+
+      const data = await response.json();
+
+      // Small delay for terminal animation
+      setTimeout(() => {
+        document.getElementById('loadingSection').classList.remove('active');
+        renderResults(data);
+      }, 3000);
+
+    } catch (err) {
+      document.getElementById('loadingSection').classList.remove('active');
+      document.getElementById('uploadSection').style.display = 'block';
+      document.getElementById('heroSection').style.display = 'block';
+      alert(`Error: ${err.message}`);
+    }
+  }
+
+  // ========== RENDER RESULTS ==========
+  function renderResults(data) {
+    const section = document.getElementById('resultsSection');
+    section.innerHTML = buildResultsHTML(data);
+    section.classList.add('active');
+
+    // Animate score circle
+    setTimeout(() => animateScore(data.fundable_score), 100);
+
+    // Animate bars
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(bar => {
+        bar.style.width = bar.dataset.width + '%';
+      });
+    }, 300);
+  }
+
+  function getScoreColor(score) {
+    if (score >= 80) return '#00ff88';
+    if (score >= 65) return '#00cc6e';
+    if (score >= 50) return '#ffaa00';
+    if (score >= 35) return '#ff6600';
+    return '#ff4444';
+  }
+
+  function getCrashClass(sim) {
+    if (sim.survived && sim.strategy_drop > 0) return 'survived';
+    if (sim.survived) return 'warning';
+    return 'failed';
+  }
+
+  function animateScore(score) {
+    const circle = document.querySelector('.score-circle-fill');
+    const numEl = document.querySelector('.score-val');
+    if (!circle || !numEl) return;
+
+    const circumference = 2 * Math.PI * 60;
+    const offset = circumference - (score / 100) * circumference;
+    circle.style.strokeDasharray = circumference;
+    circle.style.strokeDashoffset = offset;
+    circle.style.stroke = getScoreColor(score);
+
+    // Count up animation
+    let current = 0;
+    const increment = score / 60;
+    const timer = setInterval(() => {
+      current = Math.min(current + increment, score);
+      numEl.textContent = Math.round(current);
+      if (current >= score) clearInterval(timer);
+    }, 25);
+  }
+
+  function buildResultsHTML(data) {
+    const scoreColor = getScoreColor(data.fundable_score);
+    const gradeLetter = data.grade.split('—')[0].trim();
+    const gradeDesc = data.grade.split('—')[1]?.trim() || '';
+
+    // Group checks by category
+    const categories = {};
+    data.checks.forEach(c => {
+      if (!categories[c.category]) categories[c.category] = [];
+      categories[c.category].push(c);
+    });
+
+    return `
+      <!-- SCORE HERO -->
+      <div class="score-hero">
+        <div class="score-circle-wrap">
+          <div class="score-circle">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <circle class="score-circle-bg" cx="80" cy="80" r="60"/>
+              <circle class="score-circle-fill" cx="80" cy="80" r="60"
+                style="stroke-dasharray: 0; stroke-dashoffset: 0;"/>
+            </svg>
+            <div class="score-number">
+              <span class="score-val" style="color:${scoreColor}">0</span>
+              <span class="score-max">/100</span>
+            </div>
+          </div>
+          <div class="score-grade" style="color:${scoreColor}; border-color:${scoreColor}40">
+            ${gradeLetter} — ${gradeDesc}
+          </div>
+        </div>
+        <div class="score-meta">
+          <div class="score-summary">${data.summary}</div>
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-label">Sharpe Ratio</div>
+              <div class="meta-value" style="color:${data.sharpe > 1 ? 'var(--accent)' : data.sharpe > 0 ? 'var(--accent3)' : 'var(--accent2)'}">${data.sharpe}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Win Rate</div>
+              <div class="meta-value" style="color:${data.win_rate > 50 ? 'var(--accent)' : 'var(--accent3)'}">${data.win_rate}%</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Total Trades</div>
+              <div class="meta-value">${data.total_trades}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CRASH SIMULATIONS -->
+      <div class="section-title">// Historical Crash Simulations</div>
+      <div class="crash-grid">
+        ${data.crash_sims.map(sim => `
+          <div class="crash-card ${getCrashClass(sim)}">
+            <div class="crash-year">${sim.year}</div>
+            <div class="crash-name">${sim.crash_name}</div>
+            <div class="crash-desc">${sim.description}</div>
+            <div class="crash-stats">
+              <div class="crash-stat">
+                <div class="crash-stat-label">Market Drop</div>
+                <div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div>
+              </div>
+              <div class="crash-stat">
+                <div class="crash-stat-label">Your Strategy</div>
+                <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+            <div class="crash-verdict">${sim.emotional_verdict}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- TOP ISSUES & STRENGTHS -->
+      <div class="insights-grid">
+        <div class="insight-card">
+          <div class="insight-card-title issues">// Critical Issues to Fix</div>
+          ${data.top_issues.map((issue, i) => `
+            <div class="insight-item">
+              <span class="insight-num">0${i+1}</span>
+              <span>${issue}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="insight-card">
+          <div class="insight-card-title strengths">// Top Strengths</div>
+          ${data.top_strengths.map((s, i) => `
+            <div class="insight-item">
+              <span class="insight-num">0${i+1}</span>
+              <span>${s}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- DETAILED CHECKS -->
+      <div class="checks-section">
+        <div class="section-title">// Full Validation Report (click to expand)</div>
+        ${Object.entries(categories).map(([cat, checks]) => {
+          const catScore = Math.round(checks.reduce((a,c) => a + c.score, 0) / checks.length);
+          return `
+          <div class="category-block">
+            <div class="category-header">
+              <div class="category-name" style="color:${catScore > 65 ? 'var(--accent)' : catScore > 45 ? 'var(--accent3)' : 'var(--accent2)'}">${cat}</div>
+              <div class="category-score" style="color:var(--muted)">${catScore}/100</div>
+            </div>
+            ${checks.map((check, i) => `
+              <div class="check-item ${check.passed ? 'pass' : 'fail'}" onclick="toggleCheck(this)">
+                <div class="check-header">
+                  <div class="check-name">
+                    <span class="check-badge ${check.passed ? 'pass' : 'fail'}">${check.passed ? 'PASS' : 'FAIL'}</span>
+                    ${check.name}
+                  </div>
+                  <div class="check-score-bar">
+                    <div class="bar-track">
+                      <div class="bar-fill" data-width="${check.score}" style="width:0%; background:${check.score > 65 ? 'var(--accent)' : check.score > 45 ? 'var(--accent3)' : 'var(--accent2)'}"></div>
+                    </div>
+                    <div class="check-score-num">${check.score}</div>
+                  </div>
+                </div>
+                <div class="check-details">
+                  <div class="check-value">${check.value}</div>
+                  <div class="check-insight">${check.insight}</div>
+                  <div class="check-fix">${check.fix}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          `;
+        }).join('')}
+      </div>
+
+      <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
+    `;
+  }
+
+  function toggleCheck(el) {
+    const details = el.querySelector('.check-details');
+    details.classList.toggle('open');
+  }
+
+  function resetApp() {
+    document.getElementById('resultsSection').classList.remove('active');
+    document.getElementById('resultsSection').innerHTML = '';
+    document.getElementById('uploadSection').style.display = 'block';
+    document.getElementById('heroSection').style.display = 'block';
+    document.getElementById('fileInput').value = '';
+    window.scrollTo(0, 0);
+  }
+</script>
+</body>
+</html>
