@@ -953,7 +953,7 @@ class QuantProofValidator:
         stressed = np.where(stressed < -0.99, -0.99, stressed)
         
         # Calculate cumulative portfolio return
-        cumulative = float(np.prod(1 + stressed) - 1) * 100
+        cumulative = float(np.prod(1 + stressed) - 1)
         
         # Drawdown for survival check
         dd = calculate_max_drawdown(stressed)
