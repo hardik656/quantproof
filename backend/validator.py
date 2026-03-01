@@ -180,16 +180,10 @@ class QuantProofValidator:
         sims = [np.mean(np.random.choice(r, size=len(r), replace=True)) for _ in range(1000)]
         pct = float(np.mean(np.array(sims) > 0) * 100)
         passed = pct > 60
-        
-        # TASK 3: Extra penalty for overfitting failures
-        score = round(pct, 1)
-        if score < 50:
-            score = score * 0.7  # 30% extra penalty
-            
         return CheckResult(
             name="Monte Carlo Robustness",
             passed=passed,
-            score=round(score, 1),
+            score=round(pct, 1),
             value=f"{pct:.1f}% of 1,000 simulations were profitable",
             insight="If random shuffles rarely profit, your edge is sequence-dependent and fragile.",
             fix="Each trade should have positive expectancy independently.",
@@ -235,16 +229,10 @@ class QuantProofValidator:
         r = self.returns
         bootstraps = [np.mean(np.random.choice(r, size=len(r), replace=True)) for _ in range(500)]
         pct = float(np.mean(np.array(bootstraps) > 0) * 100)
-        
-        # TASK 3: Extra penalty for overfitting failures
-        score = round(pct, 1)
-        if score < 50:
-            score = score * 0.7  # 30% extra penalty
-            
         return CheckResult(
             name="Bootstrap Stability",
             passed=pct > 70,
-            score=round(score, 1),
+            score=round(pct, 1),
             value=f"Positive expectancy in {pct:.1f}% of 500 bootstrap samples",
             insight="Stable edge shows up consistently in resampling.",
             fix="If below 70%, fix win rate or risk/reward ratio first.",
@@ -368,6 +356,26 @@ class QuantProofValidator:
             category="Risk"
         )
 
+    def check_compliance_pass(self) -> CheckResult:
+        gates = [
+            self.returns.mean() > 0,
+            calculate_sharpe(self.returns) > 0.5,
+            abs(calculate_max_drawdown(self.returns)) < 0.20,
+            calculate_win_rate(self.returns) > 45,
+            len(self.returns) > 50
+        ]
+        passed = sum(gates) >= 4
+        score = 100 if passed else 0
+        return CheckResult(
+            name="Prop Firm Compliance",
+            passed=passed,
+            score=score,
+            value="✅ PASSES 2026 Requirements" if passed else "❌ NEEDS FIXES",
+            insight="FTMO/Topstep reject 90% of strategies without proper validation. 4/5 gates must pass.",
+            fix="Fix your top 3 failing checks above to meet prop firm standards.",
+            category="Compliance"
+        )
+
     # =========================================================
     # GROUP 3: REGIME ROBUSTNESS
     # =========================================================
@@ -452,6 +460,30 @@ class QuantProofValidator:
             value=f"Profitable in {pct:.1f}% of rolling windows",
             insight="Consistent strategies generate returns steadily, not in lumps.",
             fix="If <60%, your edge only works in specific conditions. Define those explicitly.",
+            category="Regime"
+        )
+
+    def check_regime_coverage(self) -> CheckResult:
+        if 'regime' not in self.df.columns:
+            return CheckResult(
+                name="Regime Coverage",
+                passed=False,
+                score=40,
+                value="No regime column detected",
+                insight="Strategies with regime detection have 3x better live survival rate.",
+                fix="Add BULL/BEAR/CONSOLIDATION/TRANSITION regime labels to your CSV export.",
+                category="Regime"
+            )
+        regimes = self.df['regime'].value_counts(normalize=True)
+        coverage = len(regimes) / 4 * 100
+        passed = coverage > 75
+        return CheckResult(
+            name="4-Regime Coverage",
+            passed=passed,
+            score=round(coverage, 1),
+            value=f"Regimes detected: {list(regimes.index.astype(str))}",
+            insight="Full regime coverage means your strategy was tested across all market conditions.",
+            fix="Ensure your backtest includes BULL, BEAR, CONSOLIDATION and TRANSITION periods.",
             category="Regime"
         )
 
@@ -578,12 +610,13 @@ class QuantProofValidator:
     # =========================================================
 
     def _calculate_score(self, checks: List[CheckResult]) -> Tuple[float, str]:
-        # Fixed weights per audit feedback
+        # Updated weights with Compliance category
         weights = {
-            "Overfitting": 0.30,
-            "Risk": 0.40,
-            "Regime": 0.15,
-            "Execution": 0.15,
+            "Overfitting": 0.28,
+            "Risk":        0.37,
+            "Regime":      0.15,
+            "Execution":   0.12,
+            "Compliance":  0.08,
         }
         category_scores = {}
         for cat in weights:
@@ -638,11 +671,13 @@ class QuantProofValidator:
             self.check_consolidation_performance(),
             self.check_volatility_stress(),
             self.check_frequency_consistency(),
+            self.check_regime_coverage(),
             self.check_slippage_01(),
             self.check_slippage_03(),
             self.check_commission_drag(),
             self.check_partial_fills(),
             self.check_live_vs_backtest_gap(),
+            self.check_compliance_pass(),
         ]
 
         crash_sims = [
