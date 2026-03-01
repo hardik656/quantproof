@@ -180,10 +180,16 @@ class QuantProofValidator:
         sims = [np.mean(np.random.choice(r, size=len(r), replace=True)) for _ in range(1000)]
         pct = float(np.mean(np.array(sims) > 0) * 100)
         passed = pct > 60
+        
+        # TASK 3: Extra penalty for overfitting failures
+        score = round(pct, 1)
+        if score < 50:
+            score = score * 0.7  # 30% extra penalty
+            
         return CheckResult(
             name="Monte Carlo Robustness",
             passed=passed,
-            score=round(pct, 1),
+            score=round(score, 1),
             value=f"{pct:.1f}% of 1,000 simulations were profitable",
             insight="If random shuffles rarely profit, your edge is sequence-dependent and fragile.",
             fix="Each trade should have positive expectancy independently.",
@@ -229,10 +235,16 @@ class QuantProofValidator:
         r = self.returns
         bootstraps = [np.mean(np.random.choice(r, size=len(r), replace=True)) for _ in range(500)]
         pct = float(np.mean(np.array(bootstraps) > 0) * 100)
+        
+        # TASK 3: Extra penalty for overfitting failures
+        score = round(pct, 1)
+        if score < 50:
+            score = score * 0.7  # 30% extra penalty
+            
         return CheckResult(
             name="Bootstrap Stability",
             passed=pct > 70,
-            score=round(pct, 1),
+            score=round(score, 1),
             value=f"Positive expectancy in {pct:.1f}% of 500 bootstrap samples",
             insight="Stable edge shows up consistently in resampling.",
             fix="If below 70%, fix win rate or risk/reward ratio first.",
@@ -326,6 +338,33 @@ class QuantProofValidator:
             value=f"Recovery factor: {recovery:.2f} (wins cover losses {recovery:.1f}x)",
             insight="Below 1.5 means wins barely cover drawdowns.",
             fix="Increase average winner or cut average loser. Asymmetric R:R is the goal.",
+            category="Risk"
+        )
+
+    def check_absolute_sharpe(self) -> CheckResult:
+        r = self.returns
+        sharpe = calculate_sharpe(r)
+        
+        if sharpe > 1.5:
+            score = 100
+            passed = True
+        elif sharpe >= 1.0:
+            score = 75
+            passed = True
+        elif sharpe >= 0.5:
+            score = 45
+            passed = False
+        else:
+            score = 15
+            passed = False
+            
+        return CheckResult(
+            name="Absolute Sharpe Ratio",
+            passed=passed,
+            score=round(score, 1),
+            value=f"Annualized Sharpe: {sharpe:.2f}",
+            insight="Institutional minimum is Sharpe > 1.0. Below 0.5 means the strategy doesn't compensate for its risk.",
+            fix="Improve risk-adjusted returns through better entry timing or position sizing.",
             category="Risk"
         )
 
@@ -553,6 +592,22 @@ class QuantProofValidator:
 
         final = sum(category_scores[cat] * w for cat, w in weights.items())
 
+        # TASK 1: Sharpe Floor Penalty - override all other scores
+        overall_sharpe = calculate_sharpe(self.returns)
+        if overall_sharpe < 0:
+            final = min(final, 20)
+        elif overall_sharpe < 0.3:
+            final = min(final, 35)
+        elif overall_sharpe < 0.5:
+            final = min(final, 50)
+
+        # TASK 2: Hard Category Floor Logic
+        low_categories = sum(1 for score in category_scores.values() if score < 30)
+        if low_categories >= 2:
+            final = min(final, 45)
+        elif low_categories >= 1:
+            final = min(final, 60)
+
         if final >= 80:   grade = "A — Institutionally Viable"
         elif final >= 65: grade = "B — Fundable with Improvements"
         elif final >= 50: grade = "C — Promising but Needs Work"
@@ -577,6 +632,7 @@ class QuantProofValidator:
             self.check_var(),
             self.check_consecutive_losses(),
             self.check_recovery_factor(),
+            self.check_absolute_sharpe(),
             self.check_bull_performance(),
             self.check_bear_performance(),
             self.check_consolidation_performance(),
