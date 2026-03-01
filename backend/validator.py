@@ -582,26 +582,32 @@ class QuantProofValidator:
     def simulate_crash(self, crash_key: str) -> CrashSimResult:
         profile = CRASH_PROFILES[crash_key]
         r = self.returns.copy()
+        
+        # Apply stress conditions
         stressed = r * profile["vol_multiplier"]
         stressed = stressed - np.abs(stressed) * (1 - profile["liquidity_factor"]) * 0.5
         stressed = stressed - profile["gap_risk"] * np.sign(r)
-        strategy_total = float(np.sum(stressed))
+        
+        # Calculate cumulative portfolio return (not sum of returns)
+        cumulative = float(np.prod(1 + np.clip(stressed, -0.99, 10)) - 1) * 100
+        
+        # Drawdown for survival check
         dd = calculate_max_drawdown(stressed)
         survived = abs(dd) < 0.25
 
-        if survived and strategy_total > 0:
-            verdict = "🟢 YOUR STRATEGY SURVIVED. While markets crashed, your system held. This is what separates real edges from lucky backtests."
+        if survived and cumulative > 0:
+            verdict = "🟢 YOUR STRATEGY SURVIVED..."
         elif survived:
-            verdict = "🟡 BARELY SURVIVED. Your strategy lost money but didn't blow up. In real life, would you have had the nerve to keep trading?"
+            verdict = "🟡 BARELY SURVIVED..."
         else:
-            verdict = "🔴 YOUR STRATEGY WOULD HAVE BLOWN UP. The crash exposed fatal flaws. Most traders quit here — the ones who survive rebuild with proper risk management."
+            verdict = "🔴 YOUR STRATEGY WOULD HAVE BLOWN UP..."
 
         return CrashSimResult(
             crash_name=profile["name"],
             year=profile["year"],
             description=profile["description"],
             market_drop=profile["market_drop"],
-            strategy_drop=round(strategy_total, 4),
+            strategy_drop=round(cumulative, 1),
             survived=survived,
             emotional_verdict=verdict
         )
