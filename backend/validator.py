@@ -1076,6 +1076,8 @@ class QuantProofValidator:
             self.check_kelly_plausibility(),
         ]
 
+        self.checks = checks  # Store for audit flag generation
+
         crash_sims = [
             self.simulate_crash("2008_gfc"),
             self.simulate_crash("2020_covid"),
