@@ -46,12 +46,20 @@ class ValidationResponse(BaseModel):
     checks: List[CheckResultResponse]
     crash_sims: List[CrashSimResponse]
     total_trades: int
+    profitable_trades: int
     date_range: str
     sharpe: float
     max_drawdown: float
     win_rate: float
     top_issues: List[str]
     top_strengths: List[str]
+    assumptions: List[str]
+    validation_hash: str
+    validation_date: str
+    audit_flags: List[str]
+    plausibility_summary: str
+    timeframe_info: str
+    engine_version: str
 
 def smart_parse_csv(contents: bytes) -> pd.DataFrame:
     raw = contents.decode("utf-8", errors="ignore")
@@ -64,6 +72,10 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
             if any(p in col.lower() for p in pnl_names):
                 vals = pd.to_numeric(df[col], errors="coerce").dropna()
                 if len(vals) >= 5:
+                    # Normalize dollar amounts to percentage returns
+                    if vals.abs().mean() > 1.0:
+                        vals = vals / 10000.0
+                    vals = vals.clip(-0.50, 0.50)
                     return pd.DataFrame({"pnl": vals.values})
     except Exception:
         pass
@@ -83,11 +95,19 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
+                # Normalize dollar amounts to percentage returns
+                if vals.abs().mean() > 1.0:
+                    vals = vals / 10000.0
+                vals = vals.clip(-0.50, 0.50)
                 return pd.DataFrame({"pnl": vals.values})
         # Fallback: any numeric col with variance
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and vals.std() > 0:
+                # Normalize dollar amounts to percentage returns
+                if vals.abs().mean() > 1.0:
+                    vals = vals / 10000.0
+                vals = vals.clip(-0.50, 0.50)
                 return pd.DataFrame({"pnl": vals.values})
     except Exception as e:
         raise ValueError(f"Could not parse CSV: {str(e)}")
@@ -96,7 +116,7 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 
 @app.get("/")
 def root():
-  return {"status": "QuantProof API is live", "version": "1.3.0-normalized"}
+  return {"status": "QuantProof API is live", "version": "2.0.0"}
 
 @app.post("/validate", response_model=ValidationResponse)
 async def validate(file: UploadFile = File(...)):
@@ -119,19 +139,45 @@ async def validate(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
+    r = report
+    checks_filtered = [c for c in r.checks if c.category != "Plausibility"]
+    top_issues = [c.fix for c in sorted(checks_filtered, key=lambda x: x.score)[:3]]
+    top_strengths = [c.name for c in sorted(checks_filtered, key=lambda x: x.score, reverse=True)[:3]]
+
+    date_range = "Unknown"
+    if hasattr(validator, 'df') and 'date' in validator.df.columns:
+        try:
+            date_range = f"{validator.df['date'].min().date()} to {validator.df['date'].max().date()}"
+        except:
+            pass
+
+    summary = (
+        f"QuantProof analyzed {r.total_trades} trades across 20 institutional checks "
+        f"+ 3 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
+        f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
+    )
+
     return ValidationResponse(
-        fundable_score=report.fundable_score,
-        grade=report.grade,
-        summary=report.summary,
-        checks=[CheckResultResponse(**vars(c)) for c in report.checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
-        total_trades=report.total_trades,
-        date_range=report.date_range,
-        sharpe=report.sharpe,
-        max_drawdown=report.max_drawdown,
-        win_rate=report.win_rate,
-        top_issues=report.top_issues,
-        top_strengths=report.top_strengths,
+        fundable_score=r.score,
+        grade=r.grade,
+        summary=summary,
+        checks=[CheckResultResponse(**vars(c)) for c in r.checks if c.category != "Plausibility"],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
+        total_trades=r.total_trades,
+        profitable_trades=r.profitable_trades,
+        date_range=date_range,
+        sharpe=round(r.sharpe, 2),
+        max_drawdown=round(r.max_drawdown, 4),
+        win_rate=round(r.win_rate, 1),
+        top_issues=top_issues,
+        top_strengths=top_strengths,
+        assumptions=r.assumptions,
+        validation_hash=r.validation_hash,
+        validation_date=r.validation_date,
+        audit_flags=r.audit_flags,
+        plausibility_summary=r.plausibility_summary,
+        timeframe_info=validator.timeframe_info,
+        engine_version=r.engine_version,
     )
 
 @app.get("/sample-csv")
