@@ -116,7 +116,7 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 
 @app.get("/")
 def root():
-  return {"status": "QuantProof API is live", "version": "2.0.0"}
+  return {"status": "QuantProof API is live", "version": "1.2.0"}
 
 @app.post("/validate", response_model=ValidationResponse)
 async def validate(file: UploadFile = File(...)):
