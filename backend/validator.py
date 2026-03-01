@@ -723,3 +723,4 @@ class QuantProofValidator:
             top_issues=top_issues,
             top_strengths=top_strengths,
         )
+
