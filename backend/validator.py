@@ -4,7 +4,7 @@ Fixed: Drawdown formula, timeframe propagation, gap risk array, float comparison
 """
 
 import pandas as pd
-import np as np
+import numpy as np
 import hashlib
 import json
 from dataclasses import dataclass
