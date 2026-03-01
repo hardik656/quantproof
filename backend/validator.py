@@ -143,13 +143,13 @@ class QuantProofValidator:
         return df.dropna(subset=["pnl"])
 
     def _get_returns(self) -> np.ndarray:
-    r = self.df["pnl"].values.astype(float)
-    # Convert dollar P&L to % returns using $10,000 assumed position
-    if np.abs(r).mean() > 1:
-        r = r / 10000.0
-    # Cap at realistic per-trade bounds (-50% to +50%)
-    r = np.clip(r, -0.50, 0.50)
-    return r
+        r = self.df["pnl"].values.astype(float)
+        # Convert dollar P&L to % returns using $10,000 assumed position
+        if np.abs(r).mean() > 1:
+            r = r / 10000.0
+        # Cap at realistic per-trade bounds (-50% to +50%)
+        r = np.clip(r, -0.50, 0.50)
+        return r
 
     # =========================================================
     # GROUP 1: OVERFITTING DETECTION
@@ -723,4 +723,3 @@ class QuantProofValidator:
             top_issues=top_issues,
             top_strengths=top_strengths,
         )
-
