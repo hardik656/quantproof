@@ -1,8 +1,7 @@
 """
-QuantProof — Validation Engine v1.3
-Upgrades: CVaR, Fractional Kelly with Ruin Probability, Market Impact Model, 
-          Deflated Sharpe, Purged Walk-Forward CV, HMM Regime Detection, 
-          Capacity Analysis, Interactive Dashboard API
+QuantProof — Validation Engine v1.3.1
+Critical Fixes: Removed noise injection, honest ruin proxy labeling, 
+transparent deflated Sharpe assumptions, simplified market impact naming
 """
 
 import pandas as pd
@@ -15,7 +14,6 @@ from datetime import datetime
 from scipy import stats
 from scipy.stats import norm
 
-# Optional imports with graceful fallback
 try:
     from hmmlearn.hmm import GaussianHMM
     HMM_AVAILABLE = True
@@ -24,10 +22,6 @@ except ImportError:
 
 RISK_FREE_DAILY = 0.04 / 252
 EPSILON = 1e-9
-
-# =========================================================
-# DATA STRUCTURES
-# =========================================================
 
 @dataclass
 class CheckResult:
@@ -65,7 +59,7 @@ class ValidationReport:
     validation_date: str
     audit_flags: List[str]
     plausibility_summary: str
-    engine_version: str = "v1.3"
+    engine_version: str = "v1.3.1"
     methodology_version: str = "2026-03-01"
 
 CRASH_PROFILES = {
@@ -149,7 +143,7 @@ def calculate_fractional_kelly(returns: np.ndarray, fraction: float = 0.5,
     
     if variance < EPSILON:
         return {'full_kelly': 0, 'fractional_kelly': 0, 'constrained_kelly': 0,
-                'recommended_position': 0, 'probability_of_ruin': 1.0, 'is_safe': False}
+                'recommended_position': 0, 'ruin_risk_proxy': 1.0, 'risk_level': 'EXTREME'}
     
     full_kelly = mean_excess / variance
     fractional = full_kelly * fraction
@@ -160,38 +154,45 @@ def calculate_fractional_kelly(returns: np.ndarray, fraction: float = 0.5,
     avg_win = np.mean(returns[returns > 0]) if win_rate > 0 else 0
     avg_loss = abs(np.mean(returns[returns < 0])) if win_rate < 1 else 0
     
+    # Heuristic ruin risk proxy (NOT formal gambler's ruin)
     if win_rate <= 0.5 or avg_loss == 0:
-        ruin_prob = 1.0
+        ruin_proxy = 1.0
+        risk_level = 'EXTREME'
     else:
         z = win_rate * avg_win - (1 - win_rate) * avg_loss
         a = np.sqrt(z**2 + avg_win * avg_loss)
         if a < EPSILON:
-            ruin_prob = 1.0
+            ruin_proxy = 1.0
+            risk_level = 'EXTREME'
         else:
             p = ((1 + z/a) / 2)
             if constrained * np.std(returns) < EPSILON:
-                ruin_prob = 0.0 if p >= 1 else 1.0
+                ruin_proxy = 0.0 if p >= 1 else 1.0
             else:
                 p = p ** (1 / (constrained * np.std(returns)))
-                ruin_prob = max(0, 1 - p) if p < 1 else 1.0
+                ruin_proxy = max(0, 1 - p) if p < 1 else 1.0
+            
+            risk_level = 'LOW' if ruin_proxy < 0.01 else 'ELEVATED' if ruin_proxy < 0.05 else 'HIGH'
     
     return {
         'full_kelly': full_kelly,
         'fractional_kelly': fractional,
         'constrained_kelly': constrained,
         'recommended_position': constrained * 100,
-        'probability_of_ruin': ruin_prob,
-        'is_safe': ruin_prob < 0.01 and constrained > 0
+        'ruin_risk_proxy': ruin_proxy,  # HEURISTIC: Not formal gambler's ruin
+        'risk_level': risk_level,
+        'is_safe': risk_level == 'LOW'
     }
 
-def calculate_market_impact(trade_size_dollars: float, daily_volume: float,
-                           volatility: float, spread: float = 0.0001) -> float:
+def calculate_market_impact_simple(trade_size_dollars: float, daily_volume: float,
+                                   volatility: float, spread: float = 0.0001) -> float:
+    """Simplified square-root impact estimate (NOT full Almgren-Chriss)"""
     temporary = spread / 2
     permanent = 0.5 * volatility * np.sqrt(trade_size_dollars / max(daily_volume, EPSILON))
     return temporary + permanent
 
 def calculate_deflated_sharpe(returns: np.ndarray, trades_per_year: float,
-                             n_trials: int = 100) -> float:
+                             n_trials: int) -> float:
     sharpe = calculate_sharpe(returns, trades_per_year)
     obs = len(returns)
     
@@ -233,11 +234,7 @@ def purged_kfold_cv(returns: np.ndarray, n_splits: int = 5,
         
         decay = (train_sharpe - test_sharpe) / (abs(train_sharpe) + EPSILON) if train_sharpe != 0 else 0
         
-        scores.append({
-            'train': train_sharpe,
-            'test': test_sharpe,
-            'decay': decay
-        })
+        scores.append({'train': train_sharpe, 'test': test_sharpe, 'decay': decay})
     
     return scores
 
@@ -364,18 +361,14 @@ class QuantProofValidator:
         return df.dropna(subset=["pnl"])
 
     def _get_returns(self) -> np.ndarray:
+        """CRITICAL: Returns are NEVER modified. Plausibility checks flag issues."""
         r = self.df["pnl"].values.astype(float)
         max_abs = np.abs(r).max()
         
         if max_abs > 1.0:
             raise ValueError(f"Returns appear to be dollar amounts (max: {max_abs:.2f}). Convert to percentages.")
         
-        if len(r) > 10:
-            current_cv = np.std(r) / (abs(np.mean(r)) + EPSILON)
-            if current_cv < 0.5:
-                noise = np.random.default_rng(42).normal(0, np.std(r) * 0.3, len(r))
-                r = r + noise
-        
+        # NO NOISE INJECTION - data integrity is absolute
         return r
 
     def _generate_validation_hash(self) -> str:
@@ -384,7 +377,7 @@ class QuantProofValidator:
             'returns': rounded_returns.tolist(),
             'timeframe': self.timeframe_info,
             'trades_per_year': float(self.trades_per_year),
-            'engine_version': 'v1.3',
+            'engine_version': 'v1.3.1',
             'seed': self.seed
         }
         return hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:12]
@@ -398,16 +391,17 @@ class QuantProofValidator:
             f"Monte Carlo seed fixed at {self.seed} for reproducibility",
             "Risk-free rate excluded for per-trade returns (institutional practice)",
             "Crash simulations use historical stress profiles with proportional scaling",
-            "Market impact modeled using square-root law (Almgren-Chriss)",
-            "Kelly criterion uses fractional sizing with drawdown constraints"
+            "Market impact: simplified square-root estimate (not full Almgren-Chriss)",
+            "Kelly ruin risk: heuristic proxy (not formal gambler's ruin model)",
+            "Deflated Sharpe: assumes 100 strategy variations (adjust if different)",
+            "INPUT DATA IS NEVER MODIFIED - integrity guaranteed"
         ]
         
         if self.strict_mode:
             assumptions.extend([
                 "Strict mode: 6-month minimum data requirement",
                 "Strict mode: 100-trade minimum requirement",
-                "Strict mode: Conservative compliance thresholds",
-                "Strict mode: Statistical plausibility checks enabled"
+                "Strict mode: Conservative compliance thresholds"
             ])
         
         return assumptions
@@ -486,16 +480,12 @@ class QuantProofValidator:
             else:
                 delta = self.df['date'].max() - self.df['date'].min()
                 time_span_years = delta.total_seconds() / (365.25 * 24 * 3600)
-            worst_5pct_cagr = (worst_5pct ** (1/max(time_span_years, 0.1)) - 1) * 100
+            worst_5pct_return = (worst_5pct ** (1/max(time_span_years, 0.1)) - 1) * 100
         
         dd_sims = [abs(calculate_max_drawdown(perm)) for perm in shared_permutations]
         worst_5pct_dd = np.percentile(dd_sims, 95) * 100
         
-        if 'date' not in self.df.columns:
-            equity_score = min(100, max(0, 100 + worst_5pct_return * 2 - worst_5pct_dd))
-        else:
-            equity_score = min(100, max(0, 100 + worst_5pct_cagr * 2 - worst_5pct_dd))
-        
+        equity_score = min(100, max(0, 100 + worst_5pct_return * 2 - worst_5pct_dd))
         combined_score = (mean_pct * 0.4 + sequence_pct * 0.3 + equity_score * 0.3)
         passed = combined_score > (70 if self.strict_mode else 60)
         
@@ -570,17 +560,18 @@ class QuantProofValidator:
         )
 
     def check_deflated_sharpe(self) -> CheckResult:
-        deflated = calculate_deflated_sharpe(self.returns, self.trades_per_year, n_trials=100)
+        n_trials_assumed = 100  # EXPLICIT ASSUMPTION
+        deflated = calculate_deflated_sharpe(self.returns, self.trades_per_year, n_trials=n_trials_assumed)
         original = calculate_sharpe(self.returns, self.trades_per_year)
         
         decay = (original - deflated) / (original + EPSILON) if original != 0 else 0
         
         if decay > 0.5:
             status = "⚠ Severe overfitting likely"
-            insight = f"Sharpe deflated by {decay:.1%} - strategy may not survive out-of-sample"
+            insight = f"Sharpe deflated by {decay:.1%} (assuming {n_trials_assumed} trials) - strategy may not survive out-of-sample"
         elif decay > 0.3:
             status = "⚠ Moderate overfitting risk"
-            insight = "Multiple testing bias detected - verify with longer backtest"
+            insight = f"Multiple testing bias detected (assumed {n_trials_assumed} trials) - verify with longer backtest"
         else:
             status = "✅ Robust"
             insight = "Deflated Sharpe close to original - edge appears genuine"
@@ -589,9 +580,9 @@ class QuantProofValidator:
             name="Deflated Sharpe Ratio",
             passed=decay < 0.5,
             score=100 if decay < 0.3 else 50,
-            value=f"Original: {original:.2f} → Deflated: {deflated:.2f} ({decay:.1%} decay) {status}",
+            value=f"Original: {original:.2f} → Deflated: {deflated:.2f} ({decay:.1%} decay, {n_trials_assumed} trials) {status}",
             insight=insight,
-            fix="If deflation > 50%, test on truly out-of-sample data or reduce parameters",
+            fix=f"If deflation > 50%, test on truly out-of-sample data or adjust n_trials if you tested more/fewer than {n_trials_assumed} variations",
             category="Plausibility"
         )
 
@@ -721,15 +712,15 @@ class QuantProofValidator:
         result = calculate_fractional_kelly(self.returns)
         
         passed = result['is_safe'] and result['constrained_kelly'] > 0
-        score = 100 if passed else max(0, 100 - result['probability_of_ruin'] * 100)
+        score = 100 if passed else max(0, 100 - result['ruin_risk_proxy'] * 100)
         
         return CheckResult(
             name="Optimal Position Sizing",
             passed=passed,
             score=round(score, 1),
-            value=f"Kelly: {result['constrained_kelly']:.2%} | Ruin prob: {result['probability_of_ruin']:.2%}",
-            insight="Fractional Kelly with drawdown constraints prevents blowups while maximizing growth.",
-            fix="If ruin probability > 1%, reduce position size to 25% Kelly or add stop losses.",
+            value=f"Kelly: {result['constrained_kelly']:.2%} | Ruin risk proxy: {result['ruin_risk_proxy']:.2%} ({result['risk_level']})",
+            insight="Fractional Kelly with drawdown constraints. Ruin risk is HEURISTIC (not formal gambler's ruin).",
+            fix="If risk level not LOW, reduce position size or add stop losses.",
             category="Risk"
         )
 
@@ -980,11 +971,11 @@ class QuantProofValidator:
     def check_market_impact(self) -> CheckResult:
         if 'volume' not in self.df.columns:
             return CheckResult(
-                name="Market Impact (Almgren Model)",
+                name="Market Impact (Simplified)",
                 passed=True,
                 score=50,
                 value="No volume data - using static slippage",
-                insight="Realistic market impact requires volume data.",
+                insight="Simplified square-root impact model requires volume data for full estimation.",
                 fix="Add daily volume column to your data export.",
                 category="Execution"
             )
@@ -996,7 +987,7 @@ class QuantProofValidator:
         
         impacts = []
         for i in range(len(r)):
-            impact = calculate_market_impact(
+            impact = calculate_market_impact_simple(
                 trade_size_dollars=avg_trade_size,
                 daily_volume=volumes[i],
                 volatility=volatility
@@ -1013,11 +1004,11 @@ class QuantProofValidator:
         score = max(0, 100 - impact_pct * 2)
         
         return CheckResult(
-            name="Market Impact (Almgren Model)",
+            name="Market Impact (Simplified)",
             passed=passed,
             score=round(score, 1),
             value=f"Avg impact: {avg_impact:.4f} | PnL reduction: {impact_pct:.1f}%",
-            insight="Realistic market impact based on trade size vs volume. Large trades move prices against you.",
+            insight="Simplified square-root impact estimate. NOT full Almgren-Chriss implementation.",
             fix="Reduce position size to <1% of daily volume, or use VWAP/TWAP execution.",
             category="Execution"
         )
@@ -1362,156 +1353,3 @@ class QuantProofValidator:
         audit_flags = self._generate_audit_flags()
         plausibility_summary = self._generate_plausibility_summary()
         
-        return ValidationReport(
-            score=score,
-            grade=grade,
-            sharpe=sharpe,
-            max_drawdown=dd,
-            win_rate=win_rate,
-            total_trades=len(r),
-            profitable_trades=int(np.sum(r > 0)),
-            checks=checks,
-            crash_sims=crash_sims,
-            assumptions=assumptions,
-            validation_hash=validation_hash,
-            validation_date=validation_date,
-            audit_flags=audit_flags,
-            plausibility_summary=plausibility_summary
-        )
-
-# =========================================================
-# DASHBOARD API
-# =========================================================
-
-class ValidationDashboard:
-    def __init__(self, validator: QuantProofValidator, report: ValidationReport):
-        self.validator = validator
-        self.report = report
-    
-    def generate_interactive_report(self) -> Dict[str, Any]:
-        r = self.validator.returns
-        df = self.validator.df
-        
-        cumulative = np.cumprod(1 + r)
-        running_max = np.maximum.accumulate(cumulative)
-        drawdown_series = (running_max - cumulative) / running_max
-        
-        return {
-            'metadata': {
-                'score': self.report.score,
-                'grade': self.report.grade,
-                'sharpe': self.report.sharpe,
-                'max_dd': self.report.max_drawdown,
-                'win_rate': self.report.win_rate,
-                'hash': self.report.validation_hash,
-                'date': self.report.validation_date,
-                'version': self.report.engine_version
-            },
-            'equity_curve': {
-                'dates': df['date'].dt.strftime('%Y-%m-%d').tolist() if 'date' in df.columns else list(range(len(r))),
-                'cumulative': cumulative.tolist(),
-                'drawdown': drawdown_series.tolist(),
-                'returns': r.tolist()
-            },
-            'distribution': {
-                'returns_histogram': np.histogram(r, bins=50)[0].tolist(),
-                'qq_plot': self._calculate_qq_points(r),
-                'percentiles': {
-                    '1': float(np.percentile(r, 1)),
-                    '5': float(np.percentile(r, 5)),
-                    '25': float(np.percentile(r, 25)),
-                    '50': float(np.percentile(r, 50)),
-                    '75': float(np.percentile(r, 75)),
-                    '95': float(np.percentile(r, 95)),
-                    '99': float(np.percentile(r, 99))
-                }
-            },
-            'monte_carlo': {
-                'final_equities': self._mc_distribution(r),
-                'percentiles': [5, 25, 50, 75, 95],
-                'ruin_probability': self._calculate_ruin_prob(r)
-            },
-            'checks': {
-                'by_category': self._group_checks_by_category(),
-                'failed': [c.name for c in self.report.checks if not c.passed],
-                'critical': [c.name for c in self.report.checks if c.category in ['Risk', 'Compliance'] and not c.passed]
-            },
-            'crash_simulations': [
-                {
-                    'name': sim.crash_name,
-                    'survived': sim.survived,
-                    'strategy_drop': sim.strategy_drop,
-                    'market_drop': sim.market_drop
-                } for sim in self.report.crash_sims
-            ],
-            'audit_trail': {
-                'assumptions': self.report.assumptions,
-                'flags': self.report.audit_flags,
-                'plausibility': self.report.plausibility_summary
-            }
-        }
-    
-    def _calculate_qq_points(self, returns: np.ndarray) -> List[Dict[str, float]]:
-        theoretical = stats.norm.ppf(np.linspace(0.01, 0.99, 100))
-        sample = np.percentile(returns, np.linspace(1, 99, 100))
-        return [{'theoretical': float(t), 'sample': float(s)} for t, s in zip(theoretical, sample)]
-    
-    def _mc_distribution(self, returns: np.ndarray, n_sims: int = 1000) -> List[float]:
-        final_equities = []
-        for _ in range(n_sims):
-            sampled = np.random.choice(returns, size=len(returns), replace=True)
-            final_equities.append(float(np.prod(1 + sampled)))
-        return final_equities
-    
-    def _calculate_ruin_prob(self, returns: np.ndarray, threshold: float = 0.5) -> float:
-        n_runs = 500
-        ruins = 0
-        for _ in range(n_runs):
-            sampled = np.random.choice(returns, size=len(returns), replace=True)
-            if calculate_max_drawdown(sampled) > threshold:
-                ruins += 1
-        return ruins / n_runs
-    
-    def _group_checks_by_category(self) -> Dict[str, List[Dict[str, Any]]]:
-        grouped = {}
-        for check in self.report.checks:
-            if check.category not in grouped:
-                grouped[check.category] = []
-            grouped[check.category].append({
-                'name': check.name,
-                'passed': check.passed,
-                'score': check.score,
-                'value': check.value,
-                'insight': check.insight
-            })
-        return grouped
-
-# =========================================================
-# USAGE EXAMPLE
-# =========================================================
-
-if __name__ == "__main__":
-    # Example usage
-    import pandas as pd
-    
-    # Create sample data
-    np.random.seed(42)
-    dates = pd.date_range('2020-01-01', periods=252, freq='D')
-    returns = np.random.normal(0.001, 0.02, 252)  # 0.1% mean, 2% vol daily
-    
-    df = pd.DataFrame({
-        'date': dates,
-        'pnl': returns
-    })
-    
-    # Run validation
-    validator = QuantProofValidator(df, strict_mode=False)
-    report = validator.run()
-    
-    # Generate dashboard
-    dashboard = ValidationDashboard(validator, report)
-    interactive_report = dashboard.generate_interactive_report()
-    
-    print(f"Score: {report.score} | Grade: {report.grade}")
-    print(f"Sharpe: {report.sharpe:.2f} | Max DD: {report.max_drawdown:.2%}")
-    print(f"Checks passed: {sum(c.passed for c in report.checks)}/{len(report.checks)}")
