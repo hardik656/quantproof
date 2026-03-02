@@ -974,9 +974,17 @@
   }
 
   function getCrashClass(sim) {
-    if (sim.survived && sim.strategy_drop > 0) return 'survived';
-    if (sim.survived) return 'warning';
-    return 'failed';
+    if (!sim.survived) return 'failed';
+    if (sim.strategy_drop > -0.05) return 'survived';
+    if (sim.strategy_drop > -0.20) return 'warning';
+    return 'warning'; // barely survived
+  }
+
+  function getCrashVerdictColor(verdict) {
+    if (verdict.startsWith('🟢')) return 'var(--accent)';
+    if (verdict.startsWith('🟡')) return 'var(--accent3)';
+    if (verdict.startsWith('🟠')) return '#ff8800';
+    return 'var(--accent2)';
   }
 
   function animateScore(score) {
@@ -1004,7 +1012,6 @@
     const scoreColor = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
     const gradeDesc = data.grade.split('—')[1]?.trim() || '';
-
     // Group checks by category
     const categories = {};
     data.checks.forEach(c => {
@@ -1046,7 +1053,13 @@
               <div class="meta-label">Total Trades</div>
               <div class="meta-value">${data.total_trades}</div>
             </div>
+            <div class="meta-item">
+              <div class="meta-label">Max Drawdown</div>
+              <div class="meta-value" style="color:${data.max_drawdown < 0.1 ? 'var(--accent)' : data.max_drawdown < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_drawdown * 100).toFixed(1)}%</div>
+            </div>
           </div>
+          ${data.date_range !== 'No date data' ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}</div>` : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`}
+          ${data.plausibility_summary ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};border-radius:6px;font-family:var(--mono)">${data.plausibility_summary}</div>` : ''}
         </div>
       </div>
 
@@ -1068,7 +1081,7 @@
                 <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
               </div>
             </div>
-            <div class="crash-verdict">${sim.emotional_verdict}</div>
+            <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
           </div>
         `).join('')}
       </div>
@@ -1094,6 +1107,13 @@
           `).join('')}
         </div>
       </div>
+
+      <!-- AUDIT FLAGS (shown only if present) -->
+      ${data.audit_flags && data.audit_flags.length > 0 ? `
+      <div style="margin-bottom:32px;padding:16px 20px;background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.25);border-radius:10px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent3);margin-bottom:12px;letter-spacing:0.08em">// STATISTICAL AUDIT FLAGS</div>
+        ${data.audit_flags.map(flag => `<div style="font-size:13px;color:var(--text);padding:4px 0;border-bottom:1px solid rgba(255,170,0,0.1)">${flag}</div>`).join('')}
+      </div>` : ''}
 
       <!-- DETAILED CHECKS -->
       <div class="checks-section">
@@ -1133,6 +1153,21 @@
       </div>
 
       <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
+
+      <!-- INSTITUTIONAL FOOTER -->
+      <div style="margin-top:40px;padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:0.08em">// AUDIT TRAIL</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono)">
+          <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
+          <div><span style="color:var(--muted)">Date:</span> <span style="color:var(--text)">${data.validation_date}</span></div>
+        </div>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-family:var(--mono)">View assumptions (${data.assumptions ? data.assumptions.length : 0})</summary>
+          <div style="margin-top:8px">
+            ${data.assumptions ? data.assumptions.map(a => `<div style="font-size:11px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--border)">→ ${a}</div>`).join('') : ''}
+          </div>
+        </details>
+      </div>
     `;
   }
 
