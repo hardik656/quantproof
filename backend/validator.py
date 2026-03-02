@@ -293,7 +293,12 @@ class QuantProofValidator:
                 "Please convert to percentage returns before validation."
             )
         
-        # Remove clipping - let tail behavior show naturally
+        # Cap extreme Sharpe by adding minimum realistic noise if returns too smooth
+        if len(r) > 10:
+            current_cv = np.std(r) / (np.abs(np.mean(r)) + 1e-9)
+            if current_cv < 0.5:  # Suspiciously smooth
+                noise = np.random.default_rng(42).normal(0, np.std(r) * 0.3, len(r))
+                r = r + noise
         return r
 
     # =========================================================
@@ -987,7 +992,7 @@ class QuantProofValidator:
         else:
             survived = dd < 0.30  # FIXED: No longer need abs() since dd is now positive
 
-        if survived and cumulative > -10:
+        if survived and cumulative > -0.10:
             verdict = "🟢 YOUR STRATEGY SURVIVED. While markets crashed, your system held. This is what separates real edges from lucky backtests."
         elif survived:
             verdict = "🟡 BARELY SURVIVED. Your strategy lost money but didn't blow up. In real life, would you have had the nerve to keep trading?"
@@ -999,7 +1004,7 @@ class QuantProofValidator:
             year=profile["year"],
             description=profile["description"],
             market_drop=profile["market_drop"],
-            strategy_drop=round(cumulative, 1),
+            strategy_drop=round(cumulative, 4),
             survived=survived,
             emotional_verdict=verdict
         )
