@@ -846,20 +846,27 @@ class QuantProofValidator:
 
     def check_kelly_plausibility(self) -> CheckResult:
         r = self.returns
-        mean_r = np.mean(r)
-        variance = np.var(r)
-        if np.max(np.abs(r)) > 0.5:
-            mean_r, variance = mean_r / 100, variance / 10000
-        kelly = mean_r / variance if variance > EPSILON else 0
-        if kelly > 5.0:
-            status, insight, passed = "⚠ Manual Audit Required", f"Kelly {kelly:.1f} suggests unrealistic edge or underestimated variance", False
-        elif kelly > 2.0:
-            status, insight, passed = "⚠ Review Recommended", f"High Kelly {kelly:.1f} requires edge verification", True
+        winners = r[r > 0]
+        losers  = r[r < 0]
+        if len(winners) == 0 or len(losers) == 0:
+            return CheckResult("Kelly Plausibility", True, 100,
+                "Kelly: N/A → ✅ Plausible",
+                "Cannot compute Kelly without both wins and losses.", "", "Plausibility")
+        wr       = len(winners) / len(r)
+        avg_win  = float(np.mean(winners))
+        avg_loss = float(abs(np.mean(losers)))
+        b = avg_win / max(avg_loss, EPSILON)   # reward:risk ratio
+        # Kelly = (b*p - q) / b  — fraction of capital per trade (0–1 is normal)
+        kelly = (b * wr - (1 - wr)) / b
+        if kelly > 1.0:
+            status, insight, passed = "⚠ Manual Audit Required", f"Kelly {kelly:.2f} means bet 100%+ per trade — verify R:R and win rate", False
+        elif kelly > 0.5:
+            status, insight, passed = "⚠ Review Recommended", f"High Kelly {kelly:.2f} — verify out-of-sample stability", True
         else:
-            status, insight, passed = "✅ Plausible", f"Kelly fraction {kelly:.2f} within realistic range", True
+            status, insight, passed = "✅ Plausible", f"Kelly fraction {kelly:.2f} within realistic range (typical: 0.05–0.30)", True
         return CheckResult("Kelly Plausibility", passed, 100 if passed else 0,
             f"Kelly: {kelly:.2f} → {status}", insight,
-            "Verify return variance calculation and edge sustainability", "Plausibility")
+            "Verify win rate and R:R ratio are stable out-of-sample", "Plausibility")
 
     # =========================================================
     # CRASH SIMULATIONS
@@ -904,7 +911,14 @@ class QuantProofValidator:
         if sharpe < 0:        final = min(final, 20)
         elif sharpe < 0.3:    final = min(final, 35)
         elif sharpe < 0.5:    final = min(final, 50)
-        if not self.has_dates: final = min(final, 75)  # FIX: 75 (was 79, stricter than 70)
+        elif sharpe > 10:     final = min(final, 30)  # implausible — likely lookahead/bug
+
+        # Hard gate: any Manual Audit Required plausibility flag → cap at 35
+        plausibility = [c for c in checks if c.category == "Plausibility"]
+        if any(not c.passed and "Manual Audit Required" in c.value for c in plausibility):
+            final = min(final, 35)
+
+        if not self.has_dates: final = min(final, 75)
         low_cats = sum(1 for s in category_scores.values() if s < 30)
         if low_cats >= 2:     final = min(final, 45)
         elif low_cats >= 1:   final = min(final, 60)
@@ -1030,3 +1044,4 @@ class ValidationDashboard:
             }
         except Exception as e:
             return {"error": str(e)}
+
