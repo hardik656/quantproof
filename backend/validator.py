@@ -1,10 +1,8 @@
-
-
 """
-QuantProof — Institutional Validation Engine v2.1
-"The Final 5%": Alpha Decay + Symbolic Overfit Detection
-
-Mathematical Rigor: 10/10 | Prop Firm Compliance: 10/10 | Real-World Survival: 10/10
+QuantProof — Validation Engine v2.5
+MERGE: v1.6 (31 checks, calibrated scoring) + v2.1 Final 5% (Alpha Decay, Overfit Detection)
+Fixes: Alpha decay calibration (daily strategies no longer penalised),
+       crash sim vol scaling, ValidationDashboard stub for backwards compat.
 """
 
 import pandas as pd
@@ -16,1340 +14,1402 @@ from typing import List, Tuple, Optional, Dict
 from datetime import datetime
 from scipy import stats
 from scipy.optimize import curve_fit
-from scipy.stats import gaussian_kde
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 import warnings
-
 warnings.filterwarnings('ignore')
 
-# =========================================================
-# CONFIGURATION
-# =========================================================
+RISK_FREE_DAILY = 0.04 / 252
+EPSILON = 1e-9
+_RNG = np.random.default_rng(42)
 
-RISK_FREE_RATE = 0.04
-TRADING_DAYS_YEAR = 252
-EPSILON = np.finfo(float).eps
 
-PROP_FIRM_RULES = {
-    'FTMO': {'max_dd': 0.10, 'daily_dd': 0.05, 'profit_target': 0.10, 'min_days': 10, 'max_days': 60},
-    'Topstep': {'max_dd': 0.10, 'daily_dd': 0.05, 'profit_target': 0.06, 'min_days': 10, 'max_days': 40},
-    'The5ers': {'max_dd': 0.10, 'daily_dd': 0.05, 'profit_target': 0.08, 'min_days': 15, 'max_days': 90},
-}
-
-CRASH_SCENARIOS = [
-    {'name': '2008 GFC', 'market_return': -0.57, 'vol_regime': 'extreme', 'liquidity': 0.20, 'correlation_breakdown': True},
-    {'name': '2020 COVID', 'market_return': -0.34, 'vol_regime': 'extreme', 'liquidity': 0.15, 'correlation_breakdown': True},
-    {'name': '2022 Rate Shock', 'market_return': -0.25, 'vol_regime': 'high', 'liquidity': 0.60, 'correlation_breakdown': False},
-    {'name': '2010 Flash Crash', 'market_return': -0.09, 'vol_regime': 'extreme', 'liquidity': 0.10, 'correlation_breakdown': True},
-    {'name': '1998 LTCM', 'market_return': -0.19, 'vol_regime': 'high', 'liquidity': 0.25, 'correlation_breakdown': True},
-]
-
-ASSET_CONFIG = {
-    "equities": {"spread": 5, "depth": 500000, "sigma": 0.015},
-    "futures": {"spread": 2, "depth": 2000000, "sigma": 0.01},
-    "fx": {"spread": 1, "depth": 10000000, "sigma": 0.008},
-    "crypto": {"spread": 10, "depth": 100000, "sigma": 0.03}
-}
-
-# Global RNG for reproducibility
-RNG = np.random.default_rng(42)
-
-# =========================================================
-# DATA STRUCTURES
-# =========================================================
-
-@dataclass
-class StatResult:
-    point: float
-    ci_low: float
-    ci_high: float
-    se: float
-    n: int
-    p_value: Optional[float] = None
-    significant: bool = False
-
-@dataclass
-class ValidationCheck:
-    name: str
-    category: str
-    passed: bool
-    score: float
-    value: str
-    interpretation: str
-    fix: str
-    severity: str
+# ── NEW v2.1 DATACLASSES ──────────────────────────────────────────────────────
 
 @dataclass
 class AlphaDecayProfile:
     half_life_periods: float
     half_life_seconds: Optional[float]
     optimal_holding: int
-    capacity_limited: float
     regime_dependent: bool
-    microstructure_noise: Optional[float]
-    latency_sensitivity_bpms: Optional[float]
+    latency_sensitive: bool
     decay_curve: List[float]
+    informational_only: bool = True   # True = don't penalise score
 
 @dataclass
-class ValidationReport:
-    version: str = "v2.1"
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    hash: str = ""
-    
-    # Core Metrics
-    sharpe: Optional[StatResult] = None
-    sortino: Optional[StatResult] = None
-    max_dd: float = 0.0
-    cvar95: float = 0.0
-    cvar99: float = 0.0
-    
-    # Risk
-    ruin_prob: Optional[StatResult] = None
-    margin_call_prob: float = 0.0
-    kelly: float = 0.0
-    half_kelly: float = 0.0
-    
-    # Performance
-    win_rate: float = 0.0
-    profit_factor: float = 0.0
-    total_trades: int = 0
-    
-    # Final 5%
-    alpha_decay: Optional[AlphaDecayProfile] = None
-    overfit_score: float = 0.0
-    overfit_details: Dict = field(default_factory=dict)
-    deployment_status: str = "UNKNOWN"
-    
-    # Validation
-    checks: List[ValidationCheck] = field(default_factory=list)
-    crash_results: List[Dict] = field(default_factory=list)
-    prop_firms: List[Dict] = field(default_factory=list)
-    
-    # Scoring
-    overall_score: float = 0.0
-    grade: str = "F"
-    verdict: str = ""
+class OverfitProfile:
+    score: float           # 0-100, higher = less overfit
+    is_overfit: bool
+    p_value: float
+    adjusted_sharpe: float
+    raw_sharpe: float
+    indicators: Dict
+    informational: str = ""
 
-# =========================================================
-# CORE MATHEMATICS
-# =========================================================
 
-def calc_sharpe(returns: np.ndarray, ann_factor: float) -> StatResult:
-    """Sharpe with Jobson-Korkie confidence intervals."""
-    n = len(returns)
-    if n < 2:
-        return StatResult(0, 0, 0, 0, n)
-    
-    daily_rf = RISK_FREE_RATE / TRADING_DAYS_YEAR
-    excess = returns - daily_rf
-    
-    mean_exc = np.mean(excess)
-    std_exc = np.std(excess, ddof=1)
-    
-    if std_exc < EPSILON:
-        return StatResult(float('inf') if mean_exc > 0 else 0, 0, float('inf') if mean_exc > 0 else 0, 0, n)
-    
-    sharpe_daily = mean_exc / std_exc
-    sharpe_ann = sharpe_daily * np.sqrt(ann_factor)
-    
-    # Robust standard error (Mertens 2002)
-    skew = stats.skew(excess)
-    kurt = stats.kurtosis(excess, fisher=False)
-    se_base = np.sqrt((1 + 0.5 * sharpe_daily**2) / n) * np.sqrt(ann_factor)
-    adjustment = 1 - skew * sharpe_daily / 3 + (kurt - 3) * sharpe_daily**2 / 12
-    se_robust = se_base * max(0.5, adjustment)
-    
-    ci_low = sharpe_ann - 1.96 * se_robust
-    ci_high = sharpe_ann + 1.96 * se_robust
-    t_stat = sharpe_ann / se_robust
-    p_val = 2 * (1 - stats.norm.cdf(abs(t_stat)))
-    
-    return StatResult(sharpe_ann, ci_low, ci_high, se_robust, n, p_val, p_val < 0.05 and sharpe_ann > 0)
+# ── ALPHA DECAY (calibrated for daily strategies) ─────────────────────────────
 
-def calc_sortino(returns: np.ndarray, ann_factor: float) -> StatResult:
-    """Sortino with target return = 0."""
-    n = len(returns)
-    daily_rf = RISK_FREE_RATE / TRADING_DAYS_YEAR
-    excess = returns - daily_rf
-    mean_exc = np.mean(excess)
-    
-    downside = excess[excess < 0]
-    if len(downside) == 0:
-        return StatResult(999, 999, 999, 0, n, 0, True)
-    
-    downside_dev = np.sqrt(np.mean(downside**2))
-    if downside_dev < EPSILON:
-        return StatResult(0, 0, 0, 0, n)
-    
-    sortino_daily = mean_exc / downside_dev
-    sortino_ann = sortino_daily * np.sqrt(ann_factor)
-    
-    # Bootstrap CI
-    boot = []
-    for _ in range(1000):
-        sample = RNG.choice(excess, size=n, replace=True)
-        d = sample[sample < 0]
-        if len(d) > 0:
-            dd = np.sqrt(np.mean(d**2))
-            if dd > EPSILON:
-                boot.append(np.mean(sample) / dd * np.sqrt(ann_factor))
-    
-    ci_low, ci_high = np.percentile(boot, [2.5, 97.5]) if boot else (0, 0)
-    return StatResult(sortino_ann, ci_low, ci_high, np.std(boot) if boot else 0, n)
-
-def calc_cvar(returns: np.ndarray, conf: float = 0.95) -> float:
-    """CVaR with kernel smoothing for small samples."""
-    n = len(returns)
-    alpha = 1 - conf
-    
-    if n < 100:
-        # Kernel density for smooth tail
-        kde = gaussian_kde(returns)
-        samples = kde.resample(10000)[0]
-        var = np.percentile(samples, alpha * 100)
-        return float(np.mean(samples[samples <= var]))
-    
-    var = np.percentile(returns, alpha * 100)
-    return float(np.mean(returns[returns <= var]))
-
-def calc_max_dd(returns: np.ndarray) -> Tuple[float, Optional[int]]:
-    """Max drawdown with recovery time."""
-    cum = np.cumprod(1 + returns)
-    running_max = np.maximum.accumulate(cum)
-    dd = (running_max - cum) / running_max
-    
-    max_dd = float(np.max(dd))
-    end_idx = int(np.argmax(dd))
-    
-    # Find recovery
-    if max_dd < EPSILON:
-        return 0.0, 0
-    
-    peak_val = running_max[end_idx]
-    recovery = None
-    for i in range(end_idx, len(cum)):
-        if cum[i] >= peak_val:
-            recovery = i - end_idx
-            break
-    
-    return max_dd, recovery
-
-def calc_ruin_prob(returns: np.ndarray, 
-                   capital: float = 1.0, 
-                   risk_per_trade: float = 0.02) -> Tuple[StatResult, float]:
-    """Probability of ruin with autocorrelation adjustment."""
-    n = len(returns)
-    mean = np.mean(returns)
-    std = np.std(returns, ddof=1)
-    
-    # Check autocorrelation
-    if n > 20:
-        autocorr = np.corrcoef(returns[:-1], returns[1:])[0, 1]
-        effective_n = n * (1 - autocorr) / (1 + autocorr) if abs(autocorr) < 0.9 else n / 2
-    else:
-        autocorr = 0
-        effective_n = n
-    
-    # Monte Carlo
-    n_sims = 5000
-    ruin_threshold = capital * 0.10
-    margin_threshold = capital * 0.50
-    
-    ruins = 0
-    margin_calls = 0
-    
-    for _ in range(n_sims):
-        cap = capital
-        shocks = RNG.standard_normal(int(effective_n * 2))
-        path = np.zeros(int(effective_n * 2))
-        path[0] = shocks[0] * std + mean
-        
-        for t in range(1, len(path)):
-            path[t] = autocorr * path[t-1] + shocks[t] * std * np.sqrt(1 - autocorr**2) + mean
-        
-        for ret in path:
-            pnl = cap * risk_per_trade * ret
-            cap += pnl
-            if cap <= margin_threshold:
-                margin_calls += 1
-            if cap <= ruin_threshold:
-                ruins += 1
-                break
-    
-    prob_ruin = ruins / n_sims
-    prob_margin = margin_calls / n_sims
-    se = np.sqrt(prob_ruin * (1 - prob_ruin) / n_sims)
-    
-    return StatResult(
-        prob_ruin, 
-        max(0, prob_ruin - 1.96 * se),
-        min(1, prob_ruin + 1.96 * se),
-        se, n_sims
-    ), prob_margin
-
-def calc_kelly(returns: np.ndarray) -> Tuple[float, float]:
-    """Kelly criterion with estimation error adjustment."""
-    wins = returns[returns > 0]
-    losses = returns[returns < 0]
-    
-    if len(wins) == 0 or len(losses) == 0:
-        return 0.0, 0.0
-    
-    W = len(wins) / len(returns)
-    R = np.mean(wins) / abs(np.mean(losses))
-    
-    if R < EPSILON:
-        return 0.0, 0.0
-    
-    kelly = (W * R - (1 - W)) / R
-    
-    # Estimation error
-    var_W = W * (1 - W) / len(returns)
-    var_R = (np.var(wins) / len(wins) + np.var(losses) / len(losses)) / (np.mean(losses)**2)
-    se_kelly = np.sqrt((R**2 * var_W + W**2 * var_R) / R**4)
-    
-    conservative = max(0, kelly - 2 * se_kelly)
-    return kelly, conservative / 2  # Return full and half-kelly
-
-# =========================================================
-# FINAL 5%: ALPHA DECAY ANALYSIS
-# =========================================================
-
-def analyze_alpha_decay(returns: np.ndarray,
-                        timestamps: Optional[pd.DatetimeIndex] = None,
-                        max_lags: int = 50) -> AlphaDecayProfile:
+def _analyze_alpha_decay(returns: np.ndarray,
+                         timestamps=None,
+                         max_lags: int = 40) -> AlphaDecayProfile:
     """
-    Measure signal half-life using autocorrelation decay.
-    Critical for determining execution urgency and capacity.
+    Signal half-life via autocorrelation decay.
+    CALIBRATION FIX: daily random-walk returns have near-zero lag-1 autocorr,
+    so curve_fit can't fit. Default to half_life=inf (NOT latency-critical)
+    instead of 1.0, which was wrongly penalising all daily strategies.
     """
     n = len(returns)
-    
-    # Calculate autocorrelation decay
     autocorrs = []
     for lag in range(1, min(max_lags, n // 4)):
         if lag < n:
             c = np.corrcoef(returns[:-lag], returns[lag:])[0, 1]
-            autocorrs.append(0 if np.isnan(c) else c)
-        else:
-            autocorrs.append(0)
-    
-    autocorrs = np.array(autocorrs)
+            autocorrs.append(0.0 if np.isnan(c) else float(c))
+    autocorrs = np.array(autocorrs) if autocorrs else np.array([0.0])
     lags = np.arange(1, len(autocorrs) + 1)
-    
-    # Fit exponential decay
+
     def exp_decay(t, rho0, lam):
         return rho0 * np.exp(-lam * t)
-    
-    half_life = 1.0
-    rho0 = autocorrs[0] if len(autocorrs) > 0 else 0
-    
-    if rho0 > 0.05 and len(autocorrs) > 5:
+
+    # Only attempt fit if there's a meaningful signal to decay
+    half_life = float('inf')
+    rho0_est = autocorrs[0] if len(autocorrs) > 0 else 0.0
+    if abs(rho0_est) > 0.10 and len(autocorrs) > 5:
         try:
-            popt, _ = curve_fit(exp_decay, lags, autocorrs, p0=[rho0, 0.1], 
-                             bounds=([0, 0], [1, 5]), maxfev=10000)
-            rho0, lam = popt
-            half_life = np.log(2) / lam if lam > 0 else float('inf')
-        except:
+            popt, _ = curve_fit(exp_decay, lags, autocorrs,
+                                p0=[rho0_est, 0.1],
+                                bounds=([-1, 0.001], [1, 5]), maxfev=5000)
+            rho0_fit, lam_fit = popt
+            if lam_fit > 0:
+                half_life = np.log(2) / lam_fit
+        except Exception:
             pass
-    
-    # Optimal holding: when Sharpe of forward returns peaks
-    optimal_hold = int(half_life) if half_life > 1 else 1
-    
-    # Convert to seconds if timestamps available
-    half_life_seconds = None
-    micro_noise = None
-    latency_sens = None
-    
+
+    # Convert to periods
+    hl_periods = half_life if half_life != float('inf') else 999.0
+    optimal_hold = max(1, int(hl_periods))
+
+    # Seconds conversion
+    hl_seconds = None
+    latency_sensitive = False
     if timestamps is not None and len(timestamps) > 1:
         intervals = np.diff(timestamps).astype('timedelta64[s]').astype(float)
-        median_interval = np.median(intervals)
-        half_life_seconds = half_life * median_interval
-        
-        # HFT analysis
-        if median_interval < 1:
-            # Microstructure noise (Roll 1984 variant)
-            small_rets = returns[np.abs(returns) < np.percentile(np.abs(returns), 50)]
-            noise_var = np.var(small_rets)
-            signal_var = np.var(returns) - noise_var
-            micro_noise = np.sqrt(noise_var / max(signal_var, EPSILON))
-            
-            # Latency sensitivity
-            if half_life_seconds and half_life_seconds > 0:
-                decay_per_ms = 0.5 / (half_life_seconds * 1000)
-                latency_sens = np.mean(np.abs(returns)) * decay_per_ms * 10000  # bp per ms
-    
-    # Capacity limited by execution speed
-    if half_life_seconds and half_life_seconds < 300:  # < 5 min
-        exec_window = half_life_seconds * 0.1  # Must execute in 10% of half-life
-        max_trades = exec_window
-        capacity = max_trades * 10000 * (300 / half_life_seconds)
-    else:
-        capacity = float('inf')
-    
-    # Regime-dependent decay?
-    vol = pd.Series(returns).rolling(20).std().values
-    valid_vol = vol[~np.isnan(vol)]
+        median_interval = float(np.median(intervals))
+        if median_interval > 0 and hl_periods < 999:
+            hl_seconds = hl_periods * median_interval
+            # Only flag latency sensitivity for sub-second strategies
+            latency_sensitive = (hl_seconds < 60)
+
+    # Regime-dependent decay check
+    regime_dependent = False
+    vol_series = pd.Series(returns).rolling(20).std().values
+    valid_vol = vol_series[~np.isnan(vol_series)]
     if len(valid_vol) > 50:
-        high_mask = vol > np.percentile(valid_vol, 75)
-        low_mask = vol < np.percentile(valid_vol, 25)
-        
-        high_rets = returns[high_mask[~np.isnan(high_mask)]]
-        low_rets = returns[low_mask[~np.isnan(low_mask)]]
-        
-        if len(high_rets) > 20 and len(low_rets) > 20:
-            high_autocorr = np.corrcoef(high_rets[:-1], high_rets[1:])[0, 1]
-            low_autocorr = np.corrcoef(low_rets[:-1], low_rets[1:])[0, 1]
-            regime_dependent = abs(high_autocorr - low_autocorr) > 0.1
-        else:
-            regime_dependent = False
-    else:
-        regime_dependent = False
-    
+        high_mask = vol_series > np.nanpercentile(vol_series, 75)
+        low_mask  = vol_series < np.nanpercentile(vol_series, 25)
+        h_rets = returns[np.where(high_mask)[0]]
+        l_rets = returns[np.where(low_mask)[0]]
+        if len(h_rets) > 20 and len(l_rets) > 20:
+            hac = np.corrcoef(h_rets[:-1], h_rets[1:])[0, 1]
+            lac = np.corrcoef(l_rets[:-1], l_rets[1:])[0, 1]
+            regime_dependent = abs(hac - lac) > 0.15
+
     return AlphaDecayProfile(
-        half_life_periods=float(half_life),
-        half_life_seconds=half_life_seconds,
+        half_life_periods=round(hl_periods, 2),
+        half_life_seconds=hl_seconds,
         optimal_holding=optimal_hold,
-        capacity_limited=capacity,
         regime_dependent=regime_dependent,
-        microstructure_noise=micro_noise,
-        latency_sensitivity_bpms=latency_sens,
-        decay_curve=autocorrs.tolist()
+        latency_sensitive=latency_sensitive,
+        decay_curve=autocorrs[:20].tolist(),
+        informational_only=not latency_sensitive,
     )
 
-# =========================================================
-# FINAL 5%: SYMBOLIC OVERFIT DETECTION
-# =========================================================
 
-class OverfitDetector:
+# ── SYMBOLIC OVERFIT DETECTOR (calibrated) ────────────────────────────────────
+
+class _OverfitDetector:
     """
-    Detects strategies that are 'too perfectly tuned' to historical noise
-    using symbolic complexity analysis and noise baselines.
+    Compare strategy against 50 realistic noise baselines.
+    CALIBRATION FIX: Only flag as overfit if BOTH p_value > 0.05 AND score < 60.
+    Previous version flagged good strategies with p=0.00 as overfit due to high
+    complexity score from large feature matrix.
     """
-    
-    def __init__(self, returns: np.ndarray, timestamps: Optional[pd.DatetimeIndex] = None):
+    def __init__(self, returns, timestamps=None):
         self.returns = returns
         self.n = len(returns)
         self.timestamps = timestamps
-        self.rng = RNG
-    
-    def _generate_noise_baselines(self, n_baselines: int = 50) -> List[np.ndarray]:
-        """Generate realistic noise strategies as null hypothesis."""
+
+    def _noise_baselines(self, n=50):
         vol = np.std(self.returns)
-        baselines = []
-        
-        for _ in range(n_baselines // 4):
-            baselines.append(self.rng.normal(0, vol, self.n))
-        
-        for _ in range(n_baselines // 4):
-            n = self.rng.normal(0, vol, self.n)
-            mom = np.convolve(n, np.ones(3)/3, mode='same')
-            baselines.append(mom * 0.5 + n * 0.5)
-        
-        for _ in range(n_baselines // 4):
-            n = self.rng.normal(0, vol, self.n)
-            rev = -np.diff(n, prepend=n[0])
-            baselines.append(rev * 0.3 + n * 0.7)
-        
-        for _ in range(n_baselines // 4):
-            regime_size = max(10, self.n // 50)
-            regimes = self.rng.choice([-1, 1], regime_size)
-            reg_exp = np.repeat(regimes, (self.n + regime_size - 1) // regime_size)[:self.n]
-            n = self.rng.normal(0, vol, self.n) * (1 + reg_exp * 0.5)
-            baselines.append(n)
-        
-        return baselines
-    
-    def _calc_complexity(self, returns: np.ndarray) -> Dict[str, float]:
-        """Calculate suspicious complexity metrics."""
-        metrics = {}
-        
-        # Smoothness (overfit = too smooth)
-        cum = np.cumprod(1 + returns)
-        d1 = np.diff(cum)
-        d2 = np.diff(d1) if len(d1) > 1 else [0]
-        metrics['smoothness'] = np.var(d2) / (np.var(d1) + EPSILON) if len(d1) > 0 else 0
-        
-        # Distribution entropy
-        hist, _ = np.histogram(returns, bins=20, density=True)
-        metrics['entropy'] = stats.entropy(hist + EPSILON)
-        metrics['kurtosis'] = stats.kurtosis(returns, fisher=False)
-        
-        # Run-length entropy (compressibility)
-        disc = np.digitize(returns, np.percentile(returns, np.linspace(0, 100, 10)))
-        runs = []
-        run = 1
-        for i in range(1, len(disc)):
-            if disc[i] == disc[i-1]:
-                run += 1
-            else:
-                runs.append(run)
-                run = 1
-        runs.append(run)
-        metrics['run_entropy'] = stats.entropy(np.array(runs) / sum(runs) + EPSILON)
-        
-        # Parameter sensitivity
-        perturbed = returns + self.rng.normal(0, np.std(returns) * 0.01, len(returns))
-        orig_sharpe = np.mean(returns) / (np.std(returns) + EPSILON)
-        pert_sharpe = np.mean(perturbed) / (np.std(perturbed) + EPSILON)
-        metrics['sensitivity'] = abs(orig_sharpe - pert_sharpe) / (abs(orig_sharpe) + EPSILON)
-        
-        # Calendar bias
-        if self.timestamps is not None:
-            df = pd.DataFrame({'r': returns, 'd': self.timestamps})
-            df['dow'] = df['d'].dt.dayofweek
-            df['month'] = df['d'].dt.month
-            dow_std = df.groupby('dow')['r'].mean().std()
-            month_std = df.groupby('month')['r'].mean().std()
-            metrics['calendar'] = (dow_std + month_std) / (np.std(returns) + EPSILON)
-        else:
-            metrics['calendar'] = 0
-        
-        return metrics
-    
-    def _fit_complexity(self, returns: np.ndarray, max_deg: int = 5) -> Tuple[float, int, float]:
-        """Fit polynomial model, measure complexity vs fit."""
-        t = np.arange(len(returns))
-        
-        features = np.column_stack([
-            t, t**2, np.sin(2 * np.pi * t / 20),
-            pd.Series(returns).rolling(5).mean().fillna(0).values,
-            pd.Series(returns).rolling(20).mean().fillna(0).values,
-            np.concatenate([[0], returns[:-1]]),
-        ])
-        
-        best_bic = float('inf')
-        best_r2 = 0
-        best_comp = 0
-        
-        for deg in range(1, max_deg + 1):
-            poly = PolynomialFeatures(degree=deg, include_bias=False)
-            X = poly.fit_transform(features)
-            
-            model = Ridge(alpha=1.0)
-            model.fit(X, returns)
-            pred = model.predict(X)
-            
-            r2 = r2_score(returns, pred)
-            k = X.shape[1]
-            rss = np.sum((returns - pred)**2)
-            bic = len(returns) * np.log(rss / len(returns) + EPSILON) + k * np.log(len(returns))
-            
-            if bic < best_bic:
-                best_bic = bic
-                best_r2 = r2
-                best_comp = k
-        
-        return best_r2, best_comp, best_bic
-    
-    def detect(self) -> Dict:
-        """Run full overfit detection."""
-        # Generate baselines
-        baselines = self._generate_noise_baselines(50)
-        
-        # Complexity metrics
-        strat_metrics = self._calc_complexity(self.returns)
-        base_metrics = [self._calc_complexity(b) for b in baselines]
-        
-        # Z-scores
-        z_scores = {}
-        for key in strat_metrics:
-            vals = [m[key] for m in base_metrics]
-            z_scores[key] = (strat_metrics[key] - np.mean(vals)) / (np.std(vals) + EPSILON)
-        
-        # Symbolic fit
-        r2, comp, bic = self._fit_complexity(self.returns)
-        base_fits = [self._fit_complexity(b, max_deg=3) for b in baselines[:20]]
-        base_r2s = [f[0] for f in base_fits]
-        base_comps = [f[1] for f in base_fits]
-        
-        # Indicators
-        indicators = {
-            'too_smooth': z_scores.get('smoothness', 0) < -2,
-            'low_entropy': z_scores.get('entropy', 0) < -2,
-            'complex_overfit': r2 > np.percentile(base_r2s, 90) and comp > np.median(base_comps),
-            'high_sensitivity': z_scores.get('sensitivity', 0) > 2,
-            'calendar_bias': z_scores.get('calendar', 0) > 2,
-        }
-        
-        # Score
-        overfit_score = max(0, 100 - sum(indicators.values()) * 20)
-        
-        # Statistical test
-        sharpe = np.mean(self.returns) / (np.std(self.returns) + EPSILON)
-        adj_sharpe = sharpe * (1 - 0.01 * comp)
-        base_sharpes = [np.mean(b) / (np.std(b) + EPSILON) for b in baselines]
-        p_value = np.mean(np.array(base_sharpes) > adj_sharpe)
-        
+        b = []
+        for _ in range(n // 4): b.append(_RNG.normal(0, vol, self.n))
+        for _ in range(n // 4):
+            x = _RNG.normal(0, vol, self.n)
+            b.append(np.convolve(x, np.ones(3)/3, 'same') * 0.5 + x * 0.5)
+        for _ in range(n // 4):
+            x = _RNG.normal(0, vol, self.n)
+            b.append(-np.diff(x, prepend=x[0]) * 0.3 + x * 0.7)
+        for _ in range(n // 4):
+            rs = max(10, self.n // 50)
+            reg = np.repeat(_RNG.choice([-1, 1], rs), (self.n + rs - 1) // rs)[:self.n]
+            b.append(_RNG.normal(0, vol, self.n) * (1 + reg * 0.5))
+        return b
+
+    def _metrics(self, r):
+        cum = np.cumprod(1 + r)
+        d1  = np.diff(cum)
+        d2  = np.diff(d1) if len(d1) > 1 else np.array([0.0])
+        hist, _ = np.histogram(r, bins=20, density=True)
         return {
-            'score': overfit_score,
-            'is_overfit': overfit_score < 60 or p_value > 0.05,
-            'p_value': p_value,
-            'adjusted_sharpe': adj_sharpe,
-            'raw_sharpe': sharpe,
-            'indicators': indicators,
-            'z_scores': z_scores,
-            'symbolic_r2': r2,
-            'complexity': comp,
-            'bic': bic,
+            'smoothness': float(np.var(d2) / (np.var(d1) + EPSILON)),
+            'entropy':    float(stats.entropy(hist + EPSILON)),
+            'kurtosis':   float(stats.kurtosis(r, fisher=False)),
         }
-# SLIPPAGE & CAPACITY MODELS
-# =========================================================
 
-def estimate_slippage(returns: np.ndarray, asset_class: str = 'equities') -> Dict:
-    """Realistic slippage using square-root law."""
-    params = ASSET_CONFIG.get(asset_class, ASSET_CONFIG['equities'])
-    
-    # Estimate trade size from return volatility
-    typical_size = np.std(returns) * 100000
-    participation = typical_size / params['depth']
-    
-    eta = 0.142
-    temp_impact = eta * params['sigma'] * np.sqrt(max(participation, 0.0001))
-    total_slippage = temp_impact + params['spread'] / 10000
-    
-    gross_sharpe = calc_sharpe(returns, TRADING_DAYS_YEAR).point
-    net_returns = returns - total_slippage
-    net_sharpe = calc_sharpe(net_returns, TRADING_DAYS_YEAR).point
-    decay = 1 - net_sharpe / max(gross_sharpe, EPSILON)
-    
-    return {
-        'bps_per_trade': total_slippage * 10000,
-        'gross_sharpe': gross_sharpe,
-        'net_sharpe': net_sharpe,
-        'sharpe_decay': decay,
-    }
+    def detect(self) -> OverfitProfile:
+        baselines = self._noise_baselines(50)
+        strat_m   = self._metrics(self.returns)
+        base_m    = [self._metrics(b) for b in baselines]
 
-def estimate_capacity(returns: np.ndarray, trades_per_year: float) -> Dict:
-    """Capacity limited by market impact."""
-    mean_r = np.mean(returns)
-    vol = np.std(returns, ddof=1)
-    
-    trades_per_day = trades_per_year / TRADING_DAYS_YEAR
-    typical_position = vol * 100000
-    
-    # Test AUM levels
-    test_aums = [100000, 500000, 1000000, 5000000, 10000000, 50000000]
-    sharpes = []
-    
-    for aum in test_aums:
-        participation = (aum / max(len(returns), 1)) / 50000000
-        daily_impact = 0.142 * 0.015 * np.sqrt(participation)
-        annual_impact = daily_impact * np.sqrt(TRADING_DAYS_YEAR)
-        adj_mean = max(0, mean_r * TRADING_DAYS_YEAR - annual_impact)
-        adj_sharpe = adj_mean / (vol * np.sqrt(TRADING_DAYS_YEAR))
-        sharpes.append(adj_sharpe)
-    
-    # Find viable capacity (Sharpe > 1.0)
-    viable = None
-    for aum, sharpe in zip(test_aums, sharpes):
-        if sharpe < 1.0 and viable is None:
-            viable = test_aums[max(0, test_aums.index(aum) - 1)]
-    
-    if viable is None:
-        viable = test_aums[-1] if sharpes[-1] > 1.0 else test_aums[0]
-    
-    return {
-        'viable_aum': viable,
-        'decay_curve': list(zip(test_aums, sharpes)),
-    }
+        z = {}
+        for key in strat_m:
+            vals = [m[key] for m in base_m]
+            z[key] = (strat_m[key] - np.mean(vals)) / (np.std(vals) + EPSILON)
 
-# =========================================================
-# CRASH SIMULATIONS
-# =========================================================
+        indicators = {
+            'too_smooth':  z.get('smoothness', 0) < -2.5,
+            'low_entropy': z.get('entropy', 0) < -2.5,
+        }
 
-def simulate_crash(returns: np.ndarray, scenario: Dict, n_paths: int = 3000) -> Dict:
-    """Fat-tailed crash simulation with regime switching."""
-    mean = np.mean(returns)
-    std = np.std(returns, ddof=1)
-    skew = stats.skew(returns)
-    kurt = stats.kurtosis(returns, fisher=False)
-    
-    # Student-t degrees of freedom
-    df = 4 + 6 / max(kurt - 3, 0.1) if kurt > 3 else 30
-    
-    # Vol multiplier
-    if scenario['vol_regime'] == 'extreme':
-        vol_mult = RNG.uniform(3, 6, n_paths)
-    elif scenario['vol_regime'] == 'high':
-        vol_mult = RNG.uniform(1.5, 3, n_paths)
-    else:
-        vol_mult = RNG.uniform(1, 1.5, n_paths)
-    
-    # Beta (correlation breakdown)
-    beta = RNG.uniform(0.3, 1.0, n_paths) if scenario['correlation_breakdown'] else np.full(n_paths, 0.3)
-    market_component = scenario['market_return'] / 60
-    
-    # Gap risk
-    if scenario['liquidity'] < 0.3:
-        gap_prob = 0.15
-        gap_size = lambda: RNG.standard_t(3) * 0.05
-    else:
-        gap_prob = 0.05
-        gap_size = lambda: RNG.normal(0, 0.02)
-    
-    # Simulate paths
-    path_returns = []
-    for i in range(n_paths):
-        base = RNG.standard_t(df, 60) * std * vol_mult[i] + mean
-        market_effect = beta[i] * market_component * (1 + RNG.normal(0, 0.5, 60))
-        gaps = np.zeros(60)
-        gap_days = RNG.random(60) < gap_prob
-        gaps[gap_days] = gap_size()
-        
-        total = base + market_effect + gaps
-        total = np.clip(total, -0.5, 0.5)
-        path_returns.append(total)
-    
-    final_caps = [np.prod(1 + r) - 1 for r in path_returns]
-    max_dds = [calc_max_dd(r)[0] for r in path_returns]
-    
-    survival = np.mean(np.array(max_dds) < 0.20)
-    margin_call = np.mean(np.array(max_dds) > 0.50)
-    
-    if survival > 0.8:
-        verdict = "RESILIENT"
-    elif survival > 0.5:
-        verdict = "SURVIVABLE"
-    elif survival > 0.2:
-        verdict = "CRITICAL_RISK"
-    else:
-        verdict = "LIKELY_RUIN"
-    
-    return {
-        'scenario': scenario['name'],
-        'market_return': scenario['market_return'],
-        'survival_prob': survival,
-        'margin_call_prob': margin_call,
-        'strategy_return_mean': np.mean(final_caps),
-        'strategy_return_ci': (np.percentile(final_caps, 5), np.percentile(final_caps, 95)),
-        'max_dd_mean': np.mean(max_dds),
-        'verdict': verdict,
-    }
+        # Polynomial complexity test (lighter: max_deg=3)
+        t  = np.arange(self.n)
+        X  = np.column_stack([t, t**2,
+                               pd.Series(self.returns).rolling(5).mean().fillna(0).values,
+                               np.concatenate([[0], self.returns[:-1]])])
+        poly = PolynomialFeatures(degree=2, include_bias=False)
+        Xp   = poly.fit_transform(X)
+        model = Ridge(alpha=1.0)
+        model.fit(Xp, self.returns)
+        r2   = r2_score(self.returns, model.predict(Xp))
+        comp = Xp.shape[1]
 
-# =========================================================
-# PROP FIRM VALIDATION
-# =========================================================
+        base_r2s = []
+        for b in baselines[:20]:
+            Xb = poly.transform(np.column_stack([t, t**2,
+                                 pd.Series(b).rolling(5).mean().fillna(0).values,
+                                 np.concatenate([[0], b[:-1]])]))
+            m2 = Ridge(alpha=1.0); m2.fit(Xb, b)
+            base_r2s.append(r2_score(b, m2.predict(Xb)))
 
-def check_prop_firm(returns: np.ndarray, 
-                    dates: Optional[pd.DatetimeIndex],
-                    firm: str) -> Dict:
-    """Validate against specific prop firm rules."""
-    rules = PROP_FIRM_RULES[firm]
-    
-    total_return = np.prod(1 + returns) - 1
-    max_dd, _ = calc_max_dd(returns)
-    
-    violations = []
-    
-    if max_dd > rules['max_dd']:
-        violations.append(f"Max DD {max_dd:.1%} > {rules['max_dd']:.0%}")
-    
-    if dates is not None:
-        daily = pd.Series(returns, index=dates).resample('D').sum()
-        max_daily = abs(daily.min())
-        if max_daily > rules['daily_dd']:
-            violations.append(f"Daily DD {max_daily:.1%} > {rules['daily_dd']:.0%}")
-    else:
-        est_daily = abs(np.percentile(returns, 1))
-        if est_daily > rules['daily_dd'] / 3:
-            violations.append("Potential daily limit breach")
-    
-    phase1 = total_return >= rules['profit_target'] and len(violations) == 0
-    
-    sharpe = calc_sharpe(returns, TRADING_DAYS_YEAR).point
-    win_rate = np.mean(returns > 0)
-    
-    phase2_issues = []
-    if sharpe < 1.0:
-        phase2_issues.append(f"Sharpe {sharpe:.2f} < 1.0")
-    if win_rate < 0.40:
-        phase2_issues.append(f"Win rate {win_rate:.1%} < 40%")
-    
-    phase2 = phase1 and len(phase2_issues) == 0
-    
-    return {
-        'firm': firm,
-        'phase1_pass': phase1,
-        'phase2_pass': phase2,
-        'funding_eligible': phase2,
-        'violations': violations + phase2_issues,
-        'recommended_size': 200000 if calc_kelly(returns)[1] > 0.02 else 100000 if calc_kelly(returns)[1] > 0.01 else 50000,
-    }
+        indicators['complex_overfit'] = (r2 > np.percentile(base_r2s, 92))
+
+        overfit_score = max(0, 100 - sum(indicators.values()) * 25)
+
+        # p-value: fraction of noise baselines with higher complexity-adjusted Sharpe
+        raw_sharpe = float(np.mean(self.returns) / (np.std(self.returns) + EPSILON))
+        adj_sharpe = raw_sharpe * (1 - 0.005 * comp)   # lighter penalty than v2.1
+        base_sharpes = [np.mean(b) / (np.std(b) + EPSILON) for b in baselines]
+        p_value = float(np.mean(np.array(base_sharpes) > adj_sharpe))
+
+        # CALIBRATION FIX: require BOTH conditions for is_overfit
+        is_overfit = (overfit_score < 60) and (p_value > 0.10)
+
+        info = ""
+        if is_overfit:
+            active = [k for k, v in indicators.items() if v]
+            info = "Overfit flags: " + ", ".join(active)
+
+        return OverfitProfile(
+            score=overfit_score, is_overfit=is_overfit, p_value=p_value,
+            adjusted_sharpe=adj_sharpe, raw_sharpe=raw_sharpe,
+            indicators=indicators, informational=info
+        )
+
+@dataclass
+class CheckResult:
+    name: str
+    passed: bool
+    score: float
+    value: str
+    insight: str
+    fix: str
+    category: str
+
+@dataclass
+class CrashSimResult:
+    crash_name: str
+    year: str
+    description: str
+    market_drop: float
+    strategy_drop: float
+    survived: bool
+    emotional_verdict: str
+
+@dataclass
+class ValidationReport:
+    score: float
+    grade: str
+    sharpe: float
+    max_drawdown: float
+    win_rate: float
+    total_trades: int
+    profitable_trades: int
+    checks: List[CheckResult]
+    crash_sims: List[CrashSimResult]
+    assumptions: List[str]
+    validation_hash: str
+    validation_date: str
+    audit_flags: List[str]
+    plausibility_summary: str
+    engine_version: str = "v2.5"
+    methodology_version: str = "2026-03-05"
+    # v2.1 Final 5% additions (informational — do not affect score)
+    alpha_decay: Optional[AlphaDecayProfile] = None
+    overfit_profile: Optional[OverfitProfile] = None
+
+
+# Backwards-compat stub — old main.py imports ValidationDashboard
+class ValidationDashboard:
+    def __init__(self, validator, report):
+        self.validator = validator
+        self.report = report
+    def generate_interactive_report(self):
+        return None
+
+
+CRASH_PROFILES = {
+    "2008_gfc": {
+        "name": "2008 Global Financial Crisis",
+        "year": "Sep 2008 – Mar 2009",
+        "description": "Lehman Brothers collapsed. S&P 500 lost 56%. Volatility exploded to VIX 80. Correlations went to 1 — everything fell together.",
+        "market_drop": -56.0,
+        "vol_multiplier": 4.5,
+        "liquidity_factor": 0.3,
+        "gap_risk": 0.08,
+    },
+    "2020_covid": {
+        "name": "2020 COVID Crash",
+        "year": "Feb 2020 – Mar 2020",
+        "description": "Fastest 30% drop in market history. 34% crash in 33 days. Circuit breakers triggered 4 times. Then one of the fastest recoveries ever.",
+        "market_drop": -34.0,
+        "vol_multiplier": 5.0,
+        "liquidity_factor": 0.2,
+        "gap_risk": 0.12,
+    },
+    "2022_bear": {
+        "name": "2022 Rate Hike Bear Market",
+        "year": "Jan 2022 – Dec 2022",
+        "description": "Fed raised rates 425bps. Nasdaq lost 33%, S&P lost 19%. Momentum strategies that crushed 2021 were destroyed. Growth stocks fell 60-90%.",
+        "market_drop": -19.4,
+        "vol_multiplier": 2.5,
+        "liquidity_factor": 0.7,
+        "gap_risk": 0.04,
+    },
+    "2010_flash_crash": {
+        "name": "2010 Flash Crash",
+        "year": "May 6, 2010",
+        "description": "Dow dropped 1000 points in minutes. Algorithmic cascade wiped liquidity. Many stocks traded at $0.01. HFT strategies blown out in seconds.",
+        "market_drop": -9.0,
+        "vol_multiplier": 5.0,
+        "liquidity_factor": 0.05,
+        "gap_risk": 0.15,
+    },
+    "1998_ltcm": {
+        "name": "1998 LTCM / Russia Default",
+        "year": "Aug–Sep 1998",
+        "description": "Russia defaulted, LTCM collapsed. Correlation assumptions broke simultaneously. Hidden leverage destroyed strategies in days.",
+        "market_drop": -19.0,
+        "vol_multiplier": 3.0,
+        "liquidity_factor": 0.25,
+        "gap_risk": 0.08,
+    },
+}
 
 # =========================================================
-# MAIN VALIDATOR
+# CORE MATH
+# =========================================================
+
+def calculate_sharpe(returns: np.ndarray, trades_per_year: float = 252) -> float:
+    if len(returns) < 2 or np.std(returns) < EPSILON:
+        return 0.0
+    return float(np.mean(returns) / np.std(returns) * np.sqrt(trades_per_year) * 0.85)
+
+def calculate_sharpe_ci(returns: np.ndarray, trades_per_year: float = 252):
+    """Jobson-Korkie / Mertens 2002 Sharpe CI. Returns (sharpe, ci_low, ci_high, p_value). v1.7"""
+    from scipy import stats as _stats
+    n = len(returns)
+    if n < 10:
+        s = calculate_sharpe(returns, trades_per_year)
+        return s, s - 1.0, s + 1.0, 0.5
+    excess = returns - (0.04 / 252)
+    std_e = np.std(excess, ddof=1)
+    if std_e < EPSILON:
+        s = calculate_sharpe(returns, trades_per_year)
+        return s, s, s, 0.0
+    sr_d = np.mean(excess) / std_e
+    skew = _stats.skew(excess)
+    kurt = _stats.kurtosis(excess, fisher=False)
+    se = max(np.sqrt((1 + 0.5*sr_d**2 - skew*sr_d + (kurt-3)*sr_d**2/4) / n) * np.sqrt(trades_per_year) * 0.85, 0.01)
+    sharpe_ann = float(np.clip(sr_d * np.sqrt(trades_per_year) * 0.85, -10, 15))
+    p_val = float(2 * (1 - _stats.norm.cdf(abs(sharpe_ann / se))))
+    return sharpe_ann, sharpe_ann - 1.96*se, sharpe_ann + 1.96*se, p_val
+
+def calculate_sortino(returns: np.ndarray, trades_per_year: float = 252) -> float:
+    if len(returns) < 2:
+        return 0.0
+    downside = returns[returns < 0]
+    if len(downside) == 0:
+        # No losing trades — perfect downside control, cap at 5.0
+        mean_r = np.mean(returns)
+        return 5.0 if mean_r > 0 else 0.0
+    if np.std(downside) < EPSILON:
+        return 0.0
+    return float(np.mean(returns) / np.std(downside) * np.sqrt(trades_per_year) * 0.85)
+
+def calculate_cvar(returns: np.ndarray, confidence: float = 0.95) -> float:
+    """CVaR with KDE smoothing for small samples (v1.7)."""
+    if len(returns) == 0:
+        return 0.0
+    alpha = 1 - confidence
+    if len(returns) < 100:
+        try:
+            from scipy.stats import gaussian_kde
+            kde = gaussian_kde(returns)
+            samples = kde.resample(10000, seed=42)[0]
+            var = np.percentile(samples, alpha*100)
+            return float(np.mean(samples[samples <= var]))
+        except Exception:
+            pass
+    threshold = np.percentile(returns, alpha * 100)
+    tail = returns[returns <= threshold]
+    return float(np.mean(tail)) if len(tail) > 0 else float(threshold)
+
+def calculate_max_drawdown(returns: np.ndarray) -> float:
+    if len(returns) == 0:
+        return 0.0
+    cumulative = np.cumprod(1 + returns)
+    running_max = np.maximum.accumulate(cumulative)
+    drawdown = (running_max - cumulative) / running_max
+    return float(np.max(drawdown))
+
+def calculate_win_rate(returns: np.ndarray) -> float:
+    if len(returns) == 0:
+        return 0.0
+    meaningful = returns[np.abs(returns) > 0.001]
+    if len(meaningful) == 0:
+        return 0.0
+    return float(np.mean(meaningful > 0) * 100)
+
+def calculate_calmar(returns: np.ndarray, trades_per_year: float = 252) -> float:
+    annual_return = np.mean(returns) * trades_per_year
+    dd = abs(calculate_max_drawdown(returns))
+    if dd < EPSILON:
+        # No drawdown — cap at 10.0 (excellent but not infinity)
+        return 10.0 if annual_return > 0 else 0.0
+    return float(annual_return / dd)
+
+def calculate_ruin_probability(win_rate: float, avg_win: float, avg_loss: float,
+                               capital_units: int = 10) -> float:
+    """
+    Gambler's ruin probability via analytical formula.
+    capital_units = how many avg losses fit in total capital (default 10 = risking ~10%/trade).
+    Returns P(ruin) in [0, 1].
+    
+    Formula: normalize to equivalent unit bets, then apply
+    P(ruin | starting at N units) = (q/p)^N where p=normalized win prob.
+    """
+    if win_rate <= 0 or avg_loss < EPSILON:
+        return 1.0
+    if win_rate >= 1.0:
+        return 0.0
+    edge = win_rate * avg_win - (1.0 - win_rate) * avg_loss
+    if edge <= 0:
+        return 1.0
+    # Convert to equivalent fair-coin problem using reward-to-risk ratio
+    rr = avg_win / (avg_loss + EPSILON)
+    p = win_rate * rr / (win_rate * rr + (1.0 - win_rate))  # normalized win prob
+    q = 1.0 - p
+    if p <= 0.5:
+        return 1.0
+    ruin = (q / p) ** capital_units
+    return float(np.clip(ruin, 0.0, 1.0))
+
+# =========================================================
+# VALIDATOR
 # =========================================================
 
 class QuantProofValidator:
-    """Complete institutional validator with Final 5% features."""
-    
-    def __init__(self, df: pd.DataFrame, strict: bool = True, asset: str = 'equities'):
+
+    def __init__(self, df: pd.DataFrame, strict_mode: bool = False, seed: int = 42):
+        self.strict_mode = strict_mode
+        self.seed = seed
+        self.rng = np.random.default_rng(seed)
         self.df = self._clean(df)
-        self.strict = strict
-        self.asset = asset
-        
-        self.returns = self.df['return'].values
-        self.dates = self.df['date'] if 'date' in self.df.columns else None
-        
-        self.ann_factor, self.time_label = self._detect_timeframe()
-        self.checks: List[ValidationCheck] = []
-    
-    def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean and validate input data."""
-        df = df.copy()
-        df.columns = [c.lower().strip().replace(' ', '_') for c in df.columns]
-        
-        # Find return column
-        ret_cols = [c for c in df.columns if any(x in c for x in ['return', 'pnl', 'profit'])]
-        if not ret_cols:
-            raise ValueError("No return/PnL column found")
-        
-        df = df.rename(columns={ret_cols[0]: 'return'})
-        df['return'] = pd.to_numeric(df['return'], errors='coerce')
-        
-        # Validate scale - check if returns are percentages instead of decimals
-        max_abs = df['return'].abs().max()
-        if max_abs > 1.0:
-            raise ValueError(f"Returns appear to be percentages not decimals (max: {max_abs:.2f}). Convert to decimal returns.")
-        
-        # Parse dates
-        date_cols = [c for c in df.columns if any(x in c for x in ['date', 'time'])]
-        if date_cols:
-            df['date'] = pd.to_datetime(df[date_cols[0]], errors='coerce')
-            df = df.dropna(subset=['date']).sort_values('date')
-            
-            # Data integrity checks
-            if len(df) > 1:
-                # Check for duplicate timestamps
-                duplicates = df['date'].duplicated().any()
-                if duplicates:
-                    raise ValueError("Duplicate timestamps detected - data integrity issue")
-                
-                # Check for non-monotonic timestamps
-                if not df['date'].is_monotonic_increasing:
-                    raise ValueError("Timestamps not in chronological order")
-                
-                # Check for future timestamps
-                now = pd.Timestamp.now()
-                future_dates = (df['date'] > now).any()
-                if future_dates:
-                    raise ValueError("Future timestamps detected - lookahead bias risk")
-                
-                # Check for negative time gaps
-                time_gaps = df['date'].diff().dropna()
-                negative_gaps = (time_gaps < pd.Timedelta(0)).any()
-                if negative_gaps:
-                    raise ValueError("Negative time gaps detected - data integrity issue")
-        
-        df = df.dropna(subset=['return'])
-        
-        if len(df) < 30:
-            raise ValueError(f"Insufficient data: {len(df)} trades")
-        
-        return df
-    
-    def _detect_timeframe(self) -> Tuple[float, str]:
-        """Detect trading frequency."""
-        if self.dates is None or len(self.dates) < 2:
-            return TRADING_DAYS_YEAR, "Unknown (daily assumed)"
-        
-        years = (self.dates.max() - self.dates.min()).days / 365.25
-        if years < 0.01:
-            return TRADING_DAYS_YEAR * 24 * 60, "Ultra-HFT"
-        
-        tpy = len(self.returns) / years
-        
-        if tpy > 100000:
-            return TRADING_DAYS_YEAR * 24 * 60, "Tick"
-        elif tpy > 10000:
-            return TRADING_DAYS_YEAR * 24 * 12, "HFT"
-        elif tpy > 1000:
-            return TRADING_DAYS_YEAR * 24, "Intraday"
-        elif tpy > 300:
-            return TRADING_DAYS_YEAR, "Daily"
+        self.trades_per_year, self.timeframe_info = self._detect_timeframe()
+        self.has_dates = 'date' in self.df.columns
+        self.returns = self._get_returns()
+        if strict_mode:
+            self._validate_strict_requirements()
+
+    def _detect_timeframe(self):
+        if 'date' not in self.df.columns:
+            return 252.0, "No timestamp data - using daily metrics"
+        delta = self.df['date'].max() - self.df['date'].min()
+        time_span_years = delta.total_seconds() / (365.25 * 24 * 3600)
+        if time_span_years < EPSILON:
+            return 252.0, "Insufficient time span — default annualization"
+        trades_per_year = min(len(self.df) / time_span_years, 252)
+        if time_span_years < 0.25:
+            desc = f"Short backtest ({time_span_years*12:.1f} months) — Sharpe may be inflated ({trades_per_year:.0f} trades/year)"
+        elif trades_per_year > 10000:
+            desc = f"High-frequency ({trades_per_year:.0f} trades/year)"
+        elif trades_per_year > 1000:
+            desc = f"Intraday ({trades_per_year:.0f} trades/year)"
+        elif trades_per_year > 250:
+            desc = f"Active trading ({trades_per_year:.0f} trades/year)"
         else:
-            return tpy, f"Position ({tpy:.0f}/year)"
-    
-    def _run_checks(self):
-        """Execute all validation checks."""
-        
-        # 1. Sharpe Ratio
-        sharpe = calc_sharpe(self.returns, self.ann_factor)
-        self.sharpe = sharpe  # Store for later
-        
-        self.checks.append(ValidationCheck(
-            "Sharpe Ratio", "Risk-Adjusted Return",
-            sharpe.point > 1.0 and sharpe.significant,
-            min(100, sharpe.point * 25) if sharpe.point > 0 else 0,
-            f"{sharpe.point:.2f} [{sharpe.ci_low:.2f}, {sharpe.ci_high:.2f}]",
-            f"Sharpe {sharpe.point:.2f} {'significant' if sharpe.significant else 'NOT significant'} (p={sharpe.p_value:.3f})",
-            "Improve risk-adjusted returns or extend sample",
-            "CRITICAL" if sharpe.point < 0.5 else "HIGH" if sharpe.point < 1.0 else "LOW"
-        ))
-        
-        # 2. Max Drawdown
-        max_dd, recovery = calc_max_dd(self.returns)
-        self.max_dd = max_dd
-        
-        self.checks.append(ValidationCheck(
-            "Max Drawdown", "Risk",
-            max_dd < 0.20,
-            max(0, 100 - max_dd * 500),
-            f"{max_dd:.1%}",
-            f"Max DD {max_dd:.1%}" + (f", recovered in {recovery} trades" if recovery else ", no recovery"),
-            "Add stop-losses, reduce position size",
-            "CRITICAL" if max_dd > 0.30 else "HIGH" if max_dd > 0.20 else "MEDIUM"
-        ))
-        
-        # 3. CVaR
-        cvar95 = calc_cvar(self.returns, 0.95)
-        cvar99 = calc_cvar(self.returns, 0.99)
-        self.cvar95 = cvar95
-        
-        self.checks.append(ValidationCheck(
-            "CVaR (95%)", "Tail Risk",
-            abs(cvar95) < 0.05,
-            max(0, 100 - abs(cvar95) * 2000),
-            f"{cvar95:.2%} (99%: {cvar99:.2%})",
-            f"Expected loss in worst 5%: {cvar95:.2%}",
-            "Tighten stops, add tail hedges",
-            "CRITICAL" if abs(cvar95) > 0.10 else "HIGH" if abs(cvar95) > 0.05 else "MEDIUM"
-        ))
-        
-        # 4. Probability of Ruin
-        ruin, margin = calc_ruin_prob(self.returns)
-        self.ruin = ruin
-        self.margin_prob = margin
-        
-        self.checks.append(ValidationCheck(
-            "Probability of Ruin", "Survival",
-            ruin.point < 0.05,
-            max(0, 100 - ruin.point * 1000),
-            f"{ruin.point:.1%} [{ruin.ci_low:.1%}, {ruin.ci_high:.1%}]",
-            f"Ruin prob {ruin.point:.1%}, margin call {margin:.1%}",
-            "Reduce risk per trade to 1% or improve edge",
-            "CRITICAL" if ruin.point > 0.20 else "HIGH" if ruin.point > 0.05 else "MEDIUM"
-        ))
-        
-        # 5. Kelly Criterion
-        kelly, half_kelly = calc_kelly(self.returns)
-        self.kelly = kelly
-        self.half_kelly = half_kelly
-        
-        self.checks.append(ValidationCheck(
-            "Kelly Fraction", "Position Sizing",
-            0.01 < half_kelly < 0.25,
-            100 if 0.01 < half_kelly < 0.25 else 50 if half_kelly > 0 else 0,
-            f"Half-Kelly: {half_kelly:.2%}",
-            f"Optimal {kelly:.2%}, conservative half-Kelly {half_kelly:.2%}",
-            "Size to half-Kelly for safety",
-            "HIGH" if half_kelly > 0.50 or half_kelly < 0 else "MEDIUM"
-        ))
-        
-        # 6. Win Rate
-        win_rate = np.mean(self.returns > 0)
-        self.win_rate = win_rate
-        
-        self.checks.append(ValidationCheck(
-            "Win Rate", "Edge Quality",
-            win_rate > 0.40,
-            min(100, win_rate * 200),
-            f"{win_rate:.1%}",
-            f"Win rate {win_rate:.1%} (target >40%)",
-            "Improve entry timing or add filters",
-            "HIGH" if win_rate < 0.35 else "MEDIUM" if win_rate < 0.40 else "LOW"
-        ))
-        
-        # 7. Slippage Impact
-        slippage = estimate_slippage(self.returns, self.asset)
-        self.slippage = slippage
-        
-        self.checks.append(ValidationCheck(
-            "Slippage Model", "Execution",
-            slippage['sharpe_decay'] < 0.30,
-            max(0, 100 - slippage['sharpe_decay'] * 200),
-            f"{slippage['bps_per_trade']:.1f} bps/trade",
-            f"Sharpe {slippage['gross_sharpe']:.2f} → {slippage['net_sharpe']:.2f} ({slippage['sharpe_decay']:.1%} decay)",
-            "Reduce frequency, use limits, trade liquid instruments",
-            "HIGH" if slippage['sharpe_decay'] > 0.50 else "MEDIUM" if slippage['sharpe_decay'] > 0.30 else "LOW"
-        ))
-        
-        # 8. Capacity
-        capacity = estimate_capacity(self.returns, self.ann_factor)
-        self.capacity = capacity
-        
-        self.checks.append(ValidationCheck(
-            "Strategy Capacity", "Scalability",
-            capacity['viable_aum'] >= 1000000,
-            min(100, capacity['viable_aum'] / 1000000 * 50),
-            f"${capacity['viable_aum']:,.0f}",
-            f"Institutional viable AUM: ${capacity['viable_aum']:,.0f}",
-            "Trade more liquid assets or reduce frequency",
-            "MEDIUM" if capacity['viable_aum'] < 500000 else "LOW"
-        ))
-        
-        # 9. Serial Correlation (Independence)
-        if len(self.returns) > 20:
-            autocorr = np.corrcoef(self.returns[:-1], self.returns[1:])[0, 1]
-            # Ljung-Box approximation
-            lb_stat = len(self.returns) * (autocorr ** 2)
-            lb_pval = 1 - stats.chi2.cdf(lb_stat, 1)
-        else:
-            autocorr = 0
-            lb_pval = 1.0
-        
-        self.checks.append(ValidationCheck(
-            "Return Independence", "Statistical Validity",
-            lb_pval > 0.05 and abs(autocorr) < 0.2,
-            100 if lb_pval > 0.05 else max(0, 100 - abs(autocorr) * 300),
-            f"Autocorr: {autocorr:.3f}, p={lb_pval:.3f}",
-            "No serial correlation" if lb_pval > 0.05 else "Serial dependence detected",
-            "Check for data leakage or unstopped losses",
-            "HIGH" if lb_pval < 0.01 else "MEDIUM" if lb_pval < 0.05 else "LOW"
-        ))
-        
-        # 10. Normality (Fat-tail check)
-        jb_stat, jb_pval = stats.jarque_bera(self.returns)
-        skewness = stats.skew(self.returns)
-        kurt = stats.kurtosis(self.returns, fisher=False)
-        
-        self.checks.append(ValidationCheck(
-            "Return Distribution", "Statistical Validity",
-            kurt > 3.5,  # We WANT fat tails (realistic)
-            100 if kurt > 3.5 else 50,
-            f"Skew: {skewness:.2f}, Kurt: {kurt:.2f}",
-            "Fat-tailed (realistic)" if kurt > 3.5 else "Near-normal (suspicious)",
-            "If normal: check for smoothing or data errors",
-            "MEDIUM" if kurt < 3.0 else "LOW"
-        ))
-    
-    def _run_final_5(self):
-        """Execute Final 5% analyses."""
-        
-        # Alpha Decay Analysis
-        self.alpha_decay = analyze_alpha_decay(self.returns, self.dates)
-        
-        # Add alpha decay check
-        decay_critical = (self.alpha_decay.half_life_periods < 2 or 
-                         (self.alpha_decay.latency_sensitivity_bpms and 
-                          self.alpha_decay.latency_sensitivity_bpms > 0.1))
-        
-        self.checks.append(ValidationCheck(
-            "Alpha Decay (Half-Life)", "Operational",
-            self.alpha_decay.half_life_periods >= 2 and not decay_critical,
-            max(0, 100 - max(0, 2 - self.alpha_decay.half_life_periods) * 30),
-            f"{self.alpha_decay.half_life_periods:.1f} periods" + 
-            (f" ({self.alpha_decay.half_life_seconds:.1f}s)" if self.alpha_decay.half_life_seconds else ""),
-            f"Half-life {self.alpha_decay.half_life_periods:.1f} periods. " +
-            (f"Latency sensitive: {self.alpha_decay.latency_sensitivity_bpms:.3f} bp/ms" 
-             if self.alpha_decay.latency_sensitivity_bpms else "Not latency critical"),
-            "Reduce dependence on execution speed or upgrade infrastructure",
-            "CRITICAL" if decay_critical else "HIGH" if self.alpha_decay.half_life_periods < 5 else "MEDIUM"
-        ))
-        
-        # Symbolic Overfit Detection
-        detector = OverfitDetector(self.returns, self.dates)
-        self.overfit = detector.detect()
-        
-        self.checks.append(ValidationCheck(
-            "Symbolic Overfit", "Operational",
-            not self.overfit['is_overfit'],
-            self.overfit['score'],
-            f"Score: {self.overfit['score']:.0f}/100, p={self.overfit['p_value']:.3f}",
-            f"Adjusted Sharpe: {self.overfit['adjusted_sharpe']:.2f} (raw: {self.overfit['raw_sharpe']:.2f}). " +
-            ("Overfit detected" if self.overfit['is_overfit'] else "Distinguishable from noise"),
-            "Simplify strategy, add regularization, or use more data",
-            "CRITICAL" if self.overfit['is_overfit'] else "HIGH" if self.overfit['score'] < 70 else "MEDIUM"
-        ))
-    
-    def _calculate_score(self) -> Tuple[float, str, str]:
-        """Calculate final score with all penalties."""
-        
-        # Base weighted score
-        weights = {
-            'Risk-Adjusted Return': 0.18,
-            'Risk': 0.18,
-            'Tail Risk': 0.13,
-            'Survival': 0.13,
-            'Edge Quality': 0.10,
-            'Execution': 0.10,
-            'Scalability': 0.05,
-            'Statistical Validity': 0.05,
-            'Operational': 0.08,  # Final 5%
-        }
-        
-        cat_scores = {}
-        for cat, w in weights.items():
-            checks = [c for c in self.checks if c.category == cat]
-            if checks:
-                cat_scores[cat] = np.mean([c.score for c in checks]) * w
-        
-        base_score = sum(cat_scores.values())
-        
-        # Hard gates
-        critical_fails = sum(1 for c in self.checks if c.severity == 'CRITICAL' and not c.passed)
-        high_fails = sum(1 for c in self.checks if c.severity == 'HIGH' and not c.passed)
-        
-        # Final 5% gates
-        if self.overfit.get('is_overfit', False):
-            base_score = min(base_score, 50)
-        
-        if self.alpha_decay and self.alpha_decay.half_life_periods < 2:
-            base_score = min(base_score, 60)
-        
-        # Grade assignment
-        if critical_fails >= 2:
-            score, grade, verdict = min(base_score, 40), "F", "DO NOT DEPLOY: Critical failures"
-        elif critical_fails == 1:
-            score, grade, verdict = min(base_score, 55), "D", "MAJOR CONCERNS: Address critical issue"
-        elif high_fails >= 2:
-            score, grade, verdict = min(base_score, 65), "C", "CAUTION: Multiple high severity issues"
-        elif base_score >= 85:
-            score, grade, verdict = base_score, "A", "PRODUCTION_READY: Institutional grade"
-        elif base_score >= 70:
-            score, grade, verdict = base_score, "B", "PILOT_READY: Suitable for limited deployment"
-        else:
-            score, grade, verdict = base_score, "C", "RESEARCH_ONLY: Requires refinement"
-        
-        # Strict mode override
-        if self.strict:
-            if self.sharpe.point < 1.5:
-                score, grade = min(score, 60), "C — Strict Mode"
-            if self.ruin.point > 0.10:
-                score, grade = min(score, 50), "D — Strict Mode"
-        
-        return round(score, 1), grade, verdict
-    
-    def validate(self) -> ValidationReport:
-        """Run complete validation."""
-        
-        # Run all checks
-        self._run_checks()
-        self._run_final_5()
-        
-        # Crash simulations
-        crash_results = [simulate_crash(self.returns, s) for s in CRASH_SCENARIOS]
-        
-        # Prop firm checks
-        prop_results = [
-            check_prop_firm(self.returns, self.dates, 'FTMO'),
-            check_prop_firm(self.returns, self.dates, 'Topstep'),
-            check_prop_firm(self.returns, self.dates, 'The5ers'),
-        ]
-        
-        # Calculate score
-        score, grade, verdict = self._calculate_score()
-        
-        # Determine deployment status
-        if grade.startswith('A'):
-            status = "PRODUCTION_READY"
-        elif grade.startswith('B'):
-            status = "PILOT_ONLY"
-        elif grade.startswith('C'):
-            status = "RESEARCH_ONLY"
-        else:
-            status = "DO_NOT_DEPLOY"
-        
-        # Override with specific Final 5% issues
-        if self.alpha_decay and self.alpha_decay.half_life_periods < 2:
-            status = "PILOT_ONLY" if status == "PRODUCTION_READY" else status
-        
-        if self.overfit.get('is_overfit', False):
-            status = "DO_NOT_DEPLOY"
-        
-        # Generate hash
+            desc = f"Position trading ({trades_per_year:.0f} trades/year)"
+        return trades_per_year, desc
+
+    def _validate_strict_requirements(self):
+        if 'date' in self.df.columns:
+            span = (self.df['date'].max() - self.df['date'].min()).days / 365.25
+            if span < 0.5:
+                raise ValueError(f"Strict mode requires 6 months minimum (got {span*12:.1f} months)")
+        if len(self.returns) < 100:
+            raise ValueError(f"Strict mode requires 100+ trades (got {len(self.returns)})")
+
+    def _generate_validation_hash(self):
         hash_data = {
-            'returns': np.round(self.returns, 6).tolist(),
-            'timestamp': datetime.utcnow().isoformat(),
-            'version': 'v2.1'
+            'returns': np.round(self.returns, 8).tolist(),
+            'timeframe': self.timeframe_info,
+            'trades_per_year': float(self.trades_per_year),
+            'engine_version': 'v1.3',
+            'seed': self.seed
         }
-        validation_hash = hashlib.sha256(
-            json.dumps(hash_data, sort_keys=True).encode()
-        ).hexdigest()[:16]
-        
-        return ValidationReport(
-            version="v2.1-Final5%",
-            timestamp=datetime.utcnow().isoformat(),
-            hash=validation_hash,
-            sharpe=self.sharpe,
-            max_dd=self.max_dd,
-            cvar95=self.cvar95,
-            ruin_prob=self.ruin,
-            margin_call_prob=self.margin_prob,
-            kelly=self.kelly,
-            half_kelly=self.half_kelly,
-            win_rate=self.win_rate,
-            profit_factor=(abs(np.sum(self.returns[self.returns > 0])) / 
-                          abs(np.sum(self.returns[self.returns < 0]))) if np.sum(self.returns[self.returns < 0]) != 0 else float('inf'),
-            total_trades=len(self.returns),
-            alpha_decay=self.alpha_decay,
-            overfit_score=self.overfit.get('score', 0),
-            overfit_details=self.overfit,
-            deployment_status=status,
-            checks=self.checks,
-            crash_results=crash_results,
-            prop_firms=prop_results,
-            overall_score=score,
-            grade=grade,
-            verdict=verdict,
+        return hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:12]
+
+    def _get_assumptions(self):
+        base = [
+            "Assumes full capital deployed per trade",
+            "Assumes trades are sequential and non-overlapping",
+            "Assumes percentage returns (not dollar P&L)",
+            "Assumes no leverage unless embedded in returns",
+            f"Monte Carlo seed fixed at {self.seed} for reproducibility",
+            "Risk-free rate excluded for per-trade returns (institutional practice)",
+            "Crash simulations use historical stress profiles with proportional scaling",
+            "CVaR calculated at 95% confidence — average loss in worst 5% of trades",
+            "Sortino ratio penalizes downside volatility only",
+        ]
+        if self.strict_mode:
+            base += ["Strict mode: 6-month minimum", "Strict mode: 100-trade minimum"]
+        return base
+
+    def _generate_audit_flags(self):
+        return [
+            f"⚠ {c.name}: {c.insight}"
+            for c in self.checks
+            if c.category == "Plausibility" and not c.passed and "Manual Audit Required" in c.value
+        ]
+
+    def _generate_plausibility_summary(self):
+        pc = [c for c in self.checks if c.category == "Plausibility"]
+        manual = sum(1 for c in pc if not c.passed and "Manual Audit Required" in c.value)
+        review = sum(1 for c in pc if not c.passed and "Review Recommended" in c.value)
+        if manual > 0:
+            return f"⚠ {manual} statistical implausibility issues require manual audit"
+        if review > 0:
+            return f"⚠ {review} statistical issues merit review"
+        return "✅ All statistical metrics appear plausible"
+
+    def _clean(self, df):
+        df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+        date_cols = [c for c in df.columns if any(x in c for x in ["date", "time", "dt"])]
+        pnl_cols  = [c for c in df.columns if any(x in c for x in ["pnl", "profit", "return", "gain", "pl"])]
+        if date_cols:
+            df = df.rename(columns={date_cols[0]: "date"})
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        if pnl_cols:
+            df = df.rename(columns={pnl_cols[0]: "pnl"})
+            df["pnl"] = pd.to_numeric(df["pnl"], errors="coerce")
+        return df.dropna(subset=["pnl"])
+
+    def _get_returns(self):
+        r = self.df["pnl"].values.astype(float)
+        max_abs = np.abs(r).max()
+        if max_abs > 1.0:
+            raise ValueError(
+                f"Returns appear to be dollar amounts (max: {max_abs:.2f}). "
+                "Please convert to percentage returns before validation."
+            )
+        # NO noise injection — data integrity must be preserved.
+        # Plausibility checks handle suspicious smoothness.
+        return r
+
+    # ---- OVERFITTING ----
+
+    def check_sharpe_decay(self):
+        r, n = self.returns, len(self.returns)
+        if n < 20:
+            return CheckResult("Sharpe Decay", False, 20, "Insufficient data", "Need 20+ trades", "Add more backtest history", "Overfitting")
+        mid = n // 2
+        s_in  = calculate_sharpe(r[:mid], self.trades_per_year)
+        s_out = calculate_sharpe(r[mid:], self.trades_per_year)
+        decay = (s_in - s_out) / (abs(s_in) + EPSILON) * 100
+        score = max(0, 100 - max(0, decay))
+        return CheckResult("Sharpe Ratio Decay", decay < 40, round(score, 1),
+            f"In-sample: {s_in:.2f} → Out-of-sample: {s_out:.2f} ({decay:.1f}% decay)",
+            "High decay means your strategy was fitted to historical noise, not real patterns.",
+            "Run walk-forward optimization. Only trust out-of-sample Sharpe.", "Overfitting")
+
+    def check_monte_carlo(self):
+        r = self.returns
+        mean_sims = [np.mean(self.rng.choice(r, size=len(r), replace=True)) for _ in range(300)]
+        mean_pct = float(np.mean(np.array(mean_sims) > 0) * 100)
+        original_dd = calculate_max_drawdown(r)
+        seq_sims = [abs(calculate_max_drawdown(self.rng.permutation(r))) - abs(original_dd) < 0.10 for _ in range(200)]
+        sequence_pct = float(np.mean(seq_sims) * 100)
+        perms = [self.rng.permutation(r) for _ in range(500)]
+        equity_sims = [np.prod(1 + p) for p in perms]
+        worst_5pct = np.percentile(equity_sims, 5)
+        if not self.has_dates:
+            worst_5pct_val = (worst_5pct - 1) * 100
+        else:
+            delta = self.df['date'].max() - self.df['date'].min()
+            tsy = max(delta.total_seconds() / (365.25 * 24 * 3600), 0.1)
+            if 'Short backtest' in self.timeframe_info:
+                tsy = 1.0
+            worst_5pct_val = (worst_5pct ** (1/tsy) - 1) * 100
+        worst_5pct_dd = np.percentile([abs(calculate_max_drawdown(p)) for p in perms], 95) * 100
+        equity_score = min(100, max(0, 100 + worst_5pct_val * 2 - worst_5pct_dd))
+        combined = mean_pct * 0.4 + sequence_pct * 0.3 + equity_score * 0.3
+        passed = combined > (70 if self.strict_mode else 60)
+        return CheckResult("Monte Carlo Robustness", passed, round(combined, 1),
+            f"Mean: {mean_pct:.1f}% | Seq: {sequence_pct:.1f}% | Equity: {equity_score:.1f}%",
+            "Hedge-fund level Monte Carlo: tests mean stability, sequence fragility, and worst-case equity outcomes.",
+            "If equity score low, strategy has tail risk or depends on specific trade sequences.", "Overfitting")
+
+    def check_outlier_dependency(self):
+        """
+        Profit Concentration — institutional-grade fat-tail detection.
+        Key metric: what % of total profit comes from the top 1% of trades?
+        If 3 trades out of 300 generate 29% of profit, that is a fat-tail fluke,
+        not a repeatable edge. HHI alone misses this — we use top-1% share.
+        Reference: Taleb (2007), institutional PM due diligence standard.
+        """
+        r = self.returns
+        if len(r[r > 0]) < 3:
+            return CheckResult("Profit Concentration", False, 0,
+                "Too few winning trades to measure concentration",
+                "Need at least 3 winning trades to assess profit distribution.",
+                "Increase backtest length.", "Overfitting")
+
+        total_profit  = float(np.sum(r[r > 0]))
+        n             = len(r)
+
+        # Primary metric: top 1% of ALL trades as share of total profit
+        # This directly catches "2 whales in 300 trades" scenarios
+        top1pct_count  = max(1, int(n * 0.01))
+        top1pct_profit = float(np.sum(np.sort(r)[::-1][:top1pct_count]))
+        top1pct_share  = top1pct_profit / total_profit * 100
+
+        # Also check absolute top-2 trades (catches small n or n=300 where 1%=3)
+        top2_profit = float(np.sum(np.sort(r)[::-1][:2]))
+        top2_share  = top2_profit / total_profit * 100
+
+        # Secondary: HHI of winning trade profit shares
+        wins   = r[r > 0]
+        shares = wins / total_profit
+        hhi    = float(np.sum(shares ** 2))
+
+        # Tertiary: Sharpe without top 1% (acid test)
+        r_trimmed  = np.delete(r, np.argsort(r)[::-1][:top1pct_count])
+        sharpe_raw = float(np.mean(r) / (np.std(r) + EPSILON) * np.sqrt(252) * 0.85)
+        sharpe_trim = float(np.mean(r_trimmed) / (np.std(r_trimmed) + EPSILON) * np.sqrt(252) * 0.85) if len(r_trimmed) > 5 else 0
+        sharpe_decay = (sharpe_raw - sharpe_trim) / (abs(sharpe_raw) + EPSILON)
+
+        if top1pct_share > 25 or sharpe_decay > 0.50 or top2_share > 20:
+            status  = "🔴 Fat-Tail Fluke"
+            insight = (f"Top {top1pct_count} trade(s) = {top1pct_share:.1f}% of all profit. "
+                       f"Top 2 trades = {top2_share:.1f}% of profit. "
+                       f"Remove them: Sharpe drops {sharpe_decay:.0%} ({sharpe_raw:.2f}→{sharpe_trim:.2f}). "
+                       f"This is a fat-tail fluke, not a repeatable edge.")
+            passed, score = False, 0
+        elif top1pct_share > 15 or sharpe_decay > 0.30:
+            status  = "⚠ Concentration Risk"
+            insight = (f"Top {top1pct_count} trade(s) = {top1pct_share:.1f}% of profit. "
+                       f"Edge is somewhat dependent on outlier trades (Sharpe decay: {sharpe_decay:.0%}).")
+            passed, score = False, 40
+        else:
+            status  = "✅ Well Distributed"
+            insight = (f"Top {top1pct_count} trade(s) = {top1pct_share:.1f}% of profit. "
+                       f"HHI={hhi:.3f}. Sharpe without outliers: {sharpe_trim:.2f} ({sharpe_decay:.0%} decay). "
+                       f"Edge is broadly distributed — not a fat-tail fluke.")
+            passed, score = True, 100
+
+        return CheckResult("Profit Concentration", passed, score,
+            f"Top-1% trades = {top1pct_share:.1f}% of profit | Sharpe w/o outliers: {sharpe_trim:.2f} → {status}",
+            insight,
+            "Acid test: remove your 3 best trades. If Sharpe drops >50%, you have no real edge.", "Overfitting")
+
+    def check_walk_forward(self):
+        """
+        Combinatorial Purged Cross-Validation (CPCV).
+        Generates C(n_splits=6, n_test=2) = 15 independent backtest paths.
+        Each path uses a different subset of history as the test set.
+        A real edge works on ALL paths. Sequence luck fails on paths
+        where the lucky regime (e.g., bull run) is in the training set.
+
+        Key metric: std of Sharpe across paths. Low std = robust signal.
+        High std = strategy only works in a specific sequence of events.
+        Reference: López de Prado (2018), Advances in Financial ML, Ch.12
+        """
+        r = self.returns
+        if len(r) < 60:
+            return CheckResult("CPCV Path Stability", False, 20,
+                "Not enough data for CPCV (need 60+ trades)",
+                "CPCV requires sufficient data to split into 6 folds.",
+                "Extend backtest to 60+ trades.", "Overfitting")
+
+        from itertools import combinations as _comb
+        n_splits, n_test = 6, 2
+        fold_size = len(r) // n_splits
+        folds = [r[i*fold_size:(i+1)*fold_size] for i in range(n_splits)]
+
+        path_sharpes = []
+        for test_idx in _comb(range(n_splits), n_test):
+            test = np.concatenate([folds[i] for i in test_idx])
+            if len(test) < 5 or np.std(test) < EPSILON:
+                continue
+            s = float(np.mean(test) / np.std(test) * np.sqrt(252) * 0.85)
+            path_sharpes.append(s)
+
+        if not path_sharpes:
+            return CheckResult("CPCV Path Stability", False, 0,
+                "CPCV could not compute paths", "", "", "Overfitting")
+
+        paths        = np.array(path_sharpes)
+        pct_positive = float(np.mean(paths > 0) * 100)
+        path_std     = float(np.std(paths))
+        mean_sharpe  = float(np.mean(paths))
+        n_paths      = len(paths)
+
+        # std > 5.0 = extreme sequence luck (bull/bear regime dependency)
+        # std 3-5   = significant path sensitivity
+        # std < 2.0 + >80% positive = institutionally robust
+        if path_std > 5.0 or pct_positive < 60:
+            status = "🔴 Sequence Luck — edge depends on historical order"
+            insight = (f"Sharpe std across {n_paths} paths = {path_std:.2f}. "
+                       f"Only {pct_positive:.0f}% of paths are profitable. "
+                       f"The strategy survived a specific sequence of market events, not a real signal.")
+            passed, score = False, 0   # score=0 triggers hard gate in _calculate_score
+        elif path_std > 3.0 or pct_positive < 80:
+            status = "⚠ Path Sensitive — moderate sequence dependency"
+            insight = (f"Sharpe std = {path_std:.2f} across {n_paths} paths. "
+                       f"Edge exists but is fragile to market regime sequencing.")
+            passed, score = False, 45
+        elif path_std > 2.0:
+            status = "⚠ Acceptable — minor path variance"
+            insight = f"Sharpe std = {path_std:.2f}. Edge is mostly robust but some sensitivity to market order."
+            passed, score = True, 65
+        else:
+            status = "✅ Robust — edge survives all path orderings"
+            insight = (f"Sharpe std = {path_std:.2f} across {n_paths} paths. "
+                       f"Mean path Sharpe: {mean_sharpe:.2f}. "
+                       f"Real signal — not surviving by luck of historical sequence.")
+            passed, score = True, min(100, int(pct_positive))
+
+        return CheckResult("CPCV Path Stability", passed, score,
+            f"{n_paths} paths: {pct_positive:.0f}% positive | Sharpe std: ±{path_std:.2f} → {status}",
+            insight,
+            "If std > 3, your strategy relies on living through a specific market history. "
+            "Test on shuffled regimes or out-of-sample data from a different decade.",
+            "Overfitting")
+
+    def check_bootstrap_stability(self):
+        r = self.returns
+        pct = float(np.mean(np.array([np.mean(self.rng.choice(r, size=len(r), replace=True)) for _ in range(500)]) > 0) * 100)
+        return CheckResult("Bootstrap Stability", pct > 70, round(pct, 1),
+            f"Positive expectancy in {pct:.1f}% of 500 bootstrap samples",
+            "Stable edge shows up consistently in resampling.",
+            "If below 70%, fix win rate or risk/reward ratio first.", "Overfitting")
+
+    # ---- RISK ----
+
+    def check_max_drawdown(self):
+        dd_pct = calculate_max_drawdown(self.returns) * 100
+        score = max(0, 100 - dd_pct * 3)
+        return CheckResult("Max Drawdown", dd_pct < 20, round(score, 1),
+            f"Max drawdown: {dd_pct:.1f}% (threshold: <20%)",
+            "Funds reject strategies with drawdowns >20%. Retail traders quit at 15%.",
+            "Add circuit breaker: pause after 10% drawdown. Reduce size after losing streaks.", "Risk")
+
+    def check_calmar_ratio(self):
+        calmar = calculate_calmar(self.returns, self.trades_per_year)
+        score = min(100, calmar * 40)
+        return CheckResult("Calmar Ratio", calmar > 1.5, round(score, 1),
+            f"Calmar: {calmar:.2f} (target >1.5, timeframe: {self.timeframe_info})",
+            "Calmar = annual return / max drawdown. Prop firms want >1.5.",
+            "Increase returns or reduce drawdown via better position sizing.", "Risk")
+
+    def check_var(self):
+        r = self.returns
+        var_99 = float(np.percentile(r, 1))
+        mean = float(np.mean(r))
+        if abs(mean) < 0.001:
+            passed = abs(var_99) < 0.05
+            score = max(0, 100 - abs(var_99) * 2000)
+            threshold_desc = "5% absolute"
+        else:
+            passed = abs(var_99) < abs(mean) * 10
+            score = max(0, 100 - (abs(var_99) / (abs(mean) + EPSILON)) * 5)
+            threshold_desc = f"10x mean ({abs(mean)*10:.3f})"
+        return CheckResult("Value at Risk (VaR)", passed, round(score, 1),
+            f"VaR 99%: {var_99:.4f} | VaR 95%: {float(np.percentile(r, 5)):.4f}",
+            f"VaR 99% = loss exceeded only 1% of trades. Threshold: {threshold_desc}.",
+            "If VaR too high, use tighter stops or reduce position size.", "Risk")
+
+    def check_cvar(self):
+        """CVaR/Expected Shortfall — Basel III standard. Average loss in worst 5% of trades."""
+        r = self.returns
+        cvar_95 = calculate_cvar(r, 0.95)
+        cvar_99 = calculate_cvar(r, 0.99)
+        mean = float(np.mean(r))
+        if abs(mean) < 0.001:
+            passed = abs(cvar_95) < 0.08
+            score = max(0, 100 - abs(cvar_95) * 1250)
+            threshold_desc = "8% absolute"
+        else:
+            ratio = abs(cvar_95) / (abs(mean) + EPSILON)
+            passed = ratio < 15
+            score = max(0, 100 - ratio * 4)
+            threshold_desc = f"15x mean ({abs(mean)*15:.3f})"
+        return CheckResult("CVaR / Expected Shortfall", passed, round(score, 1),
+            f"CVaR 95%: {cvar_95:.4f} | CVaR 99%: {cvar_99:.4f}",
+            f"CVaR = average loss when things go really wrong. Required by Basel III. Threshold: {threshold_desc}.",
+            "Reduce tail exposure: tighter stops on losing trades, avoid low-liquidity assets.", "Risk")
+
+    def check_sortino(self):
+        """Sortino ratio — penalizes only downside volatility. Better for asymmetric strategies."""
+        sortino = calculate_sortino(self.returns, self.trades_per_year)
+        if sortino > 2.0:
+            score, passed = 100, True
+        elif sortino >= 1.0:
+            score, passed = 75, True
+        elif sortino >= 0.5:
+            score, passed = 45, False
+        else:
+            score, passed = 15, False
+        return CheckResult("Sortino Ratio", passed, round(score, 1),
+            f"Sortino: {sortino:.2f} (target >1.0, timeframe: {self.timeframe_info})",
+            "Sortino only punishes bad volatility. A strategy with big winners and controlled losers scores higher here than on Sharpe.",
+            "Improve downside control: tighter stop losses, ATR-based position sizing.", "Risk")
+
+    def check_consecutive_losses(self):
+        r = self.returns
+        max_streak = current = 0
+        for trade in r:
+            if trade < 0:
+                current += 1
+                max_streak = max(max_streak, current)
+            else:
+                current = 0
+        score = max(0, 100 - max_streak * 10)
+        return CheckResult("Max Losing Streak", max_streak < 8, round(score, 1),
+            f"Longest losing streak: {max_streak} consecutive trades",
+            "Prop firms reject strategies with 8+ consecutive losses.",
+            "Add daily loss limit that pauses trading after streak >5.", "Risk")
+
+    def check_recovery_factor(self):
+        r = self.returns
+        recovery = float(np.sum(r[r > 0])) / (float(abs(np.sum(r[r < 0]))) + EPSILON)
+        score = min(100, recovery * 40)
+        return CheckResult("Recovery Factor", recovery > 1.5, round(score, 1),
+            f"Recovery factor: {recovery:.2f} (wins cover losses {recovery:.1f}x)",
+            "Below 1.5 means wins barely cover drawdowns.",
+            "Increase average winner or cut average loser. Asymmetric R:R is the goal.", "Risk")
+
+    def check_absolute_sharpe(self):
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe > 1.5:   score, passed = 100, True
+        elif sharpe >= 1.0: score, passed = 75, True
+        elif sharpe >= 0.5: score, passed = 45, False
+        else:               score, passed = 15, False
+
+        # Warn users when no dates means annualization may be overstated
+        date_warning = " ⚠ No date column — may be inflated" if not self.has_dates else ""
+        return CheckResult("Absolute Sharpe Ratio", passed, round(score, 1),
+            f"Annualized Sharpe: {sharpe:.2f} (timeframe: {self.timeframe_info}){date_warning}",
+            "Institutional minimum is Sharpe > 1.0. Below 0.5 means the strategy doesn't compensate for its risk.",
+            "Improve risk-adjusted returns through better entry timing or position sizing.", "Risk")
+
+    def check_ruin_probability(self):
+        """Probability of blowing up. Every trader needs this number before going live."""
+        r = self.returns
+        wr = calculate_win_rate(r) / 100.0
+        winners, losers = r[r > 0], r[r < 0]
+        avg_win  = float(np.mean(winners)) if len(winners) > 0 else 0.0
+        avg_loss = float(abs(np.mean(losers))) if len(losers) > 0 else 0.0
+        ruin_prob = calculate_ruin_probability(wr, avg_win, avg_loss)
+        ruin_pct = ruin_prob * 100
+        score = max(0, 100 - ruin_pct * 5)
+        if ruin_pct < 5:    verdict = "Low ruin risk"
+        elif ruin_pct < 15: verdict = "Moderate ruin risk"
+        elif ruin_pct < 30: verdict = "High ruin risk"
+        else:               verdict = "Very high ruin risk"
+        return CheckResult("Probability of Ruin", ruin_pct < 10, round(score, 1),
+            f"Ruin probability: {ruin_pct:.1f}% — {verdict}",
+            "The chance of losing your entire trading capital. Below 10% required for live deployment.",
+            "Increase win rate, improve R:R ratio, or reduce per-trade risk percentage.", "Risk")
+
+    def check_compliance_pass(self):
+        gates = [
+            self.returns.mean() > 0,
+            calculate_sharpe(self.returns, self.trades_per_year) > 1.0,
+            calculate_max_drawdown(self.returns) < 0.20,
+            calculate_win_rate(self.returns) > 45,
+            len(self.returns) > 50
+        ]
+        if self.strict_mode:
+            passed = all(gates)
+            gate_status = "5/5" if passed else f"{sum(gates)}/5"
+        else:
+            passed = sum(gates) >= 4
+            gate_status = f"{sum(gates)}/5"
+        return CheckResult("Prop Firm Compliance", passed, 100 if passed else 0,
+            "✅ PASSES 2026 Requirements" if passed else f"❌ NEEDS FIXES ({gate_status} gates passed)",
+            "FTMO/Topstep reject 90% of strategies without proper validation. 4/5 gates must pass.",
+            "Fix your top 3 failing checks above to meet prop firm standards.", "Compliance")
+
+    # ---- REGIME ----
+
+    def check_bull_performance(self):
+        r = self.returns
+        bull = r[r > np.percentile(r, 60)]
+        sharpe = calculate_sharpe(bull, self.trades_per_year) if len(bull) > 3 else 0
+        wr = calculate_win_rate(bull)
+        return CheckResult("Bull Market Performance", sharpe > 0 and wr > 45,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | Win rate: {wr:.1f}% ({len(bull)} trades)",
+            "Strategy behavior during favorable conditions.",
+            "If failing in bull market, check if momentum signals are properly calibrated.", "Regime")
+
+    def check_bear_performance(self):
+        r = self.returns
+        bear = r[r < np.percentile(r, 40)]
+        sharpe = calculate_sharpe(bear, self.trades_per_year) if len(bear) > 3 else 0
+        wr = calculate_win_rate(bear)
+        return CheckResult("Bear Market Performance", sharpe > -1.0,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | Win rate: {wr:.1f}% ({len(bear)} trades)",
+            "How strategy holds up when conditions turn against it.",
+            "Add regime detection to reduce size or pause during bear conditions.", "Regime")
+
+    def check_consolidation_performance(self):
+        r = self.returns
+        low, high = np.percentile(r, 40), np.percentile(r, 60)
+        consol = r[(r >= low) & (r <= high)]
+        sharpe = calculate_sharpe(consol, self.trades_per_year) if len(consol) > 3 else 0
+        wr = calculate_win_rate(consol)
+        return CheckResult("Consolidation Performance", sharpe > 0,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | Win rate: {wr:.1f}% ({len(consol)} trades)",
+            "Sideways markets are where most momentum strategies bleed.",
+            "Add a choppiness filter to avoid trading in low-volatility ranges.", "Regime")
+
+    def check_volatility_stress(self):
+        r = self.returns
+        orig = calculate_sharpe(r, self.trades_per_year)
+        stressed_sharpe = calculate_sharpe(r * 3.0, self.trades_per_year)
+        degradation = (orig - stressed_sharpe) / (abs(orig) + EPSILON) * 100
+        return CheckResult("Volatility Spike Stress Test", degradation < 50,
+            round(max(0, 100 - degradation), 1),
+            f"3x vol: Sharpe {orig:.2f} → {stressed_sharpe:.2f}",
+            "VIX spikes (COVID March 2020) cause 3-5x normal volatility.",
+            "Use volatility-adjusted position sizing (ATR-based). Reduce size when VIX >25.", "Regime")
+
+    def check_frequency_consistency(self):
+        r = self.returns
+        window = max(5, len(r) // 10)
+        pct = float(np.mean(np.array([np.mean(r[i:i+window]) for i in range(0, len(r)-window)]) > 0) * 100)
+        return CheckResult("Performance Consistency", pct > 60, round(pct, 1),
+            f"Profitable in {pct:.1f}% of rolling windows",
+            "Consistent strategies generate returns steadily, not in lumps.",
+            "If <60%, your edge only works in specific conditions. Define those explicitly.", "Regime")
+
+    def check_regime_coverage(self):
+        if 'regime' not in self.df.columns:
+            return CheckResult("Regime Coverage", False, 40, "No regime column detected",
+                "Strategies with regime detection have 3x better live survival rate.",
+                "Add BULL/BEAR/CONSOLIDATION/TRANSITION regime labels to your CSV export.", "Regime")
+        regimes = self.df['regime'].value_counts(normalize=True)
+        coverage = len(regimes) / 4 * 100
+        return CheckResult("4-Regime Coverage", coverage > 75, round(coverage, 1),
+            f"Regimes detected: {list(regimes.index.astype(str))}",
+            "Full regime coverage means your strategy was tested across all market conditions.",
+            "Ensure your backtest includes BULL, BEAR, CONSOLIDATION and TRANSITION periods.", "Regime")
+
+    # ---- EXECUTION ----
+
+    def check_slippage_01(self):
+        r = self.returns
+        impact = abs((float(np.sum(r)) - float(np.sum(r - np.abs(r) * 0.001))) / (abs(float(np.sum(r))) + EPSILON) * 100)
+        return CheckResult("Slippage Impact (0.1%)", impact < 20, round(max(0, 100 - impact * 3), 1),
+            f"0.1% slippage reduces returns by {impact:.1f}%",
+            "Even 0.1% per trade compounds into significant drag.",
+            "Reduce trade frequency or only take higher conviction setups.", "Execution")
+
+    def check_slippage_03(self):
+        r = self.returns
+        impact = abs((float(np.sum(r)) - float(np.sum(r - np.abs(r) * 0.003))) / (abs(float(np.sum(r))) + EPSILON) * 100)
+        return CheckResult("Slippage Impact (0.3%)", impact < 40, round(max(0, 100 - impact * 2), 1),
+            f"0.3% slippage reduces returns by {impact:.1f}%",
+            "Small caps and volatile markets have 0.3%+ slippage. Does your edge survive?",
+            "Model 0.5% slippage for small-cap strategies. Use limit orders.", "Execution")
+
+    def check_commission_drag(self):
+        r = self.returns
+        drag = (len(r) * 0.0005) / (abs(float(np.sum(r))) + EPSILON) * 100
+        return CheckResult("Commission Drag", drag < 15, round(max(0, 100 - drag * 4), 1),
+            f"{len(r)} trades → {drag:.1f}% of gross returns consumed by commissions",
+            "High-frequency strategies can be profitable on paper but lose after commissions.",
+            "Calculate your break-even commission. If >10x/day, commissions may kill the edge.", "Execution")
+
+    def check_partial_fills(self):
+        r = self.returns
+        fill_rate = 0.80 + 0.20 * 0.70
+        impact = abs((float(np.sum(r)) - float(np.sum(r * fill_rate))) / (abs(float(np.sum(r))) + EPSILON) * 100)
+        return CheckResult("Partial Fill Simulation", impact < 10, round(max(0, 100 - impact * 5), 1),
+            f"80% fill rate reduces returns by {impact:.1f}%",
+            "In fast markets orders may not fill completely.",
+            "Size positions for partial fill scenarios. Use limit orders.", "Execution")
+
+    def check_live_vs_backtest_gap(self):
+        bt_sharpe   = calculate_sharpe(self.returns, self.trades_per_year)
+        live_sharpe = bt_sharpe * 0.6
+        score = min(100, max(0, live_sharpe * 50))
+        return CheckResult("Live Trading Gap Estimate", live_sharpe > 0.5, round(score, 1),
+            f"Backtest Sharpe: {bt_sharpe:.2f} → Estimated Live: {live_sharpe:.2f}",
+            "Industry average: 40% Sharpe decay from backtest to live trading.",
+            "Reduce position sizing, add slippage buffers, tighten risk management.", "Execution")
+
+    def check_impact_adjusted_capacity(self):
+        """
+        Impact-Adjusted Sharpe & AUM Capacity (Almgren-Chriss temporary impact model).
+        Answers: 'At what AUM does this strategy destroy its own alpha?'
+
+        Market impact = η · σ_market · √(avg_trade_size / ADV)
+        where η=0.1 (empirical constant), ADV=average daily volume.
+
+        Critically: decay from $100k→$10M is the retail-to-institutional gap.
+        A strategy that collapses here cannot be scaled or sold to a fund.
+        Reference: Almgren & Chriss (2001), Optimal Execution of Portfolio Transactions.
+        """
+        r      = self.returns
+        mean_r = float(np.mean(r))
+        std_r  = float(np.std(r))
+        n      = len(r)
+        if std_r < EPSILON or n == 0 or mean_r <= 0:
+            # Can't decay further if already losing
+            return CheckResult("Impact-Adjusted Capacity", mean_r > 0, 50 if mean_r > 0 else 0,
+                "Cannot compute capacity on unprofitable strategy", "", "", "Execution")
+
+        raw_sharpe = mean_r / std_r * np.sqrt(252) * 0.85
+
+        def sharpe_at_aum(aum, adv=50_000_000):
+            """Almgren-Chriss: η·σ_mkt·√(participation_rate) = temporary market impact per trade."""
+            participation = (aum / max(n, 1)) / adv
+            impact        = 0.1 * 0.015 * (participation ** 0.5)  # η·σ·√pr
+            return (mean_r - impact) / std_r * np.sqrt(252) * 0.85
+
+        s_100k = sharpe_at_aum(100_000)
+        s_1m   = sharpe_at_aum(1_000_000)
+        s_10m  = sharpe_at_aum(10_000_000)
+        s_100m = sharpe_at_aum(100_000_000)
+
+        # Capacity = AUM where alpha (mean return) is fully consumed by market impact
+        # i.e. mean_r - impact = 0  →  impact = mean_r
+        # η·σ·√(Q/(n·ADV)) = mean_r  →  Q = (mean_r/(η·σ))² · n · ADV
+        try:
+            capacity_aum = ((mean_r / (0.1 * 0.015)) ** 2) * n * 50_000_000
+            capacity_str = f"${capacity_aum:,.0f}"
+        except Exception:
+            capacity_str = "N/A"
+
+        # Primary metric: Sharpe decay from $100k to $10M
+        decay_100k_10m = (s_100k - s_10m) / (abs(s_100k) + EPSILON)
+
+        if decay_100k_10m > 0.40:
+            status  = "🔴 Capacity Constrained"
+            insight = (f"Sharpe decays {decay_100k_10m:.0%} from $100k → $10M "
+                       f"({s_100k:.2f} → {s_10m:.2f}). "
+                       f"Alpha is consumed by your own order flow. Strategy cap: {capacity_str}.")
+            passed, score = False, max(0, int((1 - decay_100k_10m) * 100))
+        elif decay_100k_10m > 0.20:
+            status  = "⚠ Moderate Impact Risk"
+            insight = (f"Sharpe decays {decay_100k_10m:.0%} to $10M. "
+                       f"Viable for personal/small fund trading. Not institutional scale.")
+            passed, score = True, 65
+        else:
+            status  = "✅ Scalable Alpha"
+            insight = (f"Market impact is minimal up to $10M AUM. "
+                       f"Estimated capacity before alpha destruction: {capacity_str}.")
+            passed, score = True, 100
+
+        return CheckResult("Impact-Adjusted Capacity", passed, score,
+            f"Sharpe: $100k={s_100k:.2f} | $1M={s_1m:.2f} | $10M={s_10m:.2f} | $100M={s_100m:.2f} → {status}",
+            insight,
+            "If capacity <$5M, strategy is retail-only. "
+            "Scale alpha by reducing position size or trading more liquid instruments.",
+            "Execution")
+
+    # ---- PLAUSIBILITY ----
+
+    def check_sharpe_plausibility(self):
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe > 10:
+            status = "⚠ Manual Audit Required"
+            insight = "Sharpe > 10 exceeds documented institutional performance (Renaissance ~8-10)"
+        elif sharpe > 5:
+            status = "⚠ Review Recommended"
+            insight = "Sharpe > 5 is extremely rare — requires explanation"
+        else:
+            status = "✅ Plausible"
+            insight = "Sharpe within realistic institutional range"
+        return CheckResult("Sharpe Plausibility", sharpe <= 10, 100,
+            f"Sharpe: {sharpe:.2f} → {status}", insight,
+            "If Sharpe > 10, verify data integrity and methodology", "Plausibility")
+
+    def check_frequency_return_plausibility(self):
+        mean_return = float(np.mean(self.returns))
+        annual_return = mean_return * self.trades_per_year
+        if self.trades_per_year > 20000 and annual_return > 500:
+            status = "⚠ Manual Audit Required"
+            insight = f"High frequency ({self.trades_per_year:.0f}/yr) + extreme returns ({annual_return:.0f}%) requires massive liquidity edge"
+        else:
+            status = "✅ Plausible"
+            insight = "Frequency-return relationship within realistic bounds"
+        return CheckResult("Frequency-Return Plausibility",
+            not (self.trades_per_year > 20000 and annual_return > 500), 100,
+            f"{self.trades_per_year:.0f} trades/yr × {mean_return*100:.2f}% avg → {annual_return:.0f}% annual ({status})",
+            insight, "Verify liquidity capacity and market impact assumptions", "Plausibility")
+
+    def check_equity_smoothness_plausibility(self):
+        r = self.returns
+        smoothness_ratio = np.std(r) / (abs(np.mean(r)) + EPSILON)
+        max_dd = calculate_max_drawdown(r)
+        dd_to_mean = max_dd / (abs(np.mean(r)) + EPSILON)
+        if smoothness_ratio < 0.5 and np.mean(r) > 0 and max_dd < 0.05:
+            status = "⚠ Manual Audit Required"
+            insight = "Suspiciously smooth equity curve — potential lookahead bias or synthetic data"
+        elif smoothness_ratio < 1.0 and dd_to_mean < 2.0:
+            status = "⚠ Review Recommended"
+            insight = "Unusually smooth returns — verify data integrity"
+        else:
+            status = "✅ Plausible"
+            insight = "Return volatility consistent with realistic trading"
+        return CheckResult("Equity Curve Plausibility", smoothness_ratio >= 0.5 or max_dd >= 0.05, 100,
+            f"Smoothness: {smoothness_ratio:.2f} → {status}", insight,
+            "Check for lookahead bias, options mispricing, or data manipulation", "Plausibility")
+
+    def check_kelly_plausibility(self):
+        r = self.returns
+        winners = r[r > 0]
+        losers  = r[r < 0]
+        if len(winners) == 0 or len(losers) == 0:
+            return CheckResult("Kelly Plausibility", True, 100,
+                "Kelly: N/A → ✅ Plausible",
+                "Cannot compute Kelly without both wins and losses.", "", "Plausibility")
+        wr       = len(winners) / len(r)
+        avg_win  = float(np.mean(winners))
+        avg_loss = float(abs(np.mean(losers)))
+        b = avg_win / max(avg_loss, EPSILON)   # reward:risk ratio
+        # Kelly fraction = (b*p - q) / b  (fraction of capital per trade, 0–1 is normal)
+        kelly = (b * wr - (1 - wr)) / b
+        if kelly > 1.0:
+            status = "⚠ Manual Audit Required"
+            insight = f"Kelly {kelly:.2f} means bet 100%+ of capital per trade — verify R:R and win rate"
+            passed = False
+        elif kelly > 0.5:
+            status = "⚠ Review Recommended"
+            insight = f"High Kelly {kelly:.2f} — edge appears strong, verify out-of-sample stability"
+            passed = True
+        else:
+            status = "✅ Plausible"
+            insight = f"Kelly fraction {kelly:.2f} within realistic range (typical: 0.05–0.30)"
+            passed = True
+        return CheckResult("Kelly Plausibility", passed, 100 if passed else 0,
+            f"Kelly: {kelly:.2f} → {status}", insight,
+            "Verify win rate and R:R ratio are stable out-of-sample", "Plausibility")
+
+    # ---- CRASH SIMS ----
+
+    def simulate_crash(self, crash_key: str) -> CrashSimResult:
+        profile = CRASH_PROFILES[crash_key]
+        r = self.returns
+
+        # Simulate the crisis window (~60 trading days) using strategy's own stats
+        # This fixes the bug where vol amplification made positive-mean strategies look better
+        crisis_days = 60
+        mean_r  = float(np.mean(r))
+        vol     = float(np.std(r))
+        market_drop_pct = profile["market_drop"] / 100  # e.g. -0.56
+
+        # Exposure: high-vol strategies bleed through more market crash than low-vol
+        exposure = float(np.clip(vol / 0.012, 0.1, 0.8))
+
+        # Generate crisis_days of stressed returns
+        rng = np.random.default_rng(abs(hash(crash_key)) % (2**32))
+        vol_mult = min(profile["vol_multiplier"], 4.0)  # cap at 4x to avoid explosion
+        stressed = rng.normal(mean_r, vol * vol_mult, crisis_days)
+
+        # Apply market drag (scaled by exposure and liquidity)
+        market_drag = market_drop_pct * exposure * profile["liquidity_factor"]
+        stressed += market_drag / crisis_days  # spread drag across crisis window
+
+        # Gap risk: spike down the worst 10% of days
+        bottom_10 = stressed < np.percentile(stressed, 10)
+        stressed[bottom_10] -= abs(stressed[bottom_10]) * profile["gap_risk"]
+
+        stressed = np.clip(stressed, -0.99, 0.99)
+
+        cumulative = float(np.prod(1 + stressed) - 1)
+        dd = calculate_max_drawdown(stressed)
+        survived = dd < (0.25 if self.strict_mode else 0.30)
+
+        # 4-tier verdict
+        if survived and cumulative > -0.05:
+            verdict = "🟢 YOUR STRATEGY SURVIVED. While markets crashed, your system held. This is what separates real edges from lucky backtests."
+        elif survived and cumulative > -0.20:
+            verdict = "🟡 DAMAGED BUT SURVIVED. Your strategy took losses but stayed alive. Most traders would have panicked and exited here."
+        elif survived:
+            verdict = "🟠 BARELY SURVIVED. Critical drawdown threshold nearly breached. Serious position sizing review required."
+        else:
+            verdict = "🔴 YOUR STRATEGY WOULD HAVE BLOWN UP. The crash exposed fatal flaws. Most traders quit here — the ones who survive rebuild with proper risk management."
+
+        return CrashSimResult(
+            crash_name=profile["name"], year=profile["year"],
+            description=profile["description"], market_drop=profile["market_drop"],
+            strategy_drop=round(cumulative, 4), survived=survived,
+            emotional_verdict=verdict
         )
 
-# =========================================================
-# OUTPUT & CLI
-# =========================================================
+    # ---- SCORING ----
 
-def format_report(report: ValidationReport) -> str:
-    """Format report for display."""
-    lines = []
-    
-    lines.append("=" * 80)
-    lines.append(f"QUANTPROOF v2.1 — INSTITUTIONAL VALIDATION REPORT")
-    lines.append("=" * 80)
-    lines.append(f"Timestamp: {report.timestamp}")
-    lines.append(f"Hash: {report.hash}")
-    lines.append(f"")
-    lines.append(f"OVERALL SCORE: {report.overall_score}/100")
-    lines.append(f"GRADE: {report.grade}")
-    lines.append(f"DEPLOYMENT STATUS: {report.deployment_status}")
-    lines.append(f"VERDICT: {report.verdict}")
-    lines.append(f"")
-    
-    lines.append("-" * 80)
-    lines.append("CORE METRICS")
-    lines.append("-" * 80)
-    if report.sharpe:
-        lines.append(f"Sharpe:     {report.sharpe.point:.2f} [{report.sharpe.ci_low:.2f}, {report.sharpe.ci_high:.2f}] {'✓' if report.sharpe.significant else '✗'}")
-    lines.append(f"Max DD:     {report.max_dd:.1%}")
-    lines.append(f"CVaR 95%:   {report.cvar95:.2%}")
-    if report.ruin_prob:
-        lines.append(f"Ruin Prob:  {report.ruin_prob.point:.1%} [{report.ruin_prob.ci_low:.1%}, {report.ruin_prob.ci_high:.1%}]")
-    lines.append(f"Win Rate:   {report.win_rate:.1%}")
-    lines.append(f"Kelly:      {report.half_kelly:.2%} (half-Kelly)")
-    lines.append(f"")
-    
-    lines.append("-" * 80)
-    lines.append("PROP FIRM COMPLIANCE")
-    lines.append("-" * 80)
-    for firm in report.prop_firms:
-        status = "✓ ELIGIBLE" if firm['funding_eligible'] else "✗ FAILED"
-        lines.append(f"{firm['firm']:12s}: {status}")
-        for v in firm['violations']:
-            lines.append(f"              - {v}")
-    lines.append(f"")
-    
-    lines.append("-" * 80)
-    lines.append("CRASH SCENARIOS")
-    lines.append("-" * 80)
-    for crash in report.crash_results:
-        emoji = "🟢" if crash['survival_prob'] > 0.8 else "🟡" if crash['survival_prob'] > 0.5 else "🔴"
-        lines.append(f"{emoji} {crash['scenario']:20s}: Survival {crash['survival_prob']:.1%} | {crash['verdict']}")
-    lines.append(f"")
-    
-    lines.append("-" * 80)
-    lines.append("THE FINAL 5%: OPERATIONAL READINESS")
-    lines.append("-" * 80)
-    if report.alpha_decay:
-        lines.append(f"Alpha Half-Life:  {report.alpha_decay.half_life_periods:.1f} periods" + 
-                    (f" ({report.alpha_decay.half_life_seconds:.1f}s)" if report.alpha_decay.half_life_seconds else ""))
-        lines.append(f"Optimal Holding:  {report.alpha_decay.optimal_holding} periods")
-        if report.alpha_decay.latency_sensitivity_bpms:
-            lines.append(f"Latency Sensitivity: {report.alpha_decay.latency_sensitivity_bpms:.3f} bp/ms")
-        if report.alpha_decay.regime_dependent:
-            lines.append(f"⚠️  Regime-dependent decay detected")
-    lines.append(f"")
-    lines.append(f"Overfit Score:    {report.overfit_score:.0f}/100")
-    if report.overfit_details:
-        lines.append(f"p-value vs noise: {report.overfit_details.get('p_value', 0):.3f}")
-        if report.overfit_details.get('is_overfit'):
-            lines.append(f"🚨 OVERFIT DETECTED:")
-            for ind, val in report.overfit_details.get('indicators', {}).items():
-                if val:
-                    lines.append(f"    • {ind}")
-    lines.append(f"")
-    
-    lines.append("-" * 80)
-    lines.append("DETAILED CHECKS")
-    lines.append("-" * 80)
-    for check in report.checks:
-        emoji = "🔴" if check.severity == "CRITICAL" else "🟠" if check.severity == "HIGH" else "🟡" if check.severity == "MEDIUM" else "⚪"
-        status = "✓ PASS" if check.passed else "✗ FAIL"
-        lines.append(f"{emoji} [{check.category:20s}] {check.name:30s}: {status} ({check.score:.0f})")
-        lines.append(f"    {check.value}")
-        if not check.passed:
-            lines.append(f"    → {check.fix}")
-    lines.append(f"")
-    
-    lines.append("=" * 80)
-    lines.append(f"FINAL RECOMMENDATION: {report.verdict}")
-    lines.append("=" * 80)
-    
-    return "\n".join(lines)
+    def _calculate_score(self, checks):
+        weights = {"Overfitting": 0.22, "Risk": 0.38, "Regime": 0.14, "Execution": 0.11, "Compliance": 0.15}
+        category_scores = {}
+        for cat in weights:
+            cat_checks = [c for c in checks if c.category == cat]
+            if cat_checks:
+                category_scores[cat] = float(np.mean([c.score for c in cat_checks]))
+            else:
+                category_scores[cat] = 0.0 if cat in ["Risk", "Overfitting", "Compliance"] else 20.0
 
-def main():
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python quantproof.py <backtest.csv> [asset_class] [strict|lenient]")
-        print("\nCSV format: Must contain 'return' column (decimal, e.g., 0.01 for 1%)")
-        print("Optional: 'date' (YYYY-MM-DD), 'signal' (entry indicator)")
-        sys.exit(1)
-    
-    csv_file = sys.argv[1]
-    asset = sys.argv[2] if len(sys.argv) > 2 else 'equities'
-    strict = sys.argv[3] != 'lenient' if len(sys.argv) > 3 else True
-    
-    try:
-        df = pd.read_csv(csv_file)
-        validator = QuantProofValidator(df, strict=strict, asset=asset)
-        report = validator.validate()
-        
-        print(format_report(report))
-        
-        # Save JSON
-        json_path = csv_file.replace('.csv', '_validation.json')
-        with open(json_path, 'w') as f:
-            # Convert to serializable dict
-            report_dict = {
-                'version': report.version,
-                'timestamp': report.timestamp,
-                'hash': report.hash,
-                'score': report.overall_score,
-                'grade': report.grade,
-                'status': report.deployment_status,
-                'verdict': report.verdict,
-                'sharpe': {
-                    'point': report.sharpe.point if report.sharpe else None,
-                    'ci': [report.sharpe.ci_low, report.sharpe.ci_high] if report.sharpe else None,
-                },
-                'max_dd': report.max_dd,
-                'cvar95': report.cvar95,
-                'ruin_prob': report.ruin_prob.point if report.ruin_prob else None,
-                'win_rate': report.win_rate,
-                'half_kelly': report.half_kelly,
-                'alpha_decay': {
-                    'half_life_periods': report.alpha_decay.half_life_periods if report.alpha_decay else None,
-                    'half_life_seconds': report.alpha_decay.half_life_seconds if report.alpha_decay else None,
-                    'optimal_holding': report.alpha_decay.optimal_holding if report.alpha_decay else None,
-                    'latency_sensitive': report.alpha_decay.latency_sensitivity_bpms is not None if report.alpha_decay else False,
-                },
-                'overfit': {
-                    'score': report.overfit_score,
-                    'is_overfit': report.overfit_details.get('is_overfit') if report.overfit_details else False,
-                    'p_value': report.overfit_details.get('p_value') if report.overfit_details else None,
-                },
-                'checks': [{'name': c.name, 'passed': c.passed, 'score': c.score, 'severity': c.severity} for c in report.checks],
-                'prop_firms': report.prop_firms,
-                'crash_results': report.crash_results,
-            }
-            json.dump(report_dict, f, indent=2, default=str)
-        
-        print(f"\nDetailed report saved to: {json_path}")
-        
-    except Exception as e:
-        print(f"Validation failed: {e}")
-        raise
+        final = sum(category_scores[cat] * w for cat, w in weights.items())
 
-if __name__ == "__main__":
-    main()
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe < 0:          final = min(final, 20)
+        elif sharpe < 0.3:      final = min(final, 35)
+        elif sharpe < 0.5:      final = min(final, 50)
+        elif sharpe > 10:       final = min(final, 30)
+
+        # Plausibility hard gates
+        plausibility = [c for c in checks if c.category == "Plausibility"]
+        if any(not c.passed and "Manual Audit Required" in c.value for c in plausibility):
+            final = min(final, 35)
+
+        # NEW: Institutional hard gates — these are disqualifying failures
+        # Fat-tail fluke: strategy has no distributable edge
+        conc_check = next((c for c in checks if c.name == "Profit Concentration"), None)
+        if conc_check and not conc_check.passed and conc_check.score == 0:
+            final = min(final, 38)   # Fat-tail fluke → cannot exceed D grade
+
+        # Sequence luck: edge only exists on one historical path
+        cpcv_check = next((c for c in checks if c.name == "CPCV Path Stability"), None)
+        if cpcv_check and cpcv_check.score == 0:
+            final = min(final, 42)   # Extreme sequence luck → hard cap
+
+        if not self.has_dates: final = min(final, 75)  # unverifiable timeframe
+
+        low_cats = sum(1 for s in category_scores.values() if s < 30)
+        if low_cats >= 2:   final = min(final, 45)
+        elif low_cats >= 1: final = min(final, 60)
+
+        compliance = [c for c in checks if c.category == "Compliance"]
+        if compliance and not all(c.passed for c in compliance):
+            final = min(final, 55)
+
+        if 'Short backtest' in self.timeframe_info:
+            final = min(final, 75)
+
+        # Tightened thresholds
+        if final >= 90:   grade = "A — Institutionally Viable"
+        elif final >= 80: grade = "B+ — Prop Firm Ready"
+        elif final >= 70: grade = "B — Live Tradeable"
+        else:             grade = "F — Do Not Deploy"
+
+        return round(final, 1), grade
+
+
+    def check_prop_firm_compliance(self) -> CheckResult:
+        """FTMO / Topstep / The5ers compliance (v1.7)."""
+        r = self.returns
+        max_dd = calculate_max_drawdown(r)
+        total_return = float(np.prod(1 + r) - 1)
+        sharpe = calculate_sharpe(r, self.trades_per_year)
+
+        firms = {
+            "FTMO":     {"max_dd": 0.10, "profit_target": 0.10},
+            "Topstep":  {"max_dd": 0.10, "profit_target": 0.06},
+            "The5ers":  {"max_dd": 0.10, "profit_target": 0.08},
+        }
+
+        eligible = []
+        violations = []
+
+        for name, rules in firms.items():
+            dd_ok = max_dd <= rules["max_dd"]
+            profit_ok = total_return >= rules["profit_target"]
+            sharpe_ok = sharpe >= 1.0
+            if dd_ok and profit_ok and sharpe_ok:
+                eligible.append(name)
+            else:
+                v = []
+                if not dd_ok:      v.append(f"DD {max_dd:.1%}>{rules['max_dd']:.0%}")
+                if not profit_ok:  v.append(f"Return {total_return:.1%}<{rules['profit_target']:.0%} target")
+                if not sharpe_ok:  v.append(f"Sharpe {sharpe:.2f}<1.0")
+                violations.append(f"{name}: {', '.join(v)}")
+
+        passed = len(eligible) >= 1
+        score = (len(eligible) / 3) * 100
+
+        if eligible:
+            value = f"Eligible: {', '.join(eligible)}"
+            insight = f"Meets requirements for {len(eligible)}/3 prop firms. Max DD {max_dd:.1%}, Return {total_return:.1%}, Sharpe {sharpe:.2f}."
+            fix = "Consider submitting to eligible firms."
+        else:
+            value = f"Not eligible for any prop firm"
+            insight = f"Violations: {' | '.join(violations[:2])}"
+            fix = "Reduce max drawdown below 10%, hit minimum profit targets, Sharpe>1.0."
+
+        return CheckResult(
+            name="Prop Firm Compliance",
+            passed=passed,
+            score=round(score, 1),
+            value=value,
+            insight=insight,
+            fix=fix,
+            category="Compliance",
+        )
+
+    # ---- RUN ----
+
+    def run(self) -> ValidationReport:
+        checks = [
+            self.check_sharpe_decay(),
+            self.check_monte_carlo(),
+            self.check_outlier_dependency(),
+            self.check_walk_forward(),
+            self.check_bootstrap_stability(),
+            self.check_max_drawdown(),
+            self.check_calmar_ratio(),
+            self.check_var(),
+            self.check_cvar(),
+            self.check_sortino(),
+            self.check_consecutive_losses(),
+            self.check_recovery_factor(),
+            self.check_absolute_sharpe(),
+            self.check_ruin_probability(),
+            self.check_bull_performance(),
+            self.check_bear_performance(),
+            self.check_consolidation_performance(),
+            self.check_volatility_stress(),
+            self.check_frequency_consistency(),
+            self.check_regime_coverage(),
+            self.check_slippage_01(),
+            self.check_slippage_03(),
+            self.check_commission_drag(),
+            self.check_partial_fills(),
+            self.check_live_vs_backtest_gap(),
+            self.check_impact_adjusted_capacity(),
+            self.check_compliance_pass(),
+            self.check_sharpe_plausibility(),
+            self.check_frequency_return_plausibility(),
+            self.check_equity_smoothness_plausibility(),
+            self.check_kelly_plausibility(),
+            self.check_prop_firm_compliance(),
+        ]
+        self.checks = checks
+
+        crash_sims = [
+            self.simulate_crash("2008_gfc"),
+            self.simulate_crash("2020_covid"),
+            self.simulate_crash("2022_bear"),
+            self.simulate_crash("2010_flash_crash"),
+            self.simulate_crash("1998_ltcm"),
+        ]
+
+        score, grade = self._calculate_score(checks)
+        r = self.returns
+        sharpe   = calculate_sharpe(r, self.trades_per_year)
+        dd       = calculate_max_drawdown(r)
+        win_rate = calculate_win_rate(r)
+
+        if self.strict_mode:
+            if sharpe < 1.2:
+                grade = "F — Strict Mode: Sharpe below 1.2"; score = min(score, 40)
+            compliance = [c for c in checks if c.category == "Compliance"]
+            if compliance and not all(c.passed for c in compliance):
+                grade = "F — Strict Mode: Compliance failed"; score = min(score, 30)
+            if sum(1 for s in crash_sims if s.survived) < 2:
+                grade = "F — Strict Mode: Failed crash stress test"; score = min(score, 35)
+
+        # ── Final 5%: Alpha Decay + Overfit Detection (informational only) ──
+        timestamps = self.df['date'] if 'date' in self.df.columns else None
+        alpha_decay = _analyze_alpha_decay(r, timestamps)
+        overfit_profile = _OverfitDetector(r, timestamps).detect()
+
+        # Add informational checks (no score/gate impact — pure insight)
+        hl_str = (f"{alpha_decay.half_life_periods:.1f} periods"
+                  if alpha_decay.half_life_periods < 990
+                  else "No significant autocorrelation (random walk — normal for daily)")
+        checks.append(CheckResult(
+            name="Alpha Decay (Half-Life)", passed=True,
+            score=100 if not alpha_decay.latency_sensitive else 60,
+            value=hl_str,
+            insight=(f"Signal decays in {alpha_decay.half_life_periods:.1f} periods. "
+                     f"{'⚠️ Regime-dependent decay — monitor vol regimes.' if alpha_decay.regime_dependent else ''}"
+                     f"{'🚨 LATENCY SENSITIVE — sub-60s half-life.' if alpha_decay.latency_sensitive else 'Not latency-critical.'}")
+                    if alpha_decay.half_life_periods < 990 else
+                    "Returns show no significant autocorrelation structure. Normal for daily strategies.",
+            fix=("Upgrade execution infrastructure or increase holding period."
+                 if alpha_decay.latency_sensitive else
+                 "No action required."),
+            category="Operational"
+        ))
+
+        checks.append(CheckResult(
+            name="Symbolic Overfit Detection", passed=not overfit_profile.is_overfit,
+            score=overfit_profile.score,
+            value=f"Score {overfit_profile.score:.0f}/100 | p={overfit_profile.p_value:.3f} | AdjSharpe={overfit_profile.adjusted_sharpe:.2f}",
+            insight=(f"Strategy is {'statistically indistinguishable from noise' if overfit_profile.is_overfit else 'distinguishable from random noise'}. "
+                     f"Adj Sharpe {overfit_profile.adjusted_sharpe:.2f} vs raw {overfit_profile.raw_sharpe:.2f}. "
+                     + (overfit_profile.informational if overfit_profile.informational else "")),
+            fix=("Simplify strategy rules, reduce parameter count, test on out-of-sample data."
+                 if overfit_profile.is_overfit else "No overfit detected."),
+            category="Operational"
+        ))
+
+        return ValidationReport(
+            score=score, grade=grade, sharpe=sharpe, max_drawdown=dd,
+            win_rate=win_rate, total_trades=len(r), profitable_trades=int(np.sum(r > 0)),
+            checks=checks, crash_sims=crash_sims,
+            assumptions=self._get_assumptions(),
+            validation_hash=self._generate_validation_hash(),
+            validation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            audit_flags=self._generate_audit_flags(),
+            plausibility_summary=self._generate_plausibility_summary(),
+            alpha_decay=alpha_decay,
+            overfit_profile=overfit_profile,
+        )
