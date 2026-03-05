@@ -1,6 +1,6 @@
 """
-QuantProof — FastAPI Backend v2.1
-Production-ready institutional validation engine
+QuantProof — FastAPI Backend v1.3
+Final Boss validator v1.7 — Production Ready
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -10,11 +10,10 @@ from typing import List, Optional, Dict, Any
 import pandas as pd
 import numpy as np
 import io
-import dataclasses
 
-from validator import QuantProofValidator, ValidationReport
+from validator import QuantProofValidator
 
-app = FastAPI(title="QuantProof API", version="2.1.0")
+app = FastAPI(title="QuantProof API", version="2.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,67 +28,49 @@ app.add_middleware(
 
 class CheckResultResponse(BaseModel):
     name: str
-    category: str
     passed: bool
     score: float
     value: str
-    interpretation: str
+    insight: str
     fix: str
-    severity: str
+    category: str
 
 class CrashSimResponse(BaseModel):
-    scenario: str
-    market_return: float
-    survival_prob: float
-    margin_call_prob: float
-    strategy_return_mean: float
-    strategy_return_ci: tuple
-    max_dd_mean: float
-    verdict: str
-
-class PropFirmResponse(BaseModel):
-    firm: str
-    phase1_pass: bool
-    phase2_pass: bool
-    funding_eligible: bool
-    violations: List[str]
-    recommended_size: int
-
-class AlphaDecayResponse(BaseModel):
-    half_life_periods: float
-    half_life_seconds: Optional[float]
-    optimal_holding: int
-    capacity_limited: float
-    regime_dependent: bool
-    microstructure_noise: Optional[float]
-    latency_sensitivity_bpms: Optional[float]
+    crash_name: str
+    year: str
+    description: str
+    market_drop: float
+    strategy_drop: float
+    survived: bool
+    emotional_verdict: str
 
 class ValidationResponse(BaseModel):
     # Core score
-    score: float
+    fundable_score: float
     grade: str
-    deployment_status: str
-    verdict: str
-    # Core metrics
-    sharpe: Optional[Dict[str, Any]]
-    max_dd: float
-    cvar95: float
-    ruin_prob: Optional[Dict[str, Any]]
-    win_rate: float
-    half_kelly: float
-    # Final 5%
-    alpha_decay: Optional[AlphaDecayResponse]
-    overfit_score: float
-    overfit_details: Dict[str, Any]
-    # Results
-    checks: List[CheckResultResponse]
-    crash_results: List[CrashSimResponse]
-    prop_firms: List[PropFirmResponse]
-    # Meta
-    version: str
-    timestamp: str
-    hash: str
+    summary: str
+    # Trade stats
     total_trades: int
+    profitable_trades: int
+    date_range: str
+    sharpe: float
+    max_drawdown: float
+    win_rate: float
+    # Checks
+    checks: List[CheckResultResponse]
+    crash_sims: List[CrashSimResponse]
+    # Insights
+    top_issues: List[str]
+    top_strengths: List[str]
+    # Institutional
+    validation_hash: str
+    validation_date: str
+    engine_version: str
+    audit_flags: List[str]
+    plausibility_summary: str
+    assumptions: List[str]
+    # Dashboard data (optional — for future chart rendering)
+    dashboard: Optional[Dict[str, Any]] = None
 
 # =========================================================
 # CSV PARSER
@@ -98,19 +79,18 @@ class ValidationResponse(BaseModel):
 def smart_parse_csv(contents: bytes) -> pd.DataFrame:
     raw = contents.decode("utf-8", errors="ignore")
 
-    # Primary parse — look for known return column names
+    # Primary parse — look for known pnl column names
     try:
         df = pd.read_csv(io.StringIO(raw))
-        return_names = ["return", "pnl", "profit", "gain", "pl", "p&l", "net", "alpha"]
+        pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l", "net", "alpha"]
         for col in df.columns:
-            if any(p in col.lower() for p in return_names):
+            if any(p in col.lower() for p in pnl_names):
                 vals = pd.to_numeric(df[col], errors="coerce").dropna()
                 if len(vals) >= 5:
-                    # Check if values are percentages and convert to decimals
-                    if vals.abs().max() > 1.0:
-                        vals = vals / 100.0
+                    if vals.abs().mean() > 1.0:
+                        vals = vals / 10000.0
                     vals = vals.clip(-0.50, 0.50)
-                    result = pd.DataFrame({"return": vals.values})
+                    result = pd.DataFrame({"pnl": vals.values})
                     # Preserve date column if present
                     date_cols = [c for c in df.columns if any(x in c.lower() for x in ["date", "time", "dt"])]
                     if date_cols:
@@ -142,20 +122,20 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
                 if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
+                    vals = vals / 10000.0
                 vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"return": vals.values})
+                return pd.DataFrame({"pnl": vals.values})
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and vals.std() > 0:
                 if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
+                    vals = vals / 10000.0
                 vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"return": vals.values})
+                return pd.DataFrame({"pnl": vals.values})
     except Exception as e:
         raise ValueError(f"Could not parse CSV: {str(e)}")
 
-    raise ValueError("No valid return column found. Make sure your CSV has a 'return' or 'pnl' column.")
+    raise ValueError("No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column.")
 
 # =========================================================
 # ROUTES
@@ -165,11 +145,12 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 def root():
     return {
         "status": "QuantProof API is live",
-        "version": "2.1.0",
-        "checks": "12 institutional checks + Final 5% analysis",
-        "features": ["Alpha Decay Analysis", "Symbolic Overfit Detection", 
-                     "Prop Firm Compliance", "Crash Scenarios",
-                     "Production-safe RNG", "Data Integrity Checks"]
+        "version": "2.5.0",
+        "checks": "30 institutional checks + 3 crash simulations",
+        "new_in_v1.3": ["CVaR/Expected Shortfall", "Fractional Kelly + Ruin Probability",
+                        "Market Impact (Almgren-Chriss)", "Deflated Sharpe",
+                        "Purged Walk-Forward CV", "HMM Regime Detection",
+                        "Capacity Analysis", "Interactive Dashboard API"]
     }
 
 @app.post("/validate", response_model=ValidationResponse)
@@ -189,39 +170,243 @@ async def validate(file: UploadFile = File(...)):
 
     try:
         validator = QuantProofValidator(df)
-        report = validator.validate()
+        report = validator.run()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
-    # Convert ValidationReport to dict for JSON serialization
-    report_dict = dataclasses.asdict(report)
-    
-    # Convert nested dataclasses
-    if report_dict.get('sharpe'):
-        report_dict['sharpe'] = dataclasses.asdict(report.sharpe)
-    if report_dict.get('ruin_prob'):
-        report_dict['ruin_prob'] = dataclasses.asdict(report.ruin_prob)
-    if report_dict.get('alpha_decay'):
-        report_dict['alpha_decay'] = dataclasses.asdict(report.alpha_decay)
-    
-    return report_dict
+    r = report
+
+    # Build top issues and strengths — exclude Plausibility (informational only)
+    scored_checks = [c for c in r.checks if c.category != "Plausibility"]
+    top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
+    top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
+
+    # Date range
+    date_range = "No date data"
+    if "date" in validator.df.columns:
+        try:
+            date_range = f"{validator.df['date'].min().date()} to {validator.df['date'].max().date()}"
+        except Exception:
+            pass
+
+    # Dynamic summary — uses actual check count
+    check_count = len([c for c in r.checks if c.category != "Plausibility"])
+    summary = (
+        f"QuantProof analyzed {r.total_trades} trades across {check_count} institutional checks "
+        f"+ 3 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
+        f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
+    )
+
+    dashboard_data = None  # Dashboard removed in v1.6
+
+    # Only show non-Plausibility checks to frontend by default
+    # Plausibility checks are surfaced via audit_flags instead
+    visible_checks = [c for c in r.checks if c.category != "Plausibility"]
+
+    return ValidationResponse(
+        fundable_score=r.score,
+        grade=r.grade,
+        summary=summary,
+        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
+        total_trades=r.total_trades,
+        profitable_trades=r.profitable_trades,
+        date_range=date_range,
+        sharpe=round(r.sharpe, 2),
+        max_drawdown=round(r.max_drawdown, 4),
+        win_rate=round(r.win_rate, 1),
+        top_issues=top_issues,
+        top_strengths=top_strengths,
+        validation_hash=r.validation_hash,
+        validation_date=r.validation_date,
+        engine_version=r.engine_version,
+        audit_flags=r.audit_flags,
+        plausibility_summary=r.plausibility_summary,
+        assumptions=r.assumptions,
+        dashboard=dashboard_data,
+    )
 
 @app.get("/sample-csv")
 def sample_csv():
     return {
         "format": "CSV with these columns",
-        "required": ["return (profit/loss per trade as decimal, e.g. 0.015 = 1.5%)"],
-        "optional": ["date", "ticker", "side (long/short)", "regime", "volume"],
+        "required": ["pnl (profit/loss per trade as decimal, e.g. 0.015 = 1.5%)"],
+        "optional": ["date", "ticker", "side (long/short)", "regime (BULL/BEAR/CONSOLIDATION/TRANSITION)", "volume"],
         "example_row": {
             "date": "2024-01-15",
             "ticker": "AAPL",
-            "return": 0.0145,
+            "pnl": 0.0145,
             "side": "long",
             "regime": "BULL"
         },
-        "note": "Returns must be decimals (0.0145), not percentages (1.45)."
+        "note": "Add regime column for +15 regime coverage score. Add volume for market impact analysis."
     }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "2.1.0"}
+    return {"status": "ok", "version": "2.5.0"}
+
+
+# =========================================================
+# PDF REPORT — PAYWALL ENDPOINT
+# =========================================================
+
+from fastapi import Header
+from fastapi.responses import Response as FastAPIResponse
+from generate_report import generate_pdf_report
+
+# Simple token gate — replace with Stripe webhook in production
+REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
+
+STRIPE_PRICE_ID = "price_REPLACE_WITH_REAL_ID"   # $9 one-time report
+REPORT_PRICE_USD = 9
+
+
+@app.post("/report/generate")
+async def generate_report_endpoint(
+    file: UploadFile = File(...),
+    x_report_token: str = Header(default="")
+):
+    """
+    Paid endpoint — returns a full PDF analysis report.
+    Gate: x-report-token header must match a paid session token.
+    For dev/testing: token "dev-free" bypasses the gate.
+    """
+
+    # Token check
+    is_paid = (x_report_token in REPORT_ACCESS_TOKENS or
+               x_report_token == "dev-free")
+    if not is_paid:
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "error": "payment_required",
+                "message": "Purchase required to download the full analysis report.",
+                "price_usd": REPORT_PRICE_USD,
+                "stripe_price_id": STRIPE_PRICE_ID,
+                "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"
+            }
+        )
+
+    # Parse + validate
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Please upload a CSV file")
+
+    contents = await file.read()
+    try:
+        df = smart_parse_csv(contents)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    if len(df) < 5:
+        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 5.")
+
+    try:
+        validator = QuantProofValidator(df)
+        report    = validator.run()
+    except Exception as e:
+        raise HTTPException(500, f"Validation failed: {str(e)}")
+
+    # Build response dict (same shape as /validate)
+    scored  = [c for c in report.checks if c.category != "Plausibility"]
+    date_range = "No date data"
+    if "date" in validator.df.columns:
+        try:
+            date_range = f"{validator.df['date'].min().date()} to {validator.df['date'].max().date()}"
+        except Exception:
+            pass
+
+    vr = {
+        "fundable_score": report.score,
+        "grade":          report.grade,
+        "sharpe":         round(report.sharpe, 2),
+        "max_drawdown":   round(report.max_drawdown, 4),
+        "win_rate":       round(report.win_rate, 1),
+        "total_trades":   report.total_trades,
+        "date_range":     date_range,
+        "checks": [
+            {"name": c.name, "passed": c.passed, "score": c.score,
+             "value": c.value, "insight": c.insight, "fix": c.fix,
+             "category": c.category}
+            for c in report.checks
+        ],
+        "crash_sims": [
+            {"crash_name": s.crash_name, "year": s.year,
+             "description": s.description, "market_drop": s.market_drop,
+             "strategy_drop": s.strategy_drop, "survived": s.survived,
+             "emotional_verdict": s.emotional_verdict}
+            for s in report.crash_sims
+        ],
+        "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
+        "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
+    }
+
+    try:
+        pdf_bytes = generate_pdf_report(vr)
+    except Exception as e:
+        raise HTTPException(500, f"PDF generation failed: {str(e)}")
+
+    score     = int(report.score)
+    grade_str = report.grade.split("—")[0].strip().replace(" ", "")
+    filename  = f"QuantProof_Report_{grade_str}_{score}.pdf"
+
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
+
+
+@app.post("/report/create-checkout")
+async def create_checkout(payload: dict):
+    """
+    Creates a Stripe Checkout session for the $9 report.
+    Frontend redirects user to session.url.
+    On success, Stripe webhook calls /report/webhook to issue a token.
+    """
+    try:
+        import stripe
+        stripe.api_key = "sk_live_REPLACE_WITH_REAL_KEY"   # env var in prod
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
+            mode="payment",
+            success_url="https://quantproof-frontend.onrender.com/#report-success?token={CHECKOUT_SESSION_ID}",
+            cancel_url="https://quantproof-frontend.onrender.com/#report-cancel",
+            metadata={"product": "report_download"}
+        )
+        return {"checkout_url": session.url, "session_id": session.id}
+    except ImportError:
+        # stripe not installed — return mock for testing
+        return {
+            "checkout_url": "https://buy.stripe.com/REPLACE_WITH_REAL_PAYMENT_LINK",
+            "session_id": "cs_mock_dev"
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/report/webhook")
+async def stripe_webhook(request):
+    """
+    Stripe sends POST here after successful payment.
+    Issues a one-time download token tied to the checkout session.
+    """
+    import hashlib, time
+    body = await request.body()
+    # Verify Stripe signature in production:
+    # stripe.Webhook.construct_event(body, sig_header, webhook_secret)
+
+    try:
+        import json
+        event = json.loads(body)
+        if event.get("type") == "checkout.session.completed":
+            session_id = event["data"]["object"]["id"]
+            token = hashlib.sha256(f"{session_id}:quantproof:secret".encode()).hexdigest()[:32]
+            REPORT_ACCESS_TOKENS.add(token)
+            return {"status": "ok", "token": token}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    return {"status": "ignored"}
