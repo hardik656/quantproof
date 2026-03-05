@@ -1,0 +1,199 @@
+{
+  "version": "v2.1-Final5%",
+  "timestamp": "2026-03-05T09:04:28.491110",
+  "hash": "a90f1f45add8fd01",
+  "score": 40,
+  "grade": "F",
+  "status": "DO_NOT_DEPLOY",
+  "verdict": "DO NOT DEPLOY: Critical failures",
+  "sharpe": {
+    "point": 6.9742822958335955,
+    "ci": [
+      0.8549632525271527,
+      13.093601339140038
+    ]
+  },
+  "max_dd": 0.015599999999999907,
+  "cvar95": -0.019773323913568234,
+  "ruin_prob": 0.0,
+  "win_rate": 0.6666666666666666,
+  "half_kelly": 0.11766442344766234,
+  "alpha_decay": {
+    "half_life_periods": 1.0,
+    "half_life_seconds": 86400.0,
+    "optimal_holding": 1,
+    "latency_sensitive": false
+  },
+  "overfit": {
+    "score": "100",
+    "is_overfit": "True",
+    "p_value": 0.08333333333333333
+  },
+  "checks": [
+    {
+      "name": "Sharpe Ratio",
+      "passed": "True",
+      "score": 100,
+      "severity": "LOW"
+    },
+    {
+      "name": "Max Drawdown",
+      "passed": true,
+      "score": 92.20000000000005,
+      "severity": "MEDIUM"
+    },
+    {
+      "name": "CVaR (95%)",
+      "passed": true,
+      "score": 60.45335217286353,
+      "severity": "MEDIUM"
+    },
+    {
+      "name": "Probability of Ruin",
+      "passed": true,
+      "score": 100.0,
+      "severity": "MEDIUM"
+    },
+    {
+      "name": "Kelly Fraction",
+      "passed": "True",
+      "score": 100,
+      "severity": "MEDIUM"
+    },
+    {
+      "name": "Win Rate",
+      "passed": "True",
+      "score": 100,
+      "severity": "LOW"
+    },
+    {
+      "name": "Slippage Model",
+      "passed": "True",
+      "score": 75.88672505735317,
+      "severity": "LOW"
+    },
+    {
+      "name": "Strategy Capacity",
+      "passed": true,
+      "score": 100,
+      "severity": "LOW"
+    },
+    {
+      "name": "Return Independence",
+      "passed": "False",
+      "score": 0,
+      "severity": "HIGH"
+    },
+    {
+      "name": "Return Distribution",
+      "passed": "False",
+      "score": 50,
+      "severity": "MEDIUM"
+    },
+    {
+      "name": "Alpha Decay (Half-Life)",
+      "passed": false,
+      "score": 70.0,
+      "severity": "CRITICAL"
+    },
+    {
+      "name": "Symbolic Overfit",
+      "passed": false,
+      "score": "100",
+      "severity": "CRITICAL"
+    }
+  ],
+  "prop_firms": [
+    {
+      "firm": "FTMO",
+      "phase1_pass": true,
+      "phase2_pass": true,
+      "funding_eligible": true,
+      "violations": [],
+      "recommended_size": 200000
+    },
+    {
+      "firm": "Topstep",
+      "phase1_pass": true,
+      "phase2_pass": true,
+      "funding_eligible": true,
+      "violations": [],
+      "recommended_size": 200000
+    },
+    {
+      "firm": "The5ers",
+      "phase1_pass": true,
+      "phase2_pass": true,
+      "funding_eligible": true,
+      "violations": [],
+      "recommended_size": 200000
+    }
+  ],
+  "crash_results": [
+    {
+      "scenario": "2008 GFC",
+      "market_return": -0.57,
+      "survival_prob": 0.11433333333333333,
+      "margin_call_prob": 0.3273333333333333,
+      "strategy_return_mean": 0.3408883738669579,
+      "strategy_return_ci": [
+        -0.7828889793381675,
+        1.9445663783198264
+      ],
+      "max_dd_mean": 0.4275407688667952,
+      "verdict": "LIKELY_RUIN"
+    },
+    {
+      "scenario": "2020 COVID",
+      "market_return": -0.34,
+      "survival_prob": 0.15866666666666668,
+      "margin_call_prob": 0.2683333333333333,
+      "strategy_return_mean": 0.5755952286107471,
+      "strategy_return_ci": [
+        -0.7328096811423563,
+        2.479615648925429
+      ],
+      "max_dd_mean": 0.3938794219609811,
+      "verdict": "LIKELY_RUIN"
+    },
+    {
+      "scenario": "2022 Rate Shock",
+      "market_return": -0.25,
+      "survival_prob": 0.817,
+      "margin_call_prob": 0.0006666666666666666,
+      "strategy_return_mean": 0.2718201344725211,
+      "strategy_return_ci": [
+        -0.13234928560294482,
+        0.7669828915336383
+      ],
+      "max_dd_mean": 0.1435425974287459,
+      "verdict": "RESILIENT"
+    },
+    {
+      "scenario": "2010 Flash Crash",
+      "market_return": -0.09,
+      "survival_prob": 0.22633333333333333,
+      "margin_call_prob": 0.20166666666666666,
+      "strategy_return_mean": 0.8005770863028461,
+      "strategy_return_ci": [
+        -0.6742234317529768,
+        3.0568382574781476
+      ],
+      "max_dd_mean": 0.35244189252238173,
+      "verdict": "CRITICAL_RISK"
+    },
+    {
+      "scenario": "1998 LTCM",
+      "market_return": -0.19,
+      "survival_prob": 0.6203333333333333,
+      "margin_call_prob": 0.10433333333333333,
+      "strategy_return_mean": 0.6232535501496996,
+      "strategy_return_ci": [
+        -0.647189149666466,
+        2.3699171230954343
+      ],
+      "max_dd_mean": 0.22861522158018383,
+      "verdict": "SURVIVABLE"
+    }
+  ]
+}
