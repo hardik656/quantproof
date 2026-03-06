@@ -1,6 +1,6 @@
 """
 QuantProof — FastAPI Backend v1.3
-Final Boss validator v1.7 — Production Ready
+Final Boss validator — matches ValidationReport + ValidationDashboard
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import io
 
-from validator import QuantProofValidator
+from validator import QuantProofValidator, ValidationDashboard
 
 app = FastAPI(title="QuantProof API", version="2.5.0")
 
@@ -145,7 +145,7 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 def root():
     return {
         "status": "QuantProof API is live",
-        "version": "2.5.0",
+        "version": "1.3.0",
         "checks": "30 institutional checks + 3 crash simulations",
         "new_in_v1.3": ["CVaR/Expected Shortfall", "Fractional Kelly + Ruin Probability",
                         "Market Impact (Almgren-Chriss)", "Deflated Sharpe",
@@ -197,7 +197,12 @@ async def validate(file: UploadFile = File(...)):
         f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
     )
 
-    dashboard_data = None  # Dashboard removed in v1.6
+    # Generate dashboard data
+    try:
+        dashboard_obj = ValidationDashboard(validator, report)
+        dashboard_data = dashboard_obj.generate_interactive_report()
+    except Exception:
+        dashboard_data = None
 
     # Only show non-Plausibility checks to frontend by default
     # Plausibility checks are surfaced via audit_flags instead
@@ -244,7 +249,7 @@ def sample_csv():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "2.5.0"}
+    return {"status": "ok", "version": "1.3.0"}
 
 
 # =========================================================
@@ -253,7 +258,13 @@ def health():
 
 from fastapi import Header
 from fastapi.responses import Response as FastAPIResponse
-from generate_report import generate_pdf_report
+# generate_report imported lazily inside endpoint — allows server to start without it
+try:
+    from generate_report import generate_pdf_report as _generate_pdf_report
+    _PDF_AVAILABLE = True
+except ImportError:
+    _generate_pdf_report = None
+    _PDF_AVAILABLE = False
 
 # Simple token gate — replace with Stripe webhook in production
 REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
@@ -342,7 +353,9 @@ async def generate_report_endpoint(
     }
 
     try:
-        pdf_bytes = generate_pdf_report(vr)
+        if not _PDF_AVAILABLE:
+            raise HTTPException(503, "PDF module not available. Push generate_report.py to backend/.")
+        pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
 
@@ -409,4 +422,4 @@ async def stripe_webhook(request):
     except Exception as e:
         raise HTTPException(400, str(e))
 
-    return {"status": "ignored"}
+    return {"status": "ignored"}"ignored"}
