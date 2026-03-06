@@ -422,4 +422,6 @@ async def stripe_webhook(request):
     except Exception as e:
         raise HTTPException(400, str(e))
 
-    return {"status": "ignored"}"ignored"}
+    return {"status": "ignored"}
+
+    return {"status": "ignored"}
