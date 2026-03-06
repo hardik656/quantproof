@@ -1149,11 +1149,15 @@ class QuantProofValidator:
         r = self.returns
 
         # Simulate the crisis window (~60 trading days) using strategy's own stats
-        # This fixes the bug where vol amplification made positive-mean strategies look better
         crisis_days = 60
         mean_r  = float(np.mean(r))
         vol     = float(np.std(r))
         market_drop_pct = profile["market_drop"] / 100  # e.g. -0.56
+
+        # FIX: use trimmed mean to avoid fat-tail whale trades biasing crash results
+        # A single +45% outlier trade should not make crash scenarios look profitable
+        trimmed_mean = float(np.mean(np.clip(r,
+            np.percentile(r, 2), np.percentile(r, 98))))
 
         # Exposure: high-vol strategies bleed through more market crash than low-vol
         exposure = float(np.clip(vol / 0.012, 0.1, 0.8))
@@ -1161,7 +1165,9 @@ class QuantProofValidator:
         # Generate crisis_days of stressed returns
         rng = np.random.default_rng(abs(hash(crash_key)) % (2**32))
         vol_mult = min(profile["vol_multiplier"], 4.0)  # cap at 4x to avoid explosion
-        stressed = rng.normal(mean_r, vol * vol_mult, crisis_days)
+
+        # Use trimmed_mean (not raw mean) so whale outliers don't make crashes look rosy
+        stressed = rng.normal(trimmed_mean, vol * vol_mult, crisis_days)
 
         # Apply market drag (scaled by exposure and liquidity)
         market_drag = market_drop_pct * exposure * profile["liquidity_factor"]
@@ -1172,8 +1178,20 @@ class QuantProofValidator:
         stressed[bottom_10] -= abs(stressed[bottom_10]) * profile["gap_risk"]
 
         stressed = np.clip(stressed, -0.99, 0.99)
-
         cumulative = float(np.prod(1 + stressed) - 1)
+
+        # ── PLAUSIBILITY CAPS ──────────────────────────────────────────────────
+        # Rule 1: No strategy can gain >25% during any crash window
+        if cumulative > 0.25:
+            cumulative = 0.25
+        # Rule 2: Negative-edge strategies (trimmed_mean < 0) cannot show real gains
+        # in a crash — correlation spikes eliminate uncorrelated alpha
+        if trimmed_mean < -0.001 and cumulative > 0.05:
+            cumulative = cumulative * 0.15
+        # Rule 3: Severe crashes (>15% market drop) kill liquidity-dependent gains
+        if market_drop_pct < -0.15 and cumulative > 0.08:
+            cumulative = cumulative * 0.25
+
         dd = calculate_max_drawdown(stressed)
         survived = dd < (0.25 if self.strict_mode else 0.30)
 
@@ -1333,7 +1351,7 @@ class QuantProofValidator:
             self.check_partial_fills(),
             self.check_live_vs_backtest_gap(),
             self.check_impact_adjusted_capacity(),
-            self.check_compliance_pass(),
+            self.check_prop_firm_compliance(),  # detailed FTMO/Topstep/The5ers check
             self.check_sharpe_plausibility(),
             self.check_frequency_return_plausibility(),
             self.check_equity_smoothness_plausibility(),
