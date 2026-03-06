@@ -818,19 +818,19 @@
   <div class="hero" id="heroSection">
     <div class="hero-tag">// Institutional-Grade Algo Validation</div>
     <h1>Does your strategy<br>survive the <em>real world?</em></h1>
-    <p>Upload your backtest CSV. Get 12 institutional checks + Final 5% analysis including Alpha Decay and Overfit Detection in seconds.</p>
+    <p>Upload your backtest CSV. Get 20 institutional checks + crash simulations across 2008, 2020, and 2022 in seconds.</p>
     <div class="stats-row">
       <div class="stat">
-        <div class="stat-num">12</div>
+        <div class="stat-num">20</div>
         <div class="stat-label">Checks Run</div>
       </div>
       <div class="stat">
-        <div class="stat-num">5</div>
+        <div class="stat-num">3</div>
         <div class="stat-label">Crash Sims</div>
       </div>
       <div class="stat">
-        <div class="stat-num">Final 5%</div>
-        <div class="stat-label">Analysis</div>
+        <div class="stat-num">0–100</div>
+        <div class="stat-label">Fundable Score</div>
       </div>
       <div class="stat">
         <div class="stat-num">&lt;30s</div>
@@ -844,12 +844,12 @@
     <div class="upload-zone" id="uploadZone">
       <span class="upload-icon">📊</span>
       <div class="upload-title">Drop your backtest CSV here</div>
-      <div class="upload-sub">// CSV with return column required</div>
+      <div class="upload-sub">// CSV with pnl column required</div>
       <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
         SELECT FILE
       </button>
       <input type="file" id="fileInput" accept=".csv">
-      <div class="format-hint">Required column: return &nbsp;|&nbsp; Optional: date, ticker, side</div>
+      <div class="format-hint">Required column: pnl &nbsp;|&nbsp; Optional: date, ticker, side</div>
     </div>
   </div>
 
@@ -863,11 +863,13 @@
       </div>
       <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
       <div class="terminal-line">→ Parsing trade data...</div>
-      <div class="terminal-line">→ Running institutional checks (12 checks)...</div>
-      <div class="terminal-line">→ Computing Alpha Decay analysis...</div>
-      <div class="terminal-line">→ Detecting symbolic overfit...</div>
-      <div class="terminal-line">→ Running prop firm compliance...</div>
-      <div class="terminal-line">→ Simulating 5 crash scenarios...</div>
+      <div class="terminal-line">→ Running overfitting detection (5 checks)...</div>
+      <div class="terminal-line">→ Computing risk metrics (5 checks)...</div>
+      <div class="terminal-line">→ Testing regime robustness (5 checks)...</div>
+      <div class="terminal-line">→ Simulating execution reality (5 checks)...</div>
+      <div class="terminal-line">→ Running 2008 GFC crash simulation...</div>
+      <div class="terminal-line">→ Running 2020 COVID crash simulation...</div>
+      <div class="terminal-line">→ Running 2022 bear market simulation...</div>
     </div>
   </div>
 
@@ -931,6 +933,7 @@
       }
 
       const data = await response.json();
+      console.log("QuantProof API response:", data);  // debug
 
       // Small delay for terminal animation
       setTimeout(() => {
@@ -949,11 +952,16 @@
   // ========== RENDER RESULTS ==========
   function renderResults(data) {
     const section = document.getElementById('resultsSection');
-    section.innerHTML = buildResultsHTML(data);
+    try {
+      section.innerHTML = buildResultsHTML(data);
+    } catch(e) {
+      console.error('buildResultsHTML crashed:', e, data);
+      section.innerHTML = '<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ' + e.message + '<br><br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>';
+    }
     section.classList.add('active');
 
     // Animate score circle
-    setTimeout(() => animateScore(data.score), 100);
+    setTimeout(() => animateScore(data.fundable_score), 100);
 
     // Animate bars
     setTimeout(() => {
@@ -1007,23 +1015,15 @@
   }
 
   function buildResultsHTML(data) {
-    const scoreColor = getScoreColor(data.score);
+    const scoreColor = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
     const gradeDesc = data.grade.split('—')[1]?.trim() || '';
     // Group checks by category
     const categories = {};
-    data.checks.forEach(c => {
+    (data.checks || []).forEach(c => {
       if (!categories[c.category]) categories[c.category] = [];
       categories[c.category].push(c);
     });
-
-    // Helper to get deployment status color
-    function getStatusColor(status) {
-      if (status === 'PRODUCTION_READY') return 'var(--accent)';
-      if (status === 'PILOT_ONLY') return 'var(--accent3)';
-      if (status === 'RESEARCH_ONLY') return '#ff8800';
-      return 'var(--accent2)';
-    }
 
     return `
       <!-- SCORE HERO -->
@@ -1045,15 +1045,15 @@
           </div>
         </div>
         <div class="score-meta">
-          <div class="score-summary">${data.verdict}</div>
+          <div class="score-summary">${data.summary}</div>
           <div class="meta-grid">
             <div class="meta-item">
               <div class="meta-label">Sharpe Ratio</div>
-              <div class="meta-value" style="color:${data.sharpe && data.sharpe.point > 1 ? 'var(--accent)' : data.sharpe && data.sharpe.point > 0 ? 'var(--accent3)' : 'var(--accent2)'}">${data.sharpe ? data.sharpe.point.toFixed(2) : 'N/A'}</div>
+              <div class="meta-value" style="color:${data.sharpe > 1 ? 'var(--accent)' : data.sharpe > 0 ? 'var(--accent3)' : 'var(--accent2)'}">${data.sharpe}</div>
             </div>
             <div class="meta-item">
               <div class="meta-label">Win Rate</div>
-              <div class="meta-value" style="color:${data.win_rate > 50 ? 'var(--accent)' : 'var(--accent3)'}">${(data.win_rate * 100).toFixed(1)}%</div>
+              <div class="meta-value" style="color:${data.win_rate > 50 ? 'var(--accent)' : 'var(--accent3)'}">${data.win_rate}%</div>
             </div>
             <div class="meta-item">
               <div class="meta-label">Total Trades</div>
@@ -1061,84 +1061,33 @@
             </div>
             <div class="meta-item">
               <div class="meta-label">Max Drawdown</div>
-              <div class="meta-value" style="color:${data.max_dd < 0.1 ? 'var(--accent)' : data.max_dd < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_dd * 100).toFixed(1)}%</div>
+              <div class="meta-value" style="color:${data.max_drawdown < 0.1 ? 'var(--accent)' : data.max_drawdown < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_drawdown * 100).toFixed(1)}%</div>
             </div>
           </div>
-          <div style="margin-top:12px;padding:8px 12px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:6px;text-align:center;font-family:var(--mono)">
-            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">DEPLOYMENT STATUS</div>
-            <div style="font-size:14px;font-weight:600;color:${getStatusColor(data.deployment_status)}">${data.deployment_status.replace('_', ' ')}</div>
-          </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">Engine v${data.version} &nbsp;|&nbsp; Hash: ${data.hash?.substring(0, 8) || 'N/A'}</div>
+          ${data.date_range !== 'No date data' ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}</div>` : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`}
+          ${data.plausibility_summary ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};border-radius:6px;font-family:var(--mono)">${data.plausibility_summary}</div>` : ''}
         </div>
-      </div>
-
-      <!-- FINAL 5% ANALYSIS -->
-      <div class="section-title">// The Final 5%: Operational Readiness</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:48px">
-        <!-- Alpha Decay -->
-        <div style="background:var(--deep);border:1px solid var(--border);padding:24px;border-radius:10px">
-          <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:16px">Alpha Decay Analysis</div>
-          ${data.alpha_decay ? `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-              <div><span style="color:var(--muted)">Half-Life:</span> <span style="color:var(--text)">${data.alpha_decay.half_life_periods.toFixed(1)} periods</span></div>
-              <div><span style="color:var(--muted)">Optimal Hold:</span> <span style="color:var(--text)">${data.alpha_decay.optimal_holding} periods</span></div>
-              ${data.alpha_decay.half_life_seconds ? `<div><span style="color:var(--muted)">Time:</span> <span style="color:var(--text)">${data.alpha_decay.half_life_seconds.toFixed(1)}s</span></div>` : ''}
-              ${data.alpha_decay.latency_sensitivity_bpms ? `<div><span style="color:var(--muted)">Latency:</span> <span style="color:${data.alpha_decay.latency_sensitivity_bpms > 0.1 ? 'var(--accent2)' : 'var(--accent)'}">${data.alpha_decay.latency_sensitivity_bpms.toFixed(3)} bp/ms</span></div>` : ''}
-            </div>
-            ${data.alpha_decay.regime_dependent ? '<div style="margin-top:12px;font-size:12px;color:var(--accent3);font-family:var(--mono)">⚠ Regime-dependent decay detected</div>' : ''}
-          ` : '<div style="color:var(--muted);font-size:13px">Not available</div>'}
-        </div>
-        
-        <!-- Overfit Detection -->
-        <div style="background:var(--deep);border:1px solid var(--border);padding:24px;border-radius:10px">
-          <div style="font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:16px">Symbolic Overfit Detection</div>
-          ${data.overfit_details ? `
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
-              <div><span style="color:var(--muted)">Score:</span> <span style="color:${data.overfit_score > 70 ? 'var(--accent)' : data.overfit_score > 50 ? 'var(--accent3)' : 'var(--accent2)'}">${data.overfit_score.toFixed(0)}/100</span></div>
-              <div><span style="color:var(--muted)">P-value:</span> <span style="color:${data.overfit_details.p_value < 0.05 ? 'var(--accent2)' : 'var(--accent)'}">${data.overfit_details.p_value.toFixed(3)}</span></div>
-              <div><span style="color:var(--muted)">Adj Sharpe:</span> <span style="color:var(--text)">${data.overfit_details.adjusted_sharpe?.toFixed(2) || 'N/A'}</span></div>
-              <div><span style="color:var(--muted)">Raw Sharpe:</span> <span style="color:var(--text)">${data.overfit_details.raw_sharpe?.toFixed(2) || 'N/A'}</span></div>
-            </div>
-            ${data.overfit_details.is_overfit ? '<div style="margin-top:12px;font-size:12px;color:var(--accent2);font-family:var(--mono)">🚨 OVERFIT DETECTED</div>' : ''}
-            ${data.overfit_details.indicators ? Object.entries(data.overfit_details.indicators).filter(([k,v]) => v).map(([k,v]) => 
-              `<div style="margin-top:8px;font-size:11px;color:var(--accent3);font-family:var(--mono)">• ${k.replace('_', ' ').toUpperCase()}</div>`
-            ).join('') : ''}
-          ` : '<div style="color:var(--muted);font-size:13px">Not available</div>'}
-        </div>
-      </div>
-
-      <!-- PROP FIRM COMPLIANCE -->
-      <div class="section-title">// Prop Firm Compliance Check</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:48px">
-        ${data.prop_firms.map(firm => `
-          <div style="background:var(--deep);border:1px solid var(--border);padding:20px;border-radius:10px;text-align:center">
-            <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${firm.funding_eligible ? 'var(--accent)' : 'var(--accent2)'}">${firm.firm}</div>
-            <div style="margin:12px 0;font-size:24px;">${firm.funding_eligible ? '✅' : '❌'}</div>
-            <div style="font-size:12px;color:${firm.funding_eligible ? 'var(--accent)' : 'var(--accent2)'}">${firm.funding_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE'}</div>
-            ${firm.violations.length > 0 ? `<div style="margin-top:8px;font-size:11px;color:var(--accent3);font-family:var(--mono)">${firm.violations.slice(0, 2).join(', ')}</div>` : ''}
-            <div style="margin-top:8px;font-size:11px;color:var(--muted)">Recommended: $${firm.recommended_size.toLocaleString()}</div>
-          </div>
-        `).join('')}
       </div>
 
       <!-- CRASH SIMULATIONS -->
       <div class="section-title">// Historical Crash Simulations</div>
       <div class="crash-grid">
-        ${data.crash_results.map(sim => `
-          <div class="crash-card ${sim.survival_prob > 0.8 ? 'survived' : sim.survival_prob > 0.5 ? 'warning' : 'failed'}">
-            <div class="crash-name">${sim.scenario}</div>
-            <div class="crash-desc">Market: ${(sim.market_return * 100).toFixed(1)}% drop</div>
+        ${(data.crash_sims || []).map(sim => `
+          <div class="crash-card ${getCrashClass(sim)}">
+            <div class="crash-year">${sim.year}</div>
+            <div class="crash-name">${sim.crash_name}</div>
+            <div class="crash-desc">${sim.description}</div>
             <div class="crash-stats">
               <div class="crash-stat">
-                <div class="crash-stat-label">Survival</div>
-                <div class="crash-stat-val" style="color:${sim.survival_prob > 0.8 ? 'var(--accent)' : sim.survival_prob > 0.5 ? 'var(--accent3)' : 'var(--accent2)'}">${(sim.survival_prob * 100).toFixed(0)}%</div>
+                <div class="crash-stat-label">Market Drop</div>
+                <div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div>
               </div>
               <div class="crash-stat">
-                <div class="crash-stat-label">Strategy</div>
-                <div class="crash-stat-val" style="color:${sim.strategy_return_mean > 0 ? 'var(--accent)' : 'var(--accent2)'}">${(sim.strategy_return_mean * 100).toFixed(1)}%</div>
+                <div class="crash-stat-label">Your Strategy</div>
+                <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
               </div>
             </div>
-            <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.verdict)}">${sim.verdict.replace('_', ' ')}</div>
+            <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
           </div>
         `).join('')}
       </div>
@@ -1147,7 +1096,7 @@
       <div class="insights-grid">
         <div class="insight-card">
           <div class="insight-card-title issues">// Critical Issues to Fix</div>
-          ${data.top_issues.map((issue, i) => `
+          ${(data.top_issues || []).map((issue, i) => `
             <div class="insight-item">
               <span class="insight-num">0${i+1}</span>
               <span>${issue}</span>
@@ -1156,7 +1105,7 @@
         </div>
         <div class="insight-card">
           <div class="insight-card-title strengths">// Top Strengths</div>
-          ${data.top_strengths.map((s, i) => `
+          ${(data.top_strengths || []).map((s, i) => `
             <div class="insight-item">
               <span class="insight-num">0${i+1}</span>
               <span>${s}</span>
@@ -1215,10 +1164,15 @@
       <div style="margin-top:40px;padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:0.08em">// AUDIT TRAIL</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono)">
-          <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.hash?.substring(0, 8) || 'N/A'}</span></div>
-          <div><span style="color:var(--muted)">Timestamp:</span> <span style="color:var(--text)">${data.timestamp || 'N/A'}</span></div>
+          <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
+          <div><span style="color:var(--muted)">Date:</span> <span style="color:var(--text)">${data.validation_date}</span></div>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--muted);font-family:var(--mono)">Engine v${data.version} — Final 5% Analysis Complete</div>
+        <details style="margin-top:12px">
+          <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-family:var(--mono)">View assumptions (${data.assumptions ? data.assumptions.length : 0})</summary>
+          <div style="margin-top:8px">
+            ${data.assumptions ? data.assumptions.map(a => `<div style="font-size:11px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--border)">→ ${a}</div>`).join('') : ''}
+          </div>
+        </details>
       </div>
     `;
   }
@@ -1238,4 +1192,5 @@
   }
 </script>
 </body>
+</html>
 </html>
