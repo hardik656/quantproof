@@ -7,3 +7,6 @@ scikit-learn
 hmmlearn
 python-multipart
 pydantic
+yfinance
+reportlab
+stripe
