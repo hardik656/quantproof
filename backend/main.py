@@ -256,9 +256,11 @@ def health():
 # PDF REPORT — PAYWALL ENDPOINT
 # =========================================================
 
-from fastapi import Header
+from fastapi import Header, Request
 from fastapi.responses import Response as FastAPIResponse
-# generate_report imported lazily inside endpoint — allows server to start without it
+import os
+
+# generate_report imported lazily — server starts even without it
 try:
     from generate_report import generate_pdf_report as _generate_pdf_report
     _PDF_AVAILABLE = True
@@ -266,11 +268,14 @@ except ImportError:
     _generate_pdf_report = None
     _PDF_AVAILABLE = False
 
-# Simple token gate — replace with Stripe webhook in production
-REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
+# Token gate — populated by Stripe webhook after successful payment
+REPORT_ACCESS_TOKENS = set()
 
-STRIPE_PRICE_ID = "price_REPLACE_WITH_REAL_ID"   # $9 one-time report
-REPORT_PRICE_USD = 9
+# Stripe config — set these as Render environment variables
+STRIPE_SECRET_KEY     = os.getenv("STRIPE_SECRET_KEY",     "sk_live_REPLACE")
+STRIPE_PRICE_ID       = os.getenv("STRIPE_PRICE_ID",       "price_REPLACE")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_REPLACE")
+REPORT_PRICE_USD      = 9
 
 
 @app.post("/report/generate")
@@ -379,7 +384,7 @@ async def create_checkout(payload: dict):
     """
     try:
         import stripe
-        stripe.api_key = "sk_live_REPLACE_WITH_REAL_KEY"   # env var in prod
+        stripe.api_key = STRIPE_SECRET_KEY
 
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -406,14 +411,22 @@ async def stripe_webhook(request):
     Stripe sends POST here after successful payment.
     Issues a one-time download token tied to the checkout session.
     """
-    import hashlib, time
+    import hashlib, json
     body = await request.body()
-    # Verify Stripe signature in production:
-    # stripe.Webhook.construct_event(body, sig_header, webhook_secret)
+
+    # Verify Stripe signature to prevent spoofed webhooks
+    try:
+        import stripe as _stripe
+        _stripe.api_key = STRIPE_SECRET_KEY
+        sig_header = request.headers.get("stripe-signature", "")
+        if STRIPE_WEBHOOK_SECRET and not STRIPE_WEBHOOK_SECRET.startswith("whsec_REPLACE"):
+            event = _stripe.Webhook.construct_event(body, sig_header, STRIPE_WEBHOOK_SECRET)
+        else:
+            event = json.loads(body)   # dev mode — no signature check
+    except Exception as e:
+        raise HTTPException(400, f"Webhook signature invalid: {e}")
 
     try:
-        import json
-        event = json.loads(body)
         if event.get("type") == "checkout.session.completed":
             session_id = event["data"]["object"]["id"]
             token = hashlib.sha256(f"{session_id}:quantproof:secret".encode()).hexdigest()[:32]
@@ -421,7 +434,5 @@ async def stripe_webhook(request):
             return {"status": "ok", "token": token}
     except Exception as e:
         raise HTTPException(400, str(e))
-
-    return {"status": "ignored"}
 
     return {"status": "ignored"}
