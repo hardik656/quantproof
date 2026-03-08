@@ -844,6 +844,32 @@ async def generate_report_endpoint(
         except Exception:
             pass
 
+    # CSV mode — strip prop firm compliance check, replace with disclaimer
+    PROP_FIRM_CHECK_NAMES = {
+        "Prop Firm Compliance (FTMO/Topstep/The5ers)",
+        "Institutional Compliance (CTA/Fund Standard)",
+        "Prop Firm Compliance",
+    }
+    def _csv_check_filter(c):
+        if c.name in PROP_FIRM_CHECK_NAMES:
+            # Replace with a disclaimer — CSV data cannot be used for compliance
+            return {
+                "name": c.name,
+                "passed": False,
+                "score": 0,
+                "value": "⚠ NOT APPLICABLE — CSV Upload",
+                "insight": (
+                    "Prop firm and institutional compliance certificates require "
+                    "broker-verified trade data. CSV uploads cannot be used for "
+                    "compliance submissions as the data is self-reported and unverified."
+                ),
+                "fix": "Connect your Alpaca account (or IBKR when available) to generate a verified compliance report.",
+                "category": c.category,
+            }
+        return {"name": c.name, "passed": c.passed, "score": c.score,
+                "value": c.value, "insight": c.insight, "fix": c.fix,
+                "category": c.category}
+
     vr = {
         "fundable_score": report.score,
         "grade":          report.grade,
@@ -852,12 +878,8 @@ async def generate_report_endpoint(
         "win_rate":       round(report.win_rate, 1),
         "total_trades":   report.total_trades,
         "date_range":     date_range,
-        "checks": [
-            {"name": c.name, "passed": c.passed, "score": c.score,
-             "value": c.value, "insight": c.insight, "fix": c.fix,
-             "category": c.category}
-            for c in report.checks
-        ],
+        "is_verified":    False,
+        "checks": [_csv_check_filter(c) for c in report.checks],
         "crash_sims": [
             {"crash_name": s.crash_name, "year": s.year,
              "description": s.description, "market_drop": s.market_drop,
@@ -1146,6 +1168,5 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
-
 
 
