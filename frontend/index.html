@@ -1162,6 +1162,7 @@
       reader.onload = e => {
         sessionStorage.setItem('qp_filename', file.name);
         sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
+        sessionStorage.setItem('qp_source', 'csv');
       };
       reader.readAsDataURL(file);
     } catch(e) {}
@@ -1555,9 +1556,10 @@
     try {
       const form = new FormData();
       form.append('file', _lastValidatedFile);
+      const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
       const res = await fetch(`${API_URL_REPORT}/report/generate`, {
         method: 'POST',
-        headers: { 'x-report-token': token },
+        headers: { 'x-report-token': token, 'x-report-source': reportSource },
         body: form
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail?.message || 'PDF failed'); }
@@ -1621,7 +1623,10 @@
     _validationMode = 'broker';
     _brokerSource   = 'alpaca';
     // Store broker params so PDF can re-fetch after Stripe redirect
-    try { sessionStorage.setItem('qp_broker', JSON.stringify({ key, secret, mode })); } catch(e) {}
+    try {
+      sessionStorage.setItem('qp_broker', JSON.stringify({ key, secret, mode }));
+      sessionStorage.setItem('qp_source', 'alpaca');
+    } catch(e) {}
 
     try {
       const response = await fetch(`${API_URL}/validate/alpaca`, {
