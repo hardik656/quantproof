@@ -907,20 +907,20 @@
   });
 
   // ========== FILE HANDLER ==========
-  let _lastValidatedFile = null;  // kept for PDF download
+  let _lastValidatedFile = null;
 
   async function handleFile(file) {
     if (!file.name.endsWith('.csv')) {
       alert('Please upload a CSV file');
       return;
     }
-    _lastValidatedFile = file;  // store for PDF endpoint
 
     // Show loading
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('heroSection').style.display = 'none';
     document.getElementById('loadingSection').classList.add('active');
 
+    _lastValidatedFile = file;
     const formData = new FormData();
     formData.append('file', file);
 
@@ -1072,129 +1072,124 @@
         </div>
       </div>
 
-      <!-- CRASH SIMULATIONS -->
+      <!-- CRASH SIMULATIONS — free: show survived/failed + drops, lock verdict -->
       <div class="section-title">// Historical Crash Simulations</div>
-      <div class="crash-grid">
-        ${(data.crash_sims || []).map(sim => `
-          <div class="crash-card ${getCrashClass(sim)}">
-            <div class="crash-year">${sim.year}</div>
-            <div class="crash-name">${sim.crash_name}</div>
-            <div class="crash-desc">${sim.description}</div>
-            <div class="crash-stats">
-              <div class="crash-stat">
-                <div class="crash-stat-label">Market Drop</div>
-                <div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div>
-              </div>
-              <div class="crash-stat">
-                <div class="crash-stat-label">Your Strategy</div>
-                <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
-              </div>
-            </div>
-            <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
-          </div>
-        `).join('')}
-      </div>
-
-      <!-- TOP ISSUES & STRENGTHS -->
-      <div class="insights-grid">
-        <div class="insight-card">
-          <div class="insight-card-title issues">// Critical Issues to Fix</div>
-          ${(data.top_issues || []).map((issue, i) => `
-            <div class="insight-item">
-              <span class="insight-num">0${i+1}</span>
-              <span>${issue}</span>
-            </div>
-          `).join('')}
-        </div>
-        <div class="insight-card">
-          <div class="insight-card-title strengths">// Top Strengths</div>
-          ${(data.top_strengths || []).map((s, i) => `
-            <div class="insight-item">
-              <span class="insight-num">0${i+1}</span>
-              <span>${s}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-
-      <!-- AUDIT FLAGS (shown only if present) -->
-      ${data.audit_flags && data.audit_flags.length > 0 ? `
-      <div style="margin-bottom:32px;padding:16px 20px;background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.25);border-radius:10px">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--accent3);margin-bottom:12px;letter-spacing:0.08em">// STATISTICAL AUDIT FLAGS</div>
-        ${data.audit_flags.map(flag => `<div style="font-size:13px;color:var(--text);padding:4px 0;border-bottom:1px solid rgba(255,170,0,0.1)">${flag}</div>`).join('')}
-      </div>` : ''}
-
-      <!-- DETAILED CHECKS -->
-      <div class="checks-section">
-        <div class="section-title">// Full Validation Report (click to expand)</div>
-        ${Object.entries(categories).map(([cat, checks]) => {
-          const catScore = Math.round(checks.reduce((a,c) => a + c.score, 0) / checks.length);
+      <div class="crash-locked-grid">
+        ${(data.crash_sims || []).map(sim => {
+          const survived = sim.survived;
+          const cls = survived ? 'survived' : 'failed';
+          const statusColor = survived ? 'var(--accent)' : 'var(--accent2)';
+          const statusText  = survived ? '✓ SURVIVED' : '✗ BLOWN UP';
           return `
-          <div class="category-block">
-            <div class="category-header">
-              <div class="category-name" style="color:${catScore > 65 ? 'var(--accent)' : catScore > 45 ? 'var(--accent3)' : 'var(--accent2)'}">${cat}</div>
-              <div class="category-score" style="color:var(--muted)">${catScore}/100</div>
-            </div>
-            ${checks.map((check, i) => `
-              <div class="check-item ${check.passed ? 'pass' : 'fail'}" onclick="toggleCheck(this)">
-                <div class="check-header">
-                  <div class="check-name">
-                    <span class="check-badge ${check.passed ? 'pass' : 'fail'}">${check.passed ? 'PASS' : 'FAIL'}</span>
-                    ${check.name}
-                  </div>
-                  <div class="check-score-bar">
-                    <div class="bar-track">
-                      <div class="bar-fill" data-width="${check.score}" style="width:0%; background:${check.score > 65 ? 'var(--accent)' : check.score > 45 ? 'var(--accent3)' : 'var(--accent2)'}"></div>
-                    </div>
-                    <div class="check-score-num">${check.score}</div>
-                  </div>
-                </div>
-                <div class="check-details">
-                  <div class="check-value">${check.value}</div>
-                  <div class="check-insight">${check.insight}</div>
-                  <div class="check-fix">${check.fix}</div>
-                </div>
+          <div class="crash-locked-card ${cls}">
+            <div class="crash-locked-status" style="color:${statusColor}">${statusText}</div>
+            <div class="crash-locked-name">${sim.crash_name}</div>
+            <div class="crash-locked-year">${sim.year}</div>
+            <div class="crash-locked-drops">
+              <div class="crash-locked-drop">
+                <div class="crash-locked-drop-label">Market</div>
+                <div class="crash-locked-drop-val" style="color:var(--accent2)">${sim.market_drop}%</div>
               </div>
-            `).join('')}
-          </div>
-          `;
+              <div class="crash-locked-drop">
+                <div class="crash-locked-drop-label">Strategy</div>
+                <div class="crash-locked-drop-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
+              </div>
+            </div>
+            <div class="crash-verdict-locked">// Full analysis in report</div>
+          </div>`;
         }).join('')}
       </div>
 
+      <!-- PAYWALL GATE — category summaries visible, details locked -->
+      <div class="locked-section" style="margin-top:40px;">
 
-      <!-- PDF REPORT UPSELL -->
-      <div style="margin:28px 0 20px;padding:20px 24px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.18);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-        <div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:5px;">// FULL ANALYSIS REPORT</div>
-          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Get the complete PDF breakdown</div>
-          <div style="font-size:12px;color:#6a8a9a;line-height:1.5;">Every check explained &middot; Priority fix list ranked by impact &middot; All crash sim results &middot; Shareable audit hash for prop firms</div>
+        <!-- BLURRED PREVIEW of checks -->
+        <div class="blurred" style="pointer-events:none;">
+          <div class="section-title">// Full Validation Breakdown</div>
+
+          <!-- Category summary rows — names + pass/fail counts + scores visible -->
+          ${Object.entries(categories).map(([cat, checks]) => {
+            const catScore  = Math.round(checks.reduce((a,c) => a + c.score, 0) / checks.length);
+            const passed    = checks.filter(c => c.passed).length;
+            const failed    = checks.filter(c => !c.passed).length;
+            const col       = catScore > 65 ? 'var(--accent)' : catScore > 45 ? 'var(--accent3)' : 'var(--accent2)';
+            return `
+            <div class="category-summary-row" style="border-left-color:${col}">
+              <div class="cat-sum-left">
+                <div class="cat-sum-name" style="color:${col}">${cat}</div>
+                <div class="cat-sum-badges">
+                  ${passed > 0 ? `<span class="cat-pass-badge">${passed} PASS</span>` : ''}
+                  ${failed > 0 ? `<span class="cat-fail-badge">${failed} FAIL</span>` : ''}
+                </div>
+              </div>
+              <div class="cat-sum-score" style="color:${col}">${catScore}/100</div>
+            </div>
+            <!-- Fake blurred check rows -->
+            ${checks.map(() => `
+              <div class="check-item" style="margin-bottom:6px;opacity:0.4;">
+                <div class="check-header">
+                  <div class="check-name"><span class="check-badge" style="background:#1e2d3d;color:#1e2d3d">████</span> ████████████████████</div>
+                  <div class="check-score-bar">
+                    <div class="bar-track"><div class="bar-fill" style="width:60%;background:#1e2d3d"></div></div>
+                    <div class="check-score-num" style="color:#1e2d3d">██</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          `}).join('')}
+
+          <!-- Blurred issues/strengths -->
+          <div class="insights-grid" style="margin-top:24px;">
+            <div class="insight-card">
+              <div class="insight-card-title issues">// Priority Fix List</div>
+              ${[1,2,3].map(i => `
+                <div class="insight-item">
+                  <span class="insight-num">0${i}</span>
+                  <span style="color:#1e2d3d;background:#1e2d3d;border-radius:2px">████████████████████████████████</span>
+                </div>`).join('')}
+            </div>
+            <div class="insight-card">
+              <div class="insight-card-title strengths">// Top Strengths</div>
+              ${[1,2,3].map(i => `
+                <div class="insight-item">
+                  <span class="insight-num">0${i}</span>
+                  <span style="color:#1e2d3d;background:#1e2d3d;border-radius:2px">████████████████████████████</span>
+                </div>`).join('')}
+            </div>
+          </div>
         </div>
-        <div style="text-align:center;flex-shrink:0;">
-          <button id="pdfBtn" onclick="buyPdfReport()"
-            style="background:#0A0A0A;color:var(--accent);border:1.5px solid var(--accent);padding:11px 22px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;border-radius:6px;white-space:nowrap;transition:all 0.2s;"
-            onmouseover="this.style.background='var(--accent)';this.style.color='#000';"
-            onmouseout="this.style.background='#0A0A0A';this.style.color='var(--accent)';">
-            Get Full PDF Report &mdash; $9
-          </button>
-          <div id="pdfBtnStatus" style="font-size:10px;color:#5a7a8a;font-family:var(--mono);margin-top:6px;min-height:14px;"></div>
+
+        <!-- OVERLAY -->
+        <div class="locked-overlay">
+          <div class="locked-badge">
+            <div class="locked-icon">🔒</div>
+            <div class="locked-title">
+              ${(data.checks || []).filter(c => !c.passed).length} checks failed — see exactly what to fix
+            </div>
+            <div class="locked-sub">
+              Priority fix list &nbsp;·&nbsp; Every check explained &nbsp;·&nbsp; Crash sim analysis<br>
+              Audit hash for prop firm applications
+            </div>
+            <button class="unlock-btn" onclick="buyPdfReport()">
+              Unlock Full Report — $9
+            </button>
+            <div class="unlock-note">One-time payment &nbsp;·&nbsp; Instant PDF download</div>
+          </div>
         </div>
       </div>
 
-      <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
+      <button class="reset-btn" onclick="resetApp()" style="margin-top:32px;">← Run Another Validation</button>
 
-      <!-- INSTITUTIONAL FOOTER -->
-      <div style="margin-top:40px;padding:20px;border:1px solid var(--border);border-radius:10px;background:var(--surface)">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:0.08em">// AUDIT TRAIL</div>
+      <!-- AUDIT TRAIL — hash always visible, details locked -->
+      <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono)">
           <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
-          <div><span style="color:var(--muted)">Date:</span> <span style="color:var(--text)">${data.validation_date}</span></div>
+          <div><span style="color:var(--muted)">Engine:</span> <span style="color:var(--text)">${data.engine_version}</span></div>
         </div>
-        <details style="margin-top:12px">
-          <summary style="cursor:pointer;font-size:12px;color:var(--muted);font-family:var(--mono)">View assumptions (${data.assumptions ? data.assumptions.length : 0})</summary>
-          <div style="margin-top:8px">
-            ${data.assumptions ? data.assumptions.map(a => `<div style="font-size:11px;color:var(--muted);padding:3px 0;border-bottom:1px solid var(--border)">→ ${a}</div>`).join('') : ''}
-          </div>
-        </details>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">
+          Full methodology, assumptions and audit log included in the $9 report.
+        </div>
       </div>
     `;
   }
@@ -1213,18 +1208,17 @@
     window.scrollTo(0, 0);
   }
 
-  // ── PDF PURCHASE FLOW ────────────────────────────────────────────────────
-  async function buyPdfReport() {
-    const btn    = document.getElementById('pdfBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    if (!btn) return;
+  // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
+  const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
+  async function buyPdfReport() {
+    const btn    = document.querySelector('.unlock-btn');
+    const status = document.querySelector('.unlock-note');
+    if (!btn) return;
     btn.disabled  = true;
     btn.innerText = 'Opening checkout...';
-    status.innerText = '';
-
     try {
-      const res  = await fetch(`${API_URL}/report/create-checkout`, {
+      const res  = await fetch(`${API_URL_REPORT}/report/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({})
@@ -1232,66 +1226,47 @@
       const data = await res.json();
       if (data.checkout_url) {
         window.location.href = data.checkout_url;
-      } else {
-        throw new Error('No checkout URL');
-      }
+      } else { throw new Error('No checkout URL returned'); }
     } catch (err) {
       btn.disabled  = false;
-      btn.innerText = 'Get Full PDF Report — $9';
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
+      btn.innerText = 'Unlock Full Report — $9';
+      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
 
-  // Called on page load — handles Stripe redirect back with token
   async function handleReportSuccess() {
     const hash = window.location.hash;
     if (!hash.startsWith('#report-success')) return;
-
-    const token = new URLSearchParams(hash.replace('#report-success?','')).get('token');
+    const token = new URLSearchParams(hash.replace('#report-success?', '')).get('token');
     if (!token || !_lastValidatedFile) {
-      // Session expired — show re-upload message
-      const s = document.getElementById('pdfBtn');
-      if (s) { s.innerText = 'Payment confirmed — please re-upload your CSV to download'; s.disabled = false; }
+      const btn = document.querySelector('.unlock-btn');
+      if (btn) { btn.innerText = 'Payment confirmed — re-upload your CSV to download'; btn.disabled = false; }
       return;
     }
-
-    const btn    = document.getElementById('pdfBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    if (btn) { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
-    if (status) { status.innerText = 'Generating your report...'; status.style.color = 'var(--accent3)'; }
-
+    const btn    = document.querySelector('.unlock-btn');
+    const status = document.querySelector('.unlock-note');
+    if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
+    if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent3)'; }
     try {
       const form = new FormData();
       form.append('file', _lastValidatedFile);
-
-      const res = await fetch(`${API_URL}/report/generate`, {
+      const res = await fetch(`${API_URL_REPORT}/report/generate`, {
         method: 'POST',
         headers: { 'x-report-token': token },
         body: form
       });
-
-      if (!res.ok) {
-        const e = await res.json();
-        throw new Error(e.detail?.message || 'PDF failed');
-      }
-
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail?.message || 'PDF failed'); }
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'QuantProof_Report.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; }
+      a.href = url; a.download = 'QuantProof_Report.pdf';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; btn.disabled = false; }
       if (status) { status.innerText = 'Check your downloads folder.'; status.style.color = 'var(--accent)'; }
       history.replaceState(null, '', window.location.pathname);
-
     } catch (err) {
-      if (btn)    { btn.disabled = false; btn.innerText = 'Get Full PDF Report — $9'; }
+      if (btn)    { btn.disabled = false; btn.innerText = 'Unlock Full Report — $9'; }
       if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
