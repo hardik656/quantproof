@@ -907,11 +907,14 @@
   });
 
   // ========== FILE HANDLER ==========
+  let _lastValidatedFile = null;  // kept for PDF download
+
   async function handleFile(file) {
     if (!file.name.endsWith('.csv')) {
       alert('Please upload a CSV file');
       return;
     }
+    _lastValidatedFile = file;  // store for PDF endpoint
 
     // Show loading
     document.getElementById('uploadSection').style.display = 'none';
@@ -1158,6 +1161,25 @@
         }).join('')}
       </div>
 
+
+      <!-- PDF REPORT UPSELL -->
+      <div style="margin:28px 0 20px;padding:20px 24px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.18);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:5px;">// FULL ANALYSIS REPORT</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;">Get the complete PDF breakdown</div>
+          <div style="font-size:12px;color:#6a8a9a;line-height:1.5;">Every check explained &middot; Priority fix list ranked by impact &middot; All crash sim results &middot; Shareable audit hash for prop firms</div>
+        </div>
+        <div style="text-align:center;flex-shrink:0;">
+          <button id="pdfBtn" onclick="buyPdfReport()"
+            style="background:#0A0A0A;color:var(--accent);border:1.5px solid var(--accent);padding:11px 22px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;border-radius:6px;white-space:nowrap;transition:all 0.2s;"
+            onmouseover="this.style.background='var(--accent)';this.style.color='#000';"
+            onmouseout="this.style.background='#0A0A0A';this.style.color='var(--accent)';">
+            Get Full PDF Report &mdash; $9
+          </button>
+          <div id="pdfBtnStatus" style="font-size:10px;color:#5a7a8a;font-family:var(--mono);margin-top:6px;min-height:14px;"></div>
+        </div>
+      </div>
+
       <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
 
       <!-- INSTITUTIONAL FOOTER -->
@@ -1190,7 +1212,93 @@
     document.getElementById('fileInput').value = '';
     window.scrollTo(0, 0);
   }
+
+  // ── PDF PURCHASE FLOW ────────────────────────────────────────────────────
+  async function buyPdfReport() {
+    const btn    = document.getElementById('pdfBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    if (!btn) return;
+
+    btn.disabled  = true;
+    btn.innerText = 'Opening checkout...';
+    status.innerText = '';
+
+    try {
+      const res  = await fetch(`${API_URL}/report/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error('No checkout URL');
+      }
+    } catch (err) {
+      btn.disabled  = false;
+      btn.innerText = 'Get Full PDF Report — $9';
+      status.innerText = 'Error: ' + err.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  // Called on page load — handles Stripe redirect back with token
+  async function handleReportSuccess() {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#report-success')) return;
+
+    const token = new URLSearchParams(hash.replace('#report-success?','')).get('token');
+    if (!token || !_lastValidatedFile) {
+      // Session expired — show re-upload message
+      const s = document.getElementById('pdfBtn');
+      if (s) { s.innerText = 'Payment confirmed — please re-upload your CSV to download'; s.disabled = false; }
+      return;
+    }
+
+    const btn    = document.getElementById('pdfBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    if (btn) { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
+    if (status) { status.innerText = 'Generating your report...'; status.style.color = 'var(--accent3)'; }
+
+    try {
+      const form = new FormData();
+      form.append('file', _lastValidatedFile);
+
+      const res = await fetch(`${API_URL}/report/generate`, {
+        method: 'POST',
+        headers: { 'x-report-token': token },
+        body: form
+      });
+
+      if (!res.ok) {
+        const e = await res.json();
+        throw new Error(e.detail?.message || 'PDF failed');
+      }
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'QuantProof_Report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; }
+      if (status) { status.innerText = 'Check your downloads folder.'; status.style.color = 'var(--accent)'; }
+      history.replaceState(null, '', window.location.pathname);
+
+    } catch (err) {
+      if (btn)    { btn.disabled = false; btn.innerText = 'Get Full PDF Report — $9'; }
+      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  window.addEventListener('load', handleReportSuccess);
+
 </script>
 </body>
 </html>
-</html>
+
