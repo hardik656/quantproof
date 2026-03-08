@@ -1067,7 +1067,7 @@ class QuantProofValidator:
 
     def check_calmar_ratio(self) -> CheckResult:
         calmar = calculate_calmar(self.returns, self.trades_per_year)
-        score  = min(100, calmar * 40)
+        score  = max(0, min(100, calmar * 40))   # clamp — calmar can be deeply negative
         return CheckResult("Calmar Ratio", calmar > 1.5, round(score, 1),
             f"Calmar (CAGR/MaxDD): {calmar:.2f}", "Prop firms want >1.5.", "Improve position sizing.", "Risk")
 
