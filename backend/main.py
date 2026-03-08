@@ -574,7 +574,11 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                     row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
                     if date_str:
                         try:
-                            row["date"] = pd.to_datetime(date_str).tz_localize(None)
+                            ts = pd.to_datetime(date_str)
+                            # Alpaca returns UTC timestamps — strip timezone
+                            if ts.tzinfo is not None:
+                                ts = ts.tz_convert("UTC").tz_localize(None)
+                            row["date"] = ts
                         except Exception:
                             pass
                     rows.append(row)
