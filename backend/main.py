@@ -768,7 +768,8 @@ REPORT_PRICE_USD = 9
 @app.post("/report/generate")
 async def generate_report_endpoint(
     file: UploadFile = File(...),
-    x_report_token: str = Header(default="")
+    x_report_token: str = Header(default=""),
+    x_report_source: str = Header(default="csv")   # "csv" or "alpaca" or "ibkr"
 ):
     """
     Paid endpoint — returns a full PDF analysis report.
@@ -878,8 +879,15 @@ async def generate_report_endpoint(
         "win_rate":       round(report.win_rate, 1),
         "total_trades":   report.total_trades,
         "date_range":     date_range,
-        "is_verified":    False,
-        "checks": [_csv_check_filter(c) for c in report.checks],
+        "is_verified":    x_report_source in ("alpaca", "ibkr"),
+        "checks": [
+            # Only apply CSV disclaimer filter for unverified CSV uploads
+            (_csv_check_filter(c) if x_report_source == "csv" else
+             {"name": c.name, "passed": c.passed, "score": c.score,
+              "value": c.value, "insight": c.insight, "fix": c.fix,
+              "category": c.category})
+            for c in report.checks
+        ],
         "crash_sims": [
             {"crash_name": s.crash_name, "year": s.year,
              "description": s.description, "market_drop": s.market_drop,
