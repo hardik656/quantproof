@@ -460,14 +460,14 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
     BROKER_DAILY_LIMIT = 3
     if request:
         ip = request.client.host if request.client else "unknown"
-        key_hash = hashlib.sha256(
+        key_hash = "broker:" + hashlib.sha256(
             f"broker:{ip}".encode()
         ).hexdigest()[:16]
-        rec = _rate_store[key_hash]
+        rec = _validation_counts[key_hash]
         now = time.time()
-        if now - rec["window_start"] > 86400:
+        if now - rec.get("reset", 0) > 86400:
             rec["count"] = 0
-            rec["window_start"] = now
+            rec["reset"] = now
         if rec["count"] >= BROKER_DAILY_LIMIT:
             hours_left = int((86400 - (now - rec["window_start"])) / 3600)
             raise HTTPException(
