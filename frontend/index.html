@@ -1461,8 +1461,8 @@
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
   async function buyPdfReport() {
-    const btn    = document.querySelector('.unlock-btn');
-    const status = document.querySelector('.unlock-note');
+    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
+    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
     if (!btn) return;
     btn.disabled  = true;
     btn.innerText = 'Opening checkout...';
@@ -1488,12 +1488,12 @@
     if (!hash.startsWith('#report-success')) return;
     const token = new URLSearchParams(hash.replace('#report-success?', '')).get('token');
     if (!token || !_lastValidatedFile) {
-      const btn = document.querySelector('.unlock-btn');
+      const btn = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
       if (btn) { btn.innerText = 'Payment confirmed — re-upload your CSV to download'; btn.disabled = false; }
       return;
     }
-    const btn    = document.querySelector('.unlock-btn');
-    const status = document.querySelector('.unlock-note');
+    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
+    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
     if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
     if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent3)'; }
     try {
