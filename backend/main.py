@@ -613,46 +613,52 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         import pandas as pd
         df = pd.DataFrame(rows)
 
-        # Get actual PnL from portfolio history if available
-        # This gives us real P&L not the proxy above
+        # ── Use paired trades as primary source ───────────────────────────────
+        # Portfolio history gives daily returns (200+ points) which inflates trade count
+        # and loses the actual per-trade PnL information.
+        # Only fall back to portfolio history if we have very few paired trades (<10)
+        if len(rows) < 10:
+            try:
+                async with httpx.AsyncClient(timeout=15) as client2:
+                    pf_resp = await client2.get(
+                        f"{base_url}/v2/account/portfolio/history",
+                        headers={
+                            "APCA-API-KEY-ID":     payload.api_key,
+                            "APCA-API-SECRET-KEY": payload.secret_key,
+                        },
+                        params={"period": "1A", "timeframe": "1D", "extended_hours": False}
+                    )
+                    if pf_resp.is_success:
+                        pf = pf_resp.json()
+                        equity     = pf.get("equity", [])
+                        timestamps = pf.get("timestamp", [])
+                        if len(equity) > 5:
+                            eq = np.array(equity, dtype=float)
+                            returns = np.diff(eq) / np.where(eq[:-1] > 0, eq[:-1], 1)
+                            returns = returns[~np.isnan(returns)]
+                            returns = np.clip(returns, -0.5, 0.5)
+                            date_arr = []
+                            if timestamps:
+                                for ts in timestamps[1:len(returns)+1]:
+                                    try:
+                                        date_arr.append(pd.Timestamp(ts, unit='s'))
+                                    except Exception:
+                                        date_arr.append(None)
+                            df = pd.DataFrame({"pnl": returns})
+                            if date_arr and len(date_arr) == len(returns):
+                                df["date"] = date_arr
+                            print(f"Fallback to portfolio history: {len(returns)} daily points")
+            except Exception as pf_err:
+                print(f"Portfolio history unavailable: {pf_err}")
+        else:
+            print(f"Using {len(rows)} paired round-trip trades")
+
+        # Always discard keys
         try:
-            async with httpx.AsyncClient(timeout=15) as client2:
-                pf_resp = await client2.get(
-                    f"{base_url}/v2/account/portfolio/history",
-                    headers={
-                        "APCA-API-KEY-ID":     payload.api_key,   # need keys again briefly
-                        "APCA-API-SECRET-KEY": payload.secret_key,
-                    },
-                    params={"period": "1A", "timeframe": "1D", "extended_hours": False}
-                )
-                if pf_resp.is_success:
-                    pf = pf_resp.json()
-                    equity     = pf.get("equity", [])
-                    timestamps = pf.get("timestamp", [])
-                    if len(equity) > 5:
-                        import numpy as np
-                        eq = np.array(equity, dtype=float)
-                        # Daily returns
-                        returns = np.diff(eq) / np.where(eq[:-1] > 0, eq[:-1], 1)
-                        returns = returns[~np.isnan(returns)]
-                        returns = np.clip(returns, -0.5, 0.5)
-                        date_arr = []
-                        if timestamps:
-                            for ts in timestamps[1:len(returns)+1]:
-                                try:
-                                    date_arr.append(pd.Timestamp(ts, unit='s'))
-                                except Exception:
-                                    date_arr.append(None)
-                        df = pd.DataFrame({"pnl": returns})
-                        if date_arr and len(date_arr) == len(returns):
-                            df["date"] = date_arr
-                        print(f"Using portfolio history: {len(returns)} data points")
-        except Exception as pf_err:
-            print(f"Portfolio history unavailable, using order proxy: {pf_err}")
-        finally:
-            # Discard keys again after portfolio fetch
             payload.api_key    = "[DISCARDED]"
             payload.secret_key = "[DISCARDED]"
+        except Exception:
+            pass
 
         # ── Step 4: Run full validation ───────────────────────────────────────
         try:
@@ -880,7 +886,15 @@ async def create_checkout(payload: dict):
     """
     try:
         import stripe
-        stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+        stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
+        if not stripe_key or stripe_key == "sk_live_REPLACE":
+            # Stripe not configured — return helpful error instead of crash
+            raise HTTPException(503, {
+                "error": "stripe_not_configured",
+                "message": "Payment system not yet configured. Please contact support.",
+                "debug": "Set STRIPE_SECRET_KEY in Render environment variables."
+            })
+        stripe.api_key = stripe_key
 
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -891,12 +905,10 @@ async def create_checkout(payload: dict):
             metadata={"product": "report_download"}
         )
         return {"checkout_url": session.url, "session_id": session.id}
+    except HTTPException:
+        raise
     except ImportError:
-        # stripe not installed — return mock for testing
-        return {
-            "checkout_url": "https://buy.stripe.com/REPLACE_WITH_REAL_PAYMENT_LINK",
-            "session_id": "cs_mock_dev"
-        }
+        raise HTTPException(503, {"error": "stripe_not_installed", "message": "Stripe package not installed on server."})
     except Exception as e:
         print(f"Stripe checkout error: {type(e).__name__}: {e}")
         raise HTTPException(500, f"Checkout failed: {type(e).__name__}: {str(e)[:200]}")
@@ -1120,3 +1132,4 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
