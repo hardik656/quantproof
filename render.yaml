@@ -1,9 +1,26 @@
 services:
   - type: web
-    name: quantproof-api
+    name: quantproof-backend
     env: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: "3.11.0"
+      - key: STRIPE_SECRET_KEY
+        sync: false          # set manually in Render dashboard
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false          # set manually in Render dashboard
+
+  - type: static
+    name: quantproof-frontend
+    buildCommand: echo "static"
+    staticPublishPath: frontend
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
