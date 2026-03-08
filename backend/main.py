@@ -777,17 +777,27 @@ async def generate_report_endpoint(
     """
 
     # Token check
-    # Tokens are HMAC-signed with session_id + timestamp — no state needed
-    # Format: sha256(session_id:secret:timestamp_hour)[:32]
     def _verify_token(token: str) -> bool:
         if token == "dev-free":
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
-        # Time-based verification: valid for 2 hours after payment
+        # Accept Stripe checkout session IDs directly — verify payment with Stripe
+        if token.startswith("cs_"):
+            try:
+                import stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+                session = stripe.checkout.Session.retrieve(token)
+                if session.payment_status == "paid":
+                    REPORT_ACCESS_TOKENS.add(token)  # cache it
+                    return True
+            except Exception as e:
+                print(f"Stripe session verify failed: {e}")
+            return False
+        # Time-based HMAC tokens (from webhook)
         secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
         current_hour = int(time.time() // 3600)
-        for hour_offset in range(3):  # valid for current + 2 previous hours
+        for hour_offset in range(3):
             hour = current_hour - hour_offset
             expected = hashlib.sha256(f"report:{hour}:{secret}".encode()).hexdigest()[:32]
             if token == expected:
@@ -904,7 +914,7 @@ async def create_checkout(payload: dict):
             payment_method_types=["card"],
             line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
             mode="payment",
-            success_url="https://quantproof-frontend.onrender.com/#report-success?token={CHECKOUT_SESSION_ID}",
+            success_url="https://quantproof-frontend.onrender.com/?report_token={CHECKOUT_SESSION_ID}#report-success",
             cancel_url="https://quantproof-frontend.onrender.com/#report-cancel",
             metadata={"product": "report_download"}
         )
@@ -1136,4 +1146,6 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
+
 
