@@ -189,10 +189,13 @@ def generate_pdf_report(vr: dict) -> bytes:
     story = []
 
     # ══ HEADER BAND ══════════════════════════════════════════════════════════
+    is_verified = vr.get("is_verified", False)
+    report_label = "VERIFIED INSTITUTIONAL REPORT" if is_verified else "METHODOLOGY ANALYSIS REPORT — CSV UPLOAD"
+
     hdr = Table([[
         Paragraph("QUANTPROOF", _s("qplogo", fontName="Helvetica-Bold",
             fontSize=11, textColor=C_ACCENT, leading=14)),
-        Paragraph("INSTITUTIONAL ANALYSIS REPORT",
+        Paragraph(report_label,
             _s("rptlabel", fontName="Helvetica", fontSize=9,
                textColor=C_LITE, alignment=TA_RIGHT, leading=14)),
     ]], colWidths=[INNER_W*0.5, INNER_W*0.5])
@@ -211,7 +214,8 @@ def generate_pdf_report(vr: dict) -> bytes:
         "A":  ("Institutionally Viable",
                f"This strategy passed all critical institutional checks. "
                f"A Sharpe of {sharpe:.2f} with {dd:.1f}% max drawdown places it in the top tier "
-               f"of systematic strategies. It is viable for prop firm submission."),
+               f"of systematic strategies. "
+               f"{'Connect a broker account to generate a verified compliance certificate.' if not is_verified else 'Eligible for prop firm submission.'}"),
         "B+": ("Prop Firm Ready",
                f"Core edge is real and scalable. Some execution or regime checks need refinement "
                f"before institutional submission. Suitable for live trading with proper sizing."),
