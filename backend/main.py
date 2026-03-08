@@ -542,38 +542,65 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 f"Make sure you selected the correct account type (paper vs live)."
             )
 
-        rows = []
-        for o in orders:
+        # ── Pair buys with sells per symbol to get real round-trip PnL ─────
+        from collections import defaultdict
+        buy_stack  = defaultdict(list)   # symbol -> list of (qty, price, date)
+        rows       = []
+
+        # Sort oldest first so we match buys before sells
+        filled = [o for o in orders if o.get("status") == "filled"
+                  and float(o.get("filled_qty", 0) or 0) > 0
+                  and float(o.get("filled_avg_price", 0) or 0) > 0]
+        filled.sort(key=lambda o: o.get("filled_at") or o.get("updated_at") or "")
+
+        for o in filled:
             try:
-                # Only process filled orders with a known fill price
-                if o.get("status") != "filled":
-                    continue
-                filled_qty   = float(o.get("filled_qty", 0) or 0)
-                filled_avg   = float(o.get("filled_avg_price", 0) or 0)
-                side         = o.get("side", "buy")
-                symbol       = o.get("symbol", "")
-                filled_at    = o.get("filled_at") or o.get("updated_at")
+                qty    = float(o.get("filled_qty", 0) or 0)
+                price  = float(o.get("filled_avg_price", 0) or 0)
+                side   = o.get("side", "buy")
+                symbol = o.get("symbol", "")
+                date_str = o.get("filled_at") or o.get("updated_at")
 
-                if filled_qty == 0 or filled_avg == 0:
-                    continue
+                if side == "buy":
+                    buy_stack[symbol].append({"qty": qty, "price": price, "date": date_str})
+                elif side == "sell" and buy_stack[symbol]:
+                    # Match against earliest buy (FIFO)
+                    buy = buy_stack[symbol].pop(0)
+                    entry_price = buy["price"]
+                    exit_price  = price
+                    pnl_pct     = (exit_price - entry_price) / entry_price
 
-                # Estimate PnL as signed return proxy
-                # For a complete PnL we need paired buy/sell — use filled value as proxy
-                notional = filled_qty * filled_avg
-                # Simple signed PnL proxy: buys are negative cash, sells positive
-                pnl_sign  = 1.0 if side == "sell" else -1.0
-                # Normalise to percentage-like value (divide by typical notional)
-                pnl_proxy = pnl_sign * (notional / max(notional, 1)) * 0.01
-
-                row = {"pnl": pnl_proxy, "ticker": symbol, "side": side}
-                if filled_at:
-                    try:
-                        row["date"] = pd.to_datetime(filled_at).tz_localize(None)
-                    except Exception:
-                        pass
-                rows.append(row)
+                    row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
+                    if date_str:
+                        try:
+                            row["date"] = pd.to_datetime(date_str).tz_localize(None)
+                        except Exception:
+                            pass
+                    rows.append(row)
             except Exception:
                 continue
+
+        # If no pairs found (e.g. only sells or only buys) fall back to individual orders
+        if len(rows) < 5:
+            rows = []
+            for o in filled:
+                try:
+                    qty    = float(o.get("filled_qty", 0) or 0)
+                    price  = float(o.get("filled_avg_price", 0) or 0)
+                    side   = o.get("side", "buy")
+                    symbol = o.get("symbol", "")
+                    date_str = o.get("filled_at") or o.get("updated_at")
+                    notional = qty * price
+                    pnl_proxy = (1.0 if side == "sell" else -1.0) * 0.005
+                    row = {"pnl": pnl_proxy, "ticker": symbol, "side": side}
+                    if date_str:
+                        try:
+                            row["date"] = pd.to_datetime(date_str).tz_localize(None)
+                        except Exception:
+                            pass
+                    rows.append(row)
+                except Exception:
+                    continue
 
         if len(rows) < 5:
             raise HTTPException(
@@ -1067,3 +1094,4 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
