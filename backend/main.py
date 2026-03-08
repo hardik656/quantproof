@@ -723,7 +723,7 @@ except ImportError:
 # Simple token gate — replace with Stripe webhook in production
 REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
 
-STRIPE_PRICE_ID = "price_REPLACE_WITH_REAL_ID"   # $9 one-time report
+STRIPE_PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "price_REPLACE")
 REPORT_PRICE_USD = 9
 
 
@@ -837,7 +837,7 @@ async def create_checkout(payload: dict):
     """
     try:
         import stripe
-        stripe.api_key = "sk_live_REPLACE_WITH_REAL_KEY"   # env var in prod
+        stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 
         session = stripe.checkout.Session.create(
             payment_method_types=["card"],
@@ -855,7 +855,8 @@ async def create_checkout(payload: dict):
             "session_id": "cs_mock_dev"
         }
     except Exception as e:
-        raise HTTPException(500, str(e))
+        print(f"Stripe checkout error: {type(e).__name__}: {e}")
+        raise HTTPException(500, f"Checkout failed: {type(e).__name__}: {str(e)[:200]}")
 
 
 @app.post("/report/webhook")
