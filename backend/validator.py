@@ -1342,8 +1342,8 @@ class QuantProofValidator:
             return CheckResult("Regime Coverage", False, 40, "No regime column", "Regime detection improves survival.", "Add BULL/BEAR/CONSOL labels.", "Regime")
         regimes  = self.df['regime'].value_counts(normalize=True)
         coverage = len(regimes) / 4 * 100
-        return CheckResult("4-Regime Coverage", coverage > 75, round(coverage, 1),
-            f"Regimes: {list(regimes.index.astype(str))}", "Full coverage = all market conditions.", "Add TRANSITION regime.", "Regime")
+        return CheckResult("Regime Coverage", coverage > 75, round(coverage, 1),
+            f"Regimes covered: {list(regimes.index.astype(str))} ({len(regimes)}/3)", "Full coverage = all market conditions tested.", "Add more history to cover BULL, BEAR and CONSOL.", "Regime")
 
     def check_slippage_01(self) -> CheckResult:
         r            = self.returns
@@ -1695,6 +1695,8 @@ class QuantProofValidator:
         if final >= 90:   grade = "A — Institutionally Viable"
         elif final >= 80: grade = "B+ — Prop Firm Ready"
         elif final >= 70: grade = "B — Live Tradeable"
+        elif final >= 60: grade = "C — Needs Work Before Live"
+        elif final >= 50: grade = "D — Major Issues"
         else:             grade = "F — Do Not Deploy"
         return round(final, 1), grade
 
