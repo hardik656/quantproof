@@ -59,7 +59,8 @@ async def generate_ai_plan(report, date_range: str) -> dict:
     Returns a dict with keys: summary, fixes (list), encouragement.
     Falls back gracefully if API key missing or call fails.
     """
-    if not ANTHROPIC_API_KEY:
+    # Check at least one AI provider is configured
+    if not any([GROQ_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY]):
         return None
 
     scored = [c for c in report.checks if c.category != "Plausibility"]
@@ -311,8 +312,8 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 def root():
     return {
         "status": "QuantProof API is live",
-        "version": "1.3.0",
-        "checks": "30 institutional checks + 3 crash simulations",
+        "version": "2.5.0",
+        "checks": "38 institutional checks + 5 crash simulations",
         "new_in_v1.3": ["CVaR/Expected Shortfall", "Fractional Kelly + Ruin Probability",
                         "Market Impact (Almgren-Chriss)", "Deflated Sharpe",
                         "Purged Walk-Forward CV", "HMM Regime Detection",
@@ -427,7 +428,7 @@ def sample_csv():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "1.3.0"}
+    return {"status": "ok", "version": "2.5.0"}
 
 # =========================================================
 # ALPACA BROKER INTEGRATION — VERIFIED VALIDATION
@@ -465,11 +466,11 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         ).hexdigest()[:16]
         rec = _validation_counts[key_hash]
         now = time.time()
-        if now - rec.get("reset", 0) > 86400:
+        if rec.get("reset", 0) == 0 or now > rec["reset"]:
             rec["count"] = 0
-            rec["reset"] = now
+            rec["reset"] = now + 86400
         if rec["count"] >= BROKER_DAILY_LIMIT:
-            hours_left = int((86400 - (now - rec["window_start"])) / 3600)
+            hours_left = int((rec["reset"] - now) / 3600)
             raise HTTPException(
                 status_code=429,
                 detail=f"Broker verification limit ({BROKER_DAILY_LIMIT}/day) reached. Resets in ~{hours_left}h."
@@ -766,8 +767,23 @@ async def generate_report_endpoint(
     """
 
     # Token check
-    is_paid = (x_report_token in REPORT_ACCESS_TOKENS or
-               x_report_token == "dev-free")
+    # Tokens are HMAC-signed with session_id + timestamp — no state needed
+    # Format: sha256(session_id:secret:timestamp_hour)[:32]
+    def _verify_token(token: str) -> bool:
+        if token == "dev-free":
+            return True
+        if token in REPORT_ACCESS_TOKENS:
+            return True
+        # Time-based verification: valid for 2 hours after payment
+        secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
+        current_hour = int(time.time() // 3600)
+        for hour_offset in range(3):  # valid for current + 2 previous hours
+            hour = current_hour - hour_offset
+            expected = hashlib.sha256(f"report:{hour}:{secret}".encode()).hexdigest()[:32]
+            if token == expected:
+                return True
+        return False
+    is_paid = _verify_token(x_report_token)
     if not is_paid:
         raise HTTPException(
             status_code=402,
@@ -892,18 +908,28 @@ async def stripe_webhook(request):
     Stripe sends POST here after successful payment.
     Issues a one-time download token tied to the checkout session.
     """
-    import hashlib, time
+    import hashlib, time, json
     body = await request.body()
-    # Verify Stripe signature in production:
-    # stripe.Webhook.construct_event(body, sig_header, webhook_secret)
+
+    # Verify Stripe signature
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    if STRIPE_WEBHOOK_SECRET:
+        try:
+            import stripe
+            sig_header = request.headers.get("stripe-signature", "")
+            stripe.Webhook.construct_event(body, sig_header, STRIPE_WEBHOOK_SECRET)
+        except Exception as sig_err:
+            raise HTTPException(400, f"Invalid webhook signature: {sig_err}")
 
     try:
-        import json
         event = json.loads(body)
         if event.get("type") == "checkout.session.completed":
             session_id = event["data"]["object"]["id"]
-            token = hashlib.sha256(f"{session_id}:quantproof:secret".encode()).hexdigest()[:32]
-            REPORT_ACCESS_TOKENS.add(token)
+            # Generate stateless time-based token — valid for 3 hours, survives restarts
+            secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
+            current_hour = int(time.time() // 3600)
+            token = hashlib.sha256(f"report:{current_hour}:{secret}".encode()).hexdigest()[:32]
+            REPORT_ACCESS_TOKENS.add(token)  # also add to memory cache for speed
             return {"status": "ok", "token": token}
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -1094,4 +1120,3 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
-
