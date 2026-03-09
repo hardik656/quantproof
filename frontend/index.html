@@ -1637,9 +1637,14 @@
       if (!response.ok) {
         const err = await response.json();
         const detail = err.detail || err;
-        // Friendly message for insufficient trades
+        // Special UX for insufficient trades — show inline, don't dump to error
         if (detail && detail.error === 'insufficient_trades') {
-          throw new Error(`Only ${detail.trades_found} closed trades found — need ${detail.trades_needed} for a valid analysis. Keep trading and reconnect when you have more history.`);
+          document.getElementById('loadingSection').classList.remove('active');
+          document.getElementById('uploadSection').style.display = 'block';
+          document.getElementById('heroSection').style.display = 'block';
+          document.getElementById('alpacaPanel').style.display = 'block';
+          status.innerHTML = `<span style="color:#ffaa00;font-size:14px">⚠ Only <b>${detail.trades_found}</b> closed round-trip trades found.<br>QuantProof needs at least <b>${detail.trades_needed}</b> to run a valid analysis.<br><span style="opacity:0.7;font-size:12px">Keep trading — come back when you have more history.</span></span>`;
+          return;
         }
         throw new Error((detail && detail.message) || detail || 'Alpaca connection failed');
       }
