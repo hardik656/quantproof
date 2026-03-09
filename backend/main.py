@@ -617,45 +617,17 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         import pandas as pd
         df = pd.DataFrame(rows)
 
-        # ── Use paired trades as primary source ───────────────────────────────
-        # Portfolio history gives daily returns (200+ points) which inflates trade count
-        # and loses the actual per-trade PnL information.
-        # Only fall back to portfolio history if we have very few paired trades (<10)
+        # ── Enforce minimum trade count ───────────────────────────────────────
+        # Never mix in portfolio history — it contaminates per-trade metrics.
+        # Score must reflect real closed trades only, nothing else.
         if len(rows) < 10:
-            try:
-                async with httpx.AsyncClient(timeout=15) as client2:
-                    pf_resp = await client2.get(
-                        f"{base_url}/v2/account/portfolio/history",
-                        headers={
-                            "APCA-API-KEY-ID":     payload.api_key,
-                            "APCA-API-SECRET-KEY": payload.secret_key,
-                        },
-                        params={"period": "1A", "timeframe": "1D", "extended_hours": False}
-                    )
-                    if pf_resp.is_success:
-                        pf = pf_resp.json()
-                        equity     = pf.get("equity", [])
-                        timestamps = pf.get("timestamp", [])
-                        if len(equity) > 5:
-                            eq = np.array(equity, dtype=float)
-                            returns = np.diff(eq) / np.where(eq[:-1] > 0, eq[:-1], 1)
-                            returns = returns[~np.isnan(returns)]
-                            returns = np.clip(returns, -0.5, 0.5)
-                            date_arr = []
-                            if timestamps:
-                                for ts in timestamps[1:len(returns)+1]:
-                                    try:
-                                        date_arr.append(pd.Timestamp(ts, unit='s'))
-                                    except Exception:
-                                        date_arr.append(None)
-                            df = pd.DataFrame({"pnl": returns})
-                            if date_arr and len(date_arr) == len(returns):
-                                df["date"] = date_arr
-                            print(f"Fallback to portfolio history: {len(returns)} daily points")
-            except Exception as pf_err:
-                print(f"Portfolio history unavailable: {pf_err}")
-        else:
-            print(f"Using {len(rows)} paired round-trip trades")
+            raise HTTPException(400, {
+                "error": "insufficient_trades",
+                "trades_found": len(rows),
+                "trades_needed": 10,
+                "message": f"Only {len(rows)} completed round-trip trades found. QuantProof needs at least 10 closed trades for a statistically valid analysis. Keep trading and come back — results with more history will be far more meaningful."
+            })
+        print(f"Using {len(rows)} paired round-trip trades")
 
         # Always discard keys
         try:
