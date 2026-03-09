@@ -1526,6 +1526,64 @@
   // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
+  // Generate PDF after payment verified
+  async function generatePdfWithToken(token) {
+    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
+    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
+    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
+    try {
+      let res;
+      if (reportSource === 'alpaca') {
+        const storedBroker = sessionStorage.getItem('qp_broker');
+        const brokerCreds  = storedBroker ? JSON.parse(storedBroker) : null;
+        if (brokerCreds) {
+          res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-report-token': token },
+            body: JSON.stringify(brokerCreds)
+          });
+        }
+      }
+      if (!res) {
+        if (!_lastValidatedFile) {
+          const storedName = sessionStorage.getItem('qp_filename');
+          const storedData = sessionStorage.getItem('qp_filedata');
+          if (storedName && storedData) {
+            const byteStr = atob(storedData);
+            const arr = new Uint8Array(byteStr.length);
+            for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+            _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
+          }
+        }
+        if (!_lastValidatedFile) throw new Error('Original file not found — please re-upload your CSV');
+        const form = new FormData();
+        form.append('file', _lastValidatedFile);
+        res = await fetch(`${API_URL_REPORT}/report/generate`, {
+          method: 'POST',
+          headers: { 'x-report-token': token },
+          body: form
+        });
+      }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.message || `Server error ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'QuantProof_Report.pdf';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--green)'; btn.style.color = '#000'; }
+      if (status) { status.innerText = 'Your full report has been downloaded.'; status.style.color = 'var(--green)'; }
+    } catch(err) {
+      if (btn)    { btn.disabled = false; btn.innerText = 'Retry Download'; }
+      if (status) { status.innerText = 'Download failed: ' + err.message; status.style.color = '#ff4444'; }
+    }
+  }
+
   async function buyPdfReport() {
     const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
     const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
@@ -1589,11 +1647,14 @@
         }
       };
 
+      if (typeof Razorpay === 'undefined') {
+        throw new Error('Payment system failed to load. Please refresh the page and try again.');
+      }
       const rzp = new Razorpay(options);
       rzp.on('payment.failed', function(response) {
         btn.disabled = false;
         btn.innerText = 'Unlock Full Report — ₹999';
-        if (status) { status.innerText = 'Payment failed: ' + response.error.description; status.style.color = '#ff4444'; }
+        if (status) { status.innerText = 'Payment failed: ' + (response.error.description || 'Card declined'); status.style.color = '#ff4444'; }
       });
       rzp.open();
 
@@ -1604,63 +1665,7 @@
     }
   }
 
-  // Generate PDF after payment verified
-  async function generatePdfWithToken(token) {
-    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
-    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
-    try {
-      let res;
-      if (reportSource === 'alpaca') {
-        const storedBroker = sessionStorage.getItem('qp_broker');
-        const brokerCreds  = storedBroker ? JSON.parse(storedBroker) : null;
-        if (brokerCreds) {
-          res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-report-token': token },
-            body: JSON.stringify(brokerCreds)
-          });
-        }
-      }
-      if (!res) {
-        if (!_lastValidatedFile) {
-          const storedName = sessionStorage.getItem('qp_filename');
-          const storedData = sessionStorage.getItem('qp_filedata');
-          if (storedName && storedData) {
-            const byteStr = atob(storedData);
-            const arr = new Uint8Array(byteStr.length);
-            for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-            _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
-          }
-        }
-        if (!_lastValidatedFile) throw new Error('Original file not found — please re-upload your CSV');
-        const form = new FormData();
-        form.append('file', _lastValidatedFile);
-        res = await fetch(`${API_URL_REPORT}/report/generate`, {
-          method: 'POST',
-          headers: { 'x-report-token': token },
-          body: form
-        });
-      }
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || `Server error ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'QuantProof_Report.pdf';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--green)'; btn.style.color = '#000'; }
-      if (status) { status.innerText = 'Your full report has been downloaded.'; status.style.color = 'var(--green)'; }
-    } catch(err) {
-      if (btn)    { btn.disabled = false; btn.innerText = 'Retry Download'; }
-      if (status) { status.innerText = 'Download failed: ' + err.message; status.style.color = '#ff4444'; }
-    }
-  }
+
 
   async function handleReportSuccess() {
     // No longer used — Razorpay uses popup flow, no redirect needed
