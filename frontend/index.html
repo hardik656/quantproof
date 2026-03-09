@@ -1005,7 +1005,30 @@
           <span class="mode-limit-item">5 crash sims</span>
         </div>
         <div class="mode-warning">⚠ Cannot be used for prop firm compliance</div>
-        <button class="upload-btn" style="width:100%;margin-top:16px;" onclick="document.getElementById('fileInput').click()">
+        <div style="margin:12px 0 4px 0">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
+          <select id="csvCurrency" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--font)">
+            <option value="USD">🇺🇸 USD — US Dollar</option>
+            <option value="INR">🇮🇳 INR — Indian Rupee</option>
+            <option value="GBP">🇬🇧 GBP — British Pound</option>
+            <option value="EUR">🇪🇺 EUR — Euro</option>
+            <option value="CAD">🇨🇦 CAD — Canadian Dollar</option>
+            <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
+            <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
+            <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
+            <option value="HKD">🇭🇰 HKD — Hong Kong Dollar</option>
+            <option value="CHF">🇨🇭 CHF — Swiss Franc</option>
+            <option value="AED">🇦🇪 AED — UAE Dirham</option>
+            <option value="SAR">🇸🇦 SAR — Saudi Riyal</option>
+            <option value="MYR">🇲🇾 MYR — Malaysian Ringgit</option>
+            <option value="BRL">🇧🇷 BRL — Brazilian Real</option>
+            <option value="ZAR">🇿🇦 ZAR — South African Rand</option>
+            <option value="KRW">🇰🇷 KRW — South Korean Won</option>
+            <option value="TRY">🇹🇷 TRY — Turkish Lira</option>
+            <option value="MXN">🇲🇽 MXN — Mexican Peso</option>
+          </select>
+        </div>
+        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">
           SELECT CSV FILE
         </button>
         <input type="file" id="fileInput" accept=".csv">
@@ -1119,6 +1142,24 @@
 <script>
   const API_URL = 'https://quantproof-backend.onrender.com'; // Change to your Render URL when deployed
 
+  // ── Currency support (36 currencies) ────────────────────────────────────
+  const CURRENCY_SYMBOLS = {
+    USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",
+    CHF:"CHF ",SGD:"S$",HKD:"HK$",NZD:"NZ$",NOK:"kr ",SEK:"kr ",
+    DKK:"kr ",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
+    MYR:"RM",THB:"฿",IDR:"Rp",PHP:"₱",TRY:"₺",RUB:"₽",ILS:"₪",
+    KRW:"₩",TWD:"NT$",CNY:"¥",CLP:"CLP$",COP:"COL$",PKR:"₨",
+    BDT:"৳",VND:"₫",NGN:"₦",EGP:"E£",KES:"KSh",GHS:"GH₵"
+  };
+  let _activeCurrency = 'USD';
+  function setCurrency(c) { _activeCurrency = (c||'USD').toUpperCase(); }
+  function currencySymbol() { return CURRENCY_SYMBOLS[_activeCurrency] || (_activeCurrency+' '); }
+  function currencyBadge() {
+    if (_activeCurrency === 'USD') return '';
+    const sym = currencySymbol();
+    return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;border-radius:4px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
+  }
+
   // ========== DRAG & DROP ==========
   // uploadZone no longer exists as standalone — drag/drop on csv card instead
   const csvCard = document.getElementById('csvCard');
@@ -1170,6 +1211,10 @@
     _brokerSource   = '';
     const formData = new FormData();
     formData.append('file', file);
+    const selCur = document.getElementById('csvCurrency');
+    if (selCur) formData.append('currency', selCur.value);
+    // Also set frontend currency immediately for display
+    setCurrency(selCur ? selCur.value : 'USD');
 
     try {
       const response = await fetch(`${API_URL}/validate`, {
@@ -1201,6 +1246,9 @@
 
   // ========== RENDER RESULTS ==========
   function renderResults(data) {
+    // Set active currency from backend response
+    setCurrency(data.currency || 'USD');
+
     // Scale warning — user submitted % not decimal
     if (data.scale_warning) {
       const warn = document.createElement('div');
@@ -1321,7 +1369,7 @@
               <div class="meta-value" style="color:${data.max_drawdown < 0.1 ? 'var(--accent)' : data.max_drawdown < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_drawdown * 100).toFixed(1)}%</div>
             </div>
           </div>
-          ${data.date_range !== 'No date data' ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}</div>` : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`}
+          ${data.date_range !== 'No date data' ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}${currencyBadge()}</div>` : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`}
           ${data.plausibility_summary ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};border-radius:6px;font-family:var(--mono)">${data.plausibility_summary}</div>` : ''}
         </div>
       </div>
