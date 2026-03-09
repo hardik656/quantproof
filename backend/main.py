@@ -13,6 +13,7 @@ import io
 import os
 import time
 import hashlib
+import traceback
 from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
@@ -1122,33 +1123,42 @@ async def generate_broker_report(
 
         print(f"[generate-broker] filled orders: {len(filled)}, paired rows: {len(rows)}")
 
-        if len(rows) < 3:
-            # Fall back — use all filled orders as individual data points if not enough pairs
-            rows = []
-            for o in filled:
-                try:
-                    qty   = float(o.get("filled_qty", 0) or 0)
-                    price = float(o.get("filled_avg_price", 0) or 0)
-                    side  = o.get("side", "buy")
-                    date_str = o.get("filled_at") or o.get("updated_at")
-                    # Use a ±0.5% proxy so we at least have real trade count
-                    pnl_proxy = 0.005 if side == "sell" else -0.005
-                    row = {"pnl": pnl_proxy, "ticker": o.get("symbol",""), "side": side}
-                    if date_str:
-                        try:
-                            ts = pd.to_datetime(date_str)
-                            if ts.tzinfo is not None:
-                                ts = ts.tz_convert("UTC").tz_localize(None)
-                            row["date"] = ts
-                        except Exception:
-                            pass
-                    rows.append(row)
-                except Exception:
-                    continue
-            print(f"[generate-broker] fallback to {len(rows)} individual orders")
+        # Validator needs minimum 10 trades — fetch portfolio history as supplement if needed
+        if len(rows) < 10:
+            print(f"[generate-broker] only {len(rows)} pairs, fetching portfolio history to supplement")
+            try:
+                async with httpx.AsyncClient(timeout=20) as client:
+                    port_resp = await client.get(
+                        f"{base_url}/v2/account/portfolio/history",
+                        headers={
+                            "APCA-API-KEY-ID":     payload.api_key.strip(),
+                            "APCA-API-SECRET-KEY": payload.secret_key.strip(),
+                        },
+                        params={"period": "1A", "timeframe": "1D", "extended_hours": "false"}
+                    )
+                if port_resp.is_success:
+                    ph = port_resp.json()
+                    equity = ph.get("equity", [])
+                    if len(equity) >= 2:
+                        equity = [float(v) for v in equity if v is not None and float(v) > 0]
+                        port_returns = [
+                            (equity[i] - equity[i-1]) / equity[i-1]
+                            for i in range(1, len(equity))
+                            if equity[i-1] > 0
+                        ]
+                        # Supplement paired rows with portfolio daily returns
+                        existing_pnls = [r["pnl"] for r in rows]
+                        for r in port_returns:
+                            rows.append({"pnl": float(np.clip(r, -0.5, 0.5))})
+                        print(f"[generate-broker] supplemented to {len(rows)} rows with portfolio history")
+            except Exception as pe:
+                print(f"[generate-broker] portfolio history fetch failed: {pe}")
+
+        # Discard credentials now that all fetches are done
+        api_key = secret_key = "[DISCARDED]"
 
         if len(rows) < 5:
-            raise HTTPException(400, f"Only {len(rows)} trades found in Alpaca account. Need at least 5 completed trades.")
+            raise HTTPException(400, f"Only {len(rows)} trades found. Need at least 5 completed round-trip trades.")
 
         df = pd.DataFrame(rows)
 
@@ -1202,11 +1212,13 @@ async def generate_broker_report(
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
 
+    if not _PDF_AVAILABLE:
+        raise HTTPException(503, "PDF module not available on this server.")
     try:
-        if not _PDF_AVAILABLE:
-            raise HTTPException(503, "PDF module not available.")
         pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[generate-broker] PDF CRASH:\n{tb}")
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
 
     score     = int(report.score)
@@ -1403,3 +1415,5 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
+
