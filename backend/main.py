@@ -234,6 +234,7 @@ class ValidationResponse(BaseModel):
     engine_version: str
     audit_flags: List[str]
     plausibility_summary: str
+    scale_warning: bool = False   # True if >50% of returns at ±50% boundary (% vs decimal)
     assumptions: List[str]
     # Dashboard data (optional — for future chart rendering)
     dashboard: Optional[Dict[str, Any]] = None
@@ -406,6 +407,7 @@ async def validate(file: UploadFile = File(...), request: Request = None):
         engine_version=r.engine_version,
         audit_flags=r.audit_flags,
         plausibility_summary=r.plausibility_summary,
+        scale_warning=getattr(r, '_scale_warning', False),
         assumptions=r.assumptions,
         dashboard=dashboard_data,
         ai_plan=None,  # AI analysis is a paid feature — included in PDF report
