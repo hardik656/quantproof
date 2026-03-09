@@ -767,7 +767,7 @@ REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
 RAZORPAY_KEY_ID       = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET   = os.getenv("RAZORPAY_KEY_SECRET", "")
 REPORT_PRICE_USD      = 9     # $9 USD
-REPORT_PRICE_INR      = 750   # ₹750 fallback for INR users
+REPORT_PRICE_INR      = 999   # ₹999
 REPORT_PRICE_USD = 9
 
 
@@ -785,11 +785,12 @@ async def generate_report_endpoint(
 
     # Token check
     def _verify_token(token: str) -> bool:
-        if token == "dev-free":
+        # Test bypass — only works if TEST_REPORT_TOKEN is set in env
+        if _TEST_TOKEN and token == _TEST_TOKEN:
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
-        # Accept Stripe checkout session IDs directly — verify payment with Stripe
+        # Legacy Stripe session IDs (ignore now)
         if token.startswith("cs_"):
             try:
                 import stripe
@@ -951,7 +952,7 @@ async def create_checkout(payload: dict):
         # Razorpay amounts are in paise (INR) or smallest unit
         # We charge ₹750 (~$9 USD) — international cards billed in INR
         order = client.order.create({
-            "amount":   75000,   # 750 INR in paise
+            "amount":   99900,   # 999 INR in paise
             "currency": "INR",
             "payment_capture": 1,
             "notes": {"product": "QuantProof Full Report"}
