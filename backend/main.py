@@ -790,26 +790,13 @@ async def generate_report_endpoint(
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
-        # Legacy Stripe session IDs (ignore now)
+        # Legacy cs_ tokens no longer accepted
         if token.startswith("cs_"):
-            try:
-                import stripe
-                stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-                session = stripe.checkout.Session.retrieve(token)
-                if session.payment_status == "paid":
-                    REPORT_ACCESS_TOKENS.add(token)  # cache it
-                    return True
-            except Exception as e:
-                print(f"Stripe session verify failed: {e}")
             return False
-        # Time-based HMAC tokens (from webhook)
-        secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
-        current_hour = int(time.time() // 3600)
-        for hour_offset in range(3):
-            hour = current_hour - hour_offset
-            expected = hashlib.sha256(f"report:{hour}:{secret}".encode()).hexdigest()[:32]
-            if token == expected:
-                return True
+        # Time-based HMAC tokens — issued by Razorpay webhook
+        # Token format: sha256("report:{hour}:{secret}:{payment_id}")[:32]
+        # We can't reverse-verify without payment_id, so rely on REPORT_ACCESS_TOKENS set
+        # which is populated at webhook time (survives if server hasn't restarted)
         return False
     is_paid = _verify_token(x_report_token)
     if not is_paid:
@@ -818,8 +805,7 @@ async def generate_report_endpoint(
             detail={
                 "error": "payment_required",
                 "message": "Purchase required to download the full analysis report.",
-                "price_usd": REPORT_PRICE_USD,
-                "stripe_price_id": STRIPE_PRICE_ID,
+                "price_inr": REPORT_PRICE_INR,
                 "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"
             }
         )
@@ -1038,24 +1024,9 @@ async def generate_broker_report(
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
+        # Legacy cs_ tokens no longer accepted
         if token.startswith("cs_"):
-            try:
-                import stripe
-                stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-                session = stripe.checkout.Session.retrieve(token)
-                if session.payment_status == "paid":
-                    REPORT_ACCESS_TOKENS.add(token)
-                    return True
-            except Exception as e:
-                print(f"Stripe verify failed: {e}")
             return False
-        secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
-        current_hour = int(time.time() // 3600)
-        for hour_offset in range(3):
-            hour = current_hour - hour_offset
-            expected = hashlib.sha256(f"report:{hour}:{secret}".encode()).hexdigest()[:32]
-            if token == expected:
-                return True
         return False
 
     if not _verify_token(x_report_token):
