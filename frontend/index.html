@@ -1511,57 +1511,43 @@
       }
     }
 
-    // For broker mode — re-validate with stored credentials to generate PDF
-    if (!_lastValidatedFile) {
-      const storedBroker = sessionStorage.getItem('qp_broker');
-      if (storedBroker) {
-        const { key, secret, mode } = JSON.parse(storedBroker);
-        const btn = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-        const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
-        if (btn)    { btn.disabled = true; btn.innerText = 'Fetching broker data...'; }
-        if (status) { status.innerText = 'Re-fetching from Alpaca to generate PDF...'; }
-        // Re-fetch from Alpaca and convert result to a synthetic CSV for PDF gen
-        try {
-          const r = await fetch(`${API_URL}/validate/alpaca`, {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ api_key: key, secret_key: secret, mode })
-          });
-          const data = await r.json();
-          // Build CSV from checks data for PDF generation
-          const csvRows = ['pnl'];
-          if (data.checks) {
-            // Use a simple synthetic representation
-            const n = data.total_trades || 10;
-            const wr = (data.win_rate || 50) / 100;
-            for (let i = 0; i < n; i++) {
-              csvRows.push(i < n * wr ? '0.005' : '-0.004');
-            }
-          }
-          const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-          _lastValidatedFile = new File([blob], 'alpaca_trades.csv', { type: 'text/csv' });
-        } catch(e) {
-          if (btn) { btn.innerText = 'Payment confirmed — re-open page to download PDF'; btn.disabled = false; }
-          return;
-        }
-      } else {
-        const btn = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-        if (btn) { btn.innerText = 'Payment confirmed — re-upload CSV to download PDF'; btn.disabled = false; }
-        return;
-      }
-    }
     const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
     const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
     if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
     if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent3)'; }
+
+    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
+
     try {
-      const form = new FormData();
-      form.append('file', _lastValidatedFile);
-      const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
-      const res = await fetch(`${API_URL_REPORT}/report/generate`, {
-        method: 'POST',
-        headers: { 'x-report-token': token, 'x-report-source': reportSource },
-        body: form
-      });
+      let res;
+      if (reportSource === 'alpaca') {
+        // Broker mode — send real credentials to dedicated endpoint, get real score PDF
+        const storedBroker = sessionStorage.getItem('qp_broker');
+        if (!storedBroker) {
+          if (btn) { btn.innerText = 'Re-connect Alpaca to download PDF'; btn.disabled = false; }
+          return;
+        }
+        const { key, secret, mode } = JSON.parse(storedBroker);
+        if (status) { status.innerText = 'Fetching your real Alpaca trades for PDF...'; }
+        res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+          method: 'POST',
+          headers: { 'x-report-token': token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: key, secret_key: secret, mode })
+        });
+      } else {
+        // CSV mode — upload the original file
+        if (!_lastValidatedFile) {
+          if (btn) { btn.innerText = 'Payment confirmed — re-upload CSV to download PDF'; btn.disabled = false; }
+          return;
+        }
+        const form = new FormData();
+        form.append('file', _lastValidatedFile);
+        res = await fetch(`${API_URL_REPORT}/report/generate`, {
+          method: 'POST',
+          headers: { 'x-report-token': token, 'x-report-source': 'csv' },
+          body: form
+        });
+      }
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail?.message || 'PDF failed'); }
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
