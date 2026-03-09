@@ -1201,6 +1201,13 @@
 
   // ========== RENDER RESULTS ==========
   function renderResults(data) {
+    // Scale warning — user submitted % not decimal
+    if (data.scale_warning) {
+      const warn = document.createElement('div');
+      warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;border-radius:8px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
+      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of your trade returns appear to be at the maximum boundary. Did you submit returns as percentages (e.g. <code>2.5</code>) instead of decimals (<code>0.025</code>)? If so, divide all P&L values by 100 and resubmit — your score may be significantly different.';
+      document.getElementById('resultsSection').prepend(warn);
+    }
     const section = document.getElementById('resultsSection');
     try {
       section.innerHTML = buildResultsHTML(data);
