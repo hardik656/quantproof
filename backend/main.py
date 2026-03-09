@@ -764,7 +764,10 @@ except ImportError:
 # Simple token gate — replace with Stripe webhook in production
 REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
 
-STRIPE_PRICE_ID       = os.getenv("STRIPE_PRICE_ID", "price_REPLACE")
+RAZORPAY_KEY_ID       = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET   = os.getenv("RAZORPAY_KEY_SECRET", "")
+REPORT_PRICE_USD      = 9     # $9 USD
+REPORT_PRICE_INR      = 750   # ₹750 fallback for INR users
 REPORT_PRICE_USD = 9
 
 
@@ -927,73 +930,82 @@ async def generate_report_endpoint(
 @app.post("/report/create-checkout")
 async def create_checkout(payload: dict):
     """
-    Creates a Stripe Checkout session for the $9 report.
-    Frontend redirects user to session.url.
-    On success, Stripe webhook calls /report/webhook to issue a token.
+    Creates a Razorpay order for the $9 report.
+    Frontend opens Razorpay popup, on success calls /report/webhook with payment_id.
     """
+    import hmac, hashlib
     try:
-        import stripe
-        stripe_key = os.getenv("STRIPE_SECRET_KEY", "")
-        if not stripe_key or stripe_key == "sk_live_REPLACE":
-            # Stripe not configured — return helpful error instead of crash
-            raise HTTPException(503, {
-                "error": "stripe_not_configured",
-                "message": "Payment system not yet configured. Please contact support.",
-                "debug": "Set STRIPE_SECRET_KEY in Render environment variables."
-            })
-        stripe.api_key = stripe_key
-
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{"price": STRIPE_PRICE_ID, "quantity": 1}],
-            mode="payment",
-            success_url="https://quantproof-frontend.onrender.com/?report_token={CHECKOUT_SESSION_ID}#report-success",
-            cancel_url="https://quantproof-frontend.onrender.com/#report-cancel",
-            metadata={"product": "report_download"}
-        )
-        return {"checkout_url": session.url, "session_id": session.id}
-    except HTTPException:
-        raise
+        import razorpay
     except ImportError:
-        raise HTTPException(503, {"error": "stripe_not_installed", "message": "Stripe package not installed on server."})
+        raise HTTPException(503, {"error": "razorpay_not_installed",
+            "message": "razorpay package not installed. Run: pip install razorpay"})
+
+    key_id     = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(503, {"error": "razorpay_not_configured",
+            "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
+
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        # Razorpay amounts are in paise (INR) or smallest unit
+        # We charge ₹750 (~$9 USD) — international cards billed in INR
+        order = client.order.create({
+            "amount":   75000,   # 750 INR in paise
+            "currency": "INR",
+            "payment_capture": 1,
+            "notes": {"product": "QuantProof Full Report"}
+        })
+        return {
+            "order_id":  order["id"],
+            "amount":    order["amount"],
+            "currency":  order["currency"],
+            "key_id":    key_id,
+            "checkout_url": None   # Razorpay uses popup not redirect
+        }
     except Exception as e:
-        print(f"Stripe checkout error: {type(e).__name__}: {e}")
-        raise HTTPException(500, f"Checkout failed: {type(e).__name__}: {str(e)[:200]}")
+        print(f"Razorpay order error: {type(e).__name__}: {e}")
+        raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
 
 
 @app.post("/report/webhook")
-async def stripe_webhook(request: Request):
+async def payment_webhook(request: Request):
     """
-    Stripe sends POST here after successful payment.
-    Issues a one-time download token tied to the checkout session.
+    Called by frontend after Razorpay payment success.
+    Verifies payment signature and issues a one-time download token.
     """
-    import hashlib, time, json
+    import hashlib, hmac, time, json
+
     body = await request.body()
-
-    # Verify Stripe signature
-    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    if STRIPE_WEBHOOK_SECRET:
-        try:
-            import stripe
-            sig_header = request.headers.get("stripe-signature", "")
-            stripe.Webhook.construct_event(body, sig_header, STRIPE_WEBHOOK_SECRET)
-        except Exception as sig_err:
-            raise HTTPException(400, f"Invalid webhook signature: {sig_err}")
-
     try:
-        event = json.loads(body)
-        if event.get("type") == "checkout.session.completed":
-            session_id = event["data"]["object"]["id"]
-            # Generate stateless time-based token — valid for 3 hours, survives restarts
-            secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
-            current_hour = int(time.time() // 3600)
-            token = hashlib.sha256(f"report:{current_hour}:{secret}".encode()).hexdigest()[:32]
-            REPORT_ACCESS_TOKENS.add(token)  # also add to memory cache for speed
-            return {"status": "ok", "token": token}
-    except Exception as e:
-        raise HTTPException(400, str(e))
+        data = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
 
-    return {"status": "ignored"}
+    payment_id = data.get("razorpay_payment_id", "")
+    order_id   = data.get("razorpay_order_id", "")
+    signature  = data.get("razorpay_signature", "")
+
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+
+    # Verify Razorpay signature — HMAC-SHA256(order_id + "|" + payment_id)
+    if payment_id and order_id and signature:
+        expected = hmac.new(
+            key_secret.encode(),
+            f"{order_id}|{payment_id}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, signature):
+            raise HTTPException(400, "Invalid payment signature")
+
+    # Generate stateless time-based token — valid for 3 hours, survives restarts
+    current_hour = int(time.time() // 3600)
+    token = hashlib.sha256(
+        f"report:{current_hour}:{key_secret}:{payment_id}".encode()
+    ).hexdigest()[:32]
+    REPORT_ACCESS_TOKENS.add(token)
+    print(f"[webhook] Payment verified: {payment_id} → token issued")
+    return {"status": "ok", "token": token}
 
 
 
@@ -1393,5 +1405,3 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
-
-
