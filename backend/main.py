@@ -989,24 +989,27 @@ async def payment_webhook(request: Request):
 
     key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
 
-    # Verify Razorpay signature — HMAC-SHA256(order_id + "|" + payment_id)
-    if payment_id and order_id and signature:
-        expected = hmac.new(
-            key_secret.encode(),
-            f"{order_id}|{payment_id}".encode(),
-            hashlib.sha256
-        ).hexdigest()
-        if not hmac.compare_digest(expected, signature):
-            raise HTTPException(400, "Invalid payment signature")
+    # ALWAYS verify signature — never skip, never trust empty fields
+    if not payment_id or not order_id or not signature:
+        raise HTTPException(400, "Missing payment fields — payment_id, order_id and signature all required")
+    expected = hmac.new(
+        key_secret.encode(),
+        f"{order_id}|{payment_id}".encode(),
+        hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid payment signature — payment could not be verified")
 
-    # Generate stateless time-based token — valid for 3 hours, survives restarts
+    # Generate TWO tokens — current hour and next hour
+    # Guarantees user always has at least ~1 hour regardless of when they pay
     current_hour = int(time.time() // 3600)
-    token = hashlib.sha256(
-        f"report:{current_hour}:{key_secret}:{payment_id}".encode()
-    ).hexdigest()[:32]
-    REPORT_ACCESS_TOKENS.add(token)
-    print(f"[webhook] Payment verified: {payment_id} → token issued")
-    return {"status": "ok", "token": token}
+    token_now  = hashlib.sha256(f"report:{current_hour}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
+    token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
+    REPORT_ACCESS_TOKENS.add(token_now)
+    REPORT_ACCESS_TOKENS.add(token_next)
+    print(f"[webhook] Payment verified: {payment_id} → tokens issued (valid ~2hrs)")
+    # Return the current-hour token — both are valid
+    return {"status": "ok", "token": token_now}
 
 
 
