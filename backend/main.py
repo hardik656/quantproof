@@ -1066,7 +1066,10 @@ async def generate_broker_report(
                 f"{base_url}/v2/orders", headers=headers,
                 params={"status": "closed", "limit": 500, "direction": "desc"}
             )
-        orders = orders_resp.json() if orders_resp.is_success else []
+        raw_orders = orders_resp.json() if orders_resp.is_success else []
+        # Alpaca sometimes returns a dict with an error instead of a list
+        orders = raw_orders if isinstance(raw_orders, list) else []
+        print(f"[generate-broker] orders fetched: {len(orders)}, resp status: {orders_resp.status_code}")
 
         # Discard keys immediately
         api_key = secret_key = "[DISCARDED]"
@@ -1080,6 +1083,8 @@ async def generate_broker_report(
                   and float(o.get("filled_qty", 0) or 0) > 0
                   and float(o.get("filled_avg_price", 0) or 0) > 0]
         filled.sort(key=lambda o: o.get("filled_at") or o.get("updated_at") or "")
+        sides = [o.get("side") for o in filled]
+        print(f"[generate-broker] filled: {len(filled)}, buys: {sides.count('buy')}, sells: {sides.count('sell')}, symbols: {list(set(o.get('symbol','') for o in filled))}")
 
         for o in filled:
             try:
@@ -1389,3 +1394,4 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
