@@ -959,7 +959,7 @@ async def create_checkout(payload: dict):
 
 
 @app.post("/report/webhook")
-async def stripe_webhook(request):
+async def stripe_webhook(request: Request):
     """
     Stripe sends POST here after successful payment.
     Issues a one-time download token tied to the checkout session.
