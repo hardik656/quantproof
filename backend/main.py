@@ -956,6 +956,99 @@ async def create_checkout(payload: dict):
         raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
 
 
+@app.post("/report/create-checkout-intl")
+async def create_checkout_intl(payload: dict):
+    """
+    Lemon Squeezy checkout for international users (non-India).
+    Returns a checkout URL — frontend redirects to it.
+    On payment success, LS calls /report/webhook-ls with payment data.
+    """
+    import httpx
+    ls_key      = os.getenv("LEMONSQUEEZY_API_KEY", "")
+    ls_store_id = os.getenv("LEMONSQUEEZY_STORE_ID", "")
+    ls_variant  = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")  # the $12 product variant
+
+    if not ls_key or not ls_store_id or not ls_variant:
+        raise HTTPException(503, {
+            "error": "ls_not_configured",
+            "message": "International payments not yet configured. Please email us to pay manually."
+        })
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.lemonsqueezy.com/v1/checkouts",
+                headers={
+                    "Authorization": f"Bearer {ls_key}",
+                    "Accept": "application/vnd.api+json",
+                    "Content-Type": "application/vnd.api+json"
+                },
+                json={
+                    "data": {
+                        "type": "checkouts",
+                        "attributes": {
+                            "checkout_options": {"dark": True},
+                            "product_options": {
+                                "redirect_url": "https://quantproof-frontend.onrender.com/?payment=success&provider=ls"
+                            }
+                        },
+                        "relationships": {
+                            "store":   {"data": {"type": "stores",   "id": ls_store_id}},
+                            "variant": {"data": {"type": "variants", "id": ls_variant}}
+                        }
+                    }
+                }
+            )
+        if not resp.is_success:
+            raise HTTPException(500, {"error": "ls_checkout_failed", "message": resp.text[:200]})
+
+        data = resp.json()
+        checkout_url = data["data"]["attributes"]["url"]
+        return {"checkout_url": checkout_url}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, {"error": "ls_error", "message": str(e)})
+
+
+@app.post("/report/webhook-ls")
+async def lemonsqueezy_webhook(request: Request):
+    """
+    Lemon Squeezy calls this after successful payment.
+    Verifies signature and issues download token — same system as Razorpay.
+    """
+    import hashlib, hmac, time, json
+
+    body = await request.body()
+    ls_secret = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
+
+    # Verify LS signature
+    if ls_secret:
+        sig = request.headers.get("x-signature", "")
+        expected = hmac.new(ls_secret.encode(), body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            raise HTTPException(400, "Invalid Lemon Squeezy webhook signature")
+
+    try:
+        event = json.loads(body)
+        event_name = event.get("meta", {}).get("event_name", "")
+        if event_name == "order_created":
+            order_id   = str(event["data"]["id"])
+            key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+            current_hour = int(time.time() // 3600)
+            token_now  = hashlib.sha256(f"report:{current_hour}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
+            token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
+            REPORT_ACCESS_TOKENS.add(token_now)
+            REPORT_ACCESS_TOKENS.add(token_next)
+            print(f"[webhook-ls] LS order {order_id} → tokens issued")
+            return {"status": "ok", "token": token_now}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    return {"status": "ignored"}
+
+
 @app.post("/report/webhook")
 async def payment_webhook(request: Request):
     """
