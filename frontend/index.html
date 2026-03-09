@@ -1484,7 +1484,7 @@
             style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
             onmouseover="this.style.background='#00cc6e'"
             onmouseout="this.style.background='var(--accent)'">
-            Unlock Full Report — ₹750
+            Unlock Full Report — ₹999
           </button>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
         </div>
@@ -1576,14 +1576,14 @@
 
           } catch(verifyErr) {
             btn.disabled = false;
-            btn.innerText = 'Unlock Full Report — ₹750';
+            btn.innerText = 'Unlock Full Report — ₹999';
             if (status) { status.innerText = 'Payment error: ' + verifyErr.message; status.style.color = '#ff4444'; }
           }
         },
         modal: {
           ondismiss: function() {
             btn.disabled = false;
-            btn.innerText = 'Unlock Full Report — ₹750';
+            btn.innerText = 'Unlock Full Report — ₹999';
             if (status) { status.innerText = ''; }
           }
         }
@@ -1592,14 +1592,14 @@
       const rzp = new Razorpay(options);
       rzp.on('payment.failed', function(response) {
         btn.disabled = false;
-        btn.innerText = 'Unlock Full Report — ₹750';
+        btn.innerText = 'Unlock Full Report — ₹999';
         if (status) { status.innerText = 'Payment failed: ' + response.error.description; status.style.color = '#ff4444'; }
       });
       rzp.open();
 
     } catch (err) {
       btn.disabled  = false;
-      btn.innerText = 'Unlock Full Report — ₹750';
+      btn.innerText = 'Unlock Full Report — ₹999';
       if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
@@ -1743,7 +1743,7 @@
       if (status) { status.innerText = 'Check your downloads folder.'; status.style.color = 'var(--accent)'; }
       history.replaceState(null, '', window.location.pathname);
     } catch (err) {
-      if (btn)    { btn.disabled = false; btn.innerText = 'Unlock Full Report — ₹750'; }
+      if (btn)    { btn.disabled = false; btn.innerText = 'Unlock Full Report — ₹999'; }
       if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
