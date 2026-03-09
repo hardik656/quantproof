@@ -543,47 +543,46 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 f"Make sure you selected the correct account type (paper vs live)."
             )
 
-        # ── Pair buys with sells per symbol to get real round-trip PnL ─────
+        # ── Pair buys with sells — two-pass so order in list doesn't matter ──
         from collections import defaultdict
-        buy_stack  = defaultdict(list)   # symbol -> list of (qty, price, date)
-        rows       = []
+        rows = []
 
-        # Sort oldest first so we match buys before sells
         filled = [o for o in orders if o.get("status") == "filled"
                   and float(o.get("filled_qty", 0) or 0) > 0
                   and float(o.get("filled_avg_price", 0) or 0) > 0]
-        filled.sort(key=lambda o: o.get("filled_at") or o.get("updated_at") or "")
+
+        buys_by_sym  = defaultdict(list)
+        sells_by_sym = defaultdict(list)
 
         for o in filled:
             try:
-                qty    = float(o.get("filled_qty", 0) or 0)
-                price  = float(o.get("filled_avg_price", 0) or 0)
-                side   = o.get("side", "buy")
-                symbol = o.get("symbol", "")
+                side     = o.get("side", "")
+                symbol   = o.get("symbol", "")
+                price    = float(o.get("filled_avg_price", 0) or 0)
                 date_str = o.get("filled_at") or o.get("updated_at")
-
                 if side == "buy":
-                    buy_stack[symbol].append({"qty": qty, "price": price, "date": date_str})
-                elif side == "sell" and buy_stack[symbol]:
-                    # Match against earliest buy (FIFO)
-                    buy = buy_stack[symbol].pop(0)
-                    entry_price = buy["price"]
-                    exit_price  = price
-                    pnl_pct     = (exit_price - entry_price) / entry_price
+                    buys_by_sym[symbol].append({"price": price, "date": date_str})
+                elif side == "sell":
+                    sells_by_sym[symbol].append({"price": price, "date": date_str})
+            except Exception:
+                continue
 
-                    row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
+        for symbol in sells_by_sym:
+            for sell in sells_by_sym[symbol]:
+                if buys_by_sym[symbol]:
+                    buy     = buys_by_sym[symbol].pop(0)
+                    pnl_pct = (sell["price"] - buy["price"]) / buy["price"]
+                    row     = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
+                    date_str = sell["date"] or buy["date"]
                     if date_str:
                         try:
                             ts = pd.to_datetime(date_str)
-                            # Alpaca returns UTC timestamps — strip timezone
                             if ts.tzinfo is not None:
                                 ts = ts.tz_convert("UTC").tz_localize(None)
                             row["date"] = ts
                         except Exception:
                             pass
                     rows.append(row)
-            except Exception:
-                continue
 
         # If no pairs found (e.g. only sells or only buys) fall back to individual orders
         if len(rows) < 5:
@@ -1082,23 +1081,35 @@ async def generate_broker_report(
         filled = [o for o in orders if o.get("status") == "filled"
                   and float(o.get("filled_qty", 0) or 0) > 0
                   and float(o.get("filled_avg_price", 0) or 0) > 0]
-        filled.sort(key=lambda o: o.get("filled_at") or o.get("updated_at") or "")
-        sides = [o.get("side") for o in filled]
-        print(f"[generate-broker] filled: {len(filled)}, buys: {sides.count('buy')}, sells: {sides.count('sell')}, symbols: {list(set(o.get('symbol','') for o in filled))}")
+        # Robust pairing: first pass collect all buys per symbol,
+        # second pass match sells — order in list doesn't matter
+        buys_by_symbol  = _dd(list)
+        sells_by_symbol = _dd(list)
 
         for o in filled:
             try:
-                qty    = float(o.get("filled_qty", 0) or 0)
-                price  = float(o.get("filled_avg_price", 0) or 0)
-                side   = o.get("side", "buy")
+                side   = o.get("side", "")
                 symbol = o.get("symbol", "")
+                price  = float(o.get("filled_avg_price", 0) or 0)
                 date_str = o.get("filled_at") or o.get("updated_at")
                 if side == "buy":
-                    buy_stack[symbol].append({"qty": qty, "price": price, "date": date_str})
-                elif side == "sell" and buy_stack[symbol]:
-                    buy = buy_stack[symbol].pop(0)
-                    pnl_pct = (price - buy["price"]) / buy["price"]
+                    buys_by_symbol[symbol].append({"price": price, "date": date_str})
+                elif side == "sell":
+                    sells_by_symbol[symbol].append({"price": price, "date": date_str})
+            except Exception:
+                continue
+
+        print(f"[generate-broker] buys by symbol: { {k:len(v) for k,v in buys_by_symbol.items()} }")
+        print(f"[generate-broker] sells by symbol: { {k:len(v) for k,v in sells_by_symbol.items()} }")
+
+        # Match each sell to a buy of same symbol
+        for symbol in sells_by_symbol:
+            for sell in sells_by_symbol[symbol]:
+                if buys_by_symbol[symbol]:
+                    buy = buys_by_symbol[symbol].pop(0)
+                    pnl_pct = (sell["price"] - buy["price"]) / buy["price"]
                     row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
+                    date_str = sell["date"] or buy["date"]
                     if date_str:
                         try:
                             ts = pd.to_datetime(date_str)
@@ -1108,8 +1119,6 @@ async def generate_broker_report(
                         except Exception:
                             pass
                     rows.append(row)
-            except Exception:
-                continue
 
         print(f"[generate-broker] filled orders: {len(filled)}, paired rows: {len(rows)}")
 
