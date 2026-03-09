@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1637,7 +1636,12 @@
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.detail || 'Alpaca connection failed');
+        const detail = err.detail || err;
+        // Friendly message for insufficient trades
+        if (detail && detail.error === 'insufficient_trades') {
+          throw new Error(`Only ${detail.trades_found} closed trades found — need ${detail.trades_needed} for a valid analysis. Keep trading and reconnect when you have more history.`);
+        }
+        throw new Error((detail && detail.message) || detail || 'Alpaca connection failed');
       }
 
       const data = await response.json();
