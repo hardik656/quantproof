@@ -3,7 +3,7 @@ QuantProof — FastAPI Backend v1.3
 Final Boss validator — matches ValidationReport + ValidationDashboard
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -235,6 +235,7 @@ class ValidationResponse(BaseModel):
     audit_flags: List[str]
     plausibility_summary: str
     scale_warning: bool = False   # True if >50% of returns at ±50% boundary (% vs decimal)
+    currency: str = "USD"         # Currency code for display — does not affect calculations
     assumptions: List[str]
     # Dashboard data (optional — for future chart rendering)
     dashboard: Optional[Dict[str, Any]] = None
@@ -323,7 +324,7 @@ def root():
     }
 
 @app.post("/validate", response_model=ValidationResponse)
-async def validate(file: UploadFile = File(...), request: Request = None):
+async def validate(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
     # Rate limit check
     if request:
         ip = request.client.host if request.client else "unknown"
@@ -377,6 +378,15 @@ async def validate(file: UploadFile = File(...), request: Request = None):
         f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
     )
 
+    # Detect currency — from form param, then CSV column, then default USD
+    detected_currency = (currency or "USD").upper()
+    if detected_currency == "USD" and "currency" in df.columns:
+        currencies = df["currency"].dropna().unique()
+        if len(currencies) == 1:
+            detected_currency = str(currencies[0]).upper()
+        elif len(currencies) > 1:
+            detected_currency = "MULTI"
+
     # Generate dashboard data
     try:
         dashboard_obj = ValidationDashboard(validator, report)
@@ -408,6 +418,7 @@ async def validate(file: UploadFile = File(...), request: Request = None):
         audit_flags=r.audit_flags,
         plausibility_summary=r.plausibility_summary,
         scale_warning=getattr(r, '_scale_warning', False),
+        currency=detected_currency,
         assumptions=r.assumptions,
         dashboard=dashboard_data,
         ai_plan=None,  # AI analysis is a paid feature — included in PDF report
@@ -517,6 +528,12 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 # Never expose raw response which might echo keys
                 raise HTTPException(400, f"Alpaca connection failed (status {acct_resp.status_code}). Check your credentials and account type (paper vs live).")
 
+            # Parse account currency (INR, GBP, EUR etc for display)
+            try:
+                acct_currency = str(acct_resp.json().get("currency", "USD")).upper()
+            except Exception:
+                acct_currency = "USD"
+
             # ── Step 2: Pull closed orders (trade history) ───────────────────
             orders_resp = await client.get(
                 f"{base_url}/v2/orders",
@@ -540,11 +557,12 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
 
         # ── Step 3: Convert orders to PnL DataFrame ──────────────────────────
         if not orders or len(orders) < 5:
-            raise HTTPException(
-                400,
-                f"Only {len(orders) if orders else 0} closed orders found. Need at least 5 completed trades. "
-                f"Make sure you selected the correct account type (paper vs live)."
-            )
+            raise HTTPException(400, {
+                "error": "insufficient_trades",
+                "trades_found": len(orders) if orders else 0,
+                "trades_needed": 10,
+                "message": f"Only {len(orders) if orders else 0} orders found in your Alpaca account. Make sure you selected the correct account type (paper vs live) and have at least 10 completed round-trip trades."
+            })
 
         # ── Pair buys with sells — two-pass so order in list doesn't matter ──
         from collections import defaultdict
@@ -629,6 +647,14 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 "trades_needed": 10,
                 "message": f"Only {len(rows)} completed round-trip trades found. QuantProof needs at least 10 closed trades for a statistically valid analysis. Keep trading and come back — results with more history will be far more meaningful."
             })
+        # L5 warning: if many orders couldn't be paired (options, shorts, multi-leg)
+        total_filled_sides = len([o for o in filled])
+        paired_sides = len(rows) * 2
+        unpaired_pct = (total_filled_sides - paired_sides) / max(total_filled_sides, 1) * 100
+        unpaired_warning = unpaired_pct > 30  # >30% of orders couldn't be matched
+        if unpaired_warning:
+            print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
+
         print(f"Using {len(rows)} paired round-trip trades")
 
         # Always discard keys
@@ -649,6 +675,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         scored_checks = [c for c in r.checks if c.category != "Plausibility"]
         top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
         top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
+        _unpaired_warning = locals().get('unpaired_warning', False)
 
         date_range = "No date data"
         if "date" in df.columns:
@@ -703,6 +730,8 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             ],
             dashboard=dashboard_data,
             ai_plan=None,  # AI analysis included in paid $29 compliance report
+            scale_warning=False,
+            currency=acct_currency,
         )
 
     except HTTPException:
@@ -1364,3 +1393,5 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
+
