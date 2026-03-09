@@ -1350,16 +1350,28 @@ class QuantProofValidator:
             f"Regimes covered: {list(regimes.index.astype(str))} ({len(regimes)}/3)", "Full coverage = all market conditions tested.", "Add more history to cover BULL, BEAR and CONSOL.", "Regime")
 
     def check_slippage_01(self) -> CheckResult:
-        r            = self.returns
-        tpy          = self.trades_per_year
-        base_slip    = 0.001
-        freq_mult    = max(1.0, np.sqrt(tpy / 252))
-        eff_slip     = base_slip * freq_mult
-        slip_cost    = float(np.sum(np.abs(r) * eff_slip))
-        gross        = float(np.sum(np.abs(r))) + EPSILON
-        impact       = slip_cost / gross * 100
-        return CheckResult("Slippage Impact (0.1% base)", impact < 20, round(max(0, 100 - impact * 3), 1),
-            f"{eff_slip*100:.2f}% effective slip → {impact:.1f}% of gross", "Slippage compounds.", "Reduce frequency.", "Execution")
+        r         = self.returns
+        tpy       = self.trades_per_year
+        base_slip = 0.001
+        freq_mult = max(1.0, np.sqrt(tpy / 252))
+        eff_slip  = base_slip * freq_mult
+
+        # Primary check: does strategy remain profitable after slippage?
+        net_after_slip = float(np.mean(r)) - eff_slip
+        gross          = float(np.sum(np.abs(r))) + EPSILON
+        slip_cost      = float(np.sum(np.abs(r) * eff_slip))
+        impact_pct     = slip_cost / gross * 100
+
+        # Fail if: net return goes negative OR slippage > 20% of gross
+        passed = net_after_slip > 0 and impact_pct < 20
+        # Score: 100 if comfortable positive, scales down as edge erodes
+        edge_ratio = net_after_slip / (abs(float(np.mean(r))) + EPSILON)
+        score = round(max(0, min(100, edge_ratio * 100 if net_after_slip > 0 else 0)), 1)
+        return CheckResult("Slippage Impact (0.1% base)", passed, score,
+            f"Net after 0.1% slip: {net_after_slip*100:.3f}%/trade | {impact_pct:.1f}% of gross",
+            "Strategy must remain profitable after realistic execution costs.",
+            "Edge is too thin for 0.1% slippage — increase return per trade or reduce frequency.",
+            "Execution")
 
     def check_slippage_03(self) -> CheckResult:
         r         = self.returns
@@ -1367,11 +1379,21 @@ class QuantProofValidator:
         base_slip = 0.003
         freq_mult = max(1.0, np.sqrt(tpy / 252))
         eff_slip  = base_slip * freq_mult
-        slip_cost = float(np.sum(np.abs(r) * eff_slip))
-        gross     = float(np.sum(np.abs(r))) + EPSILON
-        impact    = slip_cost / gross * 100
-        return CheckResult("Slippage Impact (0.3% base)", impact < 40, round(max(0, 100 - impact * 2), 1),
-            f"{eff_slip*100:.2f}% effective slip → {impact:.1f}% of gross", "Small caps have 0.3%+ slippage.", "Use limit orders.", "Execution")
+
+        # Primary check: does strategy remain profitable after slippage?
+        net_after_slip = float(np.mean(r)) - eff_slip
+        gross          = float(np.sum(np.abs(r))) + EPSILON
+        slip_cost      = float(np.sum(np.abs(r) * eff_slip))
+        impact_pct     = slip_cost / gross * 100
+
+        passed = net_after_slip > 0 and impact_pct < 40
+        edge_ratio = net_after_slip / (abs(float(np.mean(r))) + EPSILON)
+        score = round(max(0, min(100, edge_ratio * 100 if net_after_slip > 0 else 0)), 1)
+        return CheckResult("Slippage Impact (0.3% base)", passed, score,
+            f"Net after 0.3% slip: {net_after_slip*100:.3f}%/trade | {impact_pct:.1f}% of gross",
+            "Small caps and illiquid stocks have 0.3%+ slippage — strategy must survive this.",
+            "Edge disappears under realistic small-cap execution — use limit orders or larger targets.",
+            "Execution")
 
     def check_commission_drag(self) -> CheckResult:
         r   = self.returns
