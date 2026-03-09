@@ -750,6 +750,10 @@ class QuantProofValidator:
         self.has_dates   = 'date' in self.df.columns
         self.returns     = self._get_returns()
 
+        # Detect likely scale error (user submitted % not decimal)
+        clipped_pct = float(np.mean(np.abs(self.returns) >= 0.499))
+        self._scale_warning = clipped_pct > 0.50
+
         n = len(self.returns)
         min_required = MIN_TRADES_STRICT if strict_mode else MIN_TRADES_STANDARD
 
@@ -872,6 +876,14 @@ class QuantProofValidator:
         for idx, row in self.df.iterrows():
             d = row['date']
             if pd.isna(d):
+                labels[idx] = 'UNKNOWN'
+                continue
+            # Strip timezone info for comparison — regime periods are tz-naive
+            try:
+                if hasattr(d, 'tzinfo') and d.tzinfo is not None:
+                    d = d.tz_convert('UTC').tz_localize(None)
+                d = pd.Timestamp(d)
+            except Exception:
                 labels[idx] = 'UNKNOWN'
                 continue
             if any(s <= d <= e for s, e in bear_periods):
