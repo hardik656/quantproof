@@ -306,10 +306,14 @@ CRASH_PROFILES = {
 def calculate_sharpe(returns: np.ndarray, trades_per_year: float = 252) -> float:
     if len(returns) < 2:
         return 0.0
-    std = np.std(returns, ddof=1)
+    std  = np.std(returns, ddof=1)
+    mean = np.mean(returns)
     if std < EPSILON:
+        # Zero variance — constant returns
+        if mean > EPSILON:  return 10.0   # effectively infinite positive Sharpe
+        if mean < -EPSILON: return -10.0  # effectively infinite negative Sharpe
         return 0.0
-    return float(np.mean(returns) / std * np.sqrt(trades_per_year))
+    return float(mean / std * np.sqrt(trades_per_year))
 
 
 def calculate_sharpe_ci(
