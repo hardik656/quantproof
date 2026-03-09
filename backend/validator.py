@@ -890,9 +890,18 @@ class QuantProofValidator:
         s_in  = calculate_sharpe(r[:mid], self.trades_per_year)
         s_out = calculate_sharpe(r[mid:], self.trades_per_year)
         decay = (s_in - s_out) / (abs(s_in) + EPSILON) * 100
-        score = max(0, 100 - max(0, decay))
-        return CheckResult("Sharpe Ratio Decay", decay < 40, round(score, 1),
-            f"In-sample: {s_in:.2f} → Out-of-sample: {s_out:.2f} ({decay:.1f}% decay)",
+
+        # Additional: check return mean distribution shift — catches shuffled high-PnL outliers
+        mean_in  = float(np.mean(r[:mid]))
+        mean_out = float(np.mean(r[mid:]))
+        mean_decay = (mean_in - mean_out) / (abs(mean_in) + EPSILON) * 100 if mean_in > 0 else 0
+
+        # Use the worse of Sharpe decay or mean decay
+        effective_decay = max(decay, mean_decay * 0.7)
+        score = max(0, 100 - max(0, effective_decay))
+        passed = effective_decay < 40
+        return CheckResult("Sharpe Ratio Decay", passed, round(score, 1),
+            f"In-sample: {s_in:.2f} → Out-of-sample: {s_out:.2f} ({effective_decay:.1f}% effective decay)",
             "High decay means the strategy was fitted to historical noise.",
             "Run walk-forward optimization.", "Overfitting")
 
@@ -1783,11 +1792,27 @@ class QuantProofValidator:
         timestamps   = self.df['date'] if self.has_dates else None
         alpha_decay  = _analyze_alpha_decay(r, timestamps)
         overfit_prof = _OverfitDetector(r, timestamps).detect()
+
+        # Alpha decay: compare H1 vs H2 Sharpe — persistent strategies hold up
+        if len(r) >= 30:
+            mid_a        = len(r) // 2
+            sh1          = calculate_sharpe(r[:mid_a], self.trades_per_year)
+            sh2          = calculate_sharpe(r[mid_a:], self.trades_per_year)
+            decay_pct    = (sh1 - sh2) / (abs(sh1) + EPSILON) * 100 if sh1 > 0 else 0
+            alpha_passed = decay_pct < 60 and sh2 > -0.5   # fails if H2 Sharpe drops >60% or goes very negative
+            alpha_score  = round(max(0, min(100, 100 - max(0, decay_pct - 10))), 1)
+            alpha_val    = f"H1 Sharpe: {sh1:.2f} → H2: {sh2:.2f} ({decay_pct:.0f}% decay)"
+            alpha_fix    = "Performance deteriorating over time — strategy may be losing edge. Walk-forward test."
+            alpha_insight= "Strong strategies maintain Sharpe across both halves of the backtest period."
+        else:
+            alpha_passed, alpha_score = False, 20
+            alpha_val    = "Insufficient data for decay analysis"
+            alpha_fix    = "Extend backtest to 30+ trades."
+            alpha_insight= "Too few trades to assess alpha persistence."
         checks.append(CheckResult(
-            name="Alpha Decay (Half-Life)", passed=True,
-            score=100 if not alpha_decay.latency_sensitive else 60,
-            value=f"{alpha_decay.half_life_periods:.1f} periods" if alpha_decay.half_life_periods < 990 else "No significant autocorrelation",
-            insight="Alpha decay informational.", fix="No action required.", category="Operational"))
+            name="Alpha Decay (Half-Life)", passed=alpha_passed,
+            score=alpha_score, value=alpha_val,
+            insight=alpha_insight, fix=alpha_fix, category="Operational"))
         checks.append(CheckResult(
             name="Symbolic Overfit Detection", passed=not overfit_prof.is_overfit,
             score=overfit_prof.score,
