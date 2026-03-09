@@ -8,4 +8,4 @@ python-multipart
 pydantic
 reportlab
 httpx
-stripe
+razorpay
