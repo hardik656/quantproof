@@ -993,6 +993,191 @@ async def stripe_webhook(request: Request):
     return {"status": "ignored"}
 
 
+
+
+# =========================================================
+# BROKER PDF REPORT — uses real Alpaca data, not CSV
+# =========================================================
+
+class BrokerReportRequest(BaseModel):
+    api_key:    str
+    secret_key: str
+    mode:       str = "paper"
+
+@app.post("/report/generate-broker")
+async def generate_broker_report(
+    payload: BrokerReportRequest,
+    x_report_token: str = Header(default=""),
+):
+    """
+    Paid endpoint — generates PDF from live Alpaca data.
+    Same token gate as /report/generate.
+    """
+    # ── Token check (reuse same logic) ───────────────────────────────────────
+    def _verify_token(token: str) -> bool:
+        if token == "dev-free":
+            return True
+        if token in REPORT_ACCESS_TOKENS:
+            return True
+        if token.startswith("cs_"):
+            try:
+                import stripe
+                stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+                session = stripe.checkout.Session.retrieve(token)
+                if session.payment_status == "paid":
+                    REPORT_ACCESS_TOKENS.add(token)
+                    return True
+            except Exception as e:
+                print(f"Stripe verify failed: {e}")
+            return False
+        secret = os.getenv("STRIPE_WEBHOOK_SECRET", "quantproof-fallback")
+        current_hour = int(time.time() // 3600)
+        for hour_offset in range(3):
+            hour = current_hour - hour_offset
+            expected = hashlib.sha256(f"report:{hour}:{secret}".encode()).hexdigest()[:32]
+            if token == expected:
+                return True
+        return False
+
+    if not _verify_token(x_report_token):
+        raise HTTPException(402, {"error": "payment_required", "message": "Purchase required."})
+
+    # ── Pull real Alpaca data ─────────────────────────────────────────────────
+    api_key    = payload.api_key.strip()
+    secret_key = payload.secret_key.strip()
+    if not api_key or not secret_key:
+        raise HTTPException(400, "API key and secret required.")
+
+    is_paper = payload.mode == "paper"
+    base_url = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
+
+    try:
+        import httpx
+        headers = {
+            "APCA-API-KEY-ID":     api_key,
+            "APCA-API-SECRET-KEY": secret_key,
+            "accept":              "application/json"
+        }
+        async with httpx.AsyncClient(timeout=20) as client:
+            acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
+            if not acct_resp.is_success:
+                raise HTTPException(401, "Invalid Alpaca credentials.")
+            orders_resp = await client.get(
+                f"{base_url}/v2/orders", headers=headers,
+                params={"status": "closed", "limit": 500, "direction": "desc"}
+            )
+        orders = orders_resp.json() if orders_resp.is_success else []
+
+        # Discard keys immediately
+        api_key = secret_key = "[DISCARDED]"
+        headers = {}
+
+        # Pair trades (same logic as /validate/alpaca)
+        from collections import defaultdict as _dd
+        buy_stack = _dd(list)
+        rows = []
+        filled = [o for o in orders if o.get("status") == "filled"
+                  and float(o.get("filled_qty", 0) or 0) > 0
+                  and float(o.get("filled_avg_price", 0) or 0) > 0]
+        filled.sort(key=lambda o: o.get("filled_at") or o.get("updated_at") or "")
+
+        for o in filled:
+            try:
+                qty    = float(o.get("filled_qty", 0) or 0)
+                price  = float(o.get("filled_avg_price", 0) or 0)
+                side   = o.get("side", "buy")
+                symbol = o.get("symbol", "")
+                date_str = o.get("filled_at") or o.get("updated_at")
+                if side == "buy":
+                    buy_stack[symbol].append({"qty": qty, "price": price, "date": date_str})
+                elif side == "sell" and buy_stack[symbol]:
+                    buy = buy_stack[symbol].pop(0)
+                    pnl_pct = (price - buy["price"]) / buy["price"]
+                    row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
+                    if date_str:
+                        try:
+                            ts = pd.to_datetime(date_str)
+                            if ts.tzinfo is not None:
+                                ts = ts.tz_convert("UTC").tz_localize(None)
+                            row["date"] = ts
+                        except Exception:
+                            pass
+                    rows.append(row)
+            except Exception:
+                continue
+
+        if len(rows) < 5:
+            raise HTTPException(400, f"Only {len(rows)} paired trades found. Need at least 5.")
+
+        df = pd.DataFrame(rows)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Alpaca fetch failed: {str(e)[:200]}")
+
+    # ── Run validation ────────────────────────────────────────────────────────
+    try:
+        validator = QuantProofValidator(df)
+        report    = validator.run()
+    except Exception as e:
+        raise HTTPException(500, f"Validation failed: {str(e)}")
+
+    scored = [c for c in report.checks if c.category != "Plausibility"]
+    date_range = "No date data"
+    if "date" in df.columns:
+        try:
+            date_range = f"{df['date'].dropna().min().date()} to {df['date'].dropna().max().date()}"
+        except Exception:
+            pass
+
+    vr = {
+        "fundable_score": report.score,
+        "grade":          report.grade,
+        "sharpe":         round(report.sharpe, 2),
+        "max_drawdown":   round(report.max_drawdown, 4),
+        "win_rate":       round(report.win_rate, 1),
+        "total_trades":   report.total_trades,
+        "date_range":     date_range,
+        "is_verified":    True,
+        "checks": [
+            {"name": c.name, "passed": c.passed, "score": c.score,
+             "value": c.value, "insight": c.insight, "fix": c.fix,
+             "category": c.category}
+            for c in report.checks
+        ],
+        "crash_sims": [
+            {"crash_name": s.crash_name, "year": s.year,
+             "description": s.description, "market_drop": s.market_drop,
+             "strategy_drop": s.strategy_drop, "survived": s.survived,
+             "emotional_verdict": s.emotional_verdict}
+            for s in report.crash_sims
+        ],
+        "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
+        "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
+    }
+
+    ai_plan = await generate_ai_plan(report, date_range)
+    vr["ai_plan"] = ai_plan
+
+    try:
+        if not _PDF_AVAILABLE:
+            raise HTTPException(503, "PDF module not available.")
+        pdf_bytes = _generate_pdf_report(vr)
+    except Exception as e:
+        raise HTTPException(500, f"PDF generation failed: {str(e)}")
+
+    score     = int(report.score)
+    grade_str = report.grade.split("—")[0].strip().replace(" ", "")
+    filename  = f"QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"
+
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
 # =========================================================
 # IBKR BROKER INTEGRATION
 # =========================================================
@@ -1176,5 +1361,3 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
-
-
