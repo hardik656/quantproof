@@ -1481,10 +1481,16 @@
         </div>
         <div style="text-align:center;flex-shrink:0;">
           <button id="pdfBtn" onclick="buyPdfReport()"
-            style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
+            style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;width:100%;"
             onmouseover="this.style.background='#00cc6e'"
             onmouseout="this.style.background='var(--accent)'">
-            Unlock Full Report — ₹999
+            🇮🇳 Pay ₹999 (India — UPI / Cards)
+          </button>
+          <button id="pdfBtnIntl" onclick="buyPdfReportIntl()"
+            style="background:transparent;color:var(--accent);border:1px solid rgba(0,255,136,0.4);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s;width:100%;margin-top:8px;"
+            onmouseover="this.style.background='rgba(0,255,136,0.08)'"
+            onmouseout="this.style.background='transparent'">
+            🌍 Pay $12 (International — Card / PayPal)
           </button>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
         </div>
@@ -1526,7 +1532,54 @@
   // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
+  async function buyPdfReportIntl() {
+    const btn    = document.getElementById('pdfBtnIntl');
+    const status = document.getElementById('pdfBtnStatus');
+    if (btn) { btn.disabled = true; btn.innerText = 'Opening checkout...'; }
+    try {
+      const res  = await fetch(`${API_URL_REPORT}/report/create-checkout-intl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      if (data.checkout_url) {
+        // Store file before leaving page
+        if (_lastValidatedFile) {
+          const reader = new FileReader();
+          reader.onload = e => {
+            sessionStorage.setItem('qp_filename', _lastValidatedFile.name);
+            sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
+          };
+          reader.readAsDataURL(_lastValidatedFile);
+        }
+        sessionStorage.setItem('qp_source', _validationMode || 'csv');
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch(err) {
+      if (btn) { btn.disabled = false; btn.innerText = '🌍 Pay $12 (International — Card / PayPal)'; }
+      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  // Handle return from Lemon Squeezy redirect
+  async function handleLSReturn() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
+    // LS webhook already fired and issued token server-side
+    // Show message to user — token delivery via webhook is async
+    const status = document.getElementById('pdfBtnStatus');
+    if (status) {
+      status.innerText = '✓ Payment received! Generating your report...';
+      status.style.color = 'var(--accent)';
+    }
+  }
+
   // Generate PDF after payment verified
+
   async function generatePdfWithToken(token) {
     const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
     const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
@@ -1537,10 +1590,16 @@
         const storedBroker = sessionStorage.getItem('qp_broker');
         const brokerCreds  = storedBroker ? JSON.parse(storedBroker) : null;
         if (brokerCreds) {
+          // Map stored {key,secret,mode} → backend model {api_key,secret_key,mode}
+          const brokerBody = {
+            api_key:    brokerCreds.api_key    || brokerCreds.key,
+            secret_key: brokerCreds.secret_key || brokerCreds.secret,
+            mode:       brokerCreds.mode       || 'paper'
+          };
           res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-report-token': token },
-            body: JSON.stringify(brokerCreds)
+            body: JSON.stringify(brokerBody)
           });
         }
       }
@@ -1754,6 +1813,7 @@
   }
 
   window.addEventListener('load', handleReportSuccess);
+  window.addEventListener('load', handleLSReturn);
 
 
   // ── MODE TRACKING ────────────────────────────────────────────────────────
