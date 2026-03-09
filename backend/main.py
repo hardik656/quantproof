@@ -785,8 +785,9 @@ async def generate_report_endpoint(
 
     # Token check
     def _verify_token(token: str) -> bool:
-        # Test bypass — only works if TEST_REPORT_TOKEN is set in env
-        if _TEST_TOKEN and token == _TEST_TOKEN:
+        # Re-read from env each call — avoids NameError in nested scope
+        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+        if _test_tok and token == _test_tok:
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
@@ -1020,11 +1021,11 @@ async def generate_broker_report(
     """
     # ── Token check (reuse same logic) ───────────────────────────────────────
     def _verify_token(token: str) -> bool:
-        if token == "dev-free":
+        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+        if _test_tok and token == _test_tok:
             return True
         if token in REPORT_ACCESS_TOKENS:
             return True
-        # Legacy cs_ tokens no longer accepted
         if token.startswith("cs_"):
             return False
         return False
