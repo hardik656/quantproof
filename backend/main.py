@@ -1123,42 +1123,17 @@ async def generate_broker_report(
 
         print(f"[generate-broker] filled orders: {len(filled)}, paired rows: {len(rows)}")
 
-        # Validator needs minimum 10 trades — fetch portfolio history as supplement if needed
-        if len(rows) < 10:
-            print(f"[generate-broker] only {len(rows)} pairs, fetching portfolio history to supplement")
-            try:
-                async with httpx.AsyncClient(timeout=20) as client:
-                    port_resp = await client.get(
-                        f"{base_url}/v2/account/portfolio/history",
-                        headers={
-                            "APCA-API-KEY-ID":     payload.api_key.strip(),
-                            "APCA-API-SECRET-KEY": payload.secret_key.strip(),
-                        },
-                        params={"period": "1A", "timeframe": "1D", "extended_hours": "false"}
-                    )
-                if port_resp.is_success:
-                    ph = port_resp.json()
-                    equity = ph.get("equity", [])
-                    if len(equity) >= 2:
-                        equity = [float(v) for v in equity if v is not None and float(v) > 0]
-                        port_returns = [
-                            (equity[i] - equity[i-1]) / equity[i-1]
-                            for i in range(1, len(equity))
-                            if equity[i-1] > 0
-                        ]
-                        # Supplement paired rows with portfolio daily returns
-                        existing_pnls = [r["pnl"] for r in rows]
-                        for r in port_returns:
-                            rows.append({"pnl": float(np.clip(r, -0.5, 0.5))})
-                        print(f"[generate-broker] supplemented to {len(rows)} rows with portfolio history")
-            except Exception as pe:
-                print(f"[generate-broker] portfolio history fetch failed: {pe}")
-
-        # Discard credentials now that all fetches are done
+        # Discard credentials — no more fetches needed
         api_key = secret_key = "[DISCARDED]"
 
-        if len(rows) < 5:
-            raise HTTPException(400, f"Only {len(rows)} trades found. Need at least 5 completed round-trip trades.")
+        # Hard requirement: never mix in other data sources — scores must reflect real trades only
+        if len(rows) < 10:
+            raise HTTPException(400, {
+                "error": "insufficient_trades",
+                "message": f"Only {len(rows)} completed round-trip trades found. QuantProof needs at least 10 closed trades to generate a statistically valid report. Keep trading and come back — your results will be more meaningful with more history.",
+                "trades_found": len(rows),
+                "trades_needed": 10
+            })
 
         df = pd.DataFrame(rows)
 
@@ -1415,5 +1390,3 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
-
-
