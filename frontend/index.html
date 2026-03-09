@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1534,6 +1535,19 @@
           headers: { 'x-report-token': token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ api_key: key, secret_key: secret, mode })
         });
+        if (!res.ok) {
+          const err = await res.json();
+          const detail = err.detail || err;
+          if (detail.error === 'insufficient_trades') {
+            if (btn) { btn.disabled = false; btn.innerText = 'Download PDF'; }
+            if (status) {
+              status.innerText = `⚠ Only ${detail.trades_found} closed trades found — need ${detail.trades_needed} for a valid report. Keep trading and come back!`;
+              status.style.color = '#ffaa00';
+            }
+            return;
+          }
+          throw new Error(detail.message || 'PDF generation failed');
+        }
       } else {
         // CSV mode — upload the original file
         if (!_lastValidatedFile) {
