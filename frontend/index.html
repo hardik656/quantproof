@@ -1621,15 +1621,19 @@
       }
     }
 
-    // Poll for token
+    // If LS didn't substitute {order_id}, pass empty string — backend returns latest token
+    const safeOrderId = (orderId && orderId !== '{order_id}') ? orderId : '';
+    if (!safeOrderId) console.log('LS did not substitute order_id — using latest token fallback');
+
+    // Poll for token — start immediately, no initial delay
     const maxAttempts = 20;
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(r => setTimeout(r, 2000));
+      if (i > 0) await new Promise(r => setTimeout(r, 2000));
       if (progressEl) progressEl.style.width = `${Math.min(90, 5 + i * 4.5)}%`;
       if (statusEl) statusEl.innerText = `Verifying payment... (${i+1}/${maxAttempts})`;
 
       try {
-        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(orderId)}`);
+        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(safeOrderId)}`);
         const data = await res.json();
         if (data.status === 'ready' && data.token) {
           if (statusEl) statusEl.innerText = 'Payment verified! Generating PDF...';
@@ -1662,7 +1666,7 @@
 
     // Timeout
     if (statusEl) {
-      statusEl.innerText = 'Verification timed out. Your payment was received — please email hgumber43@gmail.com with your order ID: ' + orderId;
+      statusEl.innerText = 'Verification timed out. Your payment was received — please email quantproof@gmail.com with your order ID: ' + orderId;
       statusEl.style.color = '#ffaa00';
     }
   }
