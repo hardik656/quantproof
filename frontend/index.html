@@ -1565,17 +1565,47 @@
     }
   }
 
-  // Handle return from Lemon Squeezy redirect
+  // Handle return from Lemon Squeezy redirect — poll for token then auto-generate PDF
   async function handleLSReturn() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
-    // LS webhook already fired and issued token server-side
-    // Show message to user — token delivery via webhook is async
-    const status = document.getElementById('pdfBtnStatus');
-    if (status) {
-      status.innerText = '✓ Payment received! Generating your report...';
-      status.style.color = 'var(--accent)';
+
+    const orderId = params.get('order_id');
+    const btn     = document.getElementById('pdfBtn');
+    const btnIntl = document.getElementById('pdfBtnIntl');
+    const status  = document.getElementById('pdfBtnStatus');
+
+    if (btn)     { btn.disabled = true;     btn.innerText = 'Payment received...'; }
+    if (btnIntl) { btnIntl.disabled = true; }
+    if (status)  { status.innerText = 'Verifying payment — this takes a few seconds...'; status.style.color = 'var(--accent)'; }
+
+    // Poll /report/ls-token until webhook fires (max 30 seconds)
+    const maxAttempts = 15;
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(r => setTimeout(r, 2000)); // wait 2s between polls
+      try {
+        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(orderId || '')}`);
+        const data = await res.json();
+        if (data.status === 'ready' && data.token) {
+          if (status) { status.innerText = 'Payment verified! Generating your PDF...'; }
+          await generatePdfWithToken(data.token);
+          // Clean URL
+          window.history.replaceState({}, '', window.location.pathname);
+          return;
+        }
+      } catch(e) {
+        console.log('LS poll attempt', i+1, 'pending...');
+      }
+      if (status) { status.innerText = `Verifying payment... (${i+2}/${maxAttempts})`; }
     }
+
+    // Timeout — webhook may be delayed, show fallback message
+    if (status) {
+      status.innerText = 'Payment confirmed but PDF generation timed out. Please refresh the page or contact us.';
+      status.style.color = '#ffaa00';
+    }
+    if (btn)     { btn.disabled = false;     btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)'; }
+    if (btnIntl) { btnIntl.disabled = false; btnIntl.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
   }
 
   // Generate PDF after payment verified
