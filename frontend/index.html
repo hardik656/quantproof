@@ -947,7 +947,6 @@
 
 </style>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script src="https://app.lemonsqueezy.com/embed.js" defer></script>
 </head>
 <body>
 
@@ -1533,44 +1532,12 @@
   // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
-  // Listen for LS payment success postMessage (overlay mode)
-  window.addEventListener('message', async function(e) {
-    if (e.origin !== 'https://app.lemonsqueezy.com') return;
-    if (e.data && e.data.event === 'Checkout.Success') {
-      const orderId = e.data.order && e.data.order.data && e.data.order.data.id
-                      ? String(e.data.order.data.id) : '';
-      // Close overlay iframe if present
-      const iframe = document.getElementById('ls-overlay-iframe');
-      const overlay = document.getElementById('ls-overlay');
-      if (overlay) overlay.remove();
-
-      const status = document.getElementById('pdfBtnStatus');
-      if (status) { status.innerText = 'Payment received! Verifying...'; status.style.color = 'var(--accent)'; }
-
-      // Poll for token
-      for (let i = 0; i < 15; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(orderId)}`);
-          const data = await res.json();
-          if (data.status === 'ready' && data.token) {
-            if (status) { status.innerText = 'Payment verified! Generating PDF...'; }
-            await generatePdfWithToken(data.token);
-            return;
-          }
-        } catch(e) {}
-        if (status) { status.innerText = `Verifying payment... (${i+2}/15)`; }
-      }
-      if (status) { status.innerText = 'Payment confirmed — refresh page if PDF does not start.'; status.style.color = '#ffaa00'; }
-    }
-  });
-
   async function buyPdfReportIntl() {
     const btn    = document.getElementById('pdfBtnIntl');
     const status = document.getElementById('pdfBtnStatus');
     if (btn) { btn.disabled = true; btn.innerText = 'Opening checkout...'; }
     try {
-      // Save file to sessionStorage before overlay opens
+      // Save file before redirect
       if (_lastValidatedFile) {
         await new Promise((resolve) => {
           const reader = new FileReader();
@@ -1583,6 +1550,9 @@
         });
       }
       sessionStorage.setItem('qp_source', _validationMode || 'csv');
+      if (_brokerSource) sessionStorage.setItem('qp_broker', JSON.stringify(
+        { key: '', secret: '', mode: 'paper' }
+      ));
 
       const res  = await fetch(`${API_URL_REPORT}/report/create-checkout-intl`, {
         method: 'POST',
@@ -1592,30 +1562,8 @@
       const data = await res.json();
       if (data.error) throw new Error(data.message || data.error);
       if (!data.checkout_url) throw new Error('No checkout URL returned');
-
-      // Open LS checkout as overlay iframe (no page redirect)
-      const overlay = document.createElement('div');
-      overlay.id = 'ls-overlay';
-      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;';
-      const closeBtn = document.createElement('button');
-      closeBtn.innerText = '✕ Close';
-      closeBtn.style.cssText = 'position:absolute;top:16px;right:20px;background:transparent;border:1px solid #444;color:#aaa;padding:6px 14px;cursor:pointer;font-size:13px;border-radius:4px;z-index:10000;';
-      closeBtn.onclick = () => {
-        overlay.remove();
-        if (btn) { btn.disabled = false; btn.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
-      };
-      const iframe = document.createElement('iframe');
-      iframe.id  = 'ls-overlay-iframe';
-      // Append ?embed=1 to enable LS overlay/embed mode with postMessage
-      iframe.src = data.checkout_url + (data.checkout_url.includes('?') ? '&' : '?') + 'embed=1&media=0&logo=0&dark=1';
-      iframe.style.cssText = 'width:min(480px,95vw);height:min(700px,90vh);border:none;border-radius:12px;background:#fff;';
-      iframe.allow = 'payment';
-      overlay.appendChild(closeBtn);
-      overlay.appendChild(iframe);
-      document.body.appendChild(overlay);
-
-      if (btn) { btn.disabled = false; btn.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
-
+      // Redirect to LS checkout — LS redirects back with ?order_id={order_id}
+      window.location.href = data.checkout_url;
     } catch(err) {
       if (btn) { btn.disabled = false; btn.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
       if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
