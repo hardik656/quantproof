@@ -1054,15 +1054,23 @@ async def lemonsqueezy_webhook(request: Request):
 
 
 @app.get("/report/ls-token")
-async def get_ls_token(order_id: str):
+async def get_ls_token(order_id: str = ""):
     """
     Frontend polls this after returning from LS redirect.
     Returns token if webhook has already fired, or 'pending' if not yet.
+    Falls back to most recent token if order_id is missing/literal.
     """
-    if order_id in LS_ORDER_TOKENS:
-        token = LS_ORDER_TOKENS[order_id]
-        return {"status": "ready", "token": token}
-    # Check REPORT_ACCESS_TOKENS isn't populated yet — webhook may be delayed
+    # Direct order_id lookup
+    if order_id and order_id != "{order_id}" and order_id in LS_ORDER_TOKENS:
+        return {"status": "ready", "token": LS_ORDER_TOKENS[order_id]}
+
+    # Fallback: return most recent token if order_id is missing or not substituted
+    # This handles the case where LS redirect URL didn't substitute {order_id}
+    if LS_ORDER_TOKENS:
+        latest_token = list(LS_ORDER_TOKENS.values())[-1]
+        print(f"[ls-token] order_id={repr(order_id)} not found, returning latest token")
+        return {"status": "ready", "token": latest_token}
+
     return {"status": "pending", "message": "Payment processing — please wait a moment"}
 
 
