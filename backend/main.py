@@ -18,9 +18,9 @@ from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
 
-# ── Rate limiting (20 free validations / IP / day) ───────────────────────────
+# ── Rate limiting (3 free validations / IP / day) ────────────────────────────
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
-FREE_DAILY_LIMIT = 20
+FREE_DAILY_LIMIT = 3
 
 def check_rate_limit(ip: str) -> tuple[bool, int]:
     now = time.time()
@@ -333,7 +333,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
             hours_left = remaining // 3600
             raise HTTPException(
                 status_code=429,
-                detail=f"Daily limit of {FREE_DAILY_LIMIT} free validations reached. Resets in ~{hours_left}h. Upgrade to Pro for unlimited access."
+                detail={"error": "rate_limit", "message": f"Free limit of {FREE_DAILY_LIMIT} validations/day reached. Resets in ~{hours_left}h.", "hours_left": hours_left}
             )
 
     if not file.filename.endswith(".csv"):
@@ -487,7 +487,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             hours_left = int((rec["reset"] - now) / 3600)
             raise HTTPException(
                 status_code=429,
-                detail=f"Broker verification limit ({BROKER_DAILY_LIMIT}/day) reached. Resets in ~{hours_left}h."
+                detail={"error": "rate_limit", "message": f"Free limit of {BROKER_DAILY_LIMIT} Alpaca verifications/day reached. Resets in ~{hours_left}h.", "hours_left": hours_left}
             )
         rec["count"] += 1
 
