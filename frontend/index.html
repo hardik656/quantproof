@@ -1205,6 +1205,7 @@
         sessionStorage.setItem('qp_filename', file.name);
         sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
         sessionStorage.setItem('qp_source', 'csv');
+        if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       };
       reader.readAsDataURL(file);
     } catch(e) {}
@@ -1699,11 +1700,12 @@
 
       if (!apiKey || !secretKey) throw new Error('Alpaca credentials are incomplete — please reconnect Alpaca and try again');
 
-      console.log('[generatePdfBlob] Alpaca mode — fetching broker PDF, mode:', mode);
+      const vHash = sessionStorage.getItem('qp_validation_hash') || '';
+      console.log('[generatePdfBlob] Alpaca mode, hash:', vHash || 'none — will re-fetch from Alpaca');
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-report-token': token },
-        body: JSON.stringify({ api_key: apiKey, secret_key: secretKey, mode })
+        body: JSON.stringify({ api_key: apiKey, secret_key: secretKey, mode, validation_hash: vHash })
       });
 
     } else {
@@ -2011,6 +2013,7 @@
       }
 
       const data = await response.json();
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => {
         document.getElementById('loadingSection').classList.remove('active');
         renderResults(data);
