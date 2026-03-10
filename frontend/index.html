@@ -1001,7 +1001,7 @@
         <div class="mode-title">Upload CSV</div>
         <div class="mode-desc">Run all 38 institutional checks on your backtest data. Trades are not independently verified.</div>
         <div class="mode-limits">
-          <span class="mode-limit-item">20 validations / month</span>
+          <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">All 38 checks</span>
           <span class="mode-limit-item">5 crash sims</span>
         </div>
@@ -1043,7 +1043,7 @@
         <div class="mode-title">Connect Broker <span style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:400;vertical-align:middle;margin-left:6px;">VERIFIED</span></div>
         <div class="mode-desc">Pull real trade history directly from your broker. Results are independently verified and eligible for prop firm compliance certificates.</div>
         <div class="mode-limits">
-          <span class="mode-limit-item">3 verifications / month</span>
+          <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Verified badge</span>
           <span class="mode-limit-item">Compliance cert</span>
         </div>
@@ -1225,7 +1225,11 @@
 
       if (!response.ok) {
         const err = await response.json();
-        throw new Error(err.detail || 'Validation failed');
+        const detail = err.detail || err;
+        if (detail.error === 'rate_limit') {
+          throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h. Purchase a report to get 3 more.`);
+        }
+        throw new Error(detail.message || detail || 'Validation failed');
       }
 
       const data = await response.json();
@@ -1985,7 +1989,16 @@
       if (!response.ok) {
         const err = await response.json();
         const detail = err.detail || err;
-        // Special UX for insufficient trades — show inline, don't dump to error
+        // Rate limit
+        if (detail && detail.error === 'rate_limit') {
+          document.getElementById('loadingSection').classList.remove('active');
+          document.getElementById('uploadSection').style.display = 'block';
+          document.getElementById('heroSection').style.display = 'block';
+          document.getElementById('alpacaPanel').style.display = 'block';
+          status.innerHTML = `<span style="color:#ffaa00;font-size:14px">⚠ Daily limit reached — 3 free Alpaca verifications/day.<br>Resets in ~${detail.hours_left}h. Purchase a PDF report to unlock 3 more.</span>`;
+          return;
+        }
+        // Insufficient trades
         if (detail && detail.error === 'insufficient_trades') {
           document.getElementById('loadingSection').classList.remove('active');
           document.getElementById('uploadSection').style.display = 'block';
