@@ -1199,7 +1199,10 @@ async def generate_broker_report(
         cached_vr = _get_cached_validation(payload.validation_hash)
         if cached_vr:
             print(f"[generate-broker] Cache hit {payload.validation_hash[:8]} — skipping re-fetch")
-            if not _verify_token_broker(x_report_token):
+            # Inline token check (same logic as below)
+            _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+            _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
+            if not _token_ok:
                 raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
             if not cached_vr.get("ai_plan"):
                 issues = cached_vr.get("top_issues", [])
