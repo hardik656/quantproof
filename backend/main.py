@@ -395,8 +395,30 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         dashboard_data = None
 
     # Only show non-Plausibility checks to frontend by default
-    # Plausibility checks are surfaced via audit_flags instead
     visible_checks = [c for c in r.checks if c.category != "Plausibility"]
+
+    # Cache vr dict so PDF endpoint reuses exact same computed data (no re-fetch)
+    scored_for_cache = [c for c in r.checks if c.category != "Plausibility"]
+    _vr_cache = {
+        "fundable_score": r.score,
+        "grade":          r.grade,
+        "sharpe":         round(r.sharpe, 2),
+        "max_drawdown":   round(r.max_drawdown, 4),
+        "win_rate":       round(r.win_rate, 1),
+        "total_trades":   r.total_trades,
+        "date_range":     date_range,
+        "is_verified":    False,
+        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
+                    "value":c.value,"insight":c.insight,"fix":c.fix,
+                    "category":c.category} for c in r.checks],
+        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
+                        "description":s.description,"market_drop":s.market_drop,
+                        "strategy_drop":s.strategy_drop,"survived":s.survived,
+                        "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
+        "top_issues":    top_issues,
+        "top_strengths": top_strengths,
+    }
+    _cache_validation(r.validation_hash, _vr_cache)
 
     return ValidationResponse(
         fundable_score=r.score,
@@ -421,7 +443,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         currency=detected_currency,
         assumptions=r.assumptions,
         dashboard=dashboard_data,
-        ai_plan=None,  # AI analysis is a paid feature — included in PDF report
+        ai_plan=None,
     )
 
 @app.get("/sample-csv")
@@ -700,6 +722,28 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         except Exception:
             dashboard_data = None
 
+        # Cache exact vr so PDF uses identical numbers — no re-fetch from Alpaca
+        _vr_cache = {
+            "fundable_score": r.score,
+            "grade":          r.grade,
+            "sharpe":         round(r.sharpe, 2),
+            "max_drawdown":   round(r.max_drawdown, 4),
+            "win_rate":       round(r.win_rate, 1),
+            "total_trades":   r.total_trades,
+            "date_range":     date_range,
+            "is_verified":    True,
+            "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
+                        "value":c.value,"insight":c.insight,"fix":c.fix,
+                        "category":c.category} for c in r.checks],
+            "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
+                            "description":s.description,"market_drop":s.market_drop,
+                            "strategy_drop":s.strategy_drop,"survived":s.survived,
+                            "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
+            "top_issues":    top_issues,
+            "top_strengths": top_strengths,
+        }
+        _cache_validation(r.validation_hash, _vr_cache)
+
         return ValidationResponse(
             fundable_score=r.score,
             grade=r.grade,
@@ -764,6 +808,18 @@ except ImportError:
 # Simple token gate — replace with Stripe webhook in production
 REPORT_ACCESS_TOKENS = set()   # populated by payment webhooks
 LS_ORDER_TOKENS: dict = {}     # LS order_id → token for frontend polling
+# Cache last 50 validation results by hash — PDF reuses exact same computed data
+import collections
+VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
+VALIDATION_CACHE_MAX = 50
+
+def _cache_validation(v_hash: str, vr: dict):
+    VALIDATION_RESULT_CACHE[v_hash] = vr
+    if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
+        VALIDATION_RESULT_CACHE.popitem(last=False)  # evict oldest
+
+def _get_cached_validation(v_hash: str) -> dict | None:
+    return VALIDATION_RESULT_CACHE.get(v_hash)
 _TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
 
 RAZORPAY_KEY_ID       = os.getenv("RAZORPAY_KEY_ID", "")
@@ -1124,9 +1180,10 @@ async def payment_webhook(request: Request):
 # =========================================================
 
 class BrokerReportRequest(BaseModel):
-    api_key:    str
-    secret_key: str
-    mode:       str = "paper"
+    api_key:         str
+    secret_key:      str
+    mode:            str = "paper"
+    validation_hash: str = ""   # if provided, PDF uses cached validate data — exact match guaranteed
 
 @app.post("/report/generate-broker")
 async def generate_broker_report(
@@ -1135,8 +1192,32 @@ async def generate_broker_report(
 ):
     """
     Paid endpoint — generates PDF from live Alpaca data.
-    Same token gate as /report/generate.
+    If validation_hash provided, uses cached result for 100% data consistency.
     """
+    # ── Fast path: cached validation result → guaranteed match with results screen ──
+    if payload.validation_hash:
+        cached_vr = _get_cached_validation(payload.validation_hash)
+        if cached_vr:
+            print(f"[generate-broker] Cache hit {payload.validation_hash[:8]} — skipping re-fetch")
+            if not _verify_token_broker(x_report_token):
+                raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
+            if not cached_vr.get("ai_plan"):
+                issues = cached_vr.get("top_issues", [])
+                cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else "See individual check insights for improvement recommendations."
+            if not _PDF_AVAILABLE:
+                raise HTTPException(503, "PDF module not available.")
+            try:
+                pdf_bytes = _generate_pdf_report(cached_vr)
+            except Exception as e:
+                raise HTTPException(500, f"PDF generation failed: {str(e)}")
+            score     = int(cached_vr["fundable_score"])
+            grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
+            filename  = f"QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"
+            return Response(
+                content=pdf_bytes, media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename={filename}"}
+            )
+
     # ── Token check (reuse same logic) ───────────────────────────────────────
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
