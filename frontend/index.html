@@ -1486,11 +1486,9 @@
             onmouseout="this.style.background='var(--accent)'">
             🇮🇳 Pay ₹999 (India — UPI / Cards)
           </button>
-          <button id="pdfBtnIntl" onclick="buyPdfReportIntl()"
-            style="background:transparent;color:var(--accent);border:1px solid rgba(0,255,136,0.4);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s;width:100%;margin-top:8px;"
-            onmouseover="this.style.background='rgba(0,255,136,0.08)'"
-            onmouseout="this.style.background='transparent'">
-            🌍 Pay $12 (International — Card / PayPal)
+          <button id="pdfBtnIntl" onclick="showIntlComingSoon()"
+            style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:500;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">
+            🌍 International Payments — Coming Soon
           </button>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
         </div>
@@ -1531,6 +1529,14 @@
 
   // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
+
+  function showIntlComingSoon() {
+    const status = document.getElementById('pdfBtnStatus');
+    if (status) {
+      status.innerText = '🌍 International payments launching soon — Indian users can pay via UPI/cards above.';
+      status.style.color = 'var(--muted)';
+    }
+  }
 
   async function buyPdfReportIntl() {
     const btn    = document.getElementById('pdfBtnIntl');
