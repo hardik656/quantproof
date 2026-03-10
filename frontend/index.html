@@ -1575,42 +1575,133 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
 
-    const orderId = params.get('order_id');
-    const btn     = document.getElementById('pdfBtn');
-    const btnIntl = document.getElementById('pdfBtnIntl');
-    const status  = document.getElementById('pdfBtnStatus');
+    const orderId = params.get('order_id') || '';
 
-    if (btn)     { btn.disabled = true;     btn.innerText = 'Payment received...'; }
-    if (btnIntl) { btnIntl.disabled = true; }
-    if (status)  { status.innerText = 'Verifying payment — this takes a few seconds...'; status.style.color = 'var(--accent)'; }
+    // Show a full-page download UI — results panel may not be visible
+    const uploadSection = document.getElementById('uploadSection');
+    const heroSection   = document.getElementById('heroSection');
+    if (uploadSection) uploadSection.style.display = 'none';
+    if (heroSection)   heroSection.style.display   = 'none';
 
-    // Poll /report/ls-token until webhook fires (max 30 seconds)
-    const maxAttempts = 15;
+    // Create a dedicated download panel
+    const panel = document.createElement('div');
+    panel.id = 'ls-return-panel';
+    panel.style.cssText = 'max-width:560px;margin:80px auto;padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:16px;text-align:center;font-family:var(--font)';
+    panel.innerHTML = `
+      <div style="font-size:40px;margin-bottom:16px">✓</div>
+      <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)">Payment Received!</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:32px">Verifying and generating your PDF report...</div>
+      <div id="ls-status" style="font-size:13px;color:var(--accent);font-family:var(--mono);margin-bottom:24px">Connecting to payment server...</div>
+      <div style="background:var(--surface2);border-radius:8px;height:4px;overflow:hidden;margin-bottom:24px">
+        <div id="ls-progress" style="background:var(--accent);height:100%;width:5%;transition:width 0.5s"></div>
+      </div>
+      <div id="ls-download-btn" style="display:none">
+        <a id="ls-pdf-link" style="display:inline-block;background:var(--accent);color:#000;padding:14px 32px;border-radius:8px;font-weight:700;font-family:var(--mono);font-size:14px;text-decoration:none;cursor:pointer">
+          ↓ DOWNLOAD YOUR REPORT
+        </a>
+        <div style="font-size:11px;color:var(--muted);margin-top:12px">Click above to download your PDF</div>
+      </div>
+    `;
+    document.body.insertBefore(panel, document.body.firstChild);
+
+    const statusEl   = document.getElementById('ls-status');
+    const progressEl = document.getElementById('ls-progress');
+
+    // Restore file from sessionStorage if available
+    if (!_lastValidatedFile) {
+      const storedName = sessionStorage.getItem('qp_filename');
+      const storedData = sessionStorage.getItem('qp_filedata');
+      if (storedName && storedData) {
+        try {
+          const byteStr = atob(storedData);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
+        } catch(e) { console.log('File restore failed', e); }
+      }
+    }
+
+    // Poll for token
+    const maxAttempts = 20;
     for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(r => setTimeout(r, 2000)); // wait 2s between polls
+      await new Promise(r => setTimeout(r, 2000));
+      if (progressEl) progressEl.style.width = `${Math.min(90, 5 + i * 4.5)}%`;
+      if (statusEl) statusEl.innerText = `Verifying payment... (${i+1}/${maxAttempts})`;
+
       try {
-        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(orderId || '')}`);
+        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(orderId)}`);
         const data = await res.json();
         if (data.status === 'ready' && data.token) {
-          if (status) { status.innerText = 'Payment verified! Generating your PDF...'; }
-          await generatePdfWithToken(data.token);
-          // Clean URL
+          if (statusEl) statusEl.innerText = 'Payment verified! Generating PDF...';
+          if (progressEl) progressEl.style.width = '95%';
+
+          // Generate PDF
+          try {
+            const pdfBlob = await generatePdfBlob(data.token);
+            const url = URL.createObjectURL(pdfBlob);
+            if (progressEl) progressEl.style.width = '100%';
+            if (statusEl) statusEl.innerText = '✓ Your report is ready!';
+            const dlBtn = document.getElementById('ls-download-btn');
+            const dlLink = document.getElementById('ls-pdf-link');
+            if (dlBtn) dlBtn.style.display = 'block';
+            if (dlLink) {
+              dlLink.href = url;
+              dlLink.download = 'QuantProof_Report.pdf';
+              dlLink.click(); // auto-download
+            }
+          } catch(pdfErr) {
+            if (statusEl) { statusEl.innerText = 'PDF error: ' + pdfErr.message; statusEl.style.color = '#ff4444'; }
+          }
           window.history.replaceState({}, '', window.location.pathname);
           return;
         }
       } catch(e) {
-        console.log('LS poll attempt', i+1, 'pending...');
+        console.log('Poll attempt', i+1, 'not ready yet');
       }
-      if (status) { status.innerText = `Verifying payment... (${i+2}/${maxAttempts})`; }
     }
 
-    // Timeout — webhook may be delayed, show fallback message
-    if (status) {
-      status.innerText = 'Payment confirmed but PDF generation timed out. Please refresh the page or contact us.';
-      status.style.color = '#ffaa00';
+    // Timeout
+    if (statusEl) {
+      statusEl.innerText = 'Verification timed out. Your payment was received — please email hgumber43@gmail.com with your order ID: ' + orderId;
+      statusEl.style.color = '#ffaa00';
     }
-    if (btn)     { btn.disabled = false;     btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)'; }
-    if (btnIntl) { btnIntl.disabled = false; btnIntl.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
+  }
+
+  // Generate PDF and return blob (used by handleLSReturn)
+  async function generatePdfBlob(token) {
+    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
+    let res;
+    if (reportSource === 'alpaca') {
+      const storedBroker = sessionStorage.getItem('qp_broker');
+      const brokerCreds  = storedBroker ? JSON.parse(storedBroker) : null;
+      if (brokerCreds) {
+        const brokerBody = {
+          api_key:    brokerCreds.api_key    || brokerCreds.key    || '',
+          secret_key: brokerCreds.secret_key || brokerCreds.secret || '',
+          mode:       brokerCreds.mode       || 'paper'
+        };
+        res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-report-token': token },
+          body: JSON.stringify(brokerBody)
+        });
+      }
+    }
+    if (!res) {
+      if (!_lastValidatedFile) throw new Error('CSV file not found — please re-upload and try again');
+      const form = new FormData();
+      form.append('file', _lastValidatedFile);
+      res = await fetch(`${API_URL_REPORT}/report/generate`, {
+        method: 'POST',
+        headers: { 'x-report-token': token },
+        body: form
+      });
+    }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || errData.message || `Server error ${res.status}`);
+    }
+    return await res.blob();
   }
 
   // Generate PDF after payment verified
