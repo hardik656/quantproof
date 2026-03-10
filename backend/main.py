@@ -954,6 +954,8 @@ async def generate_report_endpoint(
     # Generate AI fix plan for paid report
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
+    # Update cache with ai_plan
+    _cache_validation(report.validation_hash, vr)
 
     try:
         if not _PDF_AVAILABLE:
@@ -1205,8 +1207,28 @@ async def generate_broker_report(
             if not _token_ok:
                 raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
             if not cached_vr.get("ai_plan"):
-                issues = cached_vr.get("top_issues", [])
-                cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else "See individual check insights for improvement recommendations."
+                # Build minimal report-like object from cache for AI plan
+                try:
+                    class _CachedCheck:
+                        def __init__(self, d):
+                            self.__dict__.update(d)
+                    class _CachedReport:
+                        def __init__(self, vr):
+                            self.score        = vr["fundable_score"]
+                            self.grade        = vr["grade"]
+                            self.sharpe       = vr["sharpe"]
+                            self.max_drawdown = vr["max_drawdown"]
+                            self.win_rate     = vr["win_rate"]
+                            self.total_trades = vr["total_trades"]
+                            self.checks       = [_CachedCheck(c) for c in vr.get("checks", [])]
+                            self.audit_flags  = []
+                    _rpt = _CachedReport(cached_vr)
+                    cached_vr["ai_plan"] = await generate_ai_plan(_rpt, cached_vr.get("date_range", ""))
+                    print("[cache ai_plan] AI plan generated from cached data")
+                except Exception as _e:
+                    print(f"[cache ai_plan] fallback: {_e}")
+                    issues = cached_vr.get("top_issues", [])
+                    cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else "See check insights for improvement recommendations."
             if not _PDF_AVAILABLE:
                 raise HTTPException(503, "PDF module not available.")
             try:
@@ -1379,6 +1401,8 @@ async def generate_broker_report(
 
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
+    # Update cache with ai_plan so next request (e.g. LS redirect retry) gets it instantly
+    _cache_validation(report.validation_hash, vr)
 
     if not _PDF_AVAILABLE:
         raise HTTPException(503, "PDF module not available on this server.")
