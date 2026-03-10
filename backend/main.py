@@ -762,7 +762,9 @@ except ImportError:
     _PDF_AVAILABLE = False
 
 # Simple token gate — replace with Stripe webhook in production
-REPORT_ACCESS_TOKENS = set()   # populated by Stripe webhook
+REPORT_ACCESS_TOKENS = set()   # populated by payment webhooks
+LS_ORDER_TOKENS: dict = {}     # LS order_id → token for frontend polling
+_TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
 
 RAZORPAY_KEY_ID       = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET   = os.getenv("RAZORPAY_KEY_SECRET", "")
@@ -989,7 +991,7 @@ async def create_checkout_intl(payload: dict):
                         "attributes": {
                             "checkout_options": {"dark": True},
                             "product_options": {
-                                "redirect_url": "https://quantproof-frontend.onrender.com/?payment=success&provider=ls"
+                                "redirect_url": "https://quantproof-frontend.onrender.com/?payment=success&provider=ls&order_id={order_id}"
                             }
                         },
                         "relationships": {
@@ -1041,12 +1043,27 @@ async def lemonsqueezy_webhook(request: Request):
             token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
             REPORT_ACCESS_TOKENS.add(token_now)
             REPORT_ACCESS_TOKENS.add(token_next)
+            # Store order→token so frontend can poll for it after redirect
+            LS_ORDER_TOKENS[order_id] = token_now
             print(f"[webhook-ls] LS order {order_id} → tokens issued")
             return {"status": "ok", "token": token_now}
     except Exception as e:
         raise HTTPException(400, str(e))
 
     return {"status": "ignored"}
+
+
+@app.get("/report/ls-token")
+async def get_ls_token(order_id: str):
+    """
+    Frontend polls this after returning from LS redirect.
+    Returns token if webhook has already fired, or 'pending' if not yet.
+    """
+    if order_id in LS_ORDER_TOKENS:
+        token = LS_ORDER_TOKENS[order_id]
+        return {"status": "ready", "token": token}
+    # Check REPORT_ACCESS_TOKENS isn't populated yet — webhook may be delayed
+    return {"status": "pending", "message": "Payment processing — please wait a moment"}
 
 
 @app.post("/report/webhook")
