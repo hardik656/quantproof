@@ -3,7 +3,7 @@ QuantProof — FastAPI Backend v1.3
 Final Boss validator — matches ValidationReport + ValidationDashboard
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -1583,3 +1583,4 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
     }
+
