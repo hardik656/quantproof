@@ -30,7 +30,6 @@
     overflow-x: hidden;
   }
 
-  /* GRID BACKGROUND */
   body::before {
     content: '';
     position: fixed;
@@ -43,7 +42,6 @@
     z-index: 0;
   }
 
-  /* SCANLINE EFFECT */
   body::after {
     content: '';
     position: fixed;
@@ -67,7 +65,6 @@
     padding: 0 24px;
   }
 
-  /* ========== HEADER ========== */
   header {
     padding: 32px 0 0;
     border-bottom: 1px solid var(--border);
@@ -81,870 +78,331 @@
     padding-bottom: 24px;
   }
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .logo { display: flex; align-items: center; gap: 12px; }
 
   .logo-mark {
-    width: 36px;
-    height: 36px;
+    width: 36px; height: 36px;
     border: 2px solid var(--accent);
-    display: grid;
-    place-items: center;
-    font-family: var(--mono);
-    font-size: 14px;
-    color: var(--accent);
-    position: relative;
-    animation: pulse-border 3s infinite;
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 14px; color: var(--accent);
+    position: relative; animation: pulse-border 3s infinite;
   }
 
   @keyframes pulse-border {
     0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
-    50% { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
+    50%       { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
   }
 
-  .logo-name {
-    font-family: var(--sans);
-    font-weight: 800;
-    font-size: 22px;
-    letter-spacing: -0.5px;
-  }
-
+  .logo-name { font-family: var(--sans); font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
   .logo-name span { color: var(--accent); }
 
   .status-pill {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    border: 1px solid rgba(0,255,136,0.3);
-    padding: 4px 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    border: 1px solid rgba(0,255,136,0.3); padding: 4px 12px;
+    display: flex; align-items: center; gap: 6px;
   }
 
   .status-dot {
-    width: 6px;
-    height: 6px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: blink 1.5s infinite;
+    width: 6px; height: 6px; background: var(--accent);
+    border-radius: 50%; animation: blink 1.5s infinite;
   }
 
   @keyframes blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.2; }
+    50%       { opacity: 0.2; }
   }
 
-  /* ========== HERO ========== */
   .hero {
-    text-align: center;
-    margin-bottom: 64px;
+    text-align: center; margin-bottom: 64px;
     animation: fadeUp 0.8s ease both;
   }
 
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   .hero-tag {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    margin-bottom: 20px;
-    display: inline-block;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    letter-spacing: 3px; text-transform: uppercase;
+    margin-bottom: 20px; display: inline-block;
   }
 
   .hero h1 {
-    font-size: clamp(36px, 6vw, 72px);
-    font-weight: 800;
-    line-height: 1.0;
-    letter-spacing: -2px;
-    margin-bottom: 20px;
+    font-size: clamp(36px, 6vw, 72px); font-weight: 800;
+    line-height: 1.0; letter-spacing: -2px; margin-bottom: 20px;
   }
 
-  .hero h1 em {
-    font-style: normal;
-    color: var(--accent);
-    position: relative;
-  }
+  .hero h1 em { font-style: normal; color: var(--accent); position: relative; }
 
   .hero p {
-    font-size: 18px;
-    color: var(--muted);
-    max-width: 540px;
-    margin: 0 auto 40px;
-    line-height: 1.6;
-    font-weight: 400;
+    font-size: 18px; color: var(--muted); max-width: 540px;
+    margin: 0 auto 40px; line-height: 1.6; font-weight: 400;
   }
 
-  .stats-row {
-    display: flex;
-    justify-content: center;
-    gap: 48px;
-    margin-top: 40px;
-  }
+  .stats-row { display: flex; justify-content: center; gap: 48px; margin-top: 40px; }
+  .stat { text-align: center; }
+  .stat-num { font-family: var(--mono); font-size: 28px; color: var(--accent); font-weight: 700; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
 
-  .stat {
-    text-align: center;
-  }
-
-  .stat-num {
-    font-family: var(--mono);
-    font-size: 28px;
-    color: var(--accent);
-    font-weight: 700;
-  }
-
-  .stat-label {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 4px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  /* ========== UPLOAD ZONE ========== */
-  .upload-section {
-    margin-bottom: 64px;
-    animation: fadeUp 0.8s 0.2s ease both;
-  }
-
-  .upload-zone {
-    border: 2px dashed var(--border);
-    padding: 64px 40px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s;
-    position: relative;
-    background: var(--deep);
-  }
-
-  .upload-zone:hover, .upload-zone.drag-over {
-    border-color: var(--accent);
-    background: rgba(0,255,136,0.03);
-  }
-
-  .upload-zone:hover .upload-icon {
-    transform: translateY(-4px);
-    color: var(--accent);
-  }
-
-  .upload-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    transition: all 0.3s;
-    display: block;
-  }
-
-  .upload-title {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 8px;
-  }
-
-  .upload-sub {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 24px;
-  }
+  .upload-section { margin-bottom: 64px; animation: fadeUp 0.8s 0.2s ease both; }
 
   .upload-btn {
-    background: var(--accent);
-    color: var(--black);
-    border: none;
-    padding: 14px 32px;
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
+    background: var(--accent); color: var(--black); border: none;
+    padding: 14px 32px; font-family: var(--mono); font-size: 13px;
+    font-weight: 700; letter-spacing: 1px; cursor: pointer;
+    transition: all 0.2s; text-transform: uppercase;
   }
 
-  .upload-btn:hover {
-    background: #00cc6e;
-    transform: translateY(-1px);
-  }
+  .upload-btn:hover { background: #00cc6e; transform: translateY(-1px); }
 
   input[type="file"] { display: none; }
 
-  .format-hint {
-    margin-top: 16px;
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
+  .format-hint { margin-top: 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
 
-  /* ========== LOADING ========== */
-  .loading {
-    display: none;
-    text-align: center;
-    padding: 80px 0;
-  }
-
+  .loading { display: none; text-align: center; padding: 80px 0; }
   .loading.active { display: block; }
 
   .terminal {
-    background: var(--deep);
-    border: 1px solid var(--border);
-    padding: 24px;
-    max-width: 500px;
-    margin: 0 auto 32px;
-    text-align: left;
+    background: var(--deep); border: 1px solid var(--border);
+    padding: 24px; max-width: 500px; margin: 0 auto 32px; text-align: left;
   }
 
-  .terminal-bar {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 16px;
-  }
-
-  .t-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-  }
-
+  .terminal-bar { display: flex; gap: 6px; margin-bottom: 16px; }
+  .t-dot { width: 10px; height: 10px; border-radius: 50%; }
   .t-dot:nth-child(1) { background: #ff5f57; }
   .t-dot:nth-child(2) { background: #febc2e; }
   .t-dot:nth-child(3) { background: #28c840; }
 
   .terminal-line {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent);
-    margin-bottom: 6px;
-    opacity: 0;
+    font-family: var(--mono); font-size: 12px; color: var(--accent);
+    margin-bottom: 6px; opacity: 0;
     animation: typeIn 0.3s ease forwards;
   }
 
-  .terminal-line:nth-child(2) { animation-delay: 0.3s; color: var(--text); }
-  .terminal-line:nth-child(3) { animation-delay: 0.6s; }
-  .terminal-line:nth-child(4) { animation-delay: 0.9s; color: var(--text); }
-  .terminal-line:nth-child(5) { animation-delay: 1.2s; }
-  .terminal-line:nth-child(6) { animation-delay: 1.5s; color: var(--accent3); }
-  .terminal-line:nth-child(7) { animation-delay: 1.8s; color: var(--accent3); }
-  .terminal-line:nth-child(8) { animation-delay: 2.1s; color: var(--accent2); }
-  .terminal-line:nth-child(9) { animation-delay: 2.4s; color: var(--accent); }
+  /* FIX #12: 11 lines now (was 9), delays extended */
+  .terminal-line:nth-child(2)  { animation-delay: 0.3s;  color: var(--text); }
+  .terminal-line:nth-child(3)  { animation-delay: 0.6s; }
+  .terminal-line:nth-child(4)  { animation-delay: 0.9s;  color: var(--text); }
+  .terminal-line:nth-child(5)  { animation-delay: 1.2s; }
+  .terminal-line:nth-child(6)  { animation-delay: 1.5s;  color: var(--accent3); }
+  .terminal-line:nth-child(7)  { animation-delay: 1.8s;  color: var(--accent3); }
+  .terminal-line:nth-child(8)  { animation-delay: 2.1s;  color: var(--accent2); }
+  .terminal-line:nth-child(9)  { animation-delay: 2.4s;  color: var(--accent2); }
+  .terminal-line:nth-child(10) { animation-delay: 2.7s;  color: var(--accent2); }
+  .terminal-line:nth-child(11) { animation-delay: 3.0s;  color: var(--accent); }
 
   @keyframes typeIn {
     from { opacity: 0; transform: translateX(-8px); }
-    to { opacity: 1; transform: translateX(0); }
+    to   { opacity: 1; transform: translateX(0); }
   }
 
-  /* ========== RESULTS ========== */
   .results { display: none; }
   .results.active { display: block; animation: fadeUp 0.6s ease both; }
 
-  /* SCORE HERO */
   .score-hero {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 32px;
-    margin-bottom: 40px;
-    background: var(--deep);
-    border: 1px solid var(--border);
-    padding: 40px;
+    display: grid; grid-template-columns: 280px 1fr;
+    gap: 32px; margin-bottom: 40px;
+    background: var(--deep); border: 1px solid var(--border); padding: 40px;
   }
 
   .score-circle-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
   }
 
-  .score-circle {
-    width: 160px;
-    height: 160px;
-    position: relative;
-  }
+  .score-circle { width: 160px; height: 160px; position: relative; }
+  .score-circle svg { transform: rotate(-90deg); }
+  .score-circle-bg { fill: none; stroke: var(--border); stroke-width: 8; }
+  .score-circle-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 
-  .score-circle svg {
-    transform: rotate(-90deg);
-  }
-
-  .score-circle-bg {
-    fill: none;
-    stroke: var(--border);
-    stroke-width: 8;
-  }
-
-  .score-circle-fill {
-    fill: none;
-    stroke-width: 8;
-    stroke-linecap: round;
-    transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .score-number {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .score-val {
-    font-family: var(--mono);
-    font-size: 42px;
-    font-weight: 700;
-    line-height: 1;
-  }
-
-  .score-max {
-    font-family: var(--mono);
-    font-size: 13px;
-    color: var(--muted);
-  }
+  .score-number { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .score-val { font-family: var(--mono); font-size: 42px; font-weight: 700; line-height: 1; }
+  .score-max { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
   .score-grade {
-    font-family: var(--mono);
-    font-size: 12px;
-    text-align: center;
-    padding: 6px 16px;
-    border: 1px solid;
+    font-family: var(--mono); font-size: 12px;
+    text-align: center; padding: 6px 16px; border: 1px solid;
   }
 
-  .score-meta {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 24px;
-  }
+  .score-meta { display: flex; flex-direction: column; justify-content: center; gap: 24px; }
+  .score-summary { font-size: 16px; line-height: 1.7; color: var(--muted); }
 
-  .score-summary {
-    font-size: 16px;
-    line-height: 1.7;
-    color: var(--muted);
-  }
+  .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 
-  .meta-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-  }
+  .meta-item { background: var(--surface); padding: 16px; border-left: 3px solid var(--border); }
+  .meta-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .meta-value { font-family: var(--mono); font-size: 20px; font-weight: 700; }
 
-  .meta-item {
-    background: var(--surface);
-    padding: 16px;
-    border-left: 3px solid var(--border);
-  }
-
-  .meta-label {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 6px;
-  }
-
-  .meta-value {
-    font-family: var(--mono);
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  /* ========== CRASH SIMS ========== */
   .section-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
   }
 
-  .section-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-  .crash-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 48px;
-  }
+  .crash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 48px; }
 
   .crash-card {
-    background: var(--deep);
-    border: 1px solid var(--border);
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-    transition: transform 0.2s;
+    background: var(--deep); border: 1px solid var(--border);
+    padding: 24px; position: relative; overflow: hidden; transition: transform 0.2s;
   }
 
   .crash-card:hover { transform: translateY(-2px); }
 
-  .crash-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-  }
-
+  .crash-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
   .crash-card.survived::before { background: var(--accent); }
-  .crash-card.warning::before { background: var(--accent3); }
-  .crash-card.failed::before { background: var(--accent2); }
+  .crash-card.warning::before  { background: var(--accent3); }
+  .crash-card.failed::before   { background: var(--accent2); }
 
-  .crash-year {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-    margin-bottom: 8px;
-  }
+  .crash-year   { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .crash-name   { font-size: 16px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
+  .crash-desc   { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
+  .crash-stats  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .crash-stat   { background: var(--surface); padding: 10px; text-align: center; }
+  .crash-stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .crash-stat-val   { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 2px; }
 
-  .crash-name {
-    font-size: 16px;
-    font-weight: 700;
-    margin-bottom: 12px;
-    line-height: 1.3;
-  }
+  .crash-verdict { font-size: 12px; line-height: 1.5; padding: 12px; border: 1px solid; font-weight: 600; }
 
-  .crash-desc {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.5;
-    margin-bottom: 16px;
-  }
+  .crash-card.survived .crash-verdict { border-color: rgba(0,255,136,0.3); color: var(--accent);  background: rgba(0,255,136,0.05); }
+  .crash-card.warning  .crash-verdict { border-color: rgba(255,170,0,0.3); color: var(--accent3); background: rgba(255,170,0,0.05); }
+  .crash-card.failed   .crash-verdict { border-color: rgba(255,68,68,0.3);  color: var(--accent2); background: rgba(255,68,68,0.05); }
 
-  .crash-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-
-  .crash-stat {
-    background: var(--surface);
-    padding: 10px;
-    text-align: center;
-  }
-
-  .crash-stat-label {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .crash-stat-val {
-    font-family: var(--mono);
-    font-size: 18px;
-    font-weight: 700;
-    margin-top: 2px;
-  }
-
-  .crash-verdict {
-    font-size: 12px;
-    line-height: 1.5;
-    padding: 12px;
-    border: 1px solid;
-    font-weight: 600;
-  }
-
-  .crash-card.survived .crash-verdict {
-    border-color: rgba(0,255,136,0.3);
-    color: var(--accent);
-    background: rgba(0,255,136,0.05);
-  }
-
-  .crash-card.warning .crash-verdict {
-    border-color: rgba(255,170,0,0.3);
-    color: var(--accent3);
-    background: rgba(255,170,0,0.05);
-  }
-
-  .crash-card.failed .crash-verdict {
-    border-color: rgba(255,68,68,0.3);
-    color: var(--accent2);
-    background: rgba(255,68,68,0.05);
-  }
-
-  /* ========== CHECKS ========== */
   .checks-section { margin-bottom: 48px; }
-
   .category-block { margin-bottom: 32px; }
 
   .category-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
   }
 
-  .category-name {
-    font-size: 14px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .category-score {
-    font-family: var(--mono);
-    font-size: 13px;
-  }
+  .category-name   { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .category-score  { font-family: var(--mono); font-size: 13px; }
 
   .check-item {
-    background: var(--deep);
-    border: 1px solid var(--border);
-    border-left: 3px solid;
-    padding: 16px 20px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+    background: var(--deep); border: 1px solid var(--border); border-left: 3px solid;
+    padding: 16px 20px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
   }
 
   .check-item:hover { background: var(--surface); }
-  .check-item.pass { border-left-color: var(--accent); }
-  .check-item.fail { border-left-color: var(--accent2); }
+  .check-item.pass  { border-left-color: var(--accent); }
+  .check-item.fail  { border-left-color: var(--accent2); }
 
-  .check-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+  .check-header { display: flex; align-items: center; justify-content: space-between; }
 
-  .check-name {
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .check-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
-  .check-badge {
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 2px 8px;
-    font-weight: 700;
-  }
-
+  .check-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; font-weight: 700; }
   .check-badge.pass { background: rgba(0,255,136,0.15); color: var(--accent); }
-  .check-badge.fail { background: rgba(255,68,68,0.15); color: var(--accent2); }
+  .check-badge.fail { background: rgba(255,68,68,0.15);  color: var(--accent2); }
 
-  .check-score-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .check-score-bar { display: flex; align-items: center; gap: 12px; }
 
-  .bar-track {
-    width: 100px;
-    height: 4px;
-    background: var(--border);
-    overflow: hidden;
-  }
+  .bar-track { width: 100px; height: 4px; background: var(--border); overflow: hidden; }
+  .bar-fill  { height: 100%; transition: width 1s ease; }
 
-  .bar-fill {
-    height: 100%;
-    transition: width 1s ease;
-  }
+  .check-score-num { font-family: var(--mono); font-size: 12px; width: 32px; text-align: right; }
 
-  .check-score-num {
-    font-family: var(--mono);
-    font-size: 12px;
-    width: 32px;
-    text-align: right;
-  }
-
-  .check-details {
-    display: none;
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-  }
-
+  .check-details { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
   .check-details.open { display: block; }
 
-  .check-value {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--accent3);
-    margin-bottom: 10px;
-    padding: 8px 12px;
-    background: var(--surface);
-  }
+  .check-value   { font-family: var(--mono); font-size: 12px; color: var(--accent3); margin-bottom: 10px; padding: 8px 12px; background: var(--surface); }
+  .check-insight { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+  .check-fix     { font-size: 13px; color: var(--text); line-height: 1.6; padding: 10px 12px; border-left: 3px solid var(--accent3); background: rgba(255,170,0,0.05); }
+  .check-fix::before { content: '→ FIX: '; font-family: var(--mono); font-size: 11px; color: var(--accent3); font-weight: 700; }
 
-  .check-insight {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-    margin-bottom: 10px;
-  }
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 48px; }
 
-  .check-fix {
-    font-size: 13px;
-    color: var(--text);
-    line-height: 1.6;
-    padding: 10px 12px;
-    border-left: 3px solid var(--accent3);
-    background: rgba(255,170,0,0.05);
-  }
+  .insight-card { background: var(--deep); border: 1px solid var(--border); padding: 24px; }
 
-  .check-fix::before {
-    content: '→ FIX: ';
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent3);
-    font-weight: 700;
-  }
-
-  /* ========== TOP ISSUES / STRENGTHS ========== */
-  .insights-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 48px;
-  }
-
-  .insight-card {
-    background: var(--deep);
-    border: 1px solid var(--border);
-    padding: 24px;
-  }
-
-  .insight-card-title {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-  }
-
-  .insight-card-title.issues { color: var(--accent2); }
+  .insight-card-title { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+  .insight-card-title.issues    { color: var(--accent2); }
   .insight-card-title.strengths { color: var(--accent); }
 
-  .insight-item {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 12px;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--muted);
-  }
+  .insight-item { display: flex; gap: 10px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .insight-num  { font-family: var(--mono); font-size: 11px; color: var(--border); min-width: 20px; margin-top: 2px; }
 
-  .insight-num {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--border);
-    min-width: 20px;
-    margin-top: 2px;
-  }
-
-  /* ========== RESET BTN ========== */
   .reset-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    padding: 12px 24px;
-    font-family: var(--mono);
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin: 0 auto 64px;
-    display: block;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    padding: 12px 24px; font-family: var(--mono); font-size: 12px; cursor: pointer;
+    transition: all 0.2s; margin: 0 auto 64px; display: block;
   }
 
-  .reset-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ========== FOOTER ========== */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 32px 0;
-    text-align: center;
-  }
-
-  .footer-text {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
-
+  footer { border-top: 1px solid var(--border); padding: 32px 0; text-align: center; }
+  .footer-text { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   footer .accent { color: var(--accent); }
 
   @media (max-width: 768px) {
-    .crash-grid { grid-template-columns: 1fr; }
-    .score-hero { grid-template-columns: 1fr; }
-    .meta-grid { grid-template-columns: repeat(2, 1fr); }
-    .insights-grid { grid-template-columns: 1fr; }
-    .stats-row { gap: 24px; }
+    .crash-grid       { grid-template-columns: 1fr; }
+    .score-hero       { grid-template-columns: 1fr; }
+    .meta-grid        { grid-template-columns: repeat(2, 1fr); }
+    .insights-grid    { grid-template-columns: 1fr; }
+    .stats-row        { gap: 24px; }
+    .mode-grid        { grid-template-columns: 1fr; }
   }
 
-  /* ========== TWO-MODE UPLOAD GRID ========== */
-  .mode-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 0;
-  }
+  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 0; }
 
   .mode-card {
-    background: var(--deep);
-    border: 1px solid var(--border);
-    padding: 32px 28px;
-    display: flex;
-    flex-direction: column;
-    transition: border-color 0.2s;
+    background: var(--deep); border: 1px solid var(--border);
+    padding: 32px 28px; display: flex; flex-direction: column; transition: border-color 0.2s;
   }
 
   .mode-card:hover { border-color: rgba(0,255,136,0.25); }
 
-  .mode-card-verified {
-    border-color: rgba(0,255,136,0.2);
-    background: rgba(0,255,136,0.02);
-  }
-
+  .mode-card-verified { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
   .mode-card-verified:hover { border-color: rgba(0,255,136,0.5); }
 
-  .mode-tag {
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: var(--muted);
-    margin-bottom: 16px;
-    text-transform: uppercase;
-  }
+  .mode-tag   { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; }
+  .mode-icon  { font-size: 36px; margin-bottom: 12px; }
+  .mode-title { font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.3px; }
+  .mode-desc  { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 20px; flex: 1; }
 
-  .mode-icon {
-    font-size: 36px;
-    margin-bottom: 12px;
-  }
+  .mode-limits { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .mode-limit-item { font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 3px 10px; letter-spacing: 0.05em; }
 
-  .mode-title {
-    font-size: 20px;
-    font-weight: 800;
-    margin-bottom: 10px;
-    letter-spacing: -0.3px;
-  }
+  .mode-warning      { font-family: var(--mono); font-size: 11px; color: var(--accent2); padding: 8px 12px; background: rgba(255,68,68,0.05);    border: 1px solid rgba(255,68,68,0.15); }
+  .mode-verified-note{ font-family: var(--mono); font-size: 11px; color: var(--accent);  padding: 8px 12px; background: rgba(0,255,136,0.05);    border: 1px solid rgba(0,255,136,0.15); }
 
-  .mode-desc {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.7;
-    margin-bottom: 20px;
-    flex: 1;
-  }
-
-  .mode-limits {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 14px;
-  }
-
-  .mode-limit-item {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--muted);
-    border: 1px solid var(--border);
-    padding: 3px 10px;
-    letter-spacing: 0.05em;
-  }
-
-  .mode-warning {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent2);
-    padding: 8px 12px;
-    background: rgba(255,68,68,0.05);
-    border: 1px solid rgba(255,68,68,0.15);
-  }
-
-  .mode-verified-note {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--accent);
-    padding: 8px 12px;
-    background: rgba(0,255,136,0.05);
-    border: 1px solid rgba(0,255,136,0.15);
-  }
-
-  .mode-btn-alpaca {
-    background: var(--accent) !important;
-    color: var(--black) !important;
-  }
-
+  .mode-btn-alpaca { background: var(--accent) !important; color: var(--black) !important; }
   .mode-btn-alpaca:hover { background: #00cc6e !important; }
 
-  /* CSV mode results banner */
   .csv-warning-banner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    background: rgba(255,68,68,0.05);
-    border: 1px solid rgba(255,68,68,0.2);
-    margin-bottom: 32px;
-    font-size: 13px;
-    font-family: var(--mono);
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; background: rgba(255,68,68,0.05);
+    border: 1px solid rgba(255,68,68,0.2); margin-bottom: 32px;
+    font-size: 13px; font-family: var(--mono);
   }
 
   .csv-warning-banner .warn-icon { font-size: 16px; flex-shrink: 0; }
   .csv-warning-banner .warn-text { color: var(--muted); }
   .csv-warning-banner .warn-text strong { color: var(--accent2); }
   .csv-warning-banner .warn-link {
-    margin-left: auto;
-    color: var(--accent);
-    font-size: 11px;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    border: 1px solid rgba(0,255,136,0.3);
-    padding: 4px 12px;
-    transition: all 0.2s;
-  }
-  .csv-warning-banner .warn-link:hover {
-    background: rgba(0,255,136,0.08);
+    margin-left: auto; color: var(--accent); font-size: 11px;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    border: 1px solid rgba(0,255,136,0.3); padding: 4px 12px; transition: all 0.2s;
   }
 
-  /* Verified badge on results */
+  .csv-warning-banner .warn-link:hover { background: rgba(0,255,136,0.08); }
+
   .verified-banner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    background: rgba(0,255,136,0.05);
-    border: 1px solid rgba(0,255,136,0.25);
-    margin-bottom: 32px;
-    font-size: 13px;
-    font-family: var(--mono);
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; background: rgba(0,255,136,0.05);
+    border: 1px solid rgba(0,255,136,0.25); margin-bottom: 32px;
+    font-size: 13px; font-family: var(--mono);
   }
 
   .verified-banner .verified-icon { font-size: 18px; }
   .verified-banner .verified-text { color: var(--accent); font-weight: 700; }
-  .verified-banner .verified-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .verified-banner .verified-sub  { color: var(--muted); font-size: 11px; margin-top: 2px; }
 
-  @media (max-width: 768px) {
-    .mode-grid { grid-template-columns: 1fr; }
-  }
-
+  /* category pass/fail badges */
+  .cat-pass-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; background: rgba(0,255,136,0.12); color: var(--accent);  font-weight: 700; }
+  .cat-fail-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; background: rgba(255,68,68,0.12);  color: var(--accent2); font-weight: 700; }
 </style>
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -968,10 +426,12 @@
   <div class="hero" id="heroSection">
     <div class="hero-tag">// Institutional-Grade Algo Validation</div>
     <h1>Does your strategy<br>survive the <em>real world?</em></h1>
-    <p>Validate your backtest against 38 institutional checks + 5 crash simulations. Connect your broker for verified, prop-firm eligible results.</p>
+    <!-- FIX #10b: 38 → 40 -->
+    <p>Validate your backtest against 40 institutional checks + 5 crash simulations. Connect your broker for verified, prop-firm eligible results.</p>
     <div class="stats-row">
       <div class="stat">
-        <div class="stat-num">38</div>
+        <!-- FIX #10: 38 → 40 -->
+        <div class="stat-num">40</div>
         <div class="stat-label">Checks Run</div>
       </div>
       <div class="stat">
@@ -989,9 +449,8 @@
     </div>
   </div>
 
-  <!-- UPLOAD — two mode choice -->
+  <!-- UPLOAD -->
   <div class="upload-section" id="uploadSection">
-
     <div class="mode-grid">
 
       <!-- CSV MODE -->
@@ -999,16 +458,18 @@
         <div class="mode-tag">// METHODOLOGY CHECK</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Upload CSV</div>
-        <div class="mode-desc">Run all 38 institutional checks on your backtest data. Trades are not independently verified.</div>
+        <!-- FIX #10b: 38 → 40 -->
+        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Trades are not independently verified.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
-          <span class="mode-limit-item">All 38 checks</span>
+          <!-- FIX #10c: 38 → 40 -->
+          <span class="mode-limit-item">All 40 checks</span>
           <span class="mode-limit-item">5 crash sims</span>
         </div>
         <div class="mode-warning">⚠ Cannot be used for prop firm compliance</div>
         <div style="margin:12px 0 4px 0">
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
-          <select id="csvCurrency" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--font)">
+          <select id="csvCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--mono)">
             <option value="USD">🇺🇸 USD — US Dollar</option>
             <option value="INR">🇮🇳 INR — Indian Rupee</option>
             <option value="GBP">🇬🇧 GBP — British Pound</option>
@@ -1033,7 +494,7 @@
           SELECT CSV FILE
         </button>
         <input type="file" id="fileInput" accept=".csv">
-        <div class="format-hint" style="margin-top:10px;">pnl column required &nbsp;|&nbsp; date, ticker optional</div>
+        <div class="format-hint" style="margin-top:10px;">pnl column required &nbsp;|&nbsp; date, ticker optional &nbsp;|&nbsp; regime auto-detected from SPY if dates present</div>
       </div>
 
       <!-- BROKER MODE -->
@@ -1058,9 +519,9 @@
 
     </div>
 
-    <!-- ALPACA CONNECT PANEL (hidden by default) -->
+    <!-- ALPACA CONNECT PANEL -->
     <div id="alpacaPanel" style="display:none;margin-top:24px;">
-      <div class="upload-zone" style="padding:40px;">
+      <div style="background:var(--deep);border:1px solid var(--border);padding:40px;">
         <div class="mode-tag" style="color:var(--accent);margin-bottom:16px;">// CONNECT ALPACA</div>
         <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">
           Enter your Alpaca API credentials. We use read-only access to pull your trade history — we cannot place trades or access funds.<br><br>
@@ -1104,7 +565,6 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- LOADING -->
@@ -1115,21 +575,23 @@
         <div class="t-dot"></div>
         <div class="t-dot"></div>
       </div>
+      <!-- FIX #12: 5 crash lines (was 3), all 5 sims listed -->
       <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
-      <div class="terminal-line">→ Parsing trade data...</div>
-      <div class="terminal-line">→ Running overfitting detection (5 checks)...</div>
-      <div class="terminal-line">→ Computing risk metrics (5 checks)...</div>
-      <div class="terminal-line">→ Testing regime robustness (5 checks)...</div>
-      <div class="terminal-line">→ Simulating execution reality (5 checks)...</div>
+      <div class="terminal-line">→ Parsing trade data + auto-detecting regime...</div>
+      <div class="terminal-line">→ Running overfitting detection (8 checks)...</div>
+      <div class="terminal-line">→ Computing risk metrics (8 checks)...</div>
+      <div class="terminal-line">→ Testing regime robustness (8 checks)...</div>
+      <div class="terminal-line">→ Simulating execution reality (8 checks)...</div>
+      <div class="terminal-line">→ Running 2000 dot-com crash simulation...</div>
       <div class="terminal-line">→ Running 2008 GFC crash simulation...</div>
       <div class="terminal-line">→ Running 2020 COVID crash simulation...</div>
       <div class="terminal-line">→ Running 2022 bear market simulation...</div>
+      <div class="terminal-line">→ Running 2018 Q4 selloff simulation...</div>
     </div>
   </div>
 
   <!-- RESULTS -->
   <div class="results" id="resultsSection"></div>
-
 </div>
 
 <footer>
@@ -1141,34 +603,31 @@
 </footer>
 
 <script>
-  const API_URL = 'https://quantproof-backend.onrender.com'; // Change to your Render URL when deployed
+  const API_URL = 'https://quantproof-backend.onrender.com';
 
-  // ── Currency support (36 currencies) ────────────────────────────────────
   const CURRENCY_SYMBOLS = {
     USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",
-    CHF:"CHF ",SGD:"S$",HKD:"HK$",NZD:"NZ$",NOK:"kr ",SEK:"kr ",
-    DKK:"kr ",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
+    CHF:"CHF ",SGD:"S$",HKD:"HK$",NZD:"NZ$",NOK:"kr ",SEK:"kr ",
+    DKK:"kr ",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
     MYR:"RM",THB:"฿",IDR:"Rp",PHP:"₱",TRY:"₺",RUB:"₽",ILS:"₪",
     KRW:"₩",TWD:"NT$",CNY:"¥",CLP:"CLP$",COP:"COL$",PKR:"₨",
     BDT:"৳",VND:"₫",NGN:"₦",EGP:"E£",KES:"KSh",GHS:"GH₵"
   };
   let _activeCurrency = 'USD';
   function setCurrency(c) { _activeCurrency = (c||'USD').toUpperCase(); }
-  function currencySymbol() { return CURRENCY_SYMBOLS[_activeCurrency] || (_activeCurrency+' '); }
+  function currencySymbol() { return CURRENCY_SYMBOLS[_activeCurrency] || (_activeCurrency+' '); }
   function currencyBadge() {
     if (_activeCurrency === 'USD') return '';
     const sym = currencySymbol();
-    return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;border-radius:4px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
+    return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
   }
 
-  // ========== DRAG & DROP ==========
-  // uploadZone no longer exists as standalone — drag/drop on csv card instead
-  const csvCard = document.getElementById('csvCard');
+  const csvCard  = document.getElementById('csvCard');
   const fileInput = document.getElementById('fileInput');
 
   if (csvCard) {
     csvCard.addEventListener('dragover', e => { e.preventDefault(); csvCard.style.borderColor = 'var(--accent)'; });
-    csvCard.addEventListener('dragleave', () => csvCard.style.borderColor = ''); 
+    csvCard.addEventListener('dragleave', () => csvCard.style.borderColor = '');
     csvCard.addEventListener('drop', e => {
       e.preventDefault();
       csvCard.style.borderColor = '';
@@ -1181,88 +640,69 @@
     if (e.target.files[0]) handleFile(e.target.files[0]);
   });
 
-  // ========== FILE HANDLER ==========
   let _lastValidatedFile = null;
-  let _validationMode    = 'csv';   // 'csv' or 'broker'
-  let _brokerSource      = '';      // 'alpaca' etc.
+  let _validationMode    = 'csv';
+  let _brokerSource      = '';
 
   async function handleFile(file) {
-    if (!file.name.endsWith('.csv')) {
-      alert('Please upload a CSV file');
-      return;
-    }
+    if (!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
 
-    // Show loading
     document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('heroSection').style.display   = 'none';
     document.getElementById('loadingSection').classList.add('active');
 
     _lastValidatedFile = file;
-    // Save to sessionStorage so file survives Stripe payment redirect
+    _validationMode = 'csv';
+    _brokerSource   = '';
+
+    // Persist file for post-payment download
     try {
       const reader = new FileReader();
       reader.onload = e => {
         sessionStorage.setItem('qp_filename', file.name);
         sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
         sessionStorage.setItem('qp_source', 'csv');
-        if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       };
       reader.readAsDataURL(file);
     } catch(e) {}
-    _validationMode = 'csv';
-    _brokerSource   = '';
+
     const formData = new FormData();
     formData.append('file', file);
     const selCur = document.getElementById('csvCurrency');
     if (selCur) formData.append('currency', selCur.value);
-    // Also set frontend currency immediately for display
     setCurrency(selCur ? selCur.value : 'USD');
 
     try {
-      const response = await fetch(`${API_URL}/validate`, {
-        method: 'POST',
-        body: formData
-      });
-
+      const response = await fetch(`${API_URL}/validate`, { method: 'POST', body: formData });
       if (!response.ok) {
-        const err = await response.json();
+        const err    = await response.json();
         const detail = err.detail || err;
-        if (detail.error === 'rate_limit') {
-          throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h. Purchase a report to get 3 more.`);
-        }
+        if (detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
         throw new Error(detail.message || detail || 'Validation failed');
       }
-
       const data = await response.json();
-      console.log("QuantProof API response:", data);  // debug
-
-      // Small delay for terminal animation
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => {
         document.getElementById('loadingSection').classList.remove('active');
         renderResults(data);
-      }, 3000);
-
+      }, 3200);
     } catch (err) {
       document.getElementById('loadingSection').classList.remove('active');
       document.getElementById('uploadSection').style.display = 'block';
-      document.getElementById('heroSection').style.display = 'block';
+      document.getElementById('heroSection').style.display   = 'block';
       alert(`Error: ${err.message}`);
     }
   }
 
-  // ========== RENDER RESULTS ==========
   function renderResults(data) {
-    // Set active currency from backend response
     setCurrency(data.currency || 'USD');
-
-    // Scale warning — user submitted % not decimal
+    const section = document.getElementById('resultsSection');
     if (data.scale_warning) {
       const warn = document.createElement('div');
-      warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;border-radius:8px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
-      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of your trade returns appear to be at the maximum boundary. Did you submit returns as percentages (e.g. <code>2.5</code>) instead of decimals (<code>0.025</code>)? If so, divide all P&L values by 100 and resubmit — your score may be significantly different.';
-      document.getElementById('resultsSection').prepend(warn);
+      warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
+      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns are at maximum boundary. Did you submit percentages (e.g. <code>2.5</code>) instead of decimals (<code>0.025</code>)? Divide all P&L values by 100 and resubmit.';
+      section.prepend(warn);
     }
-    const section = document.getElementById('resultsSection');
     try {
       section.innerHTML = buildResultsHTML(data);
     } catch(e) {
@@ -1270,15 +710,9 @@
       section.innerHTML = '<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ' + e.message + '<br><br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>';
     }
     section.classList.add('active');
-
-    // Animate score circle
     setTimeout(() => animateScore(data.fundable_score), 100);
-
-    // Animate bars
     setTimeout(() => {
-      document.querySelectorAll('.bar-fill').forEach(bar => {
-        bar.style.width = bar.dataset.width + '%';
-      });
+      document.querySelectorAll('.bar-fill').forEach(bar => { bar.style.width = bar.dataset.width + '%'; });
     }, 300);
   }
 
@@ -1292,30 +726,33 @@
 
   function getCrashClass(sim) {
     if (!sim.survived) return 'failed';
-    if (sim.strategy_drop > -0.05) return 'survived';
-    if (sim.strategy_drop > -0.20) return 'warning';
-    return 'warning'; // barely survived
+    if (sim.strategy_drop > -0.05)  return 'survived';
+    return 'warning';
   }
 
+  /**
+   * FIX #11 (CRITICAL): strip [UNCALIBRATED] prefix before checking emoji.
+   * v6.2 prefixes undated crash verdicts with "[UNCALIBRATED] " — without
+   * this strip, all undated strategies show the wrong crash card color
+   * (verdict.startsWith('🟢') is false when "[UNCALIBRATED] 🟢" is the string).
+   */
   function getCrashVerdictColor(verdict) {
-    if (verdict.startsWith('🟢')) return 'var(--accent)';
-    if (verdict.startsWith('🟡')) return 'var(--accent3)';
-    if (verdict.startsWith('🟠')) return '#ff8800';
+    const v = verdict.replace('[UNCALIBRATED] ', '').replace('[UNCALIBRATED]', '').trim();
+    if (v.startsWith('🟢')) return 'var(--accent)';
+    if (v.startsWith('🟡')) return 'var(--accent3)';
+    if (v.startsWith('🟠')) return '#ff8800';
     return 'var(--accent2)';
   }
 
   function animateScore(score) {
     const circle = document.querySelector('.score-circle-fill');
-    const numEl = document.querySelector('.score-val');
+    const numEl  = document.querySelector('.score-val');
     if (!circle || !numEl) return;
-
     const circumference = 2 * Math.PI * 60;
-    const offset = circumference - (score / 100) * circumference;
-    circle.style.strokeDasharray = circumference;
+    const offset        = circumference - (score / 100) * circumference;
+    circle.style.strokeDasharray  = circumference;
     circle.style.strokeDashoffset = offset;
-    circle.style.stroke = getScoreColor(score);
-
-    // Count up animation
+    circle.style.stroke           = getScoreColor(score);
     let current = 0;
     const increment = score / 60;
     const timer = setInterval(() => {
@@ -1328,30 +765,28 @@
   function buildResultsHTML(data) {
     const scoreColor = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
-    const gradeDesc = data.grade.split('—')[1]?.trim() || '';
-    // Group checks by category
-    const categories = {};
+    const gradeDesc   = data.grade.split('—')[1]?.trim() || '';
+    const categories  = {};
     (data.checks || []).forEach(c => {
       if (!categories[c.category]) categories[c.category] = [];
       categories[c.category].push(c);
     });
 
     return `
-      <!-- SCORE HERO -->
       <div class="score-hero">
         <div class="score-circle-wrap">
           <div class="score-circle">
             <svg width="160" height="160" viewBox="0 0 160 160">
               <circle class="score-circle-bg" cx="80" cy="80" r="60"/>
               <circle class="score-circle-fill" cx="80" cy="80" r="60"
-                style="stroke-dasharray: 0; stroke-dashoffset: 0;"/>
+                style="stroke-dasharray:0;stroke-dashoffset:0;"/>
             </svg>
             <div class="score-number">
               <span class="score-val" style="color:${scoreColor}">0</span>
               <span class="score-max">/100</span>
             </div>
           </div>
-          <div class="score-grade" style="color:${scoreColor}; border-color:${scoreColor}40">
+          <div class="score-grade" style="color:${scoreColor};border-color:${scoreColor}40">
             ${gradeLetter} — ${gradeDesc}
           </div>
         </div>
@@ -1375,12 +810,17 @@
               <div class="meta-value" style="color:${data.max_drawdown < 0.1 ? 'var(--accent)' : data.max_drawdown < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_drawdown * 100).toFixed(1)}%</div>
             </div>
           </div>
-          ${data.date_range !== 'No date data' ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}${currencyBadge()}</div>` : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`}
-          ${data.plausibility_summary ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};border-radius:6px;font-family:var(--mono)">${data.plausibility_summary}</div>` : ''}
+          ${data.date_range !== 'No date data'
+            ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}${currencyBadge()}</div>`
+            : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`
+          }
+          ${data.plausibility_summary
+            ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};font-family:var(--mono)">${data.plausibility_summary}</div>`
+            : ''
+          }
         </div>
       </div>
 
-      <!-- MODE BANNER — csv warning or verified badge -->
       ${_validationMode === 'broker'
         ? `<div class="verified-banner">
             <div class="verified-icon">✓</div>
@@ -1396,8 +836,7 @@
           </div>`
       }
 
-      <!-- CRASH SIMULATIONS — fully visible, original card style -->
-      <div class="section-title">// Historical Crash Simulations</div>
+      <div class="section-title">// Historical Crash Simulations (5 scenarios)</div>
       <div class="crash-grid">
         ${(data.crash_sims || []).map(sim => `
           <div class="crash-card ${getCrashClass(sim)}">
@@ -1414,18 +853,17 @@
                 <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
               </div>
             </div>
+            <!-- FIX #11: getCrashVerdictColor now strips [UNCALIBRATED] before emoji check -->
             <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
           </div>
         `).join('')}
       </div>
 
-      <!-- CHECKS — name + value + insight FREE, fix LOCKED -->
       <div class="checks-section" style="margin-top:40px;">
-        <div class="section-title">// Full Validation Breakdown (click to expand)</div>
-
+        <div class="section-title">// Full Validation Breakdown — 40 checks (click to expand)</div>
         ${Object.entries(categories).map(([cat, checks]) => {
           const catScore = Math.round(checks.reduce((a,c) => a + c.score, 0) / checks.length);
-          const passed   = checks.filter(c => c.passed).length;
+          const passed   = checks.filter(c =>  c.passed).length;
           const failed   = checks.filter(c => !c.passed).length;
           const col      = catScore > 65 ? 'var(--accent)' : catScore > 45 ? 'var(--accent3)' : 'var(--accent2)';
           return `
@@ -1457,7 +895,7 @@
                   <div class="check-insight">${check.insight}</div>
                   ${check.passed
                     ? `<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
-                    : `<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    : `<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                         <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">
                           🔒 Fix instructions + AI analysis locked
                         </div>
@@ -1473,7 +911,7 @@
         }).join('')}
       </div>
 
-      <!-- UNLOCK BANNER — appears after checks, before reset -->
+      <!-- UNLOCK BANNER -->
       <div style="margin:32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
         <div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// FULL ANALYSIS REPORT</div>
@@ -1492,7 +930,7 @@
             🇮🇳 Pay ₹999 (India — UPI / Cards)
           </button>
           <button id="pdfBtnIntl" onclick="showIntlComingSoon()"
-            style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:500;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">
+            style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">
             🌍 International Payments — Coming Soon
           </button>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
@@ -1501,7 +939,6 @@
 
       <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
 
-      <!-- AUDIT TRAIL -->
       <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono)">
@@ -1516,15 +953,14 @@
   }
 
   function toggleCheck(el) {
-    const details = el.querySelector('.check-details');
-    details.classList.toggle('open');
+    el.querySelector('.check-details').classList.toggle('open');
   }
 
   function resetApp() {
     document.getElementById('resultsSection').classList.remove('active');
     document.getElementById('resultsSection').innerHTML = '';
     document.getElementById('uploadSection').style.display = 'block';
-    document.getElementById('heroSection').style.display = 'block';
+    document.getElementById('heroSection').style.display   = 'block';
     document.getElementById('fileInput').value = '';
     document.getElementById('alpacaPanel').style.display = 'none';
     _validationMode = 'csv';
@@ -1532,7 +968,7 @@
     window.scrollTo(0, 0);
   }
 
-  // ── PDF PURCHASE + DOWNLOAD FLOW ─────────────────────────────────────────
+  // ── PDF PURCHASE + DOWNLOAD ──────────────────────────────────────────────
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
   function showIntlComingSoon() {
@@ -1543,173 +979,26 @@
     }
   }
 
-  async function buyPdfReportIntl() {
-    const btn    = document.getElementById('pdfBtnIntl');
-    const status = document.getElementById('pdfBtnStatus');
-    if (btn) { btn.disabled = true; btn.innerText = 'Opening checkout...'; }
-    try {
-      // Save file before redirect
-      if (_lastValidatedFile) {
-        await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = e => {
-            sessionStorage.setItem('qp_filename', _lastValidatedFile.name);
-            sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
-            resolve();
-          };
-          reader.readAsDataURL(_lastValidatedFile);
-        });
-      }
-      // Save source — use actual values, never overwrite with empty
-      sessionStorage.setItem('qp_source', _brokerSource || _validationMode || 'csv');
-      // qp_broker already set when user connected Alpaca — don't overwrite with empty creds
-
-      const res  = await fetch(`${API_URL_REPORT}/report/create-checkout-intl`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.message || data.error);
-      if (!data.checkout_url) throw new Error('No checkout URL returned');
-      // Redirect to LS checkout — LS redirects back with ?order_id={order_id}
-      window.location.href = data.checkout_url;
-    } catch(err) {
-      if (btn) { btn.disabled = false; btn.innerText = '🌍 Pay ₹999 (International — Card / PayPal)'; }
-      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
-    }
-  }
-
-  // Handle return from Lemon Squeezy redirect — poll for token then auto-generate PDF
-  async function handleLSReturn() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
-
-    const orderId = params.get('order_id') || '';
-
-    // Show a full-page download UI — results panel may not be visible
-    const uploadSection = document.getElementById('uploadSection');
-    const heroSection   = document.getElementById('heroSection');
-    if (uploadSection) uploadSection.style.display = 'none';
-    if (heroSection)   heroSection.style.display   = 'none';
-
-    // Create a dedicated download panel
-    const panel = document.createElement('div');
-    panel.id = 'ls-return-panel';
-    panel.style.cssText = 'max-width:560px;margin:80px auto;padding:40px;background:var(--surface);border:1px solid var(--border);border-radius:16px;text-align:center;font-family:var(--font)';
-    panel.innerHTML = `
-      <div style="font-size:40px;margin-bottom:16px">✓</div>
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)">Payment Received!</div>
-      <div style="font-size:14px;color:var(--muted);margin-bottom:32px">Verifying and generating your PDF report...</div>
-      <div id="ls-status" style="font-size:13px;color:var(--accent);font-family:var(--mono);margin-bottom:24px">Connecting to payment server...</div>
-      <div style="background:var(--surface2);border-radius:8px;height:4px;overflow:hidden;margin-bottom:24px">
-        <div id="ls-progress" style="background:var(--accent);height:100%;width:5%;transition:width 0.5s"></div>
-      </div>
-      <div id="ls-download-btn" style="display:none">
-        <a id="ls-pdf-link" style="display:inline-block;background:var(--accent);color:#000;padding:14px 32px;border-radius:8px;font-weight:700;font-family:var(--mono);font-size:14px;text-decoration:none;cursor:pointer">
-          ↓ DOWNLOAD YOUR REPORT
-        </a>
-        <div style="font-size:11px;color:var(--muted);margin-top:12px">Click above to download your PDF</div>
-      </div>
-    `;
-    document.body.insertBefore(panel, document.body.firstChild);
-
-    const statusEl   = document.getElementById('ls-status');
-    const progressEl = document.getElementById('ls-progress');
-
-    // Restore file from sessionStorage if available
-    if (!_lastValidatedFile) {
-      const storedName = sessionStorage.getItem('qp_filename');
-      const storedData = sessionStorage.getItem('qp_filedata');
-      if (storedName && storedData) {
-        try {
-          const byteStr = atob(storedData);
-          const arr = new Uint8Array(byteStr.length);
-          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-          _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
-        } catch(e) { console.log('File restore failed', e); }
-      }
-    }
-
-    // If LS didn't substitute {order_id}, pass empty string — backend returns latest token
-    const safeOrderId = (orderId && orderId !== '{order_id}') ? orderId : '';
-    if (!safeOrderId) console.log('LS did not substitute order_id — using latest token fallback');
-
-    // Poll for token — start immediately, no initial delay
-    const maxAttempts = 20;
-    for (let i = 0; i < maxAttempts; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 2000));
-      if (progressEl) progressEl.style.width = `${Math.min(90, 5 + i * 4.5)}%`;
-      if (statusEl) statusEl.innerText = `Verifying payment... (${i+1}/${maxAttempts})`;
-
-      try {
-        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(safeOrderId)}`);
-        const data = await res.json();
-        if (data.status === 'ready' && data.token) {
-          if (statusEl) statusEl.innerText = 'Payment verified! Generating PDF...';
-          if (progressEl) progressEl.style.width = '95%';
-
-          // Generate PDF
-          try {
-            const pdfBlob = await generatePdfBlob(data.token);
-            const url = URL.createObjectURL(pdfBlob);
-            if (progressEl) progressEl.style.width = '100%';
-            if (statusEl) statusEl.innerText = '✓ Your report is ready!';
-            const dlBtn = document.getElementById('ls-download-btn');
-            const dlLink = document.getElementById('ls-pdf-link');
-            if (dlBtn) dlBtn.style.display = 'block';
-            if (dlLink) {
-              dlLink.href = url;
-              dlLink.download = 'QuantProof_Report.pdf';
-              dlLink.click(); // auto-download
-            }
-          } catch(pdfErr) {
-            if (statusEl) { statusEl.innerText = 'PDF error: ' + pdfErr.message; statusEl.style.color = '#ff4444'; }
-          }
-          window.history.replaceState({}, '', window.location.pathname);
-          return;
-        }
-      } catch(e) {
-        console.log('Poll attempt', i+1, 'not ready yet');
-      }
-    }
-
-    // Timeout
-    if (statusEl) {
-      statusEl.innerText = 'Verification timed out. Your payment was received — please email quantproof@gmail.com with your order ID: ' + orderId;
-      statusEl.style.color = '#ffaa00';
-    }
-  }
-
-  // Generate PDF and return blob (used by handleLSReturn)
   async function generatePdfBlob(token) {
     const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
     let res;
 
     if (reportSource === 'alpaca') {
-      // Always use broker endpoint for Alpaca — never fall back to CSV
       const storedBroker = sessionStorage.getItem('qp_broker');
       if (!storedBroker) throw new Error('Alpaca credentials not found — please reconnect Alpaca and try again');
-
       let brokerCreds;
       try { brokerCreds = JSON.parse(storedBroker); } catch(e) { throw new Error('Stored credentials corrupted — please reconnect Alpaca'); }
-
       const apiKey    = brokerCreds.api_key    || brokerCreds.key    || '';
       const secretKey = brokerCreds.secret_key || brokerCreds.secret || '';
-      const mode      = brokerCreds.mode       || 'paper';
-
-      if (!apiKey || !secretKey) throw new Error('Alpaca credentials are incomplete — please reconnect Alpaca and try again');
-
+      const mode      = brokerCreds.mode || 'paper';
+      if (!apiKey || !secretKey) throw new Error('Alpaca credentials incomplete — please reconnect Alpaca');
       const vHash = sessionStorage.getItem('qp_validation_hash') || '';
-      console.log('[generatePdfBlob] Alpaca mode, hash:', vHash || 'none — will re-fetch from Alpaca');
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-report-token': token },
         body: JSON.stringify({ api_key: apiKey, secret_key: secretKey, mode, validation_hash: vHash })
       });
-
     } else {
-      // CSV mode
       if (!_lastValidatedFile) {
         const storedName = sessionStorage.getItem('qp_filename');
         const storedData = sessionStorage.getItem('qp_filedata');
@@ -1720,7 +1009,7 @@
           _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
         }
       }
-      if (!_lastValidatedFile) throw new Error('CSV file not found — please re-upload your file and try again');
+      if (!_lastValidatedFile) throw new Error('CSV file not found — please re-upload your file');
       const form = new FormData();
       form.append('file', _lastValidatedFile);
       res = await fetch(`${API_URL_REPORT}/report/generate`, {
@@ -1737,59 +1026,51 @@
     return await res.blob();
   }
 
-  // Generate PDF after payment verified
-
   async function generatePdfWithToken(token) {
-    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
+    const btn    = document.getElementById('pdfBtn');
+    const status = document.getElementById('pdfBtnStatus');
     if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
     if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent)'; }
     try {
       const blob = await generatePdfBlob(token);
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
-      a.href     = url;
-      a.download = 'QuantProof_Report.pdf';
+      a.href = url; a.download = 'QuantProof_Report.pdf';
       document.body.appendChild(a); a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--green)'; btn.style.color = '#000'; }
-      if (status) { status.innerText = 'Your full report has been downloaded.'; status.style.color = 'var(--green)'; }
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; }
+      if (status) { status.innerText = 'Your full report has been downloaded.'; status.style.color = 'var(--accent)'; }
     } catch(err) {
-      if (btn)    { btn.disabled = false; btn.innerText = 'Retry Download'; }
+      if (btn)    { btn.disabled = false; btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)'; }
       if (status) { status.innerText = 'Download failed: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
 
   async function buyPdfReport() {
-    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
+    const btn    = document.getElementById('pdfBtn');
+    const status = document.getElementById('pdfBtnStatus');
     if (!btn) return;
     btn.disabled  = true;
     btn.innerText = 'Opening payment...';
 
     try {
-      // Step 1 — create Razorpay order on backend
       const res  = await fetch(`${API_URL_REPORT}/report/create-checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
       });
       const data = await res.json();
       if (data.error) throw new Error(data.message || data.error);
 
-      // Step 2 — open Razorpay popup
       const options = {
         key:         data.key_id,
         amount:      data.amount,
         currency:    data.currency,
         name:        'QuantProof',
-        description: 'Full Validation Report — 38 checks + AI plan',
+        // FIX #10d: 38 checks → 40 checks in Razorpay description
+        description: 'Full Validation Report — 40 checks + AI plan',
         order_id:    data.order_id,
-        theme:       { color: '#00d4ff' },
+        theme:       { color: '#00ff88' },
         prefill:     {},
         handler: async function(response) {
-          // Step 3 — verify payment on backend, get token
           if (status) { status.innerText = 'Verifying payment...'; status.style.color = 'var(--accent)'; }
           try {
             const verifyRes = await fetch(`${API_URL_REPORT}/report/webhook`, {
@@ -1803,139 +1084,120 @@
             });
             const verifyData = await verifyRes.json();
             if (!verifyData.token) throw new Error('Payment verification failed');
-
-            // Step 4 — generate PDF with token
-            if (btn)    { btn.innerText = 'Generating PDF...'; }
-            if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent)'; }
+            if (btn) btn.innerText = 'Generating PDF...';
             await generatePdfWithToken(verifyData.token);
-
           } catch(verifyErr) {
-            btn.disabled = false;
-            btn.innerText = 'Unlock Full Report — ₹999';
+            btn.disabled  = false;
+            btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
             if (status) { status.innerText = 'Payment error: ' + verifyErr.message; status.style.color = '#ff4444'; }
           }
         },
         modal: {
           ondismiss: function() {
-            btn.disabled = false;
-            btn.innerText = 'Unlock Full Report — ₹999';
-            if (status) { status.innerText = ''; }
+            btn.disabled  = false;
+            btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
+            if (status) status.innerText = '';
           }
         }
       };
 
-      if (typeof Razorpay === 'undefined') {
-        throw new Error('Payment system failed to load. Please refresh the page and try again.');
-      }
+      if (typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh and try again.');
       const rzp = new Razorpay(options);
       rzp.on('payment.failed', function(response) {
-        btn.disabled = false;
-        btn.innerText = 'Unlock Full Report — ₹999';
+        btn.disabled  = false;
+        btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
         if (status) { status.innerText = 'Payment failed: ' + (response.error.description || 'Card declined'); status.style.color = '#ff4444'; }
       });
       rzp.open();
 
-    } catch (err) {
+    } catch(err) {
       btn.disabled  = false;
-      btn.innerText = 'Unlock Full Report — ₹999';
+      btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
       if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
 
-
-
-  async function handleReportSuccess() {
-    // No longer used — Razorpay uses popup flow, no redirect needed
-    return;
-    const hash   = window.location.hash;
+  // Lemon Squeezy return handler
+  async function handleLSReturn() {
     const params = new URLSearchParams(window.location.search);
-    const token  = params.get('report_token');
-    if (!token || !hash.includes('report-success')) return;
+    if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
+    const orderId = params.get('order_id') || '';
 
-    // Try to restore file from sessionStorage (survives Stripe redirect)
+    const uploadSection = document.getElementById('uploadSection');
+    const heroSection   = document.getElementById('heroSection');
+    if (uploadSection) uploadSection.style.display = 'none';
+    if (heroSection)   heroSection.style.display   = 'none';
+
+    const panel = document.createElement('div');
+    panel.id = 'ls-return-panel';
+    panel.style.cssText = 'max-width:560px;margin:80px auto;padding:40px;background:var(--surface);border:1px solid var(--border);text-align:center;font-family:var(--mono)';
+    panel.innerHTML = `
+      <div style="font-size:40px;margin-bottom:16px">✓</div>
+      <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)">Payment Received!</div>
+      <div style="font-size:14px;color:var(--muted);margin-bottom:32px">Verifying and generating your PDF report...</div>
+      <div id="ls-status" style="font-size:13px;color:var(--accent);margin-bottom:24px">Connecting to payment server...</div>
+      <div style="background:var(--border);height:4px;overflow:hidden;margin-bottom:24px">
+        <div id="ls-progress" style="background:var(--accent);height:100%;width:5%;transition:width 0.5s"></div>
+      </div>
+      <div id="ls-download-btn" style="display:none">
+        <a id="ls-pdf-link" style="display:inline-block;background:var(--accent);color:#000;padding:14px 32px;font-weight:700;font-size:14px;text-decoration:none;cursor:pointer">↓ DOWNLOAD YOUR REPORT</a>
+        <div style="font-size:11px;color:var(--muted);margin-top:12px">Click above to download your PDF</div>
+      </div>
+    `;
+    document.body.insertBefore(panel, document.body.firstChild);
+
+    const statusEl   = document.getElementById('ls-status');
+    const progressEl = document.getElementById('ls-progress');
+
     if (!_lastValidatedFile) {
       const storedName = sessionStorage.getItem('qp_filename');
       const storedData = sessionStorage.getItem('qp_filedata');
       if (storedName && storedData) {
-        const byteStr = atob(storedData);
-        const arr = new Uint8Array(byteStr.length);
-        for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-        _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
+        try {
+          const byteStr = atob(storedData);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
+        } catch(e) {}
       }
     }
 
-    const btn    = document.getElementById('pdfBtn') || document.querySelector('.unlock-btn');
-    const status = document.getElementById('pdfBtnStatus') || document.querySelector('.unlock-note');
-    if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
-    if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent3)'; }
-
-    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
-
-    try {
-      let res;
-      if (reportSource === 'alpaca') {
-        // Broker mode — send real credentials to dedicated endpoint, get real score PDF
-        const storedBroker = sessionStorage.getItem('qp_broker');
-        if (!storedBroker) {
-          if (btn) { btn.innerText = 'Re-connect Alpaca to download PDF'; btn.disabled = false; }
-          return;
-        }
-        const { key, secret, mode } = JSON.parse(storedBroker);
-        if (status) { status.innerText = 'Fetching your real Alpaca trades for PDF...'; }
-        res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
-          method: 'POST',
-          headers: { 'x-report-token': token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: key, secret_key: secret, mode })
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          const detail = err.detail || err;
-          if (detail.error === 'insufficient_trades') {
-            if (btn) { btn.disabled = false; btn.innerText = 'Download PDF'; }
-            if (status) {
-              status.innerText = `⚠ Only ${detail.trades_found} closed trades found — need ${detail.trades_needed} for a valid report. Keep trading and come back!`;
-              status.style.color = '#ffaa00';
-            }
-            return;
+    const safeOrderId = (orderId && orderId !== '{order_id}') ? orderId : '';
+    const maxAttempts = 20;
+    for (let i = 0; i < maxAttempts; i++) {
+      if (i > 0) await new Promise(r => setTimeout(r, 2000));
+      if (progressEl) progressEl.style.width = `${Math.min(90, 5 + i * 4.5)}%`;
+      if (statusEl)   statusEl.innerText = `Verifying payment... (${i+1}/${maxAttempts})`;
+      try {
+        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(safeOrderId)}`);
+        const data = await res.json();
+        if (data.status === 'ready' && data.token) {
+          if (statusEl)   statusEl.innerText = 'Payment verified! Generating PDF...';
+          if (progressEl) progressEl.style.width = '95%';
+          try {
+            const pdfBlob = await generatePdfBlob(data.token);
+            const url     = URL.createObjectURL(pdfBlob);
+            if (progressEl) progressEl.style.width = '100%';
+            if (statusEl)   statusEl.innerText = '✓ Your report is ready!';
+            const dlBtn  = document.getElementById('ls-download-btn');
+            const dlLink = document.getElementById('ls-pdf-link');
+            if (dlBtn)  dlBtn.style.display = 'block';
+            if (dlLink) { dlLink.href = url; dlLink.download = 'QuantProof_Report.pdf'; dlLink.click(); }
+          } catch(pdfErr) {
+            if (statusEl) { statusEl.innerText = 'PDF error: ' + pdfErr.message; statusEl.style.color = '#ff4444'; }
           }
-          throw new Error(detail.message || 'PDF generation failed');
-        }
-      } else {
-        // CSV mode — upload the original file
-        if (!_lastValidatedFile) {
-          if (btn) { btn.innerText = 'Payment confirmed — re-upload CSV to download PDF'; btn.disabled = false; }
+          window.history.replaceState({}, '', window.location.pathname);
           return;
         }
-        const form = new FormData();
-        form.append('file', _lastValidatedFile);
-        res = await fetch(`${API_URL_REPORT}/report/generate`, {
-          method: 'POST',
-          headers: { 'x-report-token': token, 'x-report-source': 'csv' },
-          body: form
-        });
-      }
-      if (!res.ok) { const e = await res.json(); throw new Error(e.detail?.message || 'PDF failed'); }
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = 'QuantProof_Report.pdf';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; btn.disabled = false; }
-      if (status) { status.innerText = 'Check your downloads folder.'; status.style.color = 'var(--accent)'; }
-      history.replaceState(null, '', window.location.pathname);
-    } catch (err) {
-      if (btn)    { btn.disabled = false; btn.innerText = 'Unlock Full Report — ₹999'; }
-      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
+      } catch(e) {}
+    }
+    if (statusEl) {
+      statusEl.innerText = 'Verification timed out. Your payment was received — please email quantproof@gmail.com with your order ID: ' + orderId;
+      statusEl.style.color = '#ffaa00';
     }
   }
 
-  window.addEventListener('load', handleReportSuccess);
   window.addEventListener('load', handleLSReturn);
-
-
-  // ── MODE TRACKING ────────────────────────────────────────────────────────
-  // Variables declared at top of script — see _validationMode, _brokerSource above
 
   function showAlpacaConnect() {
     document.getElementById('alpacaPanel').style.display = 'block';
@@ -1956,28 +1218,20 @@
     const mode   = document.querySelector('input[name="alpacaMode"]:checked').value;
     const status = document.getElementById('alpacaStatus');
 
-    if (!key || !secret) {
-      status.innerText = 'Please enter both API Key and Secret Key.';
-      status.style.color = '#ff4444';
-      return;
-    }
-    if (!key.startsWith('PK') && !key.startsWith('AK')) {
-      status.innerText = 'Key format looks wrong — Alpaca keys start with PK or AK.';
-      status.style.color = '#ffaa00';
-    }
+    if (!key || !secret) { status.innerText = 'Please enter both API Key and Secret Key.'; status.style.color = '#ff4444'; return; }
+    if (!key.startsWith('PK') && !key.startsWith('AK')) { status.innerText = 'Key format looks wrong — Alpaca keys start with PK or AK.'; status.style.color = '#ffaa00'; }
 
     status.innerText = 'Connecting to Alpaca...';
     status.style.color = 'var(--accent3)';
 
     document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display = 'none';
+    document.getElementById('heroSection').style.display   = 'none';
     document.getElementById('loadingSection').classList.add('active');
 
     _validationMode = 'broker';
     _brokerSource   = 'alpaca';
-    // Store broker params so PDF can re-fetch after Stripe redirect
     try {
-      sessionStorage.setItem('qp_broker', JSON.stringify({ key, secret, mode }));
+      sessionStorage.setItem('qp_broker', JSON.stringify({ api_key: key, secret_key: secret, mode }));
       sessionStorage.setItem('qp_source', 'alpaca');
     } catch(e) {}
 
@@ -1985,28 +1239,22 @@
       const response = await fetch(`${API_URL}/validate/alpaca`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: key, secret_key: secret, mode: mode })
+        body: JSON.stringify({ api_key: key, secret_key: secret, mode })
       });
 
       if (!response.ok) {
-        const err = await response.json();
+        const err    = await response.json();
         const detail = err.detail || err;
-        // Rate limit
+        document.getElementById('loadingSection').classList.remove('active');
+        document.getElementById('uploadSection').style.display = 'block';
+        document.getElementById('heroSection').style.display   = 'block';
+        document.getElementById('alpacaPanel').style.display   = 'block';
         if (detail && detail.error === 'rate_limit') {
-          document.getElementById('loadingSection').classList.remove('active');
-          document.getElementById('uploadSection').style.display = 'block';
-          document.getElementById('heroSection').style.display = 'block';
-          document.getElementById('alpacaPanel').style.display = 'block';
-          status.innerHTML = `<span style="color:#ffaa00;font-size:14px">⚠ Daily limit reached — 3 free Alpaca verifications/day.<br>Resets in ~${detail.hours_left}h. Purchase a PDF report to unlock 3 more.</span>`;
+          status.innerHTML = `<span style="color:#ffaa00">⚠ Daily limit reached — 3 free verifications/day. Resets in ~${detail.hours_left}h.</span>`;
           return;
         }
-        // Insufficient trades
         if (detail && detail.error === 'insufficient_trades') {
-          document.getElementById('loadingSection').classList.remove('active');
-          document.getElementById('uploadSection').style.display = 'block';
-          document.getElementById('heroSection').style.display = 'block';
-          document.getElementById('alpacaPanel').style.display = 'block';
-          status.innerHTML = `<span style="color:#ffaa00;font-size:14px">⚠ Only <b>${detail.trades_found}</b> closed round-trip trades found.<br>QuantProof needs at least <b>${detail.trades_needed}</b> to run a valid analysis.<br><span style="opacity:0.7;font-size:12px">Keep trading — come back when you have more history.</span></span>`;
+          status.innerHTML = `<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> closed trades found. Need <b>${detail.trades_needed}</b>.<br><span style="opacity:0.7;font-size:11px">Keep trading and come back with more history.</span></span>`;
           return;
         }
         throw new Error((detail && detail.message) || detail || 'Alpaca connection failed');
@@ -2019,16 +1267,15 @@
         renderResults(data);
       }, 2500);
 
-    } catch (err) {
+    } catch(err) {
       document.getElementById('loadingSection').classList.remove('active');
       document.getElementById('uploadSection').style.display = 'block';
-      document.getElementById('heroSection').style.display = 'block';
-      document.getElementById('alpacaPanel').style.display = 'block';
+      document.getElementById('heroSection').style.display   = 'block';
+      document.getElementById('alpacaPanel').style.display   = 'block';
       status.innerText = 'Error: ' + err.message;
       status.style.color = '#ff4444';
     }
   }
-
 </script>
 </body>
 </html>
