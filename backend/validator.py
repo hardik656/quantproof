@@ -2038,7 +2038,7 @@ class QuantProofValidator:
         stressed   += market_drag / crisis_days
         bottom_10  = stressed < np.percentile(stressed, 10)
         stressed[bottom_10] -= np.abs(stressed[bottom_10]) * profile["gap_risk"]
-        stressed   = np.clip(stressed, -0.99, 0.99)
+        stressed   = np.clip(stressed, -0.50, 0.50)
         cumulative = float(np.prod(1 + stressed) - 1)
         if cumulative > CRASH_MAX_GAIN:
             cumulative = CRASH_MAX_GAIN
@@ -2294,4 +2294,5 @@ class QuantProofValidator:
             plausibility_summary=self._generate_plausibility_summary(),
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE)
+
 
