@@ -1968,4 +1968,3 @@ def reset_tv_session(session_id: str):
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
 
 
-
