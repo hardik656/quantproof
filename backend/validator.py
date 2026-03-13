@@ -1,7 +1,43 @@
-QuantProof — Validation Engine v4.0
+"""
+QuantProof — Validation Engine v6.2
 Institutional Edition — Full Audit Correction
 
-CHANGES FROM v3.0 (complete audit log):
+PATCH v6.2 — ADVERSARIAL AUDIT FIXES (delta from v6.1)
+═══════════════════════════════════════════════════════
+
+F1. Market-Neutral Benchmark Test added.
+    QuantProofValidator now accepts an optional benchmark_returns array.
+    When provided, two new checks run in the Overfitting category:
+      - check_information_ratio(): computes beta, Jensen's alpha,
+        tracking error, and information ratio vs the benchmark.
+        Flags beta-capture disguised as alpha (IR < 0.3 = low alpha).
+      - check_beta_exposure(): warns when strategy beta > 0.6,
+        indicating high correlation to market drift.
+    Both checks are informational (score=50, no cap) when no benchmark
+    is supplied, so existing usage is fully backward-compatible.
+    Fixes audit case C12: random walk with positive drift during bull
+    period scored 55 with zero alpha — now flagged explicitly.
+
+F3. Crash simulation exposure model hardened.
+    Previous: exposure = clip(vol / 0.012, 0.10, 0.80) — gamed by
+    low-vol or undated strategies; all 5 crash sims showed "survived".
+    New model:
+      - Undated strategies: exposure floor = 0.40 (was 0.10).
+        Crash result labels prefixed with [UNCALIBRATED] to prevent
+        misleading green signals on dateless submissions.
+      - AR(1) autocorrelation adjustment: if |AR(1)| >= 0.20, multiply
+        exposure by 1.30 (momentum-reversal penalty in crises).
+      - Hard minimum exposure = 0.25 for all strategies (was 0.10).
+    Crash simulations remain illustrative only — they do not affect
+    prop firm compliance scoring (by design).
+
+PATCH v6.1 — ADVERSARIAL AUDIT FIXES (delta from v6.0)
+═══════════════════════════════════════════════════════
+P1. Score cap at 50 when Sharpe > 5 AND no date column present.
+P2. Ljung-Box serial correlation test + Newey-West HAC correction.
+P3. Prop Firm Eligible suppressed when Manual Audit Required active.
+
+ORIGINAL CHANGES FROM v3.0 (complete audit log):
 
 ══════════════════════════════════════════════════════════════════
 CRITICAL BUG FIXES
@@ -79,6 +115,22 @@ N3. Parameter sensitivity gate: n_trials now flows through to DSR properly.
 N4. CPCV threshold calibrated empirically (not arbitrary 2.0).
 
 ══════════════════════════════════════════════════════════════════
+PATCH v6.1 — ADVERSARIAL AUDIT FIXES
+══════════════════════════════════════════════════════════════════
+
+P1. Score cap at 50 when Sharpe > 5 AND no date column present.
+    A no-date, high-Sharpe strategy cannot be regime-checked and is
+    therefore unverifiable — misleading to score above 50.
+
+P2. Ljung-Box autocorrelation test + Newey-West corrected SE(SR).
+    Returns with AR(1) ≥ 0.3 invalidate IID-assuming tests (DSR, CI,
+    Bootstrap). New check_autocorrelation() warns and corrects SE(SR).
+    Ljung-Box Q-statistic at lags 1, 5, 10 — any p < 0.05 triggers fail.
+
+P3. Prop Firm Eligible gate: "Prop Firm Eligible" label suppressed when
+    any Plausibility check carries a "Manual Audit Required" flag.
+
+══════════════════════════════════════════════════════════════════
 ARCHITECTURE
 ══════════════════════════════════════════════════════════════════
 
@@ -105,8 +157,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ── CONSTANTS ────────────────────────────────────────────────────────────────
-ENGINE_VERSION           = "v6.0"
-METHODOLOGY_DATE         = "2026-03-07"
+ENGINE_VERSION           = "v6.2"
+METHODOLOGY_DATE         = "2026-03-13"
 RISK_FREE_DAILY          = 0.04 / 252
 EPSILON                  = 1e-9
 
@@ -134,9 +186,21 @@ IMPACT_ETA               = 0.10      # Almgren-Chriss η
 CRASH_MAX_GAIN           = 0.25
 CRASH_NEG_EDGE_CAP       = 0.15
 
+# F3: Hardened crash exposure model
+CRASH_EXPOSURE_MIN       = 0.25    # floor for all strategies (was 0.10)
+CRASH_EXPOSURE_MIN_NODATE= 0.40    # floor when no date column supplied
+CRASH_AUTOCORR_THRESHOLD = 0.20    # |AR(1)| above this → +30% exposure
+CRASH_AUTOCORR_MULT      = 1.30    # momentum-reversal penalty multiplier
+
 # Risk thresholds
 DD_DURATION_MAX_MONTHS   = 6
 ULCER_INDEX_THRESHOLD    = 5.0
+
+# ── P2: Autocorrelation thresholds ───────────────────────────────────────────
+AUTOCORR_AR1_WARN        = 0.20   # |AR(1)| above this → warn
+AUTOCORR_AR1_FAIL        = 0.30   # |AR(1)| above this → fail check
+LJUNG_BOX_LAGS           = [1, 5, 10]
+LJUNG_BOX_ALPHA          = 0.05
 
 
 # ── DATACLASSES ──────────────────────────────────────────────────────────────
@@ -550,6 +614,72 @@ def calculate_harvey_liu_zhu_min_obs(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# P2: AUTOCORRELATION HELPERS (Ljung-Box + Newey-West corrected SE)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ljung_box_test(returns: np.ndarray, lags: List[int]) -> dict:
+    """
+    Compute Ljung-Box Q-statistic at specified lags.
+    Returns dict of {lag: (Q_stat, p_value)}.
+    Reference: Ljung & Box (1978), Biometrika 65(2):297-303.
+    """
+    n = len(returns)
+    results = {}
+    for lag in lags:
+        if lag >= n:
+            continue
+        # Autocorrelations at lags 1..lag
+        acf_vals = []
+        for k in range(1, lag + 1):
+            r_lag = np.corrcoef(returns[:-k], returns[k:])[0, 1]
+            acf_vals.append(0.0 if np.isnan(r_lag) else r_lag)
+        # Q = n*(n+2) * sum( rho_k^2 / (n-k) )
+        q_stat = float(n * (n + 2) * sum(
+            rk**2 / max(n - k, 1)
+            for k, rk in enumerate(acf_vals, start=1)
+        ))
+        p_val = float(1 - stats.chi2.cdf(q_stat, df=lag))
+        results[lag] = (round(q_stat, 4), round(p_val, 4))
+    return results
+
+
+def _newey_west_se_sharpe(returns: np.ndarray, trades_per_year: float,
+                           max_lag: int = 10) -> float:
+    """
+    Newey-West HAC standard error for the annualised Sharpe ratio.
+    Accounts for serial correlation in returns — critical when AR(1) is
+    large (≥0.20) because the IID variance formula underestimates SE.
+
+    Reference: Newey & West (1987), Econometrica 55(3):703-708.
+              Lo (2002) — Sharpe ratio under serial correlation.
+    """
+    n = len(returns)
+    if n < 20:
+        return float(np.sqrt(1.0 / n) * np.sqrt(trades_per_year))
+
+    mean_r = np.mean(returns)
+    std_r  = np.std(returns, ddof=1)
+    if std_r < EPSILON:
+        return 0.0
+
+    # Demeaned, standardised returns
+    z = (returns - mean_r) / std_r
+
+    # HAC variance of z using Bartlett kernel
+    gamma0 = float(np.mean(z ** 2))
+    hac_var = gamma0
+    for k in range(1, min(max_lag + 1, n)):
+        bartlett_w = 1.0 - k / (max_lag + 1)
+        gamma_k    = float(np.mean(z[k:] * z[:-k]))
+        hac_var   += 2.0 * bartlett_w * gamma_k
+
+    hac_var = max(hac_var, EPSILON)
+    # SE of daily SR = sqrt(HAC_var / n); annualise by sqrt(tpy)
+    se_ann = float(np.sqrt(hac_var / n) * np.sqrt(trades_per_year))
+    return max(se_ann, 0.01)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ALPHA DECAY ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -738,7 +868,8 @@ class QuantProofValidator:
         df: pd.DataFrame,
         strict_mode: bool = False,
         seed: int = 42,
-        n_trials: int = 1
+        n_trials: int = 1,
+        benchmark_returns: Optional[np.ndarray] = None,
     ):
         self.strict_mode = strict_mode
         self.seed        = seed
@@ -748,6 +879,18 @@ class QuantProofValidator:
         self.trades_per_year, self.timeframe_info = self._detect_timeframe()
         self.has_dates   = 'date' in self.df.columns
         self.returns     = self._get_returns()
+
+        # F1: store benchmark; validate length if supplied
+        if benchmark_returns is not None:
+            bm = np.asarray(benchmark_returns, dtype=float)
+            if len(bm) != len(self.returns):
+                raise ValueError(
+                    f"benchmark_returns length ({len(bm)}) must match "
+                    f"strategy returns length ({len(self.returns)})."
+                )
+            self.benchmark_returns: Optional[np.ndarray] = bm
+        else:
+            self.benchmark_returns = None
 
         # Detect likely scale error (user submitted % not decimal)
         clipped_pct = float(np.mean(np.abs(self.returns) >= 0.499))
@@ -1082,6 +1225,103 @@ class QuantProofValidator:
             f"{n} trades vs {min_required} required (Sharpe={sharpe:.2f})",
             f"Need ≥{min_required} trades for statistical significance.",
             f"Extend backtest to at least {min_required} trades.", "Overfitting")
+
+    # ── P2: NEW CHECK — Autocorrelation (Ljung-Box + Newey-West corrected SR) ──
+
+    def check_autocorrelation(self) -> CheckResult:
+        """
+        P2: Test for serial correlation in returns using Ljung-Box Q-test.
+        If significant autocorrelation is detected, also computes a
+        Newey-West corrected Sharpe SE and compares it to the IID SE.
+
+        Significant AR(1) invalidates DSR, CI, and Bootstrap checks because
+        they all assume IID returns. Corrected SE(SR) replaces the IID figure.
+
+        Reference:
+          Ljung & Box (1978) Biometrika 65(2):297-303
+          Newey & West (1987) Econometrica 55(3):703-708
+          Lo (2002) J. Portfolio Mgmt — Sharpe under serial correlation
+        """
+        r = self.returns
+        n = len(r)
+
+        if n < 20:
+            return CheckResult(
+                "Autocorrelation (Ljung-Box)", True, 80,
+                "Insufficient data for Ljung-Box test (need 20+ trades)",
+                "Cannot assess serial correlation.", "Extend backtest.", "Overfitting"
+            )
+
+        # AR(1) estimate
+        ar1 = float(np.corrcoef(r[:-1], r[1:])[0, 1]) if n > 1 else 0.0
+        if np.isnan(ar1):
+            ar1 = 0.0
+
+        # Ljung-Box at lags 1, 5, 10
+        lb_results = _ljung_box_test(r, LJUNG_BOX_LAGS)
+
+        # Any lag with p < alpha triggers a fail
+        lb_fails = {lag: (q, p) for lag, (q, p) in lb_results.items()
+                    if p < LJUNG_BOX_ALPHA}
+        has_autocorr = len(lb_fails) > 0 or abs(ar1) >= AUTOCORR_AR1_FAIL
+
+        # Newey-West corrected SE vs IID SE
+        iid_se = float(np.sqrt(1.0 / n) * np.sqrt(self.trades_per_year))
+        nw_se  = _newey_west_se_sharpe(r, self.trades_per_year)
+        se_inflation = nw_se / max(iid_se, EPSILON)
+
+        # Build display string for LB results
+        lb_str = " | ".join(
+            f"lag{lag}: Q={q:.2f} p={p:.3f}{'*' if p < LJUNG_BOX_ALPHA else ''}"
+            for lag, (q, p) in lb_results.items()
+        )
+
+        if has_autocorr:
+            passed = False
+            if abs(ar1) >= AUTOCORR_AR1_FAIL:
+                score = 0
+            else:
+                score = 30
+            value = (
+                f"AR(1)={ar1:.3f} | {lb_str} | "
+                f"NW-SE={nw_se:.3f} vs IID-SE={iid_se:.3f} "
+                f"(SE inflated ×{se_inflation:.2f})"
+            )
+            insight = (
+                f"Significant serial correlation detected (AR(1)={ar1:.3f}). "
+                f"All IID-assuming tests (DSR, CI, Bootstrap) are unreliable. "
+                f"Newey-West corrects SE(SR) upward by ×{se_inflation:.2f}x — "
+                f"true statistical significance is lower than reported."
+            )
+            fix = (
+                "Use Newey-West robust SE for inference. "
+                "Check for look-ahead bias or return smoothing artefacts. "
+                "AR(1) > 0.3 often signals data snooping or bid/ask bounce."
+            )
+        elif abs(ar1) >= AUTOCORR_AR1_WARN:
+            passed = True
+            score  = 60
+            value  = (
+                f"AR(1)={ar1:.3f} (marginal) | {lb_str} | "
+                f"NW-SE={nw_se:.3f} vs IID-SE={iid_se:.3f}"
+            )
+            insight = (
+                f"Mild serial correlation (AR(1)={ar1:.3f}). "
+                f"Ljung-Box tests pass but NW-SE is ×{se_inflation:.2f}x larger than IID. "
+                f"Statistical significance slightly overstated."
+            )
+            fix = "Monitor AR(1); consider Newey-West robust standard errors."
+        else:
+            passed = True
+            score  = 100
+            value  = f"AR(1)={ar1:.3f} | {lb_str} | NW-SE={nw_se:.3f} ≈ IID-SE={iid_se:.3f}"
+            insight = "No significant serial correlation. IID assumption holds."
+            fix     = ""
+
+        return CheckResult(
+            "Autocorrelation (Ljung-Box)", passed, round(score, 1),
+            value, insight, fix, "Overfitting"
+        )
 
     def check_max_drawdown(self) -> CheckResult:
         dd_pct = calculate_max_drawdown(self.returns) * 100
@@ -1513,11 +1753,19 @@ class QuantProofValidator:
                 if not sharpe_ok: v.append(f"Sharpe {sharpe:.2f}<1.0")
                 violations.append(f"{name}: {', '.join(v)}")
         passed = len(eligible) >= 1
-        score  = len(eligible) / 3 * 100
+
+        if eligible:
+            value_str   = f"Eligible: {', '.join(eligible)}"
+            insight_str = f"Meets {len(eligible)}/3 prop firms."
+            fix_str     = "Consider submitting to eligible firms."
+        else:
+            value_str   = "Not eligible"
+            insight_str = f"Violations: {' | '.join(violations[:2])}"
+            fix_str     = "Reduce DD, hit targets."
+
+        score = len(eligible) / 3 * 100
         return CheckResult("Prop Firm Compliance (FTMO/Topstep/The5ers)", passed, round(score, 1),
-            f"Eligible: {', '.join(eligible)}" if eligible else "Not eligible",
-            f"Meets {len(eligible)}/3 prop firms." if eligible else f"Violations: {' | '.join(violations[:2])}",
-            "Consider submitting to eligible firms." if eligible else "Reduce DD, hit targets.", "Compliance")
+            value_str, insight_str, fix_str, "Compliance")
 
     def check_institutional_compliance(self) -> CheckResult:
         """
@@ -1551,6 +1799,130 @@ class QuantProofValidator:
             "CTA/fund institutional standards: Sharpe≥1.0, MaxDD<25%, Calmar≥1.0. "
             "More appropriate than prop firm rules for multi-year backtests.",
             "For prop firm eligibility see the Prop Firm Compliance check.", "Compliance"
+        )
+
+    # ── F1: Market-Neutral Benchmark Checks ──────────────────────────────────
+
+    def check_information_ratio(self) -> CheckResult:
+        """
+        F1 — Information Ratio vs benchmark.
+
+        Computes beta, Jensen's alpha, tracking error, and IR.
+        When no benchmark is provided: informational placeholder (score=50).
+        When benchmark provided:
+          - IR > 0.5  → genuine alpha, PASS
+          - IR > 0.3  → marginal alpha, PASS at reduced score
+          - IR < 0.3  → likely beta-capture, FAIL
+          - alpha < 0 → negative alpha vs benchmark, FAIL
+        """
+        if self.benchmark_returns is None:
+            return CheckResult(
+                "Information Ratio (vs Benchmark)", True, 50,
+                "No benchmark supplied — informational only",
+                "Pass benchmark_returns= to QuantProofValidator to test "
+                "whether strategy has alpha vs a passive index.",
+                "Recommended: supply SPY/index daily returns matching backtest period.",
+                "Overfitting"
+            )
+
+        r  = self.returns
+        bm = self.benchmark_returns
+        n  = len(r)
+
+        # OLS beta
+        bm_std = float(np.std(bm, ddof=1))
+        if bm_std < EPSILON:
+            beta = 0.0
+        else:
+            beta = float(np.cov(r, bm, ddof=1)[0, 1] / (bm_std ** 2))
+
+        # Jensen's alpha (annualised)
+        mean_r  = float(np.mean(r))
+        mean_bm = float(np.mean(bm))
+        alpha_per_trade = mean_r - beta * mean_bm
+        alpha_ann       = alpha_per_trade * self.trades_per_year
+
+        # Tracking error & IR
+        active_returns = r - beta * bm
+        te             = float(np.std(active_returns, ddof=1)) * np.sqrt(self.trades_per_year)
+        ir             = alpha_ann / (te + EPSILON)
+
+        # Correlation to benchmark
+        corr = float(np.corrcoef(r, bm)[0, 1]) if bm_std > EPSILON else 0.0
+
+        if alpha_ann < 0:
+            passed, score = False, 0
+            status = "⚠ Negative alpha — strategy underperforms benchmark on risk-adjusted basis"
+        elif ir >= 0.5:
+            passed, score = True, 100
+            status = "✅ Strong alpha — IR ≥ 0.5"
+        elif ir >= 0.3:
+            passed, score = True, 65
+            status = "⚠ Marginal alpha — IR 0.3–0.5"
+        else:
+            passed, score = False, 20
+            status = "⚠ Weak alpha — likely beta-capture, not genuine edge"
+
+        return CheckResult(
+            "Information Ratio (vs Benchmark)", passed, round(score, 1),
+            f"IR={ir:.2f} | α={alpha_ann*100:.2f}%/yr | β={beta:.2f} | "
+            f"TE={te*100:.2f}%/yr | corr={corr:.2f} — {status}",
+            "Information Ratio = Jensen's alpha / tracking error. "
+            "IR < 0.3 means the strategy's excess return is insufficient "
+            "to justify active risk vs a passive benchmark.",
+            "If IR < 0.3, the strategy is capturing market beta not alpha. "
+            "Test whether simply holding the benchmark delivers similar returns.",
+            "Overfitting"
+        )
+
+    def check_beta_exposure(self) -> CheckResult:
+        """
+        F1 — Beta to benchmark.
+
+        High beta (> 0.6) means returns are largely explained by market
+        direction. A backtest in a bull market will always look good for
+        high-beta strategies. Informational only when no benchmark supplied.
+        """
+        if self.benchmark_returns is None:
+            return CheckResult(
+                "Beta Exposure (vs Benchmark)", True, 50,
+                "No benchmark supplied — informational only",
+                "Pass benchmark_returns= to test market-neutrality.",
+                "Recommended: supply index returns matching backtest period.",
+                "Overfitting"
+            )
+
+        r  = self.returns
+        bm = self.benchmark_returns
+        bm_std = float(np.std(bm, ddof=1))
+        if bm_std < EPSILON:
+            beta = 0.0
+        else:
+            beta = float(np.cov(r, bm, ddof=1)[0, 1] / (bm_std ** 2))
+
+        r_sq = float(np.corrcoef(r, bm)[0, 1] ** 2) if bm_std > EPSILON else 0.0
+
+        if beta > 0.8:
+            passed, score = False, 0
+            status = "⚠ Manual Audit Required — very high market beta, strategy is essentially leveraged index exposure"
+        elif beta > 0.6:
+            passed, score = False, 30
+            status = "⚠ High beta — most returns explained by market direction"
+        elif beta > 0.4:
+            passed, score = True, 65
+            status = "Moderate beta — some market exposure"
+        else:
+            passed, score = True, 100
+            status = "✅ Low beta — strategy is largely market-neutral"
+
+        return CheckResult(
+            "Beta Exposure (vs Benchmark)", passed, round(score, 1),
+            f"β={beta:.2f} | R²={r_sq:.2f} — {status}",
+            f"Beta > 0.6 means over 60% of return variance is explained by "
+            f"the benchmark. A backtest during a bull market with high beta "
+            f"does not demonstrate genuine alpha.",
+            "Reduce market exposure via hedging or use market-neutral strategy design.",
+            "Overfitting"
         )
 
     def check_sharpe_plausibility(self) -> CheckResult:
@@ -1617,7 +1989,30 @@ class QuantProofValidator:
         market_drop = profile["market_drop"] / 100
         trimmed_mean = float(np.mean(np.clip(r, np.percentile(r, 2), np.percentile(r, 98))))
         trimmed_vol = float(np.std(np.clip(r, np.percentile(r, 2), np.percentile(r, 98)), ddof=1))
-        exposure = float(np.clip(vol / 0.012, 0.1, 0.8))
+
+        # ── F3: Hardened exposure model ───────────────────────────────────────
+        # Base exposure from vol ratio — same formula as before
+        base_exposure = vol / 0.012
+
+        # Hard minimum: no strategy can show near-zero crash sensitivity
+        # via low vol alone. Floor depends on whether dates are present.
+        if self.has_dates:
+            min_exposure = CRASH_EXPOSURE_MIN           # 0.25
+        else:
+            min_exposure = CRASH_EXPOSURE_MIN_NODATE    # 0.40 — more conservative without dates
+
+        exposure = float(np.clip(base_exposure, min_exposure, 0.8))
+
+        # AR(1) autocorrelation adjustment: momentum-reversal in crises
+        # Autocorrelated strategies experience harder unwind when trend breaks
+        ar1 = float(np.corrcoef(r[:-1], r[1:])[0, 1]) if len(r) > 2 else 0.0
+        if abs(ar1) >= CRASH_AUTOCORR_THRESHOLD:
+            exposure = min(0.8, exposure * CRASH_AUTOCORR_MULT)
+
+        # Calibration flag: crash results on undated data are not market-calibrated
+        calibrated = self.has_dates
+        # ─────────────────────────────────────────────────────────────────────
+
         crash_seed = int((abs(hash(crash_key)) ^ int.from_bytes(self.returns.tobytes()[:8], 'little')) % (2**31))
         rng = np.random.default_rng(crash_seed)
         vol_mult   = min(profile["vol_multiplier"], 4.0)
@@ -1644,14 +2039,18 @@ class QuantProofValidator:
             cumulative *= 0.25
         dd       = calculate_max_drawdown(stressed)
         survived = dd < (0.25 if self.strict_mode else 0.30)
+
+        # F3: prefix verdicts with [UNCALIBRATED] when no dates supplied
+        calib_tag = "" if calibrated else "[UNCALIBRATED] "
         if survived and cumulative > -0.05:
-            verdict = "🟢 YOUR STRATEGY SURVIVED."
+            verdict = f"{calib_tag}🟢 YOUR STRATEGY SURVIVED."
         elif survived and cumulative > -0.20:
-            verdict = "🟡 DAMAGED BUT SURVIVED."
+            verdict = f"{calib_tag}🟡 DAMAGED BUT SURVIVED."
         elif survived:
-            verdict = "🟠 BARELY SURVIVED."
+            verdict = f"{calib_tag}🟠 BARELY SURVIVED."
         else:
-            verdict = "🔴 YOUR STRATEGY WOULD HAVE BLOWN UP."
+            verdict = f"{calib_tag}🔴 YOUR STRATEGY WOULD HAVE BLOWN UP."
+
         return CrashSimResult(
             crash_name=profile["name"], year=profile["year"],
             description=profile["description"], market_drop=profile["market_drop"],
@@ -1718,6 +2117,12 @@ class QuantProofValidator:
             final = min(final, 60)   # FIX BUG-V4-1: was 75; without timestamps,
             # regime/timeframe/data-snooping checks are impossible — F grade ceiling
 
+        # ── P1: Extra cap for no-date + high Sharpe (unverifiable single-regime candidate) ──
+        # A strategy with Sharpe > 5 and no timestamps cannot be regime-checked and is
+        # statistically suspicious — cap at 50 to prevent misleadingly high scores.
+        if not self.has_dates and sharpe > 5:
+            final = min(final, 50)
+
         # FIX BUG-V4-2: single-regime backtest hard cap
         # If >85% of dated trades are in one regime, the strategy is untested
         # in other market conditions — cap at 55 regardless of in-regime performance
@@ -1759,11 +2164,44 @@ class QuantProofValidator:
             self.check_volatility_stress(), self.check_frequency_consistency(), self.check_regime_coverage(),
             self.check_slippage_01(), self.check_slippage_03(), self.check_commission_drag(),
             self.check_partial_fills(), self.check_live_vs_backtest_gap(), self.check_impact_adjusted_capacity(),
+            # ── P2: Autocorrelation check inserted before compliance checks ──
+            self.check_autocorrelation(),
+            # ── F1: Market-neutral benchmark checks ──
+            self.check_information_ratio(), self.check_beta_exposure(),
             self.check_prop_firm_compliance(), self.check_institutional_compliance(),
             self.check_sharpe_plausibility(), self.check_frequency_return_plausibility(),
             self.check_equity_smoothness_plausibility(), self.check_kelly_plausibility(),
         ]
         self.checks = checks
+
+        # ── P3: Suppress "Prop Firm Eligible" if any Manual Audit Required flag is active ──
+        # Runs after all checks (incl. plausibility) are in self.checks.
+        has_manual_audit = any(
+            not c.passed and "Manual Audit Required" in c.value
+            for c in checks
+            if c.category == "Plausibility"
+        )
+        if has_manual_audit:
+            for i, c in enumerate(checks):
+                if c.name == "Prop Firm Compliance (FTMO/Topstep/The5ers)" and c.passed:
+                    eligible_str = c.value.replace("Eligible: ", "")
+                    checks[i] = CheckResult(
+                        name=c.name,
+                        passed=False,
+                        score=0,
+                        value=(
+                            f"⚠ Numerically eligible ({eligible_str}) but blocked: "
+                            f"Manual Audit Required flag(s) must be resolved before prop firm submission"
+                        ),
+                        insight=(
+                            "Strategy meets prop firm numerical thresholds but has unresolved "
+                            "plausibility flags. Submitting with active Manual Audit Required "
+                            "warnings risks account termination upon review."
+                        ),
+                        fix="Resolve all Manual Audit Required flags, then re-run validation.",
+                        category="Compliance"
+                    )
+
         crash_sims = [self.simulate_crash(k) for k in CRASH_PROFILES.keys()]
         score, grade = self._calculate_score(checks)
 
@@ -1841,4 +2279,3 @@ class QuantProofValidator:
             plausibility_summary=self._generate_plausibility_summary(),
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE)
-
