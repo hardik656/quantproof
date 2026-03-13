@@ -20,7 +20,6 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Res
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-import uuid
 import pandas as pd
 import numpy as np
 import io
@@ -28,6 +27,7 @@ import os
 import time
 import hashlib
 import traceback
+import uuid
 from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
@@ -305,211 +305,125 @@ class ValidationResponse(BaseModel):
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     """
     Converts raw Alpaca filled orders into a trades DataFrame.
-    Uses chronological position-based reconstruction with VWAP entry calculation.
+
+    Fixes vs old buy/sell stack approach:
+    - Sorts by filled_at chronologically before pairing
+    - Tracks open position lots per symbol (FIFO)
+    - Orphaned sells (no open lot) are flagged and skipped,
+      not silently mispaired with a future buy
+    - Regime auto-assigned via assign_regimes() after pairing
+
+    Returns (df, audit_flags).
     """
     audit_flags = []
 
-    # Filter to only filled orders
-    filled = [o for o in orders if o.get("status") == "filled"]
-    
-    if not filled:
-        return pd.DataFrame(), ["No filled orders found"]
-
-    # Sort orders chronologically using filled_at, fallback to updated_at
-    filled_sorted = sorted(
-        filled,
-        key=lambda x: x.get("filled_at") or x.get("updated_at") or ""
-    )
-
-    rows = []
-    open_positions = {}
-
-    for o in filled_sorted:
+    # Filter + parse filled orders
+    filled = []
+    for o in orders:
+        if o.get("status") != "filled":
+            continue
         try:
-            symbol = o.get("symbol")
-            side = o.get("side")
-            price = float(o.get("filled_avg_price", 0) or 0)
-            qty = float(o.get("filled_qty", 0) or 0)
-            date_str = o.get("filled_at") or o.get("updated_at")
-
-            if not symbol or not side or price <= 0 or qty <= 0:
+            qty   = float(o.get("filled_qty") or 0)
+            price = float(o.get("filled_avg_price") or 0)
+            if qty <= 0 or price <= 0:
                 continue
-
-            if symbol not in open_positions:
-                # New position entry
-                open_positions[symbol] = {
-                    "side": side,
-                    "size": qty,
-                    "cost": qty * price,
-                    "date": date_str
-                }
+            side = o.get("side", "").lower()
+            if side not in ("buy", "sell"):
                 continue
-
-            entry = open_positions[symbol]
-
-            if entry["side"] == side:
-                # Same side - scale into position
-                entry["size"] += qty
-                entry["cost"] += qty * price
-                continue
-
-            # Side flips - close the trade
-            entry_price = entry["cost"] / entry["size"]  # VWAP entry price
-
-            if entry["side"] == "buy":
-                pnl = (price - entry_price) / entry_price
-                trade_side = "long"
-            else:
-                pnl = (entry_price - price) / entry_price
-                trade_side = "short"
-
-            row = {
-                "pnl": pnl,
-                "ticker": symbol,
-                "side": trade_side
-            }
-
-            if date_str:
-                try:
-                    ts = pd.to_datetime(date_str)
-                    if ts.tzinfo is not None:
-                        ts = ts.tz_convert("UTC").tz_localize(None)
-                    row["date"] = ts
-                except Exception:
-                    pass
-
-            rows.append(row)
-
-            del open_positions[symbol]
-
+            ts_str = o.get("filled_at") or o.get("updated_at") or ""
+            ts = pd.to_datetime(ts_str, utc=True).tz_localize(None)
+            filled.append({
+                "symbol":    o.get("symbol", "UNKNOWN"),
+                "side":      side,
+                "qty":       qty,
+                "price":     price,
+                "filled_at": ts,
+            })
         except Exception:
             continue
 
-    if not rows:
-        return pd.DataFrame(), ["No completed round-trip trades found"]
+    if not filled:
+        return pd.DataFrame(), ["No filled orders found"]
 
-    df = pd.DataFrame(rows)
-    
+    # Sort chronologically — critical fix
+    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
+
+    # Position-state tracker: symbol → FIFO list of open lots
+    lots          = defaultdict(list)   # sym → [{"price", "qty", "entry_date"}, ...]
+    completed     = []
+    orphan_sells  = []
+
+    for _, row in df_orders.iterrows():
+        sym   = row["symbol"]
+        side  = row["side"]
+        qty   = row["qty"]
+        price = row["price"]
+        ts    = row["filled_at"]
+
+        if side == "buy":
+            lots[sym].append({"price": price, "qty": qty, "entry_date": ts})
+
+        elif side == "sell":
+            if not lots[sym]:
+                # Sell with no open lot = position opened before history window
+                orphan_sells.append(
+                    f"{sym} sell@{price:.2f} on {ts.date()} "
+                    f"(no matching buy in history — position predates window)"
+                )
+                continue
+
+            remaining = qty
+            while remaining > 0 and lots[sym]:
+                lot       = lots[sym][0]
+                close_qty = min(remaining, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                completed.append({
+                    "pnl":        pnl_pct,
+                    "date":       ts,
+                    "entry_date": lot["entry_date"],
+                    "ticker":     sym,
+                    "buy_price":  lot["price"],
+                    "sell_price": price,
+                    "qty":        close_qty,
+                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                })
+                lot["qty"]  -= close_qty
+                remaining   -= close_qty
+                if lot["qty"] == 0:
+                    lots[sym].pop(0)
+
+    # Build audit flags
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching buy in history window "
+            f"(position opened before history) — excluded from analysis"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} open position(s) not included "
+            f"(no closing trade yet): {sym_list}"
+        )
+
+    if not completed:
+        return pd.DataFrame(), audit_flags + [
+            "No completed round-trip trades found. "
+            "All positions may still be open, or all sells predate the history window."
+        ]
+
+    df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
+
     # Auto-assign regime from SPY
     df, regime_note = assign_regimes(df)
     audit_flags.append(regime_note)
 
     return df, audit_flags
-
-
-# =========================================================
-# KITE TRADEBOOK PARSER
-# =========================================================
-
-def _is_kite_csv(df: pd.DataFrame) -> bool:
-    """Detect Zerodha Kite TradeBook CSV by characteristic column names."""
-    required_cols = {"trade_date", "symbol", "exchange", "segment", "trade_type", "quantity", "price"}
-    return required_cols.issubset({c.lower().strip() for c in df.columns})
-
-def _parse_kite_csv(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
-    """
-    Convert Zerodha Kite TradeBook CSV to QuantProof format.
-    
-    Expected columns (case-insensitive):
-    - trade_date: Date of trade (YYYY-MM-DD or DD-MM-YYYY)
-    - symbol: Trading symbol 
-    - exchange: NSE/BSE/MCX
-    - segment: EQUITY/COMMODITY/CURRENCY
-    - trade_type: BUY/SELL
-    - quantity: Number of shares/contracts
-    - price: Execution price per share
-    
-    Returns (df_with pnl, note_string)
-    """
-    # Normalize column names
-    df.columns = [c.lower().strip() for c in df.columns]
-    
-    # Validate required columns
-    required = {"trade_date", "symbol", "trade_type", "quantity", "price"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Kite CSV missing required columns: {missing}")
-    
-    # Parse dates
-    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
-    df = df.dropna(subset=["trade_date"])
-    
-    # Sort by symbol and date to pair trades correctly
-    df = df.sort_values(["symbol", "trade_date"]).reset_index(drop=True)
-    
-    # Track positions per symbol
-    positions = {}
-    trades = []
-    
-    for _, row in df.iterrows():
-        symbol = row["symbol"]
-        qty = int(row["quantity"])
-        price = float(row["price"])
-        trade_type = row["trade_type"].upper()
-        date = row["trade_date"]
-        
-        if symbol not in positions:
-            positions[symbol] = {"qty": 0, "cost": 0.0}
-        
-        pos = positions[symbol]
-        
-        if trade_type == "BUY":
-            pos["qty"] += qty
-            pos["cost"] += qty * price
-            
-        elif trade_type == "SELL":
-            if pos["qty"] >= qty:
-                # Close existing position
-                avg_entry = pos["cost"] / pos["qty"] if pos["qty"] > 0 else 0
-                pnl_pct = (price - avg_entry) / avg_entry if avg_entry > 0 else 0
-                
-                trades.append({
-                    "pnl": pnl_pct,
-                    "symbol": symbol,
-                    "side": "long",
-                    "date": date,
-                    "entry_price": avg_entry,
-                    "exit_price": price,
-                    "quantity": qty
-                })
-                
-                # Update position
-                pos["qty"] -= qty
-                pos["cost"] -= qty * avg_entry
-                
-                if pos["qty"] == 0:
-                    pos["cost"] = 0.0
-            else:
-                # Short trade (sell without position)
-                # For simplicity, treat as short position closed immediately
-                trades.append({
-                    "pnl": 0.0,  # No entry cost for short
-                    "symbol": symbol, 
-                    "side": "short",
-                    "date": date,
-                    "entry_price": price,
-                    "exit_price": price,
-                    "quantity": qty
-                })
-    
-    # Convert to DataFrame
-    if not trades:
-        return pd.DataFrame(), "No completed trades found in Kite TradeBook"
-    
-    result = pd.DataFrame(trades)
-    
-    # Rename columns to match QuantProof expected format
-    result = result.rename(columns={"symbol": "ticker"})
-    
-    # Keep only required columns
-    result = result[["pnl", "ticker", "side", "date"]].copy()
-    
-    # Sort by date
-    result = result.sort_values("date").reset_index(drop=True)
-    
-    note = f"📊 Parsed {len(trades)} completed trades from Zerodha Kite TradeBook"
-    
-    return result, note
 
 
 # =========================================================
@@ -530,19 +444,6 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
 
     # Primary parse — look for known pnl column names
     try:
-        # ── Kite TradeBook detection (must run before generic pnl search) ──
-        try:
-            df_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-            if _is_kite_csv(df_probe):
-                df_full = pd.read_csv(io.StringIO(raw))
-                result, kite_note = _parse_kite_csv(df_full)
-                if "date" in result.columns and result["date"].notna().any():
-                    result, regime_note = assign_regimes(result)
-                    kite_note += " | " + regime_note
-                return result, kite_note
-        except Exception:
-            pass
-        
         df = pd.read_csv(io.StringIO(raw))
         pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l", "net", "alpha"]
         for col in df.columns:
@@ -750,141 +651,6 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         dashboard=dashboard_data,
         ai_plan=None,
     )
-
-
-# =========================================================
-# KITE TRADEBOOK VALIDATION
-# =========================================================
-
-@app.post("/validate/kite", response_model=ValidationResponse)
-async def validate_kite(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
-    """Validate Zerodha Kite TradeBook CSV."""
-    if request:
-        ip = request.client.host if request.client else "unknown"
-        allowed, hours_left = check_rate_limit(ip)
-        if not allowed:
-            raise HTTPException(
-                status_code=429,
-                detail={"error": "rate_limit", "message": f"Daily limit reached — 3 free validations/day. Resets in ~{hours_left}h."}
-            )
-    
-    if not file.filename.lower().endswith('.csv'):
-        raise HTTPException(400, "Please upload a CSV file")
-    
-    try:
-        contents = await file.read()
-        
-        # Parse Kite CSV
-        df_raw = pd.read_csv(io.StringIO(contents.decode("utf-8", errors="ignore")))
-        
-        if not _is_kite_csv(df_raw):
-            raise HTTPException(400, "Invalid Kite TradeBook format. Please export from Zerodha Kite TradeBook.")
-        
-        df, kite_note = _parse_kite_csv(df_raw)
-        
-        if len(df) < 10:
-            raise HTTPException(400, f"Only {len(df)} completed trades found. Need at least 10 trades for validation.")
-        
-        # Auto-assign regime if dates present
-        if "date" in df.columns and df["date"].notna().any():
-            df, regime_note = assign_regimes(df)
-            kite_note += " | " + regime_note
-        
-        # Run validation
-        validator = QuantProofValidator(df)
-        result = validator.run()
-        
-        # Build response
-        score = result.fundable_score
-        grade = result.grade
-        
-        checks = []
-        for c in result.checks:
-            checks.append({
-                "name": c.name,
-                "passed": c.passed,
-                "score": c.score,
-                "value": c.value,
-                "insight": c.insight,
-                "category": c.category
-            })
-        
-        # Build top issues/strengths
-        failed_checks = [c for c in result.checks if not c.passed]
-        top_issues = [
-            {
-                "check": c.name,
-                "impact": "high" if c.score < 30 else "medium" if c.score < 50 else "low",
-                "description": c.insight,
-                "fix": "Review your trading strategy and risk management practices.",
-                "category": c.category
-            }
-            for c in failed_checks[:5]
-        ]
-        
-        passed_checks = [c for c in result.checks if c.passed]
-        top_strengths = [
-            {
-                "check": c.name,
-                "score": c.score,
-                "description": c.insight
-            }
-            for c in passed_checks[:3]
-        ]
-        
-        date_range = "No date data"
-        if "date" in df.columns and df["date"].notna().any():
-            dates = pd.to_datetime(df["date"]).dropna()
-            if len(dates) > 0:
-                date_range = f"{dates.min().strftime('%Y-%m-%d')} → {dates.max().strftime('%Y-%m-%d')}"
-        
-        # Build dashboard data
-        dashboard_data = {
-            "score_distribution": {
-                "plausibility": sum(1 for c in result.checks if c.category == "Plausibility" and c.passed),
-                "overfitting": sum(1 for c in result.checks if c.category == "Overfitting" and c.passed),
-                "risk": sum(1 for c in result.checks if c.category == "Risk" and c.passed),
-                "regime": sum(1 for c in result.checks if c.category == "Regime" and c.passed),
-                "execution": sum(1 for c in result.checks if c.category == "Execution" and c.passed)
-            },
-            "crash_performance": [
-                {
-                    "scenario": sim.crash_name,
-                    "survived": sim.survived,
-                    "strategy_drop": sim.strategy_drop,
-                    "verdict": sim.emotional_verdict
-                }
-                for sim in result.crash_sims
-            ]
-        }
-        
-        return ValidationResponse(
-            fundable_score=score,
-            grade=grade,
-            summary=f"QuantProof analyzed {len(df)} Kite TradeBook trades across {len(checks)} institutional checks + 5 crash simulations. Source: Zerodha Kite TradeBook — self-reported data. Fundable Score: {score}/100 ({grade.split('—')[0].strip()}).",
-            checks=checks,
-            top_issues=top_issues,
-            top_strengths=top_strengths,
-            date_range=date_range,
-            sharpe=round(result.sharpe, 2),
-            max_drawdown=round(result.max_drawdown, 4),
-            win_rate=round(result.win_rate, 1),
-            total_trades=result.total_trades,
-            validation_hash=result.validation_hash + "-KITE",
-            validation_date=result.validation_date,
-            engine_version=result.engine_version,
-            audit_flags=result.audit_flags + [kite_note],
-            plausibility_summary=result.plausibility_summary,
-            assumptions=result.assumptions,
-            dashboard=dashboard_data,
-            ai_plan=None,
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"Kite validation failed: {str(e)}")
-
 
 @app.get("/sample-csv")
 def sample_csv():
@@ -1123,11 +889,6 @@ import collections
 VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
-# ── TradingView webhook session store ─────────────────────────────────────
-TV_SESSIONS: dict = {}
-TV_SESSION_TTL_SECONDS = 7 * 24 * 3600
-TV_MAX_ALERTS_PER_SESSION = 2000
-
 def _cache_validation(v_hash: str, vr: dict):
     VALIDATION_RESULT_CACHE[v_hash] = vr
     if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
@@ -1141,80 +902,6 @@ RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 REPORT_PRICE_USD    = 9
 REPORT_PRICE_INR    = 999
-
-
-# ── TradingView webhook helpers ───────────────────────────────────────────
-def _tv_cleanup():
-    """Remove expired TradingView sessions."""
-    now = time.time()
-    expired = [sid for sid, data in TV_SESSIONS.items() 
-               if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS]
-    for sid in expired:
-        del TV_SESSIONS[sid]
-
-def _tv_pair_alerts(alerts: list) -> list:
-    """
-    Pair TradingView alerts into trades.
-    Simple FIFO pairing - assumes alerts come in chronological order.
-    """
-    if not alerts:
-        return []
-    
-    # Sort by timestamp
-    alerts = sorted(alerts, key=lambda x: x.get("timestamp", 0))
-    
-    # Group by symbol and pair BUY/SELL
-    positions = {}
-    trades = []
-    
-    for alert in alerts:
-        symbol = alert.get("symbol", "")
-        action = alert.get("action", "").upper()
-        price = float(alert.get("price", 0))
-        qty = float(alert.get("quantity", 1))
-        timestamp = alert.get("timestamp", time.time())
-        
-        if symbol not in positions:
-            positions[symbol] = []
-        
-        if action in ("BUY", "SELL"):
-            positions[symbol].append({
-                "action": action,
-                "price": price, 
-                "qty": qty,
-                "timestamp": timestamp
-            })
-        
-        # Try to pair trades
-        if len(positions[symbol]) >= 2:
-            buys = [a for a in positions[symbol] if a["action"] == "BUY"]
-            sells = [a for a in positions[symbol] if a["action"] == "SELL"]
-            
-            # Pair earliest BUY with earliest SELL
-            if buys and sells:
-                buy = buys[0]
-                sell = sells[0]
-                
-                # Calculate PnL (assuming long position)
-                entry_price = buy["price"]
-                exit_price = sell["price"]
-                pnl = (exit_price - entry_price) / entry_price
-                
-                trades.append({
-                    "pnl": pnl,
-                    "ticker": symbol,
-                    "side": "long",
-                    "date": pd.to_datetime(buy["timestamp"], unit="s"),
-                    "entry_price": entry_price,
-                    "exit_price": exit_price,
-                    "quantity": min(buy["qty"], sell["qty"])
-                })
-                
-                # Remove paired alerts
-                positions[symbol].remove(buy)
-                positions[symbol].remove(sell)
-    
-    return trades
 
 
 @app.post("/report/generate")
@@ -1605,220 +1292,6 @@ async def generate_broker_report(
 
 
 # =========================================================
-# TRADINGVIEW WEBHOOK ROUTES
-# =========================================================
-
-class TVSessionCreate(BaseModel):
-    webhook_url: Optional[str] = None
-
-class TVSessionResponse(BaseModel):
-    session_id: str
-    webhook_url: str
-    max_alerts: int
-    ttl_hours: int
-
-class TVAlert(BaseModel):
-    symbol: str
-    action: str  # BUY/SELL
-    price: float
-    quantity: Optional[float] = 1.0
-    timestamp: Optional[float] = None
-
-class TVStatusResponse(BaseModel):
-    session_id: str
-    alerts_received: int
-    trades_paired: int
-    status: str
-    created_at: float
-    expires_at: float
-
-@app.get("/webhook/tradingview/new-session", response_model=TVSessionResponse)
-def create_tv_session():
-    """Create a new TradingView webhook session."""
-    _tv_cleanup()
-    
-    session_id = str(uuid.uuid4())
-    webhook_url = f"{os.getenv('BASE_URL', 'https://quantproof-backend.onrender.com')}/webhook/tradingview/{session_id}"
-    
-    TV_SESSIONS[session_id] = {
-        "session_id": session_id,
-        "webhook_url": webhook_url,
-        "alerts": [],
-        "created_at": time.time(),
-        "expires_at": time.time() + TV_SESSION_TTL_SECONDS
-    }
-    
-    return TVSessionResponse(
-        session_id=session_id,
-        webhook_url=webhook_url,
-        max_alerts=TV_MAX_ALERTS_PER_SESSION,
-        ttl_hours=TV_SESSION_TTL_SECONDS // 3600
-    )
-
-@app.post("/webhook/tradingview/{session_id}")
-def receive_tv_alert(session_id: str, alert: TVAlert):
-    """Receive TradingView webhook alert."""
-    _tv_cleanup()
-    
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    
-    session = TV_SESSIONS[session_id]
-    
-    # Check if session expired
-    if time.time() > session["expires_at"]:
-        del TV_SESSIONS[session_id]
-        raise HTTPException(404, "Session expired")
-    
-    # Check alert limit
-    if len(session["alerts"]) >= TV_MAX_ALERTS_PER_SESSION:
-        raise HTTPException(429, "Alert limit exceeded for this session")
-    
-    # Add timestamp if not provided
-    if not alert.timestamp:
-        alert.timestamp = time.time()
-    
-    # Store alert
-    session["alerts"].append(alert.dict())
-    
-    return {"status": "received", "alerts_count": len(session["alerts"])}
-
-@app.get("/webhook/tradingview/{session_id}/status", response_model=TVStatusResponse)
-def get_tv_status(session_id: str):
-    """Get TradingView session status."""
-    _tv_cleanup()
-    
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    
-    session = TV_SESSIONS[session_id]
-    alerts = session["alerts"]
-    trades = _tv_pair_alerts(alerts)
-    
-    status = "active"
-    if time.time() > session["expires_at"]:
-        status = "expired"
-    elif len(alerts) >= TV_MAX_ALERTS_PER_SESSION:
-        status = "full"
-    
-    return TVStatusResponse(
-        session_id=session_id,
-        alerts_received=len(alerts),
-        trades_paired=len(trades),
-        status=status,
-        created_at=session["created_at"],
-        expires_at=session["expires_at"]
-    )
-
-@app.post("/webhook/tradingview/{session_id}/validate")
-def validate_tv_alerts(session_id: str):
-    """Validate TradingView alerts using QuantProof."""
-    _tv_cleanup()
-    
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    
-    session = TV_SESSIONS[session_id]
-    alerts = session["alerts"]
-    
-    if len(alerts) < 10:
-        raise HTTPException(400, f"Need at least 10 alerts for validation, only have {len(alerts)}")
-    
-    # Pair alerts into trades
-    trades = _tv_pair_alerts(alerts)
-    
-    if len(trades) < 5:
-        raise HTTPException(400, f"Only paired {len(trades)} trades from alerts, need at least 5")
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(trades)
-    
-    # Auto-assign regime
-    df, regime_note = assign_regimes(df)
-    
-    # Run validation
-    validator = QuantProofValidator(df)
-    result = validator.run()
-    
-    # Build response
-    score = result.fundable_score
-    grade = result.grade
-    
-    checks = []
-    for c in result.checks:
-        checks.append({
-            "name": c.name,
-            "passed": c.passed,
-            "score": c.score,
-            "value": c.value,
-            "insight": c.insight,
-            "category": c.category
-        })
-    
-    # Build top issues/strengths
-    failed_checks = [c for c in result.checks if not c.passed]
-    top_issues = [
-        {
-            "check": c.name,
-            "impact": "high" if c.score < 30 else "medium" if c.score < 50 else "low",
-            "description": c.insight
-        }
-        for c in failed_checks[:5]
-    ]
-    
-    passed_checks = [c for c in result.checks if c.passed]
-    top_strengths = [
-        {
-            "check": c.name,
-            "score": c.score,
-            "description": c.insight
-        }
-        for c in passed_checks[:3]
-    ]
-    
-    date_range = "No date data"
-    if "date" in df.columns and df["date"].notna().any():
-        dates = pd.to_datetime(df["date"]).dropna()
-        if len(dates) > 0:
-            date_range = f"{dates.min().strftime('%Y-%m-%d')} → {dates.max().strftime('%Y-%m-%d')}"
-    
-    return ValidationResponse(
-        fundable_score=score,
-        grade=grade,
-        summary=f"QuantProof analyzed {len(trades)} TradingView-constructed trades across {len(checks)} institutional checks + 5 crash simulations. Source: TradingView webhook alerts — paired into trades. Fundable Score: {score}/100 ({grade.split('—')[0].strip()}).",
-        checks=checks,
-        top_issues=top_issues,
-        top_strengths=top_strengths,
-        date_range=date_range,
-        sharpe=round(result.sharpe, 2),
-        max_drawdown=round(result.max_drawdown, 4),
-        win_rate=round(result.win_rate, 1),
-        total_trades=result.total_trades,
-        validation_hash=result.validation_hash + "-TV",
-        validation_date=result.validation_date,
-        engine_version=result.engine_version,
-        audit_flags=result.audit_flags + [f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades | {regime_note}"],
-        plausibility_summary=result.plausibility_summary,
-        assumptions=result.assumptions,
-        dashboard=None,
-        ai_plan=None,
-    )
-
-@app.post("/webhook/tradingview/{session_id}/reset")
-def reset_tv_session(session_id: str):
-    """Reset TradingView session (clear alerts)."""
-    _tv_cleanup()
-    
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    
-    # Clear alerts but keep session
-    TV_SESSIONS[session_id]["alerts"] = []
-    
-    return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
-# =========================================================
 # IBKR BROKER INTEGRATION
 # =========================================================
 
@@ -1978,6 +1451,521 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash."
     }
+
+
+# =========================================================
+# KITE TRADEBOOK PARSER + VALIDATION
+# Fixes applied:
+#   K1/K2/K3/K4: ValidationResponse shape — top_issues/top_strengths
+#                are List[str], crash_sims/profitable_trades/etc. all
+#                sourced from validator.run() directly
+#   K5: StringIO cursor — each pd.read_csv uses fresh io.StringIO(raw)
+#   K7: profitable_trades correctly sourced from report
+# =========================================================
+
+def _is_kite_csv(df: pd.DataFrame) -> bool:
+    """Detect Zerodha Kite TradeBook CSV by characteristic column names."""
+    required_cols = {"trade_date", "symbol", "exchange", "segment", "trade_type", "quantity", "price"}
+    return required_cols.issubset({c.lower().strip() for c in df.columns})
+
+
+def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str]:
+    """
+    Convert Zerodha Kite TradeBook CSV to QuantProof format.
+
+    FIX K5: takes raw string, creates fresh StringIO per read — avoids
+    cursor exhaustion bug when called from smart_parse_csv.
+
+    Expected columns (case-insensitive):
+      trade_date, symbol, exchange, segment, trade_type, quantity, price
+    Returns (df_with_pnl, note_string).
+    """
+    df = pd.read_csv(io.StringIO(raw))
+    df.columns = [c.lower().strip() for c in df.columns]
+
+    required = {"trade_date", "symbol", "trade_type", "quantity", "price"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Kite CSV missing required columns: {missing}")
+
+    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
+    df = df.dropna(subset=["trade_date"])
+    df = df.sort_values(["symbol", "trade_date"]).reset_index(drop=True)
+
+    positions = {}
+    trades = []
+
+    for _, row in df.iterrows():
+        symbol     = row["symbol"]
+        qty        = int(row["quantity"])
+        price      = float(row["price"])
+        trade_type = str(row["trade_type"]).upper()
+        date       = row["trade_date"]
+
+        if symbol not in positions:
+            positions[symbol] = {"qty": 0, "cost": 0.0}
+
+        pos = positions[symbol]
+
+        if trade_type == "BUY":
+            pos["qty"]  += qty
+            pos["cost"] += qty * price
+
+        elif trade_type == "SELL":
+            if pos["qty"] >= qty:
+                avg_entry = pos["cost"] / pos["qty"] if pos["qty"] > 0 else 0
+                pnl_pct   = (price - avg_entry) / avg_entry if avg_entry > 0 else 0
+                trades.append({
+                    "pnl":    pnl_pct,
+                    "ticker": symbol,
+                    "side":   "long",
+                    "date":   date,
+                })
+                pos["qty"]  -= qty
+                pos["cost"] -= qty * avg_entry
+                if pos["qty"] == 0:
+                    pos["cost"] = 0.0
+
+    if not trades:
+        return pd.DataFrame(), "No completed trades found in Kite TradeBook"
+
+    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
+    note   = f"📊 Parsed {len(trades)} completed trades from Zerodha Kite TradeBook"
+    return result, note
+
+
+@app.post("/validate/kite", response_model=ValidationResponse)
+async def validate_kite(
+    file: UploadFile = File(...),
+    currency: str = Form("INR"),
+    request: Request = None
+):
+    """
+    Validate Zerodha Kite TradeBook CSV.
+
+    All fixes applied:
+      - K1/K2/K3/K4: Response matches ValidationResponse schema exactly
+        (top_issues/top_strengths as List[str], all required fields present)
+      - K5: fresh StringIO per read (no cursor exhaustion)
+      - K7: profitable_trades from report object
+      - G2: uses report.score not report.fundable_score
+    """
+    if request:
+        ip = request.client.host if request.client else "unknown"
+        allowed, remaining = check_rate_limit(ip)
+        if not allowed:
+            hours_left = remaining // 3600
+            raise HTTPException(429, {
+                "error": "rate_limit",
+                "message": f"Daily limit of {FREE_DAILY_LIMIT} validations reached. Resets in ~{hours_left}h.",
+                "hours_left": hours_left
+            })
+
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Please upload a CSV file")
+
+    contents = await file.read()
+    raw      = contents.decode("utf-8", errors="ignore")
+
+    # FIX K5: use fresh StringIO for detection probe
+    try:
+        df_probe = pd.read_csv(io.StringIO(raw), nrows=5)
+        if not _is_kite_csv(df_probe):
+            raise HTTPException(
+                400,
+                "Invalid Kite TradeBook format. "
+                "Please export from Zerodha Kite → Console → TradeBook → Download."
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, f"Could not read CSV: {str(e)}")
+
+    try:
+        df, kite_note = _parse_kite_csv(raw)   # FIX K5: passes raw string
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    if len(df) < 10:
+        raise HTTPException(400, {
+            "error": "insufficient_trades",
+            "trades_found": len(df),
+            "trades_needed": 10,
+            "message": f"Only {len(df)} completed trades found. Need at least 10."
+        })
+
+    # Auto-assign regime if dates present
+    regime_note = ""
+    if "date" in df.columns and df["date"].notna().any():
+        df, regime_note = assign_regimes(df)
+        kite_note += " | " + regime_note
+
+    try:
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
+        validator = QuantProofValidator(df)
+        report    = validator.run()
+    except Exception as e:
+        raise HTTPException(500, f"Validation failed: {str(e)}")
+
+    # FIX G2: report.score (not report.fundable_score)
+    # FIX K2/K3: top_issues and top_strengths must be List[str]
+    scored        = [c for c in report.checks if c.category != "Plausibility"]
+    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
+    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
+
+    date_range = "No date data"
+    if "date" in df.columns and df["date"].notna().any():
+        try:
+            dates = pd.to_datetime(df["date"]).dropna()
+            date_range = f"{dates.min().date()} to {dates.max().date()}"
+        except Exception:
+            pass
+
+    visible_checks = [c for c in report.checks if c.category != "Plausibility"]
+
+    try:
+        dashboard_obj  = ValidationDashboard(validator, report)
+        dashboard_data = dashboard_obj.generate_interactive_report()
+    except Exception:
+        dashboard_data = None
+
+    detected_currency = (currency or "INR").upper()
+
+    # FIX K4: all required fields populated (crash_sims from report, etc.)
+    return ValidationResponse(
+        fundable_score=report.score,            # FIX G2: was result.fundable_score
+        grade=report.grade,
+        summary=(
+            f"QuantProof analyzed {report.total_trades} Kite TradeBook trades across "
+            f"{len(scored)} institutional checks + 5 crash simulations. "
+            f"Source: Zerodha Kite TradeBook — self-reported data. "
+            f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
+        ),
+        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX K4
+        total_trades=report.total_trades,
+        profitable_trades=report.profitable_trades,   # FIX K7
+        date_range=date_range,
+        sharpe=round(report.sharpe, 2),
+        max_drawdown=round(report.max_drawdown, 4),
+        win_rate=round(report.win_rate, 1),
+        top_issues=top_issues,       # FIX K2: List[str] from c.fix
+        top_strengths=top_strengths, # FIX K3: List[str] from c.name
+        validation_hash=report.validation_hash + "-KITE",
+        validation_date=report.validation_date,
+        engine_version=report.engine_version,
+        audit_flags=report.audit_flags + [kite_note],
+        plausibility_summary=report.plausibility_summary,  # FIX K4
+        scale_warning=getattr(report, '_scale_warning', False),  # FIX K4
+        currency=detected_currency,   # FIX K4
+        assumptions=report.assumptions + [  # FIX K4
+            "Trade data sourced from Zerodha Kite TradeBook CSV — self-reported",
+            "Trades paired using FIFO lot matching (BUY→SELL per symbol)",
+        ],
+        dashboard=dashboard_data,
+        ai_plan=None,
+    )
+
+
+# =========================================================
+# TRADINGVIEW WEBHOOK
+# Fixes applied:
+#   TV1/TV2: Response matches ValidationResponse schema exactly
+#   TV3: _tv_pair_alerts rewritten — no double-append, clean FIFO pairing
+#   TV4: timestamp parsing handles both unix float and ISO strings
+#   TV6: ValueError from validator caught and re-raised as HTTPException
+# =========================================================
+
+TV_SESSIONS: dict = {}
+TV_SESSION_TTL_SECONDS      = 7 * 24 * 3600
+TV_MAX_ALERTS_PER_SESSION   = 2000
+
+
+def _tv_cleanup():
+    """Remove expired TradingView sessions."""
+    now     = time.time()
+    expired = [sid for sid, data in TV_SESSIONS.items()
+               if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS]
+    for sid in expired:
+        del TV_SESSIONS[sid]
+
+
+def _tv_pair_alerts(alerts: list) -> list:
+    """
+    Pair TradingView BUY/SELL alerts into closed round-trip trades.
+
+    FIX TV3: Complete rewrite — previous version appended each alert to
+    positions[symbol] and then ALSO tried to remove it in the same loop
+    iteration, causing double-counting and incorrect pairing.
+
+    This version uses a clean two-pass approach:
+      Pass 1: collect all BUYs and SELLs per symbol (sorted chronologically)
+      Pass 2: FIFO pair BUYs against SELLs
+    """
+    if not alerts:
+        return []
+
+    # FIX TV4: parse timestamp flexibly (unix float OR ISO string)
+    def _parse_ts(ts):
+        if ts is None:
+            return time.time()
+        if isinstance(ts, (int, float)):
+            return float(ts)
+        try:
+            return pd.Timestamp(ts).timestamp()
+        except Exception:
+            return time.time()
+
+    # Sort chronologically
+    sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
+
+    # Pass 1: separate BUYs and SELLs per symbol
+    buys  = defaultdict(list)
+    sells = defaultdict(list)
+
+    for alert in sorted_alerts:
+        symbol = alert.get("symbol", "UNKNOWN")
+        action = str(alert.get("action", "")).upper()
+        price  = float(alert.get("price", 0))
+        qty    = float(alert.get("quantity", 1))
+        ts     = _parse_ts(alert.get("timestamp"))
+        entry  = {"price": price, "qty": qty, "ts": ts}
+        if action == "BUY":
+            buys[symbol].append(entry)
+        elif action == "SELL":
+            sells[symbol].append(entry)
+
+    # Pass 2: FIFO pairing
+    trades = []
+    for symbol in sells:
+        buy_queue  = list(buys.get(symbol, []))  # copy so we can pop
+        sell_queue = list(sells[symbol])
+
+        for sell in sell_queue:
+            if not buy_queue:
+                break   # orphan sell — no matching buy in history
+            buy     = buy_queue.pop(0)
+            pnl_pct = (sell["price"] - buy["price"]) / buy["price"] if buy["price"] > 0 else 0.0
+            # FIX TV4: convert unix timestamp to pd.Timestamp for dates
+            try:
+                trade_date = pd.Timestamp(sell["ts"], unit="s")
+            except Exception:
+                trade_date = None
+            row = {
+                "pnl":    pnl_pct,
+                "ticker": symbol,
+                "side":   "long",
+            }
+            if trade_date is not None:
+                row["date"] = trade_date
+            trades.append(row)
+
+    return trades
+
+
+class TVSessionResponse(BaseModel):
+    session_id:  str
+    webhook_url: str
+    max_alerts:  int
+    ttl_hours:   int
+
+class TVAlert(BaseModel):
+    symbol:    str
+    action:    str        # BUY or SELL
+    price:     float
+    quantity:  Optional[float] = 1.0
+    timestamp: Optional[float] = None   # unix seconds preferred; ISO string also accepted
+
+class TVStatusResponse(BaseModel):
+    session_id:      str
+    alerts_received: int
+    trades_paired:   int
+    status:          str
+    created_at:      float
+    expires_at:      float
+
+
+@app.get("/webhook/tradingview/new-session", response_model=TVSessionResponse)
+def create_tv_session():
+    """Create a new TradingView webhook session."""
+    _tv_cleanup()
+    session_id  = str(uuid.uuid4())
+    webhook_url = (
+        f"{os.getenv('BASE_URL', 'https://quantproof-backend.onrender.com')}"
+        f"/webhook/tradingview/{session_id}"
+    )
+    TV_SESSIONS[session_id] = {
+        "session_id":  session_id,
+        "webhook_url": webhook_url,
+        "alerts":      [],
+        "created_at":  time.time(),
+        "expires_at":  time.time() + TV_SESSION_TTL_SECONDS,
+    }
+    return TVSessionResponse(
+        session_id=session_id,
+        webhook_url=webhook_url,
+        max_alerts=TV_MAX_ALERTS_PER_SESSION,
+        ttl_hours=TV_SESSION_TTL_SECONDS // 3600,
+    )
+
+
+@app.post("/webhook/tradingview/{session_id}")
+def receive_tv_alert(session_id: str, alert: TVAlert):
+    """Receive a TradingView webhook alert and store it in the session."""
+    _tv_cleanup()
+    if session_id not in TV_SESSIONS:
+        raise HTTPException(404, "Session not found or expired")
+    session = TV_SESSIONS[session_id]
+    if time.time() > session["expires_at"]:
+        del TV_SESSIONS[session_id]
+        raise HTTPException(404, "Session expired")
+    if len(session["alerts"]) >= TV_MAX_ALERTS_PER_SESSION:
+        raise HTTPException(429, "Alert limit exceeded for this session")
+    alert_dict = alert.dict()
+    if alert_dict.get("timestamp") is None:
+        alert_dict["timestamp"] = time.time()
+    session["alerts"].append(alert_dict)
+    return {"status": "received", "alerts_count": len(session["alerts"])}
+
+
+@app.get("/webhook/tradingview/{session_id}/status", response_model=TVStatusResponse)
+def get_tv_status(session_id: str):
+    """Get TradingView session status and trade pair count."""
+    _tv_cleanup()
+    if session_id not in TV_SESSIONS:
+        raise HTTPException(404, "Session not found or expired")
+    session = TV_SESSIONS[session_id]
+    alerts  = session["alerts"]
+    trades  = _tv_pair_alerts(alerts)
+    status  = "active"
+    if time.time() > session["expires_at"]:
+        status = "expired"
+    elif len(alerts) >= TV_MAX_ALERTS_PER_SESSION:
+        status = "full"
+    return TVStatusResponse(
+        session_id=session_id,
+        alerts_received=len(alerts),
+        trades_paired=len(trades),
+        status=status,
+        created_at=session["created_at"],
+        expires_at=session["expires_at"],
+    )
+
+
+@app.post("/webhook/tradingview/{session_id}/validate", response_model=ValidationResponse)
+def validate_tv_alerts(session_id: str):
+    """
+    Validate TradingView session alerts using QuantProof.
+
+    FIX TV1/TV2: Returns proper ValidationResponse with all required fields
+      (crash_sims, profitable_trades, scale_warning, currency, assumptions).
+    FIX TV3: Uses fixed _tv_pair_alerts (no double-append bug).
+    FIX TV6: ValueError from validator caught → 400 HTTPException.
+    """
+    _tv_cleanup()
+    if session_id not in TV_SESSIONS:
+        raise HTTPException(404, "Session not found or expired")
+
+    session = TV_SESSIONS[session_id]
+    alerts  = session["alerts"]
+
+    if len(alerts) < 10:
+        raise HTTPException(
+            400,
+            f"Need at least 10 alerts for validation, only have {len(alerts)}. "
+            "Keep sending webhook alerts and try again."
+        )
+
+    trades = _tv_pair_alerts(alerts)
+
+    if len(trades) < 5:
+        raise HTTPException(
+            400,
+            f"Only paired {len(trades)} completed trades from {len(alerts)} alerts. "
+            "Need at least 5. Make sure you have both BUY and SELL alerts for each symbol."
+        )
+
+    df = pd.DataFrame(trades)
+
+    # Auto-assign regime
+    regime_note = ""
+    if "date" in df.columns and df["date"].notna().any():
+        df, regime_note = assign_regimes(df)
+
+    try:
+        # FIX TV6: catch ValueError (too few trades etc.) as 400 not 500
+        validator = QuantProofValidator(df)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    try:
+        report = validator.run()
+    except Exception as e:
+        raise HTTPException(500, f"Validation failed: {str(e)}")
+
+    # FIX TV1/TV2: top_issues/top_strengths as List[str], all fields present
+    scored        = [c for c in report.checks if c.category != "Plausibility"]
+    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
+    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
+    visible_checks = [c for c in report.checks if c.category != "Plausibility"]
+
+    date_range = "No date data"
+    if "date" in df.columns and df["date"].notna().any():
+        try:
+            dates = pd.to_datetime(df["date"]).dropna()
+            date_range = f"{dates.min().date()} to {dates.max().date()}"
+        except Exception:
+            pass
+
+    audit_note = (
+        f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
+        + (f" | {regime_note}" if regime_note else "")
+    )
+
+    return ValidationResponse(
+        fundable_score=report.score,
+        grade=report.grade,
+        summary=(
+            f"QuantProof analyzed {report.total_trades} TradingView-constructed trades across "
+            f"{len(scored)} institutional checks + 5 crash simulations. "
+            f"Source: TradingView webhook alerts — paired into trades. "
+            f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
+        ),
+        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX TV2
+        total_trades=report.total_trades,
+        profitable_trades=report.profitable_trades,   # FIX TV2
+        date_range=date_range,
+        sharpe=round(report.sharpe, 2),
+        max_drawdown=round(report.max_drawdown, 4),
+        win_rate=round(report.win_rate, 1),
+        top_issues=top_issues,       # FIX TV1: List[str]
+        top_strengths=top_strengths, # FIX TV1: List[str]
+        validation_hash=report.validation_hash + "-TV",
+        validation_date=report.validation_date,
+        engine_version=report.engine_version,
+        audit_flags=report.audit_flags + [audit_note],
+        plausibility_summary=report.plausibility_summary,   # FIX TV2
+        scale_warning=getattr(report, '_scale_warning', False),  # FIX TV2
+        currency="USD",   # FIX TV2
+        assumptions=report.assumptions + [  # FIX TV2
+            "Trade data sourced from TradingView webhook alerts — self-reported",
+            "Trades constructed by pairing BUY/SELL alerts in chronological order",
+            "Not broker-verified — cannot be used for prop firm compliance submissions",
+        ],
+        dashboard=None,
+        ai_plan=None,
+    )
+
+
+@app.post("/webhook/tradingview/{session_id}/reset")
+def reset_tv_session(session_id: str):
+    """Clear all alerts in a session, keeping the session active."""
+    _tv_cleanup()
+    if session_id not in TV_SESSIONS:
+        raise HTTPException(404, "Session not found or expired")
+    TV_SESSIONS[session_id]["alerts"] = []
+    return {"status": "reset", "message": "Alerts cleared, session remains active"}
 
 
 
