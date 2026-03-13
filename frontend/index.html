@@ -345,7 +345,13 @@
     .mode-grid        { grid-template-columns: 1fr; }
   }
 
-  .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 0; }
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .mode-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (min-width: 1025px) {
+    .mode-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
+  }
 
   .mode-card {
     background: var(--deep); border: 1px solid var(--border);
@@ -497,6 +503,66 @@
         <div class="format-hint" style="margin-top:10px;">pnl column required &nbsp;|&nbsp; date, ticker optional &nbsp;|&nbsp; regime auto-detected from SPY if dates present</div>
       </div>
 
+      <!-- KITE MODE -->
+      <div class="mode-card" id="kiteCard">
+        <div class="mode-tag">// ZERODHA KITE</div>
+        <div class="mode-icon">🪁</div>
+        <div class="mode-title">Kite TradeBook</div>
+        <div class="mode-desc">Upload your Zerodha Kite TradeBook CSV for specialized parsing and validation. Automatically detects and pairs trades from Kite export format.</div>
+        <div class="mode-limits">
+          <span class="mode-limit-item">3 free / day</span>
+          <span class="mode-limit-item">Kite format</span>
+          <span class="mode-limit-item">Auto-pairing</span>
+        </div>
+        <div class="mode-warning">⚠ Self-reported data (not broker verified)</div>
+        <div style="margin:12px 0 4px 0">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
+          <select id="kiteCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--mono)">
+            <option value="INR">🇮🇳 INR — Indian Rupee</option>
+            <option value="USD">🇺🇸 USD — US Dollar</option>
+            <option value="GBP">🇬🇧 GBP — British Pound</option>
+            <option value="EUR">🇪🇺 EUR — Euro</option>
+            <option value="CAD">🇨🇦 CAD — Canadian Dollar</option>
+            <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
+            <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
+            <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
+            <option value="HKD">🇭🇰 HKD — Hong Kong Dollar</option>
+            <option value="CHF">🇨🇭 CHF — Swiss Franc</option>
+            <option value="AED">🇦🇪 AED — UAE Dirham</option>
+            <option value="SAR">🇸🇦 SAR — Saudi Riyal</option>
+            <option value="MYR">🇲🇾 MYR — Malaysian Ringgit</option>
+            <option value="BRL">🇧🇷 BRL — Brazilian Real</option>
+            <option value="ZAR">🇿🇦 ZAR — South African Rand</option>
+            <option value="KRW">🇰🇷 KRW — South Korean Won</option>
+            <option value="TRY">🇹🇷 TRY — Turkish Lira</option>
+            <option value="MXN">🇲🇽 MXN — Mexican Peso</option>
+          </select>
+        </div>
+        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('kiteFileInput').click()">
+          SELECT KITE CSV
+        </button>
+        <input type="file" id="kiteFileInput" accept=".csv">
+        <div class="format-hint" style="margin-top:10px;">Export from Kite TradeBook &nbsp;|&nbsp; trade_date, symbol, trade_type required &nbsp;|&nbsp; auto-pairs BUY/SELL</div>
+      </div>
+
+      <!-- TRADINGVIEW MODE -->
+      <div class="mode-card" id="tradingviewCard">
+        <div class="mode-tag">// TRADINGVIEW</div>
+        <div class="mode-icon">📈</div>
+        <div class="mode-title">TradingView Webhook</div>
+        <div class="mode-desc">Create a webhook session to capture TradingView alerts in real-time. Pair alerts into trades and run institutional validation.</div>
+        <div class="mode-limits">
+          <span class="mode-limit-item">Free sessions</span>
+          <span class="mode-limit-item">7 day TTL</span>
+          <span class="mode-limit-item">2000 alerts</span>
+        </div>
+        <div class="mode-verified-note">✓ Real-time alert capture</div>
+        <button class="upload-btn" style="width:100%;margin-top:16px;" onclick="createTradingViewSession()">
+          CREATE WEBHOOK SESSION
+        </button>
+        <div id="tradingviewStatus" style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:16px;"></div>
+      </div>
+
       <!-- BROKER MODE -->
       <div class="mode-card mode-card-verified" id="brokerCard">
         <div class="mode-tag" style="color:var(--accent)">// VERIFIED VALIDATION</div>
@@ -624,6 +690,8 @@
 
   const csvCard  = document.getElementById('csvCard');
   const fileInput = document.getElementById('fileInput');
+  const kiteCard  = document.getElementById('kiteCard');
+  const kiteFileInput = document.getElementById('kiteFileInput');
 
   if (csvCard) {
     csvCard.addEventListener('dragover', e => { e.preventDefault(); csvCard.style.borderColor = 'var(--accent)'; });
@@ -638,6 +706,21 @@
 
   if (fileInput) fileInput.addEventListener('change', e => {
     if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+
+  if (kiteCard) {
+    kiteCard.addEventListener('dragover', e => { e.preventDefault(); kiteCard.style.borderColor = 'var(--accent)'; });
+    kiteCard.addEventListener('dragleave', () => kiteCard.style.borderColor = '');
+    kiteCard.addEventListener('drop', e => {
+      e.preventDefault();
+      kiteCard.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file) handleKiteFile(file);
+    });
+  }
+
+  if (kiteFileInput) kiteFileInput.addEventListener('change', e => {
+    if (e.target.files[0]) handleKiteFile(e.target.files[0]);
   });
 
   let _lastValidatedFile = null;
@@ -821,7 +904,7 @@
         </div>
       </div>
 
-      ${_validationMode === 'broker'
+      ${_validationMode === 'broker' || _validationMode === 'alpaca'
         ? `<div class="verified-banner">
             <div class="verified-icon">✓</div>
             <div>
@@ -831,7 +914,7 @@
           </div>`
         : `<div class="csv-warning-banner">
             <div class="warn-icon">⚠</div>
-            <div class="warn-text"><strong>CSV Mode</strong> — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div>
+            <div class="warn-text"><strong>${_validationMode === 'kite' ? 'Kite TradeBook' : _validationMode === 'tradingview' ? 'TradingView Webhook' : 'CSV Mode'}</strong> — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div>
             <div class="warn-link" onclick="resetApp()">Connect Broker →</div>
           </div>`
       }
@@ -962,7 +1045,9 @@
     document.getElementById('uploadSection').style.display = 'block';
     document.getElementById('heroSection').style.display   = 'block';
     document.getElementById('fileInput').value = '';
+    document.getElementById('kiteFileInput').value = '';
     document.getElementById('alpacaPanel').style.display = 'none';
+    document.getElementById('tradingviewStatus').innerHTML = '';
     _validationMode = 'csv';
     _brokerSource   = '';
     window.scrollTo(0, 0);
@@ -1272,6 +1357,190 @@
       document.getElementById('uploadSection').style.display = 'block';
       document.getElementById('heroSection').style.display   = 'block';
       document.getElementById('alpacaPanel').style.display   = 'block';
+      status.innerText = 'Error: ' + err.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  // KITE TRADEBOOK HANDLER
+  async function handleKiteFile(file) {
+    if (!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
+
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('heroSection').style.display   = 'none';
+    document.getElementById('loadingSection').classList.add('active');
+
+    _lastValidatedFile = file;
+    _validationMode = 'kite';
+    _brokerSource   = '';
+
+    // Persist file for post-payment download
+    try {
+      const reader = new FileReader();
+      reader.onload = e => {
+        sessionStorage.setItem('qp_filename', file.name);
+        sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
+        sessionStorage.setItem('qp_source', 'kite');
+      };
+      reader.readAsDataURL(file);
+    } catch(e) {}
+
+    const formData = new FormData();
+    formData.append('file', file);
+    const selCur = document.getElementById('kiteCurrency');
+    if (selCur) formData.append('currency', selCur.value);
+    setCurrency(selCur ? selCur.value : 'INR');
+
+    try {
+      const response = await fetch(`${API_URL}/validate/kite`, { method: 'POST', body: formData });
+      if (!response.ok) {
+        const err    = await response.json();
+        const detail = err.detail || err;
+        if (detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        throw new Error(detail.message || detail || 'Kite validation failed');
+      }
+      const data = await response.json();
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      setTimeout(() => {
+        document.getElementById('loadingSection').classList.remove('active');
+        renderResults(data);
+      }, 3200);
+    } catch (err) {
+      document.getElementById('loadingSection').classList.remove('active');
+      document.getElementById('uploadSection').style.display = 'block';
+      document.getElementById('heroSection').style.display   = 'block';
+      alert(`Kite validation error: ${err.message}`);
+    }
+  }
+
+  // TRADINGVIEW WEBHOOK HANDLER
+  async function createTradingViewSession() {
+    const status = document.getElementById('tradingviewStatus');
+    status.innerText = 'Creating webhook session...';
+    status.style.color = 'var(--accent3)';
+
+    try {
+      const response = await fetch(`${API_URL}/webhook/tradingview/new-session`, { method: 'GET' });
+      if (!response.ok) throw new Error('Failed to create session');
+      
+      const session = await response.json();
+      
+      // Show session details
+      const sessionDiv = document.createElement('div');
+      sessionDiv.style.cssText = 'background:var(--surface);border:1px solid var(--border);padding:16px;margin:12px 0;font-family:var(--mono);font-size:12px;line-height:1.6;';
+      sessionDiv.innerHTML = `
+        <div style="color:var(--accent);margin-bottom:8px;font-weight:700;">✓ WEBHOOK SESSION CREATED</div>
+        <div style="margin-bottom:6px;"><strong>Session ID:</strong> ${session.session_id}</div>
+        <div style="margin-bottom:6px;"><strong>Webhook URL:</strong></div>
+        <div style="background:var(--deep);padding:8px;margin:4px 0;word-break:break-all;font-size:11px;color:var(--accent3);">${session.webhook_url}</div>
+        <div style="margin-bottom:6px;"><strong>Max Alerts:</strong> ${session.max_alerts}</div>
+        <div style="margin-bottom:6px;"><strong>TTL:</strong> ${session.ttl_hours} hours</div>
+        <div style="margin-top:12px;color:var(--muted);font-size:11px;">
+          Use this URL in your TradingView webhook strategy. Send POST requests with:<br>
+          {"symbol": "AAPL", "action": "BUY", "price": 150.0, "quantity": 10}<br><br>
+          <button onclick="validateTradingViewSession('${session.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;margin-right:8px;">Validate Now</button>
+          <button onclick="checkTradingViewStatus('${session.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;">Check Status</button>
+        </div>
+      `;
+      
+      status.innerHTML = '';
+      status.appendChild(sessionDiv);
+      
+    } catch (err) {
+      status.innerText = 'Error: ' + err.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  async function validateTradingViewSession(sessionId) {
+    const status = document.getElementById('tradingviewStatus');
+    status.innerText = 'Validating TradingView alerts...';
+    status.style.color = 'var(--accent3)';
+
+    try {
+      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`, { method: 'POST' });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Validation failed');
+      }
+      
+      const data = await response.json();
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      
+      // Hide upload section and show results
+      document.getElementById('uploadSection').style.display = 'none';
+      document.getElementById('heroSection').style.display   = 'none';
+      document.getElementById('loadingSection').classList.add('active');
+      
+      _validationMode = 'tradingview';
+      _brokerSource   = 'tradingview';
+      
+      setTimeout(() => {
+        document.getElementById('loadingSection').classList.remove('active');
+        renderResults(data);
+      }, 2500);
+
+    } catch(err) {
+      status.innerText = 'Error: ' + err.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  async function checkTradingViewStatus(sessionId) {
+    const status = document.getElementById('tradingviewStatus');
+    status.innerText = 'Checking session status...';
+    status.style.color = 'var(--accent3)';
+
+    try {
+      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/status`, { method: 'GET' });
+      if (!response.ok) throw new Error('Failed to get status');
+      
+      const sessionData = await response.json();
+      
+      // Update status display
+      const statusDiv = document.createElement('div');
+      statusDiv.style.cssText = 'background:var(--surface);border:1px solid var(--border);padding:16px;margin:12px 0;font-family:var(--mono);font-size:12px;line-height:1.6;';
+      statusDiv.innerHTML = `
+        <div style="color:var(--accent);margin-bottom:8px;font-weight:700;">SESSION STATUS</div>
+        <div style="margin-bottom:6px;"><strong>Session ID:</strong> ${sessionData.session_id}</div>
+        <div style="margin-bottom:6px;"><strong>Alerts Received:</strong> ${sessionData.alerts_received}</div>
+        <div style="margin-bottom:6px;"><strong>Trades Paired:</strong> ${sessionData.trades_paired}</div>
+        <div style="margin-bottom:6px;"><strong>Status:</strong> ${sessionData.status}</div>
+        <div style="margin-bottom:6px;"><strong>Expires:</strong> ${new Date(sessionData.expires_at * 1000).toLocaleString()}</div>
+        <div style="margin-top:12px;">
+          <button onclick="validateTradingViewSession('${sessionData.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;margin-right:8px;">Validate Now</button>
+          <button onclick="resetTradingViewSession('${sessionData.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;">Reset Session</button>
+        </div>
+      `;
+      
+      status.innerHTML = '';
+      status.appendChild(statusDiv);
+      
+    } catch (err) {
+      status.innerText = 'Error: ' + err.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  async function resetTradingViewSession(sessionId) {
+    const status = document.getElementById('tradingviewStatus');
+    status.innerText = 'Resetting session...';
+    status.style.color = 'var(--accent3)';
+
+    try {
+      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/reset`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to reset');
+      
+      const result = await response.json();
+      status.innerText = '✓ Session reset - alerts cleared';
+      status.style.color = 'var(--accent)';
+      
+      setTimeout(() => {
+        status.innerText = 'Ready for new alerts';
+        status.style.color = 'var(--muted)';
+      }, 2000);
+      
+    } catch (err) {
       status.innerText = 'Error: ' + err.message;
       status.style.color = '#ff4444';
     }
