@@ -915,8 +915,8 @@ def _get_cached_validation(v_hash: str) -> dict | None:
 _TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
 RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
-REPORT_PRICE_USD    = 9
-REPORT_PRICE_INR    = 999
+REPORT_PRICE_USD    = 4
+REPORT_PRICE_INR    = 299
 
 
 @app.post("/report/generate")
@@ -1051,7 +1051,7 @@ async def create_checkout(payload: dict):
     try:
         client = razorpay.Client(auth=(key_id, key_secret))
         order  = client.order.create({
-            "amount": 99900, "currency": "INR", "payment_capture": 1,
+            "amount": 29900, "currency": "INR", "payment_capture": 1,
             "notes": {"product": "QuantProof Full Report"}
         })
         return {"order_id": order["id"], "amount": order["amount"],
