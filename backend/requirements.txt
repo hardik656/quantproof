@@ -9,3 +9,6 @@ pydantic
 reportlab
 httpx
 razorpay
+yfinance
+statsmodels
+hmmlearn
