@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -249,7 +248,9 @@
         </div>
         <div class="mode-verified-note">✓ Trades verified against real market data</div>
         <button class="upload-btn mode-btn-alpaca" style="width:100%;margin-top:16px;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
-        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="showIBKRSoon()">IBKR — COMING SOON</button>
+        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">
+          CONNECT IBKR
+        </button>
       </div>
 
     </div>
@@ -293,6 +294,7 @@
         </div>
       </div>
     </div>
+    <!-- IBKR panel injected dynamically by showIBKRConnect() -->
   </div>
 
   <div class="loading" id="loadingSection">
@@ -585,7 +587,7 @@
                     ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
                     :`<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                         <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">🔒 Fix instructions + AI analysis locked</div>
-                        <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Unlock — ₹999</button>
+                        <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Fix this — ₹299</button>
                       </div>`
                   }
                 </div>
@@ -594,16 +596,29 @@
         }).join('')}
       </div>
 
-      <div style="margin:32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
+
+      <!-- AI PLAN TEASER — visible free, creates urgency for paid -->
+      <div style="margin:32px 0 0 0;padding:20px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.15);position:relative;overflow:hidden;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:10px;">// AI ANALYSIS PREVIEW</div>
+        <div id="aiTeaserText" style="font-size:13px;color:var(--muted);line-height:1.8;position:relative;">
+          <span id="aiTeaserContent">${buildAiTeaser(data)}</span>
+          <!-- blur fade overlay -->
+          <div style="position:absolute;bottom:0;left:0;right:0;height:48px;background:linear-gradient(transparent,rgba(13,17,23,0.97));pointer-events:none;"></div>
+        </div>
+        <div style="margin-top:14px;font-size:11px;color:var(--muted);font-family:var(--mono);">
+          Full ranked fix plan with specific numbers → unlocked in report
+        </div>
+      </div>
+      <div style="margin:12px 0 32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
         <div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// FULL ANALYSIS REPORT</div>
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">${(data.checks||[]).filter(c=>!c.passed).length} fixes waiting — get the complete action plan</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6;">Every fix ranked by impact &nbsp;·&nbsp; AI personalised action plan &nbsp;·&nbsp; Crash sim analysis &nbsp;·&nbsp; Instant PDF</div>
         </div>
         <div style="text-align:center;flex-shrink:0;">
-          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Pay ₹999 (India — UPI / Cards)</button>
+          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)</button>
           <button onclick="showIntlComingSoon()" style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">🌍 International — Coming Soon</button>
-          <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
+          <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant PDF &nbsp;·&nbsp; No subscription</div>
         </div>
       </div>
 
@@ -633,6 +648,51 @@
     document.getElementById('tradingviewStatus').innerHTML = '';
     _validationMode = 'csv'; _brokerSource = '';
     window.scrollTo(0, 0);
+  }
+
+
+  // Build a personalised 2-sentence teaser from the free data
+  // Specific enough to show value, not so specific they don't need to pay
+  function buildAiTeaser(data) {
+    const failed   = (data.checks || []).filter(c => !c.passed && c.category !== 'Plausibility');
+    const score    = data.fundable_score;
+    const sharpe   = data.sharpe;
+    const dd       = (data.max_drawdown * 100).toFixed(1);
+    const wr       = data.win_rate;
+    const n        = data.total_trades;
+    
+    // Find worst category
+    const cats = {};
+    failed.forEach(c => { cats[c.category] = (cats[c.category] || 0) + 1; });
+    const worstCat = Object.entries(cats).sort((a,b) => b[1]-a[1])[0];
+    const worstName = worstCat ? worstCat[0] : 'Risk';
+    const worstCount = worstCat ? worstCat[1] : 0;
+    
+    // Find single worst check by score
+    const worst = failed.sort((a,b) => a.score - b.score)[0];
+    
+    if (!worst) {
+      return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. The AI analysis found no critical failures — see the full report for optimisation suggestions.`;
+    }
+    
+    // Build specific teaser sentence 1: the core problem
+    let s1 = '';
+    if (worstName === 'Overfitting') {
+      s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
+    } else if (worstName === 'Risk') {
+      s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
+    } else if (worstName === 'Regime') {
+      s1 = `Your strategy's behaviour across different market conditions is the main issue — it hasn't been tested in enough regime types to be trusted live.`;
+    } else if (worstName === 'Execution') {
+      s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
+    } else {
+      s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
+    }
+    
+    // Sentence 2: the single most actionable fix (specific to their worst check)
+    const s2 = `The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
+    
+    return s1 + ' ' + s2;
   }
 
   // ── PDF purchase ───────────────────────────────────────────
@@ -675,7 +735,7 @@
       if(btn){btn.innerText='✓ Report Downloaded';btn.style.background='var(--accent)';btn.style.color='#000';}
       if(status){status.innerText='Your full report has been downloaded.';status.style.color='var(--accent)';}
     } catch(err) {
-      if(btn){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';}
+      if(btn){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';}
       if(status){status.innerText='Download failed: '+err.message;status.style.color='#ff4444';}
     }
   }
@@ -690,7 +750,7 @@
       if(data.error) throw new Error(data.message||data.error);
       const options={
         key:data.key_id, amount:data.amount, currency:data.currency,
-        name:'QuantProof', description:'Full Validation Report — 40 checks + AI plan',
+        name:'QuantProof', description:'Personalised Fix Plan — 40 checks + AI analysis',
         order_id:data.order_id, theme:{color:'#00ff88'}, prefill:{},
         handler: async function(response) {
           if(status){status.innerText='Verifying payment...';status.style.color='var(--accent)';}
@@ -700,15 +760,15 @@
             if(!vd.token) throw new Error('Payment verification failed');
             if(btn) btn.innerText='Generating PDF...';
             await generatePdfWithToken(vd.token);
-          } catch(ve){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
+          } catch(ve){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
         },
-        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status)status.innerText='';}}
+        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status)status.innerText='';}}
       };
       if(typeof Razorpay==='undefined') throw new Error('Payment system failed to load. Please refresh.');
       const rzp=new Razorpay(options);
-      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
+      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
       rzp.open();
-    } catch(err){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
+    } catch(err){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
 
   // ── LS return handler ──────────────────────────────────────
@@ -751,6 +811,110 @@
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
   function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
   function showIBKRSoon(){alert('IBKR integration is coming soon. Use Alpaca for now, or upload a CSV.');}
+
+  function showIBKRConnect() {
+    // Show IBKR instructions panel
+    const existing = document.getElementById('ibkrPanel');
+    if (existing) { existing.remove(); return; }
+    
+    const panel = document.createElement('div');
+    panel.id = 'ibkrPanel';
+    panel.style.cssText = 'margin-top:16px;background:var(--deep);border:1px solid rgba(0,255,136,0.2);padding:28px;';
+    panel.innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:14px;">// CONNECT INTERACTIVE BROKERS</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:18px;">
+        IBKR uses a Flex Web Service for data access. One-time setup takes ~5 minutes.
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:2.0;margin-bottom:18px;">
+        1. Log into <a href="https://clientportal.ibkr.com" target="_blank" style="color:var(--accent)">IBKR Client Portal</a><br>
+        2. Go to: Performance & Reports → Flex Queries → Create<br>
+        3. Choose "Trade Confirmation Flex Query"<br>
+        4. Select fields: <span style="color:var(--accent3)">TradeDate, Symbol, Quantity, Price, NetCash, OpenCloseIndicator, FifoPnlRealized, Currency</span><br>
+        5. Save → note the <b>Query ID</b><br>
+        6. Settings → Flex Web Service → Generate Token → copy your <b>Flex Token</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">ACCOUNT ID</div>
+          <input id="ibkrAccountId" type="text" placeholder="U1234567"
+            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">QUERY ID</div>
+          <input id="ibkrQueryId" type="text" placeholder="123456"
+            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">FLEX TOKEN</div>
+        <input id="ibkrToken" type="password" placeholder="••••••••••••••••••••••••••••••"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="handleIBKRConnect()" class="upload-btn" style="flex:1;">FETCH & VALIDATE</button>
+        <button onclick="document.getElementById('ibkrPanel').remove()" 
+          style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 20px;font-family:var(--mono);font-size:12px;cursor:pointer;">Cancel</button>
+      </div>
+      <div id="ibkrStatus" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:16px;"></div>
+      <div style="margin-top:14px;padding:10px 14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
+        🔒 Flex Token is used read-only and never stored. Cannot place orders.
+      </div>
+    `;
+    document.getElementById('brokerCard').after(panel);
+    panel.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  async function handleIBKRConnect() {
+    const accountId = document.getElementById('ibkrAccountId').value.trim();
+    const queryId   = document.getElementById('ibkrQueryId').value.trim();
+    const token     = document.getElementById('ibkrToken').value.trim();
+    const status    = document.getElementById('ibkrStatus');
+
+    if (!accountId || !queryId || !token) {
+      status.innerText = 'Please fill in all three fields.';
+      status.style.color = '#ff4444';
+      return;
+    }
+
+    status.innerText = 'Connecting to IBKR Flex...';
+    status.style.color = 'var(--accent3)';
+
+    _validationMode = 'broker';
+    _brokerSource   = 'ibkr';
+    showLoading();
+
+    try {
+      const resp = await fetch(`${API_URL}/connect/ibkr`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          account_id:  accountId,
+          flex_token:  token,
+          query_id:    queryId,
+          days_back:   365
+        })
+      });
+
+      if (!resp.ok) {
+        const err    = await resp.json();
+        const detail = err.detail || err;
+        hideLoading(true);
+        document.getElementById('ibkrPanel') && (document.getElementById('ibkrStatus').innerText = 'Error: ' + (detail.message || detail));
+        document.getElementById('ibkrStatus') && (document.getElementById('ibkrStatus').style.color = '#ff4444');
+        throw new Error(detail.message || detail || 'IBKR connection failed');
+      }
+
+      const result = await resp.json();
+      const data   = result.validation;
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      setTimeout(() => { hideLoading(); renderResults(data); }, 2500);
+
+    } catch(err) {
+      hideLoading(true);
+      alert('IBKR error: ' + err.message);
+    }
+  }
+
 
   async function handleAlpacaConnect() {
     const key=document.getElementById('alpacaKey').value.trim(), secret=document.getElementById('alpacaSecret').value.trim();
