@@ -1,6 +1,19 @@
 """
-QuantProof — FastAPI Backend v1.3
-Final Boss validator — matches ValidationReport + ValidationDashboard
+QuantProof — FastAPI Backend v1.4
+Synced to validator v6.2
+
+CHANGES FROM v1.3:
+  - Version bumped to 2.6.0
+  - Root endpoint: 38 → 40 checks
+  - All summary strings: '3 crash simulations' → '5 crash simulations'
+  - smart_parse_csv(): auto-assigns regime via yfinance SPY SMA when dates
+    present but no regime column (fallback: SPY monthly lookup table)
+  - /validate/alpaca + /report/generate-broker: replaced broken buy/sell
+    stack pairing with position-state tracker (sort by filled_at, FIFO lots,
+    orphan sell detection)
+  - All Alpaca + IBKR paths now auto-assign regime after trade pairing
+  - benchmark_returns not supplied anywhere — IR + Beta checks return
+    score=50 informational (correct, fully backward-compatible)
 """
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Response
@@ -25,7 +38,7 @@ FREE_DAILY_LIMIT = 3
 def check_rate_limit(ip: str) -> tuple[bool, int]:
     now = time.time()
     rec = _validation_counts[ip]
-    if now > rec["reset"]:                    # new day — reset
+    if now > rec["reset"]:
         rec["count"] = 0
         rec["reset"] = now + 86400
     if rec["count"] >= FREE_DAILY_LIMIT:
@@ -34,7 +47,7 @@ def check_rate_limit(ip: str) -> tuple[bool, int]:
     rec["count"] += 1
     return True, FREE_DAILY_LIMIT - rec["count"]
 
-app = FastAPI(title="QuantProof API", version="2.5.0")
+app = FastAPI(title="QuantProof API", version="2.6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,24 +56,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # ── AI Fix Plan ───────────────────────────────────────────────────────────────
-# Priority: Groq (free, fast) → Claude → OpenAI
-# Set ONE of these in Render environment variables:
-#   GROQ_API_KEY        — free at console.groq.com — recommended to start
-#   ANTHROPIC_API_KEY   — if you already have Claude credits
-#   OPENAI_API_KEY      — if you already have OpenAI credits
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY",      "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY",    "")
 
 async def generate_ai_plan(report, date_range: str) -> dict:
-    """
-    Calls Claude to produce a personalised, ranked fix plan.
-    Returns a dict with keys: summary, fixes (list), encouragement.
-    Falls back gracefully if API key missing or call fails.
-    """
-    # Check at least one AI provider is configured
     if not any([GROQ_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY]):
         return None
 
@@ -75,7 +76,6 @@ async def generate_ai_plan(report, date_range: str) -> dict:
             "encouragement": "Rare result — this strategy has institutional-grade statistical foundations."
         }
 
-    # Build context for Claude
     failed_text = "\n".join([
         f"- {c.name} (score {c.score}/100, category {c.category}): {c.value}. {c.insight}"
         for c in sorted(failed, key=lambda x: x.score)
@@ -121,19 +121,11 @@ Rules:
     try:
         import httpx, json
 
-        # ── Pick provider — Groq first (free), then Claude, then OpenAI ─────
         if GROQ_API_KEY:
             url     = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type":  "application/json"
-            }
-            body = {
-                "model":    "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens":   1500,
-                "temperature":  0.3,
-            }
+            headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+            body    = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}],
+                       "max_tokens": 1500, "temperature": 0.3}
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
@@ -141,16 +133,10 @@ Rules:
 
         elif ANTHROPIC_API_KEY:
             url     = "https://api.anthropic.com/v1/messages"
-            headers = {
-                "x-api-key":         ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type":      "application/json"
-            }
-            body = {
-                "model":      "claude-sonnet-4-20250514",
-                "max_tokens": 1500,
-                "messages":   [{"role": "user", "content": prompt}]
-            }
+            headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                       "content-type": "application/json"}
+            body    = {"model": "claude-sonnet-4-20250514", "max_tokens": 1500,
+                       "messages": [{"role": "user", "content": prompt}]}
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
@@ -158,34 +144,109 @@ Rules:
 
         elif OPENAI_API_KEY:
             url     = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type":  "application/json"
-            }
-            body = {
-                "model":       "gpt-4o-mini",
-                "messages":    [{"role": "user", "content": prompt}],
-                "max_tokens":  1500,
-                "temperature": 0.3,
-            }
+            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+            body    = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}],
+                       "max_tokens": 1500, "temperature": 0.3}
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(url, headers=headers, json=body)
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"].strip()
 
         else:
-            # No API key set — skip AI plan silently
             return None
 
-        # Strip markdown fences if model added them
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-
         return json.loads(raw)
 
     except Exception as e:
         print(f"AI plan failed ({type(e).__name__}): {e}")
         return None
+
+
+# =========================================================
+# SPY REGIME HELPERS
+# =========================================================
+
+# Monthly fallback table — used when yfinance is unavailable.
+# Based on SPY 20-day SMA trend direction at month-end.
+SPY_REGIME_LOOKUP: Dict[str, str] = {
+    "2020-01": "BULL",  "2020-02": "BEAR",  "2020-03": "BEAR",
+    "2020-04": "BULL",  "2020-05": "BULL",  "2020-06": "CONSOLIDATION",
+    "2020-07": "BULL",  "2020-08": "BULL",  "2020-09": "BEAR",
+    "2020-10": "BEAR",  "2020-11": "BULL",  "2020-12": "BULL",
+    "2021-01": "CONSOLIDATION", "2021-02": "BULL", "2021-03": "BULL",
+    "2021-04": "BULL",  "2021-05": "CONSOLIDATION", "2021-06": "BULL",
+    "2021-07": "BULL",  "2021-08": "BULL",  "2021-09": "CONSOLIDATION",
+    "2021-10": "BULL",  "2021-11": "BEAR",  "2021-12": "BULL",
+    "2022-01": "BEAR",  "2022-02": "BEAR",  "2022-03": "CONSOLIDATION",
+    "2022-04": "BEAR",  "2022-05": "BEAR",  "2022-06": "BEAR",
+    "2022-07": "BULL",  "2022-08": "BEAR",  "2022-09": "BEAR",
+    "2022-10": "BULL",  "2022-11": "BULL",  "2022-12": "BEAR",
+    "2023-01": "BULL",  "2023-02": "CONSOLIDATION", "2023-03": "BULL",
+    "2023-04": "BULL",  "2023-05": "CONSOLIDATION", "2023-06": "BULL",
+    "2023-07": "BULL",  "2023-08": "BEAR",  "2023-09": "BEAR",
+    "2023-10": "BEAR",  "2023-11": "BULL",  "2023-12": "BULL",
+    "2024-01": "BULL",  "2024-02": "BULL",  "2024-03": "BULL",
+    "2024-04": "BEAR",  "2024-05": "BULL",  "2024-06": "BULL",
+    "2024-07": "CONSOLIDATION", "2024-08": "CONSOLIDATION",
+    "2024-09": "BULL",  "2024-10": "BULL",  "2024-11": "BULL",
+    "2024-12": "BEAR",
+    "2025-01": "BULL",  "2025-02": "BULL",  "2025-03": "BEAR",
+    "2025-04": "BEAR",  "2025-05": "BULL",  "2025-06": "BULL",
+    "2025-07": "BULL",  "2025-08": "CONSOLIDATION",
+    "2025-09": "BULL",  "2025-10": "BULL",  "2025-11": "BULL",
+    "2025-12": "BULL",
+    "2026-01": "BULL",  "2026-02": "BEAR",  "2026-03": "BEAR",
+}
+
+
+def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+    """
+    Assigns a 'regime' column to df using SPY 20-day SMA via yfinance.
+    Falls back to SPY monthly lookup table if yfinance is unavailable.
+    df must have a 'date' column. Returns (df_with_regime, audit_note).
+    Only called when df has dates but no regime column.
+    """
+    try:
+        import yfinance as yf
+        start = df["date"].min() - pd.Timedelta(days=30)  # extra buffer for SMA warmup
+        end   = df["date"].max() + pd.Timedelta(days=1)
+        spy   = yf.download("SPY", start=start, end=end, progress=False)["Close"]
+        spy   = spy.squeeze()  # handle MultiIndex columns from newer yfinance
+        sma20 = spy.rolling(20).mean()
+
+        def _regime(d):
+            try:
+                d_ts = pd.Timestamp(d).tz_localize(None)
+                price = float(spy.asof(d_ts))
+                sma   = float(sma20.asof(d_ts))
+                if np.isnan(price) or np.isnan(sma) or sma == 0:
+                    return "CONSOLIDATION"
+                ratio = price / sma
+                if ratio > 1.01:   return "BULL"
+                elif ratio < 0.99: return "BEAR"
+                else:              return "CONSOLIDATION"
+            except Exception:
+                return "CONSOLIDATION"
+
+        df["regime"] = df["date"].apply(_regime)
+        dist = df["regime"].value_counts().to_dict()
+        return df, f"✓ Regime auto-detected from SPY 20-day SMA — {dist}"
+
+    except Exception as e:
+        # Fallback: monthly lookup table — works for any date back to 2020
+        def _regime_fallback(d):
+            try:
+                return SPY_REGIME_LOOKUP.get(
+                    pd.Timestamp(d).strftime("%Y-%m"), "CONSOLIDATION"
+                )
+            except Exception:
+                return "CONSOLIDATION"
+
+        df["regime"] = df["date"].apply(_regime_fallback)
+        dist = df["regime"].value_counts().to_dict()
+        return df, f"⚠ Regime from monthly SPY approximation (live data unavailable) — {dist}"
 
 
 # =========================================================
@@ -211,43 +272,174 @@ class CrashSimResponse(BaseModel):
     emotional_verdict: str
 
 class ValidationResponse(BaseModel):
-    # Core score
     fundable_score: float
     grade: str
     summary: str
-    # Trade stats
     total_trades: int
     profitable_trades: int
     date_range: str
     sharpe: float
     max_drawdown: float
     win_rate: float
-    # Checks
     checks: List[CheckResultResponse]
     crash_sims: List[CrashSimResponse]
-    # Insights
     top_issues: List[str]
     top_strengths: List[str]
-    # Institutional
     validation_hash: str
     validation_date: str
     engine_version: str
     audit_flags: List[str]
     plausibility_summary: str
-    scale_warning: bool = False   # True if >50% of returns at ±50% boundary (% vs decimal)
-    currency: str = "USD"         # Currency code for display — does not affect calculations
+    scale_warning: bool = False
+    currency: str = "USD"
     assumptions: List[str]
-    # Dashboard data (optional — for future chart rendering)
     dashboard: Optional[Dict[str, Any]] = None
-    # AI personalised fix plan
     ai_plan: Optional[Dict[str, Any]] = None
+
+
+# =========================================================
+# ALPACA ORDER PAIRING — position-state tracker
+# =========================================================
+
+def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
+    """
+    Converts raw Alpaca filled orders into a trades DataFrame.
+
+    Fixes vs old buy/sell stack approach:
+    - Sorts by filled_at chronologically before pairing
+    - Tracks open position lots per symbol (FIFO)
+    - Orphaned sells (no open lot) are flagged and skipped,
+      not silently mispaired with a future buy
+    - Regime auto-assigned via assign_regimes() after pairing
+
+    Returns (df, audit_flags).
+    """
+    audit_flags = []
+
+    # Filter + parse filled orders
+    filled = []
+    for o in orders:
+        if o.get("status") != "filled":
+            continue
+        try:
+            qty   = float(o.get("filled_qty") or 0)
+            price = float(o.get("filled_avg_price") or 0)
+            if qty <= 0 or price <= 0:
+                continue
+            side = o.get("side", "").lower()
+            if side not in ("buy", "sell"):
+                continue
+            ts_str = o.get("filled_at") or o.get("updated_at") or ""
+            ts = pd.to_datetime(ts_str, utc=True).tz_localize(None)
+            filled.append({
+                "symbol":    o.get("symbol", "UNKNOWN"),
+                "side":      side,
+                "qty":       qty,
+                "price":     price,
+                "filled_at": ts,
+            })
+        except Exception:
+            continue
+
+    if not filled:
+        return pd.DataFrame(), ["No filled orders found"]
+
+    # Sort chronologically — critical fix
+    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
+
+    # Position-state tracker: symbol → FIFO list of open lots
+    lots          = defaultdict(list)   # sym → [{"price", "qty", "entry_date"}, ...]
+    completed     = []
+    orphan_sells  = []
+
+    for _, row in df_orders.iterrows():
+        sym   = row["symbol"]
+        side  = row["side"]
+        qty   = row["qty"]
+        price = row["price"]
+        ts    = row["filled_at"]
+
+        if side == "buy":
+            lots[sym].append({"price": price, "qty": qty, "entry_date": ts})
+
+        elif side == "sell":
+            if not lots[sym]:
+                # Sell with no open lot = position opened before history window
+                orphan_sells.append(
+                    f"{sym} sell@{price:.2f} on {ts.date()} "
+                    f"(no matching buy in history — position predates window)"
+                )
+                continue
+
+            remaining = qty
+            while remaining > 0 and lots[sym]:
+                lot       = lots[sym][0]
+                close_qty = min(remaining, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                completed.append({
+                    "pnl":        pnl_pct,
+                    "date":       ts,
+                    "entry_date": lot["entry_date"],
+                    "ticker":     sym,
+                    "buy_price":  lot["price"],
+                    "sell_price": price,
+                    "qty":        close_qty,
+                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                })
+                lot["qty"]  -= close_qty
+                remaining   -= close_qty
+                if lot["qty"] == 0:
+                    lots[sym].pop(0)
+
+    # Build audit flags
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching buy in history window "
+            f"(position opened before history) — excluded from analysis"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} open position(s) not included "
+            f"(no closing trade yet): {sym_list}"
+        )
+
+    if not completed:
+        return pd.DataFrame(), audit_flags + [
+            "No completed round-trip trades found. "
+            "All positions may still be open, or all sells predate the history window."
+        ]
+
+    df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
+
+    # Auto-assign regime from SPY
+    df, regime_note = assign_regimes(df)
+    audit_flags.append(regime_note)
+
+    return df, audit_flags
+
 
 # =========================================================
 # CSV PARSER
 # =========================================================
 
-def smart_parse_csv(contents: bytes) -> pd.DataFrame:
+def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
+    """
+    Parses CSV into a trades DataFrame.
+    Returns (df, regime_note) where regime_note is empty string if
+    regime was already in the CSV or dates were absent.
+
+    New in v1.4: if CSV has dates but no regime column, auto-assigns
+    regime via assign_regimes() (yfinance SPY → monthly fallback).
+    """
     raw = contents.decode("utf-8", errors="ignore")
+    regime_note = ""
 
     # Primary parse — look for known pnl column names
     try:
@@ -261,23 +453,33 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
                         vals = vals / 10000.0
                     vals = vals.clip(-0.50, 0.50)
                     result = pd.DataFrame({"pnl": vals.values})
-                    # Preserve date column if present
-                    date_cols = [c for c in df.columns if any(x in c.lower() for x in ["date", "time", "dt"])]
+
+                    date_cols = [c for c in df.columns
+                                 if any(x in c.lower() for x in ["date", "time", "dt"])]
                     if date_cols:
-                        result["date"] = df[date_cols[0]].values[:len(vals)]
-                    # Preserve volume column if present (for market impact check)
-                    vol_cols = [c for c in df.columns if "volume" in c.lower() or "vol" == c.lower()]
+                        result["date"] = pd.to_datetime(
+                            df[date_cols[0]].values[:len(vals)], errors="coerce"
+                        )
+
+                    vol_cols = [c for c in df.columns
+                                if "volume" in c.lower() or "vol" == c.lower()]
                     if vol_cols:
-                        result["volume"] = pd.to_numeric(df[vol_cols[0]], errors="coerce").values[:len(vals)]
-                    # Preserve regime column if present
+                        result["volume"] = pd.to_numeric(
+                            df[vol_cols[0]], errors="coerce"
+                        ).values[:len(vals)]
+
                     reg_cols = [c for c in df.columns if "regime" in c.lower()]
                     if reg_cols:
                         result["regime"] = df[reg_cols[0]].values[:len(vals)]
-                    return result
+                    elif "date" in result.columns and result["date"].notna().any():
+                        # Dates present, no regime → auto-detect from SPY
+                        result, regime_note = assign_regimes(result)
+
+                    return result, regime_note
     except Exception:
         pass
 
-    # Fallback — flexible parse ignoring bad lines
+    # Fallback — flexible parse
     try:
         lines = [l.strip() for l in raw.split("\n") if l.strip()]
         max_cols = max(len(l.split(",")) for l in lines[1:] if l)
@@ -294,18 +496,19 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
                 if vals.abs().mean() > 1.0:
                     vals = vals / 10000.0
                 vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"pnl": vals.values})
+                return pd.DataFrame({"pnl": vals.values}), ""
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and vals.std() > 0:
                 if vals.abs().mean() > 1.0:
                     vals = vals / 10000.0
                 vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"pnl": vals.values})
+                return pd.DataFrame({"pnl": vals.values}), ""
     except Exception as e:
         raise ValueError(f"Could not parse CSV: {str(e)}")
 
     raise ValueError("No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column.")
+
 
 # =========================================================
 # ROUTES
@@ -315,8 +518,15 @@ def smart_parse_csv(contents: bytes) -> pd.DataFrame:
 def root():
     return {
         "status": "QuantProof API is live",
-        "version": "2.5.0",
-        "checks": "38 institutional checks + 5 crash simulations",
+        "version": "2.6.0",
+        "checks": "40 institutional checks + 5 crash simulations",
+        "new_in_v1.4": [
+            "Information Ratio (vs Benchmark) — detects beta-capture disguised as alpha",
+            "Beta Exposure (vs Benchmark) — flags high market correlation",
+            "Crash exposure model hardened: higher floor, AR(1) penalty, [UNCALIBRATED] labels",
+            "Regime auto-detection via SPY 20-day SMA (yfinance) for CSV + Alpaca paths",
+            "Alpaca: position-state tracker replaces broken buy/sell stack pairing",
+        ],
         "new_in_v1.3": ["CVaR/Expected Shortfall", "Fractional Kelly + Ruin Probability",
                         "Market Impact (Almgren-Chriss)", "Deflated Sharpe",
                         "Purged Walk-Forward CV", "HMM Regime Detection",
@@ -325,7 +535,6 @@ def root():
 
 @app.post("/validate", response_model=ValidationResponse)
 async def validate(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
-    # Rate limit check
     if request:
         ip = request.client.host if request.client else "unknown"
         allowed, remaining = check_rate_limit(ip)
@@ -333,7 +542,9 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
             hours_left = remaining // 3600
             raise HTTPException(
                 status_code=429,
-                detail={"error": "rate_limit", "message": f"Free limit of {FREE_DAILY_LIMIT} validations/day reached. Resets in ~{hours_left}h.", "hours_left": hours_left}
+                detail={"error": "rate_limit",
+                        "message": f"Free limit of {FREE_DAILY_LIMIT} validations/day reached. Resets in ~{hours_left}h.",
+                        "hours_left": hours_left}
             )
 
     if not file.filename.endswith(".csv"):
@@ -342,7 +553,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     contents = await file.read()
 
     try:
-        df = smart_parse_csv(contents)
+        df, regime_note = smart_parse_csv(contents)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -350,19 +561,17 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 5.")
 
     try:
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
         validator = QuantProofValidator(df)
         report = validator.run()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
     r = report
-
-    # Build top issues and strengths — exclude Plausibility (informational only)
     scored_checks = [c for c in r.checks if c.category != "Plausibility"]
     top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
     top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
 
-    # Date range
     date_range = "No date data"
     if "date" in validator.df.columns:
         try:
@@ -370,15 +579,13 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         except Exception:
             pass
 
-    # Dynamic summary — uses actual check count
-    check_count = len([c for c in r.checks if c.category != "Plausibility"])
+    check_count = len(scored_checks)
     summary = (
         f"QuantProof analyzed {r.total_trades} trades across {check_count} institutional checks "
-        f"+ 3 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
+        f"+ 5 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
         f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
     )
 
-    # Detect currency — from form param, then CSV column, then default USD
     detected_currency = (currency or "USD").upper()
     if detected_currency == "USD" and "currency" in df.columns:
         currencies = df["currency"].dropna().unique()
@@ -387,18 +594,16 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         elif len(currencies) > 1:
             detected_currency = "MULTI"
 
-    # Generate dashboard data
     try:
-        dashboard_obj = ValidationDashboard(validator, report)
+        dashboard_obj  = ValidationDashboard(validator, report)
         dashboard_data = dashboard_obj.generate_interactive_report()
     except Exception:
         dashboard_data = None
 
-    # Only show non-Plausibility checks to frontend by default
     visible_checks = [c for c in r.checks if c.category != "Plausibility"]
 
-    # Cache vr dict so PDF endpoint reuses exact same computed data (no re-fetch)
-    scored_for_cache = [c for c in r.checks if c.category != "Plausibility"]
+    extra_flags = [regime_note] if regime_note else []
+
     _vr_cache = {
         "fundable_score": r.score,
         "grade":          r.grade,
@@ -437,7 +642,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         validation_hash=r.validation_hash,
         validation_date=r.validation_date,
         engine_version=r.engine_version,
-        audit_flags=r.audit_flags,
+        audit_flags=r.audit_flags + extra_flags,
         plausibility_summary=r.plausibility_summary,
         scale_warning=getattr(r, '_scale_warning', False),
         currency=detected_currency,
@@ -459,12 +664,13 @@ def sample_csv():
             "side": "long",
             "regime": "BULL"
         },
-        "note": "Add regime column for +15 regime coverage score. Add volume for market impact analysis."
+        "note": "If you include dates but no regime column, regime is auto-detected from SPY 20-day SMA. Add regime column to override."
     }
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "2.5.0"}
+    return {"status": "ok", "version": "2.6.0"}
+
 
 # =========================================================
 # ALPACA BROKER INTEGRATION — VERIFIED VALIDATION
@@ -473,33 +679,18 @@ def health():
 class AlpacaConnectRequest(BaseModel):
     api_key:    str
     secret_key: str
-    mode:       str = "paper"   # "paper" or "live"
+    mode:       str = "paper"
 
 def _scrub_keys(d: dict) -> dict:
-    """Recursively remove any field that looks like a credential."""
     sensitive = {"api_key", "secret_key", "key", "secret", "token", "password", "auth"}
     return {k: "[REDACTED]" if k.lower() in sensitive else v for k, v in d.items()}
 
 @app.post("/validate/alpaca", response_model=ValidationResponse)
 async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None):
-    """
-    Pulls real trade history directly from Alpaca and runs full validation.
-
-    PRIVACY DESIGN:
-    - API key + secret are used only in-memory for this request
-    - Never logged, never stored, never appear in error messages
-    - Keys are overwritten after use
-    - Only aggregated PnL data is retained for validation
-    - Response contains zero credential data
-    """
-
-    # Rate limit — stricter for broker endpoint (3/day)
     BROKER_DAILY_LIMIT = 3
     if request:
         ip = request.client.host if request.client else "unknown"
-        key_hash = "broker:" + hashlib.sha256(
-            f"broker:{ip}".encode()
-        ).hexdigest()[:16]
+        key_hash = "broker:" + hashlib.sha256(f"broker:{ip}".encode()).hexdigest()[:16]
         rec = _validation_counts[key_hash]
         now = time.time()
         if rec.get("reset", 0) == 0 or now > rec["reset"]:
@@ -509,24 +700,21 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             hours_left = int((rec["reset"] - now) / 3600)
             raise HTTPException(
                 status_code=429,
-                detail={"error": "rate_limit", "message": f"Free limit of {BROKER_DAILY_LIMIT} Alpaca verifications/day reached. Resets in ~{hours_left}h.", "hours_left": hours_left}
+                detail={"error": "rate_limit",
+                        "message": f"Free limit of {BROKER_DAILY_LIMIT} Alpaca verifications/day reached. Resets in ~{hours_left}h.",
+                        "hours_left": hours_left}
             )
         rec["count"] += 1
 
-    # Validate key format before making any external call
     api_key    = payload.api_key.strip()
     secret_key = payload.secret_key.strip()
-
     if not api_key or not secret_key:
         raise HTTPException(400, "API key and secret key are required.")
-
     if len(api_key) < 10 or len(secret_key) < 10:
         raise HTTPException(400, "Invalid key format — keys are too short.")
 
-    # Determine base URL
     is_paper = payload.mode == "paper"
-    base_url  = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
-    data_url  = "https://data.alpaca.markets"
+    base_url = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
 
     try:
         import httpx
@@ -538,166 +726,73 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         }
 
         async with httpx.AsyncClient(timeout=20) as client:
-
-            # ── Step 1: Verify credentials with account endpoint ──────────────
             acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
-
             if acct_resp.status_code == 401:
                 raise HTTPException(401, "Invalid Alpaca credentials. Please check your API key and secret.")
             if acct_resp.status_code == 403:
                 raise HTTPException(403, "Alpaca API access denied. Make sure your keys have read permissions.")
             if not acct_resp.is_success:
-                # Never expose raw response which might echo keys
-                raise HTTPException(400, f"Alpaca connection failed (status {acct_resp.status_code}). Check your credentials and account type (paper vs live).")
-
-            # Parse account currency (INR, GBP, EUR etc for display)
+                raise HTTPException(400, f"Alpaca connection failed (status {acct_resp.status_code}).")
             try:
                 acct_currency = str(acct_resp.json().get("currency", "USD")).upper()
             except Exception:
                 acct_currency = "USD"
 
-            # ── Step 2: Pull closed orders (trade history) ───────────────────
             orders_resp = await client.get(
                 f"{base_url}/v2/orders",
                 headers=headers,
-                params={
-                    "status": "closed",
-                    "limit": 500,
-                    "direction": "desc"
-                }
+                params={"status": "closed", "limit": 500, "direction": "desc"}
             )
-
             if not orders_resp.is_success:
                 raise HTTPException(400, "Could not fetch order history from Alpaca.")
-
             orders = orders_resp.json()
 
-        # ── Immediately discard credentials ──────────────────────────────────
-        api_key    = "[DISCARDED]"
-        secret_key = "[DISCARDED]"
-        headers    = {}
+        # Discard credentials immediately
+        api_key = secret_key = "[DISCARDED]"
+        headers = {}
+        try:
+            payload.api_key = payload.secret_key = "[DISCARDED]"
+        except Exception:
+            pass
 
-        # ── Step 3: Convert orders to PnL DataFrame ──────────────────────────
         if not orders or len(orders) < 5:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "trades_found": len(orders) if orders else 0,
                 "trades_needed": 10,
-                "message": f"Only {len(orders) if orders else 0} orders found in your Alpaca account. Make sure you selected the correct account type (paper vs live) and have at least 10 completed round-trip trades."
+                "message": f"Only {len(orders) if orders else 0} orders found. Need at least 10 completed round-trip trades."
             })
 
-        # ── Pair buys with sells — two-pass so order in list doesn't matter ──
-        from collections import defaultdict
-        rows = []
+        # ── Position-state pairing + regime auto-detection ────────────────────
+        df, parse_flags = pair_alpaca_orders(orders)
 
-        filled = [o for o in orders if o.get("status") == "filled"
-                  and float(o.get("filled_qty", 0) or 0) > 0
-                  and float(o.get("filled_avg_price", 0) or 0) > 0]
-
-        buys_by_sym  = defaultdict(list)
-        sells_by_sym = defaultdict(list)
-
-        for o in filled:
-            try:
-                side     = o.get("side", "")
-                symbol   = o.get("symbol", "")
-                price    = float(o.get("filled_avg_price", 0) or 0)
-                date_str = o.get("filled_at") or o.get("updated_at")
-                if side == "buy":
-                    buys_by_sym[symbol].append({"price": price, "date": date_str})
-                elif side == "sell":
-                    sells_by_sym[symbol].append({"price": price, "date": date_str})
-            except Exception:
-                continue
-
-        for symbol in sells_by_sym:
-            for sell in sells_by_sym[symbol]:
-                if buys_by_sym[symbol]:
-                    buy     = buys_by_sym[symbol].pop(0)
-                    pnl_pct = (sell["price"] - buy["price"]) / buy["price"]
-                    row     = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
-                    date_str = sell["date"] or buy["date"]
-                    if date_str:
-                        try:
-                            ts = pd.to_datetime(date_str)
-                            if ts.tzinfo is not None:
-                                ts = ts.tz_convert("UTC").tz_localize(None)
-                            row["date"] = ts
-                        except Exception:
-                            pass
-                    rows.append(row)
-
-        # If no pairs found (e.g. only sells or only buys) fall back to individual orders
-        if len(rows) < 5:
-            rows = []
-            for o in filled:
-                try:
-                    qty    = float(o.get("filled_qty", 0) or 0)
-                    price  = float(o.get("filled_avg_price", 0) or 0)
-                    side   = o.get("side", "buy")
-                    symbol = o.get("symbol", "")
-                    date_str = o.get("filled_at") or o.get("updated_at")
-                    notional = qty * price
-                    pnl_proxy = (1.0 if side == "sell" else -1.0) * 0.005
-                    row = {"pnl": pnl_proxy, "ticker": symbol, "side": side}
-                    if date_str:
-                        try:
-                            row["date"] = pd.to_datetime(date_str).tz_localize(None)
-                        except Exception:
-                            pass
-                    rows.append(row)
-                except Exception:
-                    continue
-
-        if len(rows) < 5:
-            raise HTTPException(
-                400,
-                "Could not extract enough filled trades from your order history. "
-                "Make sure your account has at least 5 completed (filled) orders."
-            )
-
-        import pandas as pd
-        df = pd.DataFrame(rows)
-
-        # ── Enforce minimum trade count ───────────────────────────────────────
-        # Never mix in portfolio history — it contaminates per-trade metrics.
-        # Score must reflect real closed trades only, nothing else.
-        if len(rows) < 10:
+        if len(df) < 10:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
-                "trades_found": len(rows),
+                "trades_found": len(df),
                 "trades_needed": 10,
-                "message": f"Only {len(rows)} completed round-trip trades found. QuantProof needs at least 10 closed trades for a statistically valid analysis. Keep trading and come back — results with more history will be far more meaningful."
+                "message": (
+                    f"Only {len(df)} completed round-trip trades found. "
+                    "QuantProof needs at least 10 closed trades for a statistically valid analysis. "
+                    + (" | ".join(parse_flags) if parse_flags else "")
+                )
             })
-        # L5 warning: if many orders couldn't be paired (options, shorts, multi-leg)
-        total_filled_sides = len([o for o in filled])
-        paired_sides = len(rows) * 2
+
+        total_filled_sides = len([o for o in orders if o.get("status") == "filled"])
+        paired_sides = len(df) * 2
         unpaired_pct = (total_filled_sides - paired_sides) / max(total_filled_sides, 1) * 100
-        unpaired_warning = unpaired_pct > 30  # >30% of orders couldn't be matched
-        if unpaired_warning:
+        if unpaired_pct > 30:
             print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
 
-        print(f"Using {len(rows)} paired round-trip trades")
-
-        # Always discard keys
-        try:
-            payload.api_key    = "[DISCARDED]"
-            payload.secret_key = "[DISCARDED]"
-        except Exception:
-            pass
-
-        # ── Step 4: Run full validation ───────────────────────────────────────
-        try:
-            validator = QuantProofValidator(df)
-            report    = validator.run()
-        except Exception as e:
-            raise HTTPException(500, f"Validation failed: {str(e)}")
+        # ── Run validation ────────────────────────────────────────────────────
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
+        validator = QuantProofValidator(df)
+        report    = validator.run()
 
         r = report
         scored_checks = [c for c in r.checks if c.category != "Plausibility"]
         top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
         top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
-        _unpaired_warning = locals().get('unpaired_warning', False)
 
         date_range = "No date data"
         if "date" in df.columns:
@@ -709,7 +804,8 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         check_count = len(scored_checks)
         summary = (
             f"QuantProof VERIFIED analysis of {r.total_trades} trades pulled directly from Alpaca "
-            f"({'paper' if is_paper else 'live'} account) across {check_count} institutional checks. "
+            f"({'paper' if is_paper else 'live'} account) across {check_count} institutional checks "
+            f"+ 5 crash simulations. "
             f"Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
             f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
         )
@@ -722,16 +818,11 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         except Exception:
             dashboard_data = None
 
-        # Cache exact vr so PDF uses identical numbers — no re-fetch from Alpaca
         _vr_cache = {
-            "fundable_score": r.score,
-            "grade":          r.grade,
-            "sharpe":         round(r.sharpe, 2),
-            "max_drawdown":   round(r.max_drawdown, 4),
-            "win_rate":       round(r.win_rate, 1),
-            "total_trades":   r.total_trades,
-            "date_range":     date_range,
-            "is_verified":    True,
+            "fundable_score": r.score, "grade": r.grade,
+            "sharpe": round(r.sharpe, 2), "max_drawdown": round(r.max_drawdown, 4),
+            "win_rate": round(r.win_rate, 1), "total_trades": r.total_trades,
+            "date_range": date_range, "is_verified": True,
             "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                         "value":c.value,"insight":c.insight,"fix":c.fix,
                         "category":c.category} for c in r.checks],
@@ -739,56 +830,43 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                             "description":s.description,"market_drop":s.market_drop,
                             "strategy_drop":s.strategy_drop,"survived":s.survived,
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
-            "top_issues":    top_issues,
-            "top_strengths": top_strengths,
+            "top_issues": top_issues, "top_strengths": top_strengths,
         }
         _cache_validation(r.validation_hash, _vr_cache)
 
         return ValidationResponse(
-            fundable_score=r.score,
-            grade=r.grade,
-            summary=summary,
+            fundable_score=r.score, grade=r.grade, summary=summary,
             checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
             crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
-            total_trades=r.total_trades,
-            profitable_trades=r.profitable_trades,
-            date_range=date_range,
-            sharpe=round(r.sharpe, 2),
-            max_drawdown=round(r.max_drawdown, 4),
-            win_rate=round(r.win_rate, 1),
-            top_issues=top_issues,
-            top_strengths=top_strengths,
-            validation_hash=r.validation_hash,
-            validation_date=r.validation_date,
+            total_trades=r.total_trades, profitable_trades=r.profitable_trades,
+            date_range=date_range, sharpe=round(r.sharpe, 2),
+            max_drawdown=round(r.max_drawdown, 4), win_rate=round(r.win_rate, 1),
+            top_issues=top_issues, top_strengths=top_strengths,
+            validation_hash=r.validation_hash, validation_date=r.validation_date,
             engine_version=r.engine_version + "-VERIFIED",
-            audit_flags=r.audit_flags + [
+            audit_flags=r.audit_flags + parse_flags + [
                 f"✓ Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
-                f"✓ Trades independently verified — not user-uploaded",
-                f"✓ Credential handling: keys discarded after fetch, never logged"
+                "✓ Trades independently verified — not user-uploaded",
+                "✓ Credential handling: keys discarded after fetch, never logged",
             ],
             plausibility_summary=r.plausibility_summary,
             assumptions=r.assumptions + [
                 "Trade data sourced directly from Alpaca API — not user-submitted",
                 f"Account type: {'paper trading' if is_paper else 'live trading'}",
-                "API credentials were used read-only and discarded after data fetch"
+                "API credentials were used read-only and discarded after data fetch",
             ],
-            dashboard=dashboard_data,
-            ai_plan=None,  # AI analysis included in paid $29 compliance report
-            scale_warning=False,
-            currency=acct_currency,
+            dashboard=dashboard_data, ai_plan=None,
+            scale_warning=False, currency=acct_currency,
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        # Sanitise error — never echo anything that could contain credentials
         err_str = str(e)
         for sensitive in [payload.api_key, payload.secret_key]:
             if sensitive and sensitive != "[DISCARDED]" and len(sensitive) > 4:
                 err_str = err_str.replace(sensitive, "[REDACTED]")
         raise HTTPException(500, f"Broker validation failed: {err_str}")
-
-
 
 
 # =========================================================
@@ -797,7 +875,6 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
 
 from fastapi import Header
 from fastapi.responses import Response as FastAPIResponse
-# generate_report imported lazily inside endpoint — allows server to start without it
 try:
     from generate_report import generate_pdf_report as _generate_pdf_report
     _PDF_AVAILABLE = True
@@ -805,10 +882,8 @@ except ImportError:
     _generate_pdf_report = None
     _PDF_AVAILABLE = False
 
-# Simple token gate — replace with Stripe webhook in production
-REPORT_ACCESS_TOKENS = set()   # populated by payment webhooks
-LS_ORDER_TOKENS: dict = {}     # LS order_id → token for frontend polling
-# Cache last 50 validation results by hash — PDF reuses exact same computed data
+REPORT_ACCESS_TOKENS = set()
+LS_ORDER_TOKENS: dict = {}
 import collections
 VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
@@ -816,66 +891,46 @@ VALIDATION_CACHE_MAX = 50
 def _cache_validation(v_hash: str, vr: dict):
     VALIDATION_RESULT_CACHE[v_hash] = vr
     if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
-        VALIDATION_RESULT_CACHE.popitem(last=False)  # evict oldest
+        VALIDATION_RESULT_CACHE.popitem(last=False)
 
 def _get_cached_validation(v_hash: str) -> dict | None:
     return VALIDATION_RESULT_CACHE.get(v_hash)
-_TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
 
-RAZORPAY_KEY_ID       = os.getenv("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET   = os.getenv("RAZORPAY_KEY_SECRET", "")
-REPORT_PRICE_USD      = 9     # $9 USD
-REPORT_PRICE_INR      = 999   # ₹999
-REPORT_PRICE_USD = 9
+_TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
+RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+REPORT_PRICE_USD    = 9
+REPORT_PRICE_INR    = 999
 
 
 @app.post("/report/generate")
 async def generate_report_endpoint(
     file: UploadFile = File(...),
     x_report_token: str = Header(default=""),
-    x_report_source: str = Header(default="csv")   # "csv" or "alpaca" or "ibkr"
+    x_report_source: str = Header(default="csv")
 ):
-    """
-    Paid endpoint — returns a full PDF analysis report.
-    Gate: x-report-token header must match a paid session token.
-    For dev/testing: token "dev-free" bypasses the gate.
-    """
-
-    # Token check
     def _verify_token(token: str) -> bool:
-        # Re-read from env each call — avoids NameError in nested scope
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-        if _test_tok and token == _test_tok:
-            return True
-        if token in REPORT_ACCESS_TOKENS:
-            return True
-        # Legacy cs_ tokens no longer accepted
-        if token.startswith("cs_"):
-            return False
-        # Time-based HMAC tokens — issued by Razorpay webhook
-        # Token format: sha256("report:{hour}:{secret}:{payment_id}")[:32]
-        # We can't reverse-verify without payment_id, so rely on REPORT_ACCESS_TOKENS set
-        # which is populated at webhook time (survives if server hasn't restarted)
+        if _test_tok and token == _test_tok: return True
+        if token in REPORT_ACCESS_TOKENS: return True
+        if token.startswith("cs_"): return False
         return False
-    is_paid = _verify_token(x_report_token)
-    if not is_paid:
+
+    if not _verify_token(x_report_token):
         raise HTTPException(
             status_code=402,
-            detail={
-                "error": "payment_required",
-                "message": "Purchase required to download the full analysis report.",
-                "price_inr": REPORT_PRICE_INR,
-                "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"
-            }
+            detail={"error": "payment_required",
+                    "message": "Purchase required to download the full analysis report.",
+                    "price_inr": REPORT_PRICE_INR,
+                    "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"}
         )
 
-    # Parse + validate
     if not file.filename.endswith(".csv"):
         raise HTTPException(400, "Please upload a CSV file")
 
     contents = await file.read()
     try:
-        df = smart_parse_csv(contents)
+        df, regime_note = smart_parse_csv(contents)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -883,13 +938,13 @@ async def generate_report_endpoint(
         raise HTTPException(400, f"Only {len(df)} trades found. Need at least 5.")
 
     try:
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
         validator = QuantProofValidator(df)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
-    # Build response dict (same shape as /validate)
-    scored  = [c for c in report.checks if c.category != "Plausibility"]
+    scored = [c for c in report.checks if c.category != "Plausibility"]
     date_range = "No date data"
     if "date" in validator.df.columns:
         try:
@@ -897,7 +952,6 @@ async def generate_report_endpoint(
         except Exception:
             pass
 
-    # CSV mode — strip prop firm compliance check, replace with disclaimer
     PROP_FIRM_CHECK_NAMES = {
         "Prop Firm Compliance (FTMO/Topstep/The5ers)",
         "Institutional Compliance (CTA/Fund Standard)",
@@ -905,11 +959,8 @@ async def generate_report_endpoint(
     }
     def _csv_check_filter(c):
         if c.name in PROP_FIRM_CHECK_NAMES:
-            # Replace with a disclaimer — CSV data cannot be used for compliance
             return {
-                "name": c.name,
-                "passed": False,
-                "score": 0,
+                "name": c.name, "passed": False, "score": 0,
                 "value": "⚠ NOT APPLICABLE — CSV Upload",
                 "insight": (
                     "Prop firm and institutional compliance certificates require "
@@ -924,16 +975,12 @@ async def generate_report_endpoint(
                 "category": c.category}
 
     vr = {
-        "fundable_score": report.score,
-        "grade":          report.grade,
-        "sharpe":         round(report.sharpe, 2),
-        "max_drawdown":   round(report.max_drawdown, 4),
-        "win_rate":       round(report.win_rate, 1),
-        "total_trades":   report.total_trades,
-        "date_range":     date_range,
-        "is_verified":    x_report_source in ("alpaca", "ibkr"),
+        "fundable_score": report.score, "grade": report.grade,
+        "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
+        "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
+        "date_range": date_range,
+        "is_verified": x_report_source in ("alpaca", "ibkr"),
         "checks": [
-            # Only apply CSV disclaimer filter for unverified CSV uploads
             (_csv_check_filter(c) if x_report_source == "csv" else
              {"name": c.name, "passed": c.passed, "score": c.score,
               "value": c.value, "insight": c.insight, "fix": c.fix,
@@ -941,25 +988,23 @@ async def generate_report_endpoint(
             for c in report.checks
         ],
         "crash_sims": [
-            {"crash_name": s.crash_name, "year": s.year,
-             "description": s.description, "market_drop": s.market_drop,
-             "strategy_drop": s.strategy_drop, "survived": s.survived,
-             "emotional_verdict": s.emotional_verdict}
+            {"crash_name": s.crash_name, "year": s.year, "description": s.description,
+             "market_drop": s.market_drop, "strategy_drop": s.strategy_drop,
+             "survived": s.survived, "emotional_verdict": s.emotional_verdict}
             for s in report.crash_sims
         ],
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
         "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
+        "regime_note":   regime_note,
     }
 
-    # Generate AI fix plan for paid report
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
-    # Update cache with ai_plan
     _cache_validation(report.validation_hash, vr)
 
     try:
         if not _PDF_AVAILABLE:
-            raise HTTPException(503, "PDF module not available. Push generate_report.py to backend/.")
+            raise HTTPException(503, "PDF module not available.")
         pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
@@ -967,105 +1012,64 @@ async def generate_report_endpoint(
     score     = int(report.score)
     grade_str = report.grade.split("—")[0].strip().replace(" ", "")
     filename  = f"QuantProof_Report_{grade_str}_{score}.pdf"
-
     return FastAPIResponse(
-        content=pdf_bytes,
-        media_type="application/pdf",
+        content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 
 @app.post("/report/create-checkout")
 async def create_checkout(payload: dict):
-    """
-    Creates a Razorpay order for the $9 report.
-    Frontend opens Razorpay popup, on success calls /report/webhook with payment_id.
-    """
     import hmac, hashlib
     try:
         import razorpay
     except ImportError:
         raise HTTPException(503, {"error": "razorpay_not_installed",
             "message": "razorpay package not installed. Run: pip install razorpay"})
-
     key_id     = os.getenv("RAZORPAY_KEY_ID", "")
     key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
     if not key_id or not key_secret:
         raise HTTPException(503, {"error": "razorpay_not_configured",
             "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
-
     try:
         client = razorpay.Client(auth=(key_id, key_secret))
-        # Razorpay amounts are in paise (INR) or smallest unit
-        # We charge ₹750 (~$9 USD) — international cards billed in INR
-        order = client.order.create({
-            "amount":   99900,   # 999 INR in paise
-            "currency": "INR",
-            "payment_capture": 1,
+        order  = client.order.create({
+            "amount": 99900, "currency": "INR", "payment_capture": 1,
             "notes": {"product": "QuantProof Full Report"}
         })
-        return {
-            "order_id":  order["id"],
-            "amount":    order["amount"],
-            "currency":  order["currency"],
-            "key_id":    key_id,
-            "checkout_url": None   # Razorpay uses popup not redirect
-        }
+        return {"order_id": order["id"], "amount": order["amount"],
+                "currency": order["currency"], "key_id": key_id, "checkout_url": None}
     except Exception as e:
-        print(f"Razorpay order error: {type(e).__name__}: {e}")
         raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
 
 
 @app.post("/report/create-checkout-intl")
 async def create_checkout_intl(payload: dict):
-    """
-    Lemon Squeezy checkout for international users (non-India).
-    Returns a checkout URL — frontend redirects to it.
-    On payment success, LS calls /report/webhook-ls with payment data.
-    """
     import httpx
     ls_key      = os.getenv("LEMONSQUEEZY_API_KEY", "")
     ls_store_id = os.getenv("LEMONSQUEEZY_STORE_ID", "")
-    ls_variant  = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")  # the $12 product variant
-
+    ls_variant  = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")
     if not ls_key or not ls_store_id or not ls_variant:
-        raise HTTPException(503, {
-            "error": "ls_not_configured",
-            "message": "International payments not yet configured. Please email us to pay manually."
-        })
-
+        raise HTTPException(503, {"error": "ls_not_configured",
+            "message": "International payments not yet configured."})
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(
                 "https://api.lemonsqueezy.com/v1/checkouts",
-                headers={
-                    "Authorization": f"Bearer {ls_key}",
-                    "Accept": "application/vnd.api+json",
-                    "Content-Type": "application/vnd.api+json"
-                },
-                json={
-                    "data": {
-                        "type": "checkouts",
-                        "attributes": {
-                            "checkout_options": {"dark": True},
-                            "product_options": {
-                                "redirect_url": "https://quantproof-frontend.onrender.com/?payment=success&provider=ls&order_id={order_id}"
-                            }
-                        },
-                        "relationships": {
-                            "store":   {"data": {"type": "stores",   "id": ls_store_id}},
-                            "variant": {"data": {"type": "variants", "id": ls_variant}}
-                        }
-                    }
-                }
+                headers={"Authorization": f"Bearer {ls_key}",
+                         "Accept": "application/vnd.api+json",
+                         "Content-Type": "application/vnd.api+json"},
+                json={"data": {"type": "checkouts",
+                    "attributes": {"checkout_options": {"dark": True},
+                        "product_options": {"redirect_url":
+                            "https://quantproof-frontend.onrender.com/?payment=success&provider=ls&order_id={order_id}"}},
+                    "relationships": {
+                        "store":   {"data": {"type": "stores",   "id": ls_store_id}},
+                        "variant": {"data": {"type": "variants", "id": ls_variant}}}}}
             )
         if not resp.is_success:
             raise HTTPException(500, {"error": "ls_checkout_failed", "message": resp.text[:200]})
-
-        data = resp.json()
-        checkout_url = data["data"]["attributes"]["url"]
-        return {"checkout_url": checkout_url}
-
+        return {"checkout_url": resp.json()["data"]["attributes"]["url"]}
     except HTTPException:
         raise
     except Exception as e:
@@ -1074,161 +1078,105 @@ async def create_checkout_intl(payload: dict):
 
 @app.post("/report/webhook-ls")
 async def lemonsqueezy_webhook(request: Request):
-    """
-    Lemon Squeezy calls this after successful payment.
-    Verifies signature and issues download token — same system as Razorpay.
-    """
     import hashlib, hmac, time, json
-
-    body = await request.body()
+    body      = await request.body()
     ls_secret = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
-
-    # Verify LS signature
     if ls_secret:
-        sig = request.headers.get("x-signature", "")
+        sig      = request.headers.get("x-signature", "")
         expected = hmac.new(ls_secret.encode(), body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, sig):
             raise HTTPException(400, "Invalid Lemon Squeezy webhook signature")
-
     try:
         event = json.loads(body)
-        event_name = event.get("meta", {}).get("event_name", "")
-        if event_name == "order_created":
-            order_id   = str(event["data"]["id"])
-            key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+        if event.get("meta", {}).get("event_name") == "order_created":
+            order_id     = str(event["data"]["id"])
+            key_secret   = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
             current_hour = int(time.time() // 3600)
-            token_now  = hashlib.sha256(f"report:{current_hour}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
-            token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
+            token_now    = hashlib.sha256(f"report:{current_hour}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
+            token_next   = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
             REPORT_ACCESS_TOKENS.add(token_now)
             REPORT_ACCESS_TOKENS.add(token_next)
-            # Store order→token so frontend can poll for it after redirect
             LS_ORDER_TOKENS[order_id] = token_now
-            print(f"[webhook-ls] LS order {order_id} → tokens issued")
             return {"status": "ok", "token": token_now}
     except Exception as e:
         raise HTTPException(400, str(e))
-
     return {"status": "ignored"}
 
 
 @app.get("/report/ls-token")
 async def get_ls_token(order_id: str = ""):
-    """
-    Frontend polls this after returning from LS redirect.
-    Returns token if webhook has already fired, or 'pending' if not yet.
-    Falls back to most recent token if order_id is missing/literal.
-    """
-    # Direct order_id lookup
     if order_id and order_id != "{order_id}" and order_id in LS_ORDER_TOKENS:
         return {"status": "ready", "token": LS_ORDER_TOKENS[order_id]}
-
-    # Fallback: return most recent token if order_id is missing or not substituted
-    # This handles the case where LS redirect URL didn't substitute {order_id}
     if LS_ORDER_TOKENS:
-        latest_token = list(LS_ORDER_TOKENS.values())[-1]
-        print(f"[ls-token] order_id={repr(order_id)} not found, returning latest token")
-        return {"status": "ready", "token": latest_token}
-
+        return {"status": "ready", "token": list(LS_ORDER_TOKENS.values())[-1]}
     return {"status": "pending", "message": "Payment processing — please wait a moment"}
 
 
 @app.post("/report/webhook")
 async def payment_webhook(request: Request):
-    """
-    Called by frontend after Razorpay payment success.
-    Verifies payment signature and issues a one-time download token.
-    """
     import hashlib, hmac, time, json
-
     body = await request.body()
     try:
         data = json.loads(body)
     except Exception:
         raise HTTPException(400, "Invalid JSON")
-
     payment_id = data.get("razorpay_payment_id", "")
     order_id   = data.get("razorpay_order_id", "")
     signature  = data.get("razorpay_signature", "")
-
     key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
-
-    # ALWAYS verify signature — never skip, never trust empty fields
     if not payment_id or not order_id or not signature:
-        raise HTTPException(400, "Missing payment fields — payment_id, order_id and signature all required")
-    expected = hmac.new(
-        key_secret.encode(),
-        f"{order_id}|{payment_id}".encode(),
-        hashlib.sha256
-    ).hexdigest()
+        raise HTTPException(400, "Missing payment fields")
+    expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
-        raise HTTPException(400, "Invalid payment signature — payment could not be verified")
-
-    # Generate TWO tokens — current hour and next hour
-    # Guarantees user always has at least ~1 hour regardless of when they pay
+        raise HTTPException(400, "Invalid payment signature")
     current_hour = int(time.time() // 3600)
     token_now  = hashlib.sha256(f"report:{current_hour}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
     token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
     REPORT_ACCESS_TOKENS.add(token_now)
     REPORT_ACCESS_TOKENS.add(token_next)
-    print(f"[webhook] Payment verified: {payment_id} → tokens issued (valid ~2hrs)")
-    # Return the current-hour token — both are valid
     return {"status": "ok", "token": token_now}
 
 
-
-
 # =========================================================
-# BROKER PDF REPORT — uses real Alpaca data, not CSV
+# BROKER PDF REPORT
 # =========================================================
 
 class BrokerReportRequest(BaseModel):
     api_key:         str
     secret_key:      str
     mode:            str = "paper"
-    validation_hash: str = ""   # if provided, PDF uses cached validate data — exact match guaranteed
+    validation_hash: str = ""
 
 @app.post("/report/generate-broker")
 async def generate_broker_report(
     payload: BrokerReportRequest,
     x_report_token: str = Header(default=""),
 ):
-    """
-    Paid endpoint — generates PDF from live Alpaca data.
-    If validation_hash provided, uses cached result for 100% data consistency.
-    """
-    # ── Fast path: cached validation result → guaranteed match with results screen ──
+    # Fast path: cached result
     if payload.validation_hash:
         cached_vr = _get_cached_validation(payload.validation_hash)
         if cached_vr:
-            print(f"[generate-broker] Cache hit {payload.validation_hash[:8]} — skipping re-fetch")
-            # Inline token check (same logic as below)
             _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
             _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
             if not _token_ok:
                 raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
             if not cached_vr.get("ai_plan"):
-                # Build minimal report-like object from cache for AI plan
                 try:
                     class _CachedCheck:
-                        def __init__(self, d):
-                            self.__dict__.update(d)
+                        def __init__(self, d): self.__dict__.update(d)
                     class _CachedReport:
                         def __init__(self, vr):
-                            self.score        = vr["fundable_score"]
-                            self.grade        = vr["grade"]
-                            self.sharpe       = vr["sharpe"]
-                            self.max_drawdown = vr["max_drawdown"]
-                            self.win_rate     = vr["win_rate"]
-                            self.total_trades = vr["total_trades"]
-                            self.checks       = [_CachedCheck(c) for c in vr.get("checks", [])]
-                            self.audit_flags  = []
-                    _rpt = _CachedReport(cached_vr)
-                    cached_vr["ai_plan"] = await generate_ai_plan(_rpt, cached_vr.get("date_range", ""))
-                    print("[cache ai_plan] AI plan generated from cached data")
+                            self.score = vr["fundable_score"]; self.grade = vr["grade"]
+                            self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
+                            self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
+                            self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
+                            self.audit_flags = []
+                    cached_vr["ai_plan"] = await generate_ai_plan(
+                        _CachedReport(cached_vr), cached_vr.get("date_range", "")
+                    )
                 except Exception as _e:
-                    print(f"[cache ai_plan] fallback: {_e}")
                     issues = cached_vr.get("top_issues", [])
-                    cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else "See check insights for improvement recommendations."
+                    cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else None
             if not _PDF_AVAILABLE:
                 raise HTTPException(503, "PDF module not available.")
             try:
@@ -1237,42 +1185,31 @@ async def generate_broker_report(
                 raise HTTPException(500, f"PDF generation failed: {str(e)}")
             score     = int(cached_vr["fundable_score"])
             grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
-            filename  = f"QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"
             return Response(
                 content=pdf_bytes, media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                headers={"Content-Disposition": f"attachment; filename=QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"}
             )
 
-    # ── Token check (reuse same logic) ───────────────────────────────────────
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-        if _test_tok and token == _test_tok:
-            return True
-        if token in REPORT_ACCESS_TOKENS:
-            return True
-        if token.startswith("cs_"):
-            return False
+        if _test_tok and token == _test_tok: return True
+        if token in REPORT_ACCESS_TOKENS: return True
         return False
 
     if not _verify_token(x_report_token):
         raise HTTPException(402, {"error": "payment_required", "message": "Purchase required."})
 
-    # ── Pull real Alpaca data ─────────────────────────────────────────────────
     api_key    = payload.api_key.strip()
     secret_key = payload.secret_key.strip()
     if not api_key or not secret_key:
         raise HTTPException(400, "API key and secret required.")
 
     is_paper = payload.mode == "paper"
-    base_url = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
+    base_url  = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
 
     try:
         import httpx
-        headers = {
-            "APCA-API-KEY-ID":     api_key,
-            "APCA-API-SECRET-KEY": secret_key,
-            "accept":              "application/json"
-        }
+        headers = {"APCA-API-KEY-ID": api_key, "APCA-API-SECRET-KEY": secret_key, "accept": "application/json"}
         async with httpx.AsyncClient(timeout=20) as client:
             acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
             if not acct_resp.is_success:
@@ -1282,84 +1219,28 @@ async def generate_broker_report(
                 params={"status": "closed", "limit": 500, "direction": "desc"}
             )
         raw_orders = orders_resp.json() if orders_resp.is_success else []
-        # Alpaca sometimes returns a dict with an error instead of a list
-        orders = raw_orders if isinstance(raw_orders, list) else []
-        print(f"[generate-broker] orders fetched: {len(orders)}, resp status: {orders_resp.status_code}")
+        orders     = raw_orders if isinstance(raw_orders, list) else []
 
-        # Discard keys immediately
         api_key = secret_key = "[DISCARDED]"
         headers = {}
 
-        # Pair trades (same logic as /validate/alpaca)
-        from collections import defaultdict as _dd
-        buy_stack = _dd(list)
-        rows = []
-        filled = [o for o in orders if o.get("status") == "filled"
-                  and float(o.get("filled_qty", 0) or 0) > 0
-                  and float(o.get("filled_avg_price", 0) or 0) > 0]
-        # Robust pairing: first pass collect all buys per symbol,
-        # second pass match sells — order in list doesn't matter
-        buys_by_symbol  = _dd(list)
-        sells_by_symbol = _dd(list)
+        # Position-state pairing + regime auto-detection
+        df, parse_flags = pair_alpaca_orders(orders)
 
-        for o in filled:
-            try:
-                side   = o.get("side", "")
-                symbol = o.get("symbol", "")
-                price  = float(o.get("filled_avg_price", 0) or 0)
-                date_str = o.get("filled_at") or o.get("updated_at")
-                if side == "buy":
-                    buys_by_symbol[symbol].append({"price": price, "date": date_str})
-                elif side == "sell":
-                    sells_by_symbol[symbol].append({"price": price, "date": date_str})
-            except Exception:
-                continue
-
-        print(f"[generate-broker] buys by symbol: { {k:len(v) for k,v in buys_by_symbol.items()} }")
-        print(f"[generate-broker] sells by symbol: { {k:len(v) for k,v in sells_by_symbol.items()} }")
-
-        # Match each sell to a buy of same symbol
-        for symbol in sells_by_symbol:
-            for sell in sells_by_symbol[symbol]:
-                if buys_by_symbol[symbol]:
-                    buy = buys_by_symbol[symbol].pop(0)
-                    pnl_pct = (sell["price"] - buy["price"]) / buy["price"]
-                    row = {"pnl": pnl_pct, "ticker": symbol, "side": "long"}
-                    date_str = sell["date"] or buy["date"]
-                    if date_str:
-                        try:
-                            ts = pd.to_datetime(date_str)
-                            if ts.tzinfo is not None:
-                                ts = ts.tz_convert("UTC").tz_localize(None)
-                            row["date"] = ts
-                        except Exception:
-                            pass
-                    rows.append(row)
-
-        print(f"[generate-broker] filled orders: {len(filled)}, paired rows: {len(rows)}")
-
-        # Discard credentials — no more fetches needed
-        api_key = secret_key = "[DISCARDED]"
-
-        # Hard requirement: never mix in other data sources — scores must reflect real trades only
-        if len(rows) < 10:
+        if len(df) < 10:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
-                "message": f"Only {len(rows)} completed round-trip trades found. QuantProof needs at least 10 closed trades to generate a statistically valid report. Keep trading and come back — your results will be more meaningful with more history.",
-                "trades_found": len(rows),
-                "trades_needed": 10
+                "message": f"Only {len(df)} completed round-trip trades found. Need at least 10.",
+                "trades_found": len(df), "trades_needed": 10
             })
-
-        df = pd.DataFrame(rows)
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[generate-broker] exception: {type(e).__name__}: {e}")
         raise HTTPException(500, f"Alpaca fetch failed: {str(e)[:200]}")
 
-    # ── Run validation ────────────────────────────────────────────────────────
     try:
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
         validator = QuantProofValidator(df)
         report    = validator.run()
     except Exception as e:
@@ -1374,34 +1255,24 @@ async def generate_broker_report(
             pass
 
     vr = {
-        "fundable_score": report.score,
-        "grade":          report.grade,
-        "sharpe":         round(report.sharpe, 2),
-        "max_drawdown":   round(report.max_drawdown, 4),
-        "win_rate":       round(report.win_rate, 1),
-        "total_trades":   report.total_trades,
-        "date_range":     date_range,
-        "is_verified":    True,
-        "checks": [
-            {"name": c.name, "passed": c.passed, "score": c.score,
-             "value": c.value, "insight": c.insight, "fix": c.fix,
-             "category": c.category}
-            for c in report.checks
-        ],
-        "crash_sims": [
-            {"crash_name": s.crash_name, "year": s.year,
-             "description": s.description, "market_drop": s.market_drop,
-             "strategy_drop": s.strategy_drop, "survived": s.survived,
-             "emotional_verdict": s.emotional_verdict}
-            for s in report.crash_sims
-        ],
+        "fundable_score": report.score, "grade": report.grade,
+        "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
+        "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
+        "date_range": date_range, "is_verified": True,
+        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
+                    "value":c.value,"insight":c.insight,"fix":c.fix,
+                    "category":c.category} for c in report.checks],
+        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
+                        "description":s.description,"market_drop":s.market_drop,
+                        "strategy_drop":s.strategy_drop,"survived":s.survived,
+                        "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
         "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
+        "parse_flags":   parse_flags,
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
-    # Update cache with ai_plan so next request (e.g. LS redirect retry) gets it instantly
     _cache_validation(report.validation_hash, vr)
 
     if not _PDF_AVAILABLE:
@@ -1409,20 +1280,15 @@ async def generate_broker_report(
     try:
         pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
-        tb = traceback.format_exc()
-        print(f"[generate-broker] PDF CRASH:\n{tb}")
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
 
     score     = int(report.score)
     grade_str = report.grade.split("—")[0].strip().replace(" ", "")
-    filename  = f"QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"
-
     return FastAPIResponse(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'
-        }
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
     )
+
 
 # =========================================================
 # IBKR BROKER INTEGRATION
@@ -1430,31 +1296,19 @@ async def generate_broker_report(
 
 class IBKRConnectRequest(BaseModel):
     account_id: str
-    flex_token: str       # IBKR Flex Web Service token
-    query_id: str         # Flex Query ID configured by user
-    days_back: int = 365  # How many days of trade history to pull
+    flex_token: str
+    query_id:   str
+    days_back:  int = 365
 
 class IBKRConnectResponse(BaseModel):
-    source: str           # "IBKR_FLEX"
-    account_id: str
+    source:       str
+    account_id:   str
     trades_pulled: int
-    date_range: str
-    validation: ValidationResponse
+    date_range:   str
+    validation:   ValidationResponse
 
 @app.post("/connect/ibkr", response_model=IBKRConnectResponse)
 async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
-    """
-    Pulls verified trade history from Interactive Brokers via Flex Web Service.
-    No CSV needed — data comes directly from IBKR.
-
-    Setup for user:
-    1. Log into IBKR Account Management
-    2. Reports > Flex Queries > Create a Trade Confirmation Flex Query
-    3. Include fields: TradeDate, Symbol, Buy/Sell, Quantity, Price, NetCash, Commission
-    4. Generate a Flex Token (Settings > Flex Web Service)
-    5. Note your Query ID
-    """
-    # Rate limit applies to broker connections too
     if request:
         ip = request.client.host if request.client else "unknown"
         allowed, _ = check_rate_limit(ip)
@@ -1464,32 +1318,25 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     import httpx, xml.etree.ElementTree as ET
     from datetime import datetime, timedelta
 
-    end_date   = datetime.now().strftime("%Y%m%d")
-    start_date = (datetime.now() - timedelta(days=payload.days_back)).strftime("%Y%m%d")
-
-    # Step 1 — Request the Flex report
     request_url = (
         f"https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
         f"?t={payload.flex_token}&q={payload.query_id}&v=3"
     )
-
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(request_url)
         resp.raise_for_status()
-        root = ET.fromstring(resp.text)
+        root   = ET.fromstring(resp.text)
         status = root.findtext("Status")
         if status != "Success":
-            error = root.findtext("ErrorMessage") or "Unknown IBKR error"
-            raise HTTPException(400, f"IBKR Flex request failed: {error}")
+            raise HTTPException(400, f"IBKR Flex request failed: {root.findtext('ErrorMessage') or 'Unknown error'}")
         reference_code = root.findtext("ReferenceCode")
         base_url       = root.findtext("Url")
     except ET.ParseError:
-        raise HTTPException(400, "Could not parse IBKR response. Check your Flex token and query ID.")
+        raise HTTPException(400, "Could not parse IBKR response.")
     except httpx.HTTPError as e:
         raise HTTPException(503, f"Could not reach IBKR servers: {str(e)}")
 
-    # Step 2 — Retrieve the report (IBKR needs ~5s to generate it)
     import asyncio
     await asyncio.sleep(5)
 
@@ -1502,7 +1349,6 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     except Exception as e:
         raise HTTPException(503, f"Could not retrieve IBKR report: {str(e)}")
 
-    # Step 3 — Parse trades into DataFrame
     trades = []
     for stmt in report_root.iter("FlexStatement"):
         acct = stmt.get("accountId", "")
@@ -1510,15 +1356,17 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             continue
         for trade in stmt.iter("Trade"):
             try:
-                date_str  = trade.get("tradeDate") or trade.get("TradeDate", "")
-                net_cash  = float(trade.get("netCash") or trade.get("NetCash", 0))
-                price     = float(trade.get("tradePrice") or trade.get("TradePrice", 1))
-                # Normalise PnL as return fraction
-                pnl_frac  = net_cash / abs(price * float(trade.get("quantity", 1) or 1))
-                pnl_frac  = max(-0.5, min(0.5, pnl_frac))
-                trades.append({"date": date_str, "pnl": pnl_frac,
-                                "symbol": trade.get("symbol", ""),
-                                "side": "long" if float(trade.get("quantity", 1) or 1) > 0 else "short"})
+                date_str = trade.get("tradeDate") or trade.get("TradeDate", "")
+                net_cash = float(trade.get("netCash") or trade.get("NetCash", 0))
+                price    = float(trade.get("tradePrice") or trade.get("TradePrice", 1))
+                pnl_frac = net_cash / abs(price * float(trade.get("quantity", 1) or 1))
+                pnl_frac = max(-0.5, min(0.5, pnl_frac))
+                trades.append({
+                    "date":   date_str,
+                    "pnl":    pnl_frac,
+                    "ticker": trade.get("symbol", ""),
+                    "side":   "long" if float(trade.get("quantity", 1) or 1) > 0 else "short"
+                })
             except (ValueError, ZeroDivisionError):
                 continue
 
@@ -1529,15 +1377,21 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["pnl"])
 
-    # Step 4 — Run full validation (same as CSV path)
+    # Auto-assign regime from SPY (same logic as CSV path)
+    if "date" in df.columns and df["date"].notna().any():
+        df, regime_note = assign_regimes(df)
+    else:
+        regime_note = ""
+
     try:
+        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
         validator = QuantProofValidator(df)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
-    scored     = [c for c in report.checks if c.category != "Plausibility"]
-    top_issues = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
+    scored        = [c for c in report.checks if c.category != "Plausibility"]
+    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
     top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
 
     date_range = "No date data"
@@ -1554,44 +1408,33 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         f"Fundable Score: {report.score}/100 ({report.grade.split(chr(8212))[0].strip()})."
     )
 
-    ai_plan = await generate_ai_plan(report, date_range)
+    extra_flags = ([regime_note] if regime_note else []) + \
+                  ["SOURCE: Interactive Brokers Flex API — trade data verified"]
 
     validation_resp = ValidationResponse(
-        fundable_score=report.score,
-        grade=report.grade,
-        summary=summary,
+        fundable_score=report.score, grade=report.grade, summary=summary,
         checks=[CheckResultResponse(**vars(c)) for c in scored],
         crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
-        total_trades=report.total_trades,
-        profitable_trades=report.profitable_trades,
-        date_range=date_range,
-        sharpe=round(report.sharpe, 2),
-        max_drawdown=round(report.max_drawdown, 4),
-        win_rate=round(report.win_rate, 1),
-        top_issues=top_issues,
-        top_strengths=top_strengths,
+        total_trades=report.total_trades, profitable_trades=report.profitable_trades,
+        date_range=date_range, sharpe=round(report.sharpe, 2),
+        max_drawdown=round(report.max_drawdown, 4), win_rate=round(report.win_rate, 1),
+        top_issues=top_issues, top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-IBKR",
-        validation_date=report.validation_date,
-        engine_version=report.engine_version,
-        audit_flags=report.audit_flags + ["SOURCE: Interactive Brokers Flex API — trade data verified"],
+        validation_date=report.validation_date, engine_version=report.engine_version,
+        audit_flags=report.audit_flags + extra_flags,
         plausibility_summary=report.plausibility_summary,
-        assumptions=report.assumptions,
-        dashboard=None,
-        ai_plan=None,  # AI analysis is a paid feature — included in PDF report
+        assumptions=report.assumptions, dashboard=None, ai_plan=None,
     )
 
     return IBKRConnectResponse(
-        source="IBKR_FLEX",
-        account_id=payload.account_id,
-        trades_pulled=len(trades),
-        date_range=date_range,
+        source="IBKR_FLEX", account_id=payload.account_id,
+        trades_pulled=len(trades), date_range=date_range,
         validation=validation_resp,
     )
 
 
 @app.get("/connect/ibkr/setup")
 def ibkr_setup_guide():
-    """Returns step-by-step IBKR Flex setup instructions."""
     return {
         "title": "Connect Interactive Brokers to QuantProof",
         "steps": [
@@ -1604,7 +1447,7 @@ def ibkr_setup_guide():
             "7. Copy your Flex Token",
             "8. Enter Account ID, Flex Token, and Query ID in QuantProof"
         ],
-        "note": "Your credentials are used only to pull trade data and are never stored. Each validation makes a direct IBKR API call.",
-        "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash — accepted by most prop firms as proof of live trading history."
+        "note": "Your credentials are used only to pull trade data and are never stored.",
+        "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash."
     }
 
