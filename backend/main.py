@@ -673,6 +673,18 @@ def health():
     return {"status": "ok", "version": "2.7.0"}
 
 
+@app.get("/ping")
+def ping():
+    """
+    Keep-alive endpoint.
+    Hit this every 10 minutes via an external cron (cron-job.org, UptimeRobot, etc.)
+    to prevent Render free tier from spinning down.
+    URL to monitor: https://quantproof-backend.onrender.com/ping
+    """
+    return {"status": "alive", "version": "2.7.0"}
+
+
+
 # =========================================================
 # ALPACA BROKER INTEGRATION — VERIFIED VALIDATION
 # =========================================================
@@ -760,21 +772,22 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "trades_found": len(orders) if orders else 0,
-                "trades_needed": 10,
-                "message": f"Only {len(orders) if orders else 0} orders found. Need at least 10 completed round-trip trades."
+                "trades_needed": 5,
+                "message": f"Only {len(orders) if orders else 0} orders found. Connect your Alpaca account and make sure you have at least 5 completed round-trip trades (a buy AND a sell for the same stock)."
             })
 
         # ── Position-state pairing + regime auto-detection ────────────────────
         df, parse_flags = pair_alpaca_orders(orders)
 
-        if len(df) < 10:
+        if len(df) < 5:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "trades_found": len(df),
-                "trades_needed": 10,
+                "trades_needed": 5,
                 "message": (
                     f"Only {len(df)} completed round-trip trades found. "
-                    "QuantProof needs at least 10 closed trades for a statistically valid analysis. "
+                    "QuantProof needs at least 5 closed trades to run. "
+                    "Keep trading and come back — the more history you have, the more meaningful your results will be. "
                     + (" | ".join(parse_flags) if parse_flags else "")
                 )
             })
@@ -886,6 +899,8 @@ except ImportError:
 REPORT_ACCESS_TOKENS = set()
 LS_ORDER_TOKENS: dict = {}
 import collections
+import asyncio as _asyncio
+_PDF_SEMAPHORE = _asyncio.Semaphore(2)  # max 2 concurrent PDF generations
 VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
@@ -1006,7 +1021,8 @@ async def generate_report_endpoint(
     try:
         if not _PDF_AVAILABLE:
             raise HTTPException(503, "PDF module not available.")
-        pdf_bytes = _generate_pdf_report(vr)
+        async with _PDF_SEMAPHORE:
+            pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
 
@@ -1228,11 +1244,11 @@ async def generate_broker_report(
         # Position-state pairing + regime auto-detection
         df, parse_flags = pair_alpaca_orders(orders)
 
-        if len(df) < 10:
+        if len(df) < 5:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
-                "message": f"Only {len(df)} completed round-trip trades found. Need at least 10.",
-                "trades_found": len(df), "trades_needed": 10
+                "message": f"Only {len(df)} completed round-trip trades found. Need at least 5.",
+                "trades_found": len(df), "trades_needed": 5
             })
 
     except HTTPException:
@@ -1655,17 +1671,43 @@ async def validate_kite(
     except Exception as e:
         raise HTTPException(400, f"Could not read CSV: {str(e)}")
 
+    # F&O options check: detect if significant portion of trades are options
+    try:
+        df_fo_check = pd.read_csv(io.StringIO(raw))
+        df_fo_check.columns = [c.lower().strip() for c in df_fo_check.columns]
+        if "segment" in df_fo_check.columns:
+            segments = df_fo_check["segment"].str.upper().str.strip()
+            fo_count  = (segments.isin(["FO", "F&O", "OPTIONS", "FUTURES"])).sum()
+            total     = len(df_fo_check)
+            fo_pct    = fo_count / max(total, 1)
+            if fo_pct > 0.30:
+                raise HTTPException(
+                    400,
+                    f"⚠ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
+                    "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
+                    "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
+                    "For options analysis, export only your equity trades, or manually calculate "
+                    "per-trade P&L as a percentage and upload as a generic CSV."
+                )
+            elif fo_count > 0:
+                # Minority F&O — allow but warn via audit flags later
+                pass
+    except HTTPException:
+        raise
+    except Exception:
+        pass   # F&O check is best-effort, never block a valid upload
+
     try:
         df, kite_note, kite_flags = _parse_kite_csv(raw)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    if len(df) < 10:
+    if len(df) < 5:
         raise HTTPException(400, {
             "error": "insufficient_trades",
             "trades_found": len(df),
-            "trades_needed": 10,
-            "message": f"Only {len(df)} completed trades found. Need at least 10."
+            "trades_needed": 5,
+            "message": f"Only {len(df)} completed trades found. Need at least 5 to run a basic analysis. The more trades you have, the more meaningful the results."
         })
 
     # Auto-assign regime if dates present
@@ -1753,15 +1795,62 @@ async def validate_kite(
 TV_SESSIONS: dict = {}
 TV_SESSION_TTL_SECONDS      = 7 * 24 * 3600
 TV_MAX_ALERTS_PER_SESSION   = 2000
+TV_SESSIONS_FILE            = "/tmp/qp_tv_sessions.json"
+
+def _tv_save_sessions():
+    """Persist TV sessions to disk so they survive server restarts."""
+    try:
+        import json
+        # Convert Timestamp objects to strings for JSON serialisation
+        serialisable = {}
+        for sid, sess in TV_SESSIONS.items():
+            s = dict(sess)
+            alerts_clean = []
+            for a in s.get("alerts", []):
+                ac = dict(a)
+                if hasattr(ac.get("timestamp"), "isoformat"):
+                    ac["timestamp"] = ac["timestamp"].isoformat()
+                alerts_clean.append(ac)
+            s["alerts"] = alerts_clean
+            serialisable[sid] = s
+        with open(TV_SESSIONS_FILE, "w") as f:
+            json.dump(serialisable, f)
+    except Exception as e:
+        print(f"[tv_save] Warning: could not persist sessions: {e}")
+
+def _tv_load_sessions():
+    """Load TV sessions from disk on startup."""
+    try:
+        import json
+        if not os.path.exists(TV_SESSIONS_FILE):
+            return
+        with open(TV_SESSIONS_FILE) as f:
+            saved = json.load(f)
+        now = time.time()
+        loaded = 0
+        for sid, sess in saved.items():
+            # Skip expired sessions
+            if now > sess.get("expires_at", 0):
+                continue
+            TV_SESSIONS[sid] = sess
+            loaded += 1
+        print(f"[tv_load] Restored {loaded} TV session(s) from disk")
+    except Exception as e:
+        print(f"[tv_load] Warning: could not load sessions: {e}")
+
+# Load persisted sessions on startup
+_tv_load_sessions()
 
 
 def _tv_cleanup():
-    """Remove expired TradingView sessions."""
+    """Remove expired TradingView sessions and persist to disk."""
     now     = time.time()
     expired = [sid for sid, data in TV_SESSIONS.items()
                if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS]
     for sid in expired:
         del TV_SESSIONS[sid]
+    if expired:
+        _tv_save_sessions()
 
 
 def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
@@ -1936,6 +2025,7 @@ def create_tv_session():
         "created_at":  time.time(),
         "expires_at":  time.time() + TV_SESSION_TTL_SECONDS,
     }
+    _tv_save_sessions()   # persist immediately so restart doesn't lose new session
     return TVSessionResponse(
         session_id=session_id,
         webhook_url=webhook_url,
@@ -2016,8 +2106,9 @@ def validate_tv_alerts(session_id: str):
     if len(trades) < 5:
         raise HTTPException(
             400,
-            f"Only paired {len(trades)} completed trades from {len(alerts)} alerts. "
-            "Need at least 5. Make sure you have both BUY and SELL alerts for each symbol."
+            f"Only paired {len(trades)} completed trade(s) from {len(alerts)} alert(s). "
+            "Need at least 5 completed round-trips (BUY + SELL pairs). "
+            "Keep sending alerts and validate again when you have more trades."
         )
 
     df = pd.DataFrame(trades)
@@ -2103,4 +2194,3 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
