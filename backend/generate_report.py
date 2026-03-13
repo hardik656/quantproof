@@ -1,7 +1,15 @@
 """
-QuantProof PDF Report Generator v1.0
-Institutional-grade analysis report using ReportLab.
-Called from FastAPI: generate_pdf_report(validation_response_dict) -> bytes
+QuantProof PDF Report Generator v1.1
+Synced to validator v6.2
+
+CHANGES FROM v1.0:
+  - Footer: 'Engine: v1.6 · 31 checks' → 'Engine: v6.2 · 40 checks'
+  - Page 2 heading: 'ALL 38 CHECKS' → 'ALL 40 CHECKS'
+  - Crash intro: 'three major market crashes' → 'five historical crash scenarios'
+  - Crash survival count: X/3 → X/5
+  - Crash verdict rendering: strips [UNCALIBRATED] prefix before emoji strip
+    (v6.2 prefixes undated crash verdicts with [UNCALIBRATED] — was leaking
+    as literal text in the PDF)
 """
 
 from reportlab.lib.pagesizes import A4
@@ -20,7 +28,7 @@ import io, datetime, math
 # ─── BRAND ────────────────────────────────────────────────────────────────────
 C_BLACK     = colors.HexColor("#0A0A0A")
 C_WHITE     = colors.white
-C_ACCENT    = colors.HexColor("#00C896")   # QuantProof teal
+C_ACCENT    = colors.HexColor("#00C896")
 C_ORANGE    = colors.HexColor("#FF6B35")
 C_DANGER    = colors.HexColor("#FF3B30")
 C_WARN      = colors.HexColor("#FF9F0A")
@@ -32,12 +40,11 @@ C_PAPER     = colors.HexColor("#F2F2F7")
 C_PAPER2    = colors.HexColor("#E5E5EA")
 
 PAGE_W, PAGE_H = A4
-MARGIN = 18 * mm
-INNER_W = PAGE_W - 2 * MARGIN   # ~159mm
+MARGIN  = 18 * mm
+INNER_W = PAGE_W - 2 * MARGIN
 
 
 def _s(name, **kw):
-    """Shorthand style factory."""
     defaults = dict(fontName="Helvetica", fontSize=10, leading=14,
                     textColor=C_DARK, spaceAfter=0, spaceBefore=0)
     defaults.update(kw)
@@ -47,8 +54,7 @@ def _s(name, **kw):
 def make_styles():
     return {
         "h_section":  _s("h_section",  fontName="Helvetica-Bold", fontSize=12,
-                          textColor=C_BLACK, spaceBefore=12, spaceAfter=5,
-                          borderPad=0),
+                          textColor=C_BLACK, spaceBefore=12, spaceAfter=5),
         "body":       _s("body",        leading=15, alignment=TA_JUSTIFY,
                           textColor=C_DARK, spaceAfter=4),
         "body_sm":    _s("body_sm",     fontSize=9, leading=13, textColor=C_MID),
@@ -59,8 +65,7 @@ def make_styles():
         "grade":      _s("grade",       fontName="Helvetica-Bold", fontSize=18,
                           leading=22, textColor=C_BLACK),
         "insight":    _s("insight",     fontSize=9, leading=13,
-                          fontName="Helvetica-Oblique", textColor=C_MID,
-                          leftIndent=8),
+                          fontName="Helvetica-Oblique", textColor=C_MID, leftIndent=8),
         "fix_txt":    _s("fix_txt",     fontSize=9, leading=13,
                           textColor=C_ORANGE, leftIndent=8),
         "footer":     _s("footer",      fontSize=7.5, leading=11,
@@ -86,48 +91,37 @@ def score_gauge(score: float, grade_short: str, width=130, height=80) -> Drawing
     cx = width / 2
     cy = 10
     R  = 54
-
     arcs = [(0, 40, C_DANGER), (40, 70, C_WARN), (70, 88, C_OK), (88, 100, C_ACCENT)]
     for s0, s1, col in arcs:
         steps = max(3, int((s1 - s0) * 1.8))
         for i in range(steps):
             a0 = math.radians(180 - (s0 + (s1-s0)*i/steps) * 1.8)
             a1 = math.radians(180 - (s0 + (s1-s0)*(i+1)/steps) * 1.8)
-            x0 = cx + R * math.cos(a0);  y0 = cy + R * math.sin(a0)
-            x1 = cx + R * math.cos(a1);  y1 = cy + R * math.sin(a1)
+            x0 = cx + R * math.cos(a0); y0 = cy + R * math.sin(a0)
+            x1 = cx + R * math.cos(a1); y1 = cy + R * math.sin(a1)
             ln = Line(x0, y0, x1, y1)
             ln.strokeColor = col; ln.strokeWidth = 9
             d.add(ln)
-
-    # needle
     na = math.radians(180 - score * 1.8)
-    nx = cx + (R - 6) * math.cos(na);  ny = cy + (R - 6) * math.sin(na)
+    nx = cx + (R - 6) * math.cos(na); ny = cy + (R - 6) * math.sin(na)
     needle = Line(cx, cy, nx, ny)
-    needle.strokeColor = C_BLACK;  needle.strokeWidth = 2.2
+    needle.strokeColor = C_BLACK; needle.strokeWidth = 2.2
     d.add(needle)
-
-    # hub dot
     hub = Wedge(cx, cy, 5, 0, 360)
-    hub.fillColor = C_BLACK;  hub.strokeColor = None
+    hub.fillColor = C_BLACK; hub.strokeColor = None
     d.add(hub)
-
-    d.add(String(cx, cy + 22, f"{score:.0f}",
-                 fontName="Helvetica-Bold", fontSize=24,
+    d.add(String(cx, cy + 22, f"{score:.0f}", fontName="Helvetica-Bold", fontSize=24,
                  fillColor=C_BLACK, textAnchor="middle"))
-    d.add(String(cx, cy + 11, grade_short,
-                 fontName="Helvetica", fontSize=8,
+    d.add(String(cx, cy + 11, grade_short, fontName="Helvetica", fontSize=8,
                  fillColor=C_LITE, textAnchor="middle"))
     return d
 
 
 def score_bar(score: float, width=50, height=7) -> Drawing:
-    """Mini horizontal progress bar."""
     d = Drawing(width, height)
-    bg = Rect(0, 0, width, height, fillColor=C_PAPER2, strokeColor=None)
-    d.add(bg)
+    d.add(Rect(0, 0, width, height, fillColor=C_PAPER2, strokeColor=None))
     col = C_DANGER if score < 40 else C_WARN if score < 70 else C_OK if score < 88 else C_ACCENT
-    fill = Rect(0, 0, score / 100 * width, height, fillColor=col, strokeColor=None)
-    d.add(fill)
+    d.add(Rect(0, 0, score / 100 * width, height, fillColor=col, strokeColor=None))
     return d
 
 
@@ -157,12 +151,24 @@ def cat_color(s):
     return C_DANGER
 
 
+def _clean_verdict(raw: str) -> str:
+    """
+    Strip [UNCALIBRATED] prefix (v6.2 undated crash label) and emoji
+    before rendering in PDF. Both must be stripped — PDF renderer
+    cannot display emoji and [UNCALIBRATED] should not appear as
+    literal text.
+    """
+    v = raw or ""
+    # Strip [UNCALIBRATED] prefix — added by v6.2 for undated strategies
+    v = v.replace("[UNCALIBRATED] ", "").replace("[UNCALIBRATED]", "")
+    # Strip emoji
+    for emoji in ("🟢", "🟡", "🟠", "🔴"):
+        v = v.replace(emoji, "")
+    return v.strip()
+
+
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 def generate_pdf_report(vr: dict) -> bytes:
-    """
-    vr = dict matching ValidationResponse fields from main.py.
-    Returns raw PDF bytes.
-    """
     buf = io.BytesIO()
     S   = make_styles()
 
@@ -188,44 +194,39 @@ def generate_pdf_report(vr: dict) -> bytes:
     )
     story = []
 
-    # ══ HEADER BAND ══════════════════════════════════════════════════════════
-    is_verified = vr.get("is_verified", False)
+    # ══ HEADER ════════════════════════════════════════════════════════════════
+    is_verified  = vr.get("is_verified", False)
     report_label = "VERIFIED INSTITUTIONAL REPORT" if is_verified else "METHODOLOGY ANALYSIS REPORT — CSV UPLOAD"
 
     hdr = Table([[
         Paragraph("QUANTPROOF", _s("qplogo", fontName="Helvetica-Bold",
             fontSize=11, textColor=C_ACCENT, leading=14)),
-        Paragraph(report_label,
-            _s("rptlabel", fontName="Helvetica", fontSize=9,
-               textColor=C_LITE, alignment=TA_RIGHT, leading=14)),
+        Paragraph(report_label, _s("rptlabel", fontName="Helvetica", fontSize=9,
+            textColor=C_LITE, alignment=TA_RIGHT, leading=14)),
     ]], colWidths=[INNER_W*0.5, INNER_W*0.5])
     hdr.setStyle(TableStyle([
-        ("BACKGROUND",   (0,0),(-1,-1), C_BLACK),
-        ("TOPPADDING",   (0,0),(-1,-1), 12),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 12),
-        ("LEFTPADDING",  (0,0),(-1,-1), 12),
-        ("RIGHTPADDING", (0,0),(-1,-1), 12),
+        ("BACKGROUND",    (0,0),(-1,-1), C_BLACK),
+        ("TOPPADDING",    (0,0),(-1,-1), 12),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 12),
+        ("LEFTPADDING",   (0,0),(-1,-1), 12),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 12),
     ]))
     story.append(hdr)
     story.append(Spacer(1, 6*mm))
 
-    # ══ SCORE + GRADE ROW ════════════════════════════════════════════════════
+    # ══ SCORE + GRADE ═════════════════════════════════════════════════════════
     verdict_text = {
         "A":  ("Institutionally Viable",
                f"This strategy passed all critical institutional checks. "
-               f"A Sharpe of {sharpe:.2f} with {dd:.1f}% max drawdown places it in the top tier "
-               f"of systematic strategies. "
+               f"A Sharpe of {sharpe:.2f} with {dd:.1f}% max drawdown places it in the top tier. "
                f"{'Connect a broker account to generate a verified compliance certificate.' if not is_verified else 'Eligible for prop firm submission.'}"),
         "B+": ("Prop Firm Ready",
-               f"Core edge is real and scalable. Some execution or regime checks need refinement "
-               f"before institutional submission. Suitable for live trading with proper sizing."),
+               f"Core edge is real and scalable. Some execution or regime checks need refinement."),
         "B":  ("Live Tradeable — With Caution",
                f"The strategy shows a real but fragile edge (Sharpe {sharpe:.2f}). "
-               f"One or more critical robustness checks flagged vulnerabilities. "
                f"Deploy at reduced size and monitor closely."),
         "F":  ("Do Not Deploy",
                f"Critical failures detected across key institutional checks. "
-               f"Deploying this strategy with real capital risks significant loss. "
                f"The action plan below shows exactly what to fix first."),
     }
     tier = "A" if score >= 90 else "B+" if score >= 80 else "B" if score >= 70 else "F"
@@ -253,7 +254,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 4*mm))
 
-    # ══ KEY METRICS ROW ══════════════════════════════════════════════════════
+    # ══ KEY METRICS ═══════════════════════════════════════════════════════════
     story.append(Paragraph("KEY METRICS", S["label"]))
     story.append(Spacer(1, 3))
 
@@ -264,15 +265,11 @@ def generate_pdf_report(vr: dict) -> bytes:
                       [Paragraph(sub, S["body_sm"])]],
                      colWidths=[36*mm])
 
-    sharpe_col = C_OK if sharpe >= 1.5 else C_WARN if sharpe >= 0.5 else C_DANGER
-    dd_col     = C_OK if dd < 15 else C_WARN if dd < 25 else C_DANGER
-    wr_col     = C_OK if wr >= 55 else C_WARN if wr >= 45 else C_DANGER
-
     metrics_row = Table([[
-        metric_cell("SHARPE RATIO",  f"{sharpe:.2f}",  "Target > 1.5"),
-        metric_cell("MAX DRAWDOWN",  f"{dd:.1f}%",     "Target < 20%"),
-        metric_cell("WIN RATE",      f"{wr:.1f}%",     "Target > 50%"),
-        metric_cell("TOTAL TRADES",  str(n),           dr[:18] if dr != "N/A" else "No dates"),
+        metric_cell("SHARPE RATIO",  f"{sharpe:.2f}", "Target > 1.5"),
+        metric_cell("MAX DRAWDOWN",  f"{dd:.1f}%",    "Target < 20%"),
+        metric_cell("WIN RATE",      f"{wr:.1f}%",    "Target > 50%"),
+        metric_cell("TOTAL TRADES",  str(n),          dr[:18] if dr != "N/A" else "No dates"),
     ]], colWidths=[INNER_W/4]*4)
     metrics_row.setStyle(TableStyle([
         ("BACKGROUND",    (0,0),(-1,-1), C_PAPER),
@@ -287,20 +284,17 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ TOP ISSUES + STRENGTHS ════════════════════════════════════════════════
     if issues or strengths:
-        col_a = []
-        col_b = []
+        col_a, col_b = [], []
         if issues:
             col_a.append(Paragraph("PRIMARY ISSUES", S["label"]))
             col_a.append(Spacer(1, 3))
             for iss in issues[:4]:
-                clean = iss[:110] if iss else ""
-                col_a.append(Paragraph(f"<bullet>&#x2022;</bullet> {clean}", S["body_sm"]))
+                col_a.append(Paragraph(f"<bullet>&#x2022;</bullet> {iss[:110]}", S["body_sm"]))
         if strengths:
             col_b.append(Paragraph("CONFIRMED STRENGTHS", S["label"]))
             col_b.append(Spacer(1, 3))
             for st in strengths[:3]:
                 col_b.append(Paragraph(f"<bullet>&#x2022;</bullet> {st}", S["body_sm"]))
-
         if col_a or col_b:
             summ_row = Table([[col_a or [""], col_b or [""]]],
                              colWidths=[INNER_W*0.52, INNER_W*0.48])
@@ -316,38 +310,43 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(summ_row)
             story.append(Spacer(1, 6*mm))
 
-    # ══ CRASH SIMS ═══════════════════════════════════════════════════════════
+    # ══ CRASH SIMS ════════════════════════════════════════════════════════════
     if crashes:
         story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
         story.append(Spacer(1, 4*mm))
         story.append(Paragraph("HISTORICAL CRASH STRESS TESTS", S["h_section"]))
+        # FIX: 'three major market crashes' → 'five historical crash scenarios'
         story.append(Paragraph(
-            "Your strategy was stress-tested against three major market crashes using "
+            "Your strategy was stress-tested against five historical crash scenarios using "
             "a 60-day crisis window with Almgren-Chriss volatility scaling and liquidity drag. "
             "A strategy that fails these tests would have likely blown up in real conditions.",
             S["body"]))
         story.append(Spacer(1, 4))
 
+        # FIX: survived_count/3 → survived_count/5
         survived_count = sum(1 for c in crashes if c.get("survived"))
         story.append(Paragraph(
-            f"Crash survival: <b>{survived_count}/3</b> — "
-            + ("All three survived. Strong crisis resilience." if survived_count == 3 else
-               "Two survived. One critical failure." if survived_count == 2 else
-               "One survived. Significant crisis vulnerability." if survived_count == 1 else
-               "Failed all three. Extremely high crisis risk."),
-            _s("crash_sum", fontName="Helvetica-Bold", fontSize=10, textColor=C_BLACK,
-               spaceAfter=6)))
+            f"Crash survival: <b>{survived_count}/5</b> — "
+            + ("All five survived. Strong crisis resilience." if survived_count == 5 else
+               "Four survived. Minor vulnerability." if survived_count == 4 else
+               "Three survived. Moderate crisis risk." if survived_count == 3 else
+               "Two survived. Significant crisis vulnerability." if survived_count == 2 else
+               "One survived. Extremely high crisis risk." if survived_count == 1 else
+               "Failed all five. Critical crisis exposure."),
+            _s("crash_sum", fontName="Helvetica-Bold", fontSize=10,
+               textColor=C_BLACK, spaceAfter=6)))
         story.append(Spacer(1, 4))
 
         for crash in crashes:
-            surv    = crash.get("survived", False)
-            drop    = crash.get("strategy_drop", 0) * 100
-            name    = crash.get("crash_name", "")
-            year    = crash.get("year", "")
-            mkt_d   = crash.get("market_drop", 0)
-            verdict = crash.get("emotional_verdict", "").replace("🟢","").replace(
-                      "🟡","").replace("🟠","").replace("🔴","").strip()
-            desc    = crash.get("description", "")[:100]
+            surv = crash.get("survived", False)
+            drop = crash.get("strategy_drop", 0) * 100
+            name = crash.get("crash_name", "")
+            year = crash.get("year", "")
+            mkt_d = crash.get("market_drop", 0)
+            desc  = crash.get("description", "")[:100]
+
+            # FIX: strip [UNCALIBRATED] prefix + emoji before rendering
+            verdict = _clean_verdict(crash.get("emotional_verdict", ""))
 
             bg_row  = colors.HexColor("#EDF9F3") if surv else colors.HexColor("#FDF0EF")
             tag_col = C_OK if surv else C_DANGER
@@ -356,14 +355,13 @@ def generate_pdf_report(vr: dict) -> bytes:
             c_tbl = Table([
                 [
                     Paragraph(f"<b>{name}</b>  <font color='#8E8E93' size=8>{year}</font>",
-                              S["crash_name"]),
+                               S["crash_name"]),
                     Paragraph(tag_txt, _s("tag", fontName="Helvetica-Bold",
                         fontSize=10, textColor=tag_col, alignment=TA_RIGHT)),
                 ],
                 [
-                    Paragraph(
-                        f"Market: {mkt_d:.0f}%  ·  Strategy: <b>{drop:+.1f}%</b>  ·  {desc}",
-                        S["body_sm"]),
+                    Paragraph(f"Market: {mkt_d:.0f}%  ·  Strategy: <b>{drop:+.1f}%</b>  ·  {desc}",
+                               S["body_sm"]),
                     Paragraph("", S["body_sm"]),
                 ],
                 [
@@ -385,9 +383,10 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(c_tbl)
             story.append(Spacer(1, 3))
 
-    # ══ PAGE 2: DETAILED CHECKS ═══════════════════════════════════════════════
+    # ══ PAGE 2: DETAILED CHECKS ════════════════════════════════════════════════
     story.append(PageBreak())
-    story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 38 CHECKS", S["h_section"]))
+    # FIX: 'ALL 38 CHECKS' → 'ALL 40 CHECKS'
+    story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 40 CHECKS", S["h_section"]))
     story.append(Paragraph(
         "Every check below was run against your specific strategy data. "
         "Red rows are institutional failures. Orange rows are warnings that won't disqualify "
@@ -408,15 +407,15 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     by_cat = {}
     for c in checks:
-        by_cat.setdefault(c.get("category","Other"), []).append(c)
+        by_cat.setdefault(c.get("category", "Other"), []).append(c)
 
     for cat in cat_order:
         cat_checks = by_cat.get(cat, [])
-        if not cat_checks: continue
+        if not cat_checks:
+            continue
 
-        avg = sum(c.get("score",0) for c in cat_checks) / len(cat_checks)
+        avg = sum(c.get("score", 0) for c in cat_checks) / len(cat_checks)
 
-        # Category header
         cat_hdr = Table([[
             Paragraph(cat_labels.get(cat, cat.upper()),
                       _s("ch", fontName="Helvetica-Bold", fontSize=10,
@@ -441,13 +440,16 @@ def generate_pdf_report(vr: dict) -> bytes:
             passed  = chk.get("passed", False)
             cscore  = float(chk.get("score", 0))
             name    = chk.get("name", "")
-            value   = chk.get("value", "").replace("✅","").replace("⚠","").replace("🔴","").replace("🟢","").replace("🟡","").replace("🟠","").strip()
+            value   = (chk.get("value", "")
+                       .replace("✅","").replace("⚠","")
+                       .replace("🔴","").replace("🟢","")
+                       .replace("🟡","").replace("🟠","").strip())
             insight = chk.get("insight", "")
             fix     = chk.get("fix", "")
 
-            row_bg = colors.HexColor("#F0FBF5") if passed else \
-                     colors.HexColor("#FFF8EC") if cscore > 20 else \
-                     colors.HexColor("#FEF0EE")
+            row_bg  = (colors.HexColor("#F0FBF5") if passed else
+                       colors.HexColor("#FFF8EC") if cscore > 20 else
+                       colors.HexColor("#FEF0EE"))
             ico_col = C_OK if passed else C_WARN if cscore > 20 else C_DANGER
             ico_txt = "PASS" if passed else "WARN" if cscore > 20 else "FAIL"
 
@@ -459,7 +461,7 @@ def generate_pdf_report(vr: dict) -> bytes:
                     fontSize=8, textColor=cat_color(cscore), alignment=TA_CENTER))],
                 Paragraph(ico_txt, _s("ckico", fontName="Helvetica-Bold",
                     fontSize=9, textColor=ico_col, alignment=TA_CENTER, leading=12)),
-            ],[
+            ], [
                 Paragraph(value[:120], S["body_sm"]), "", "",
             ]]
             if insight:
@@ -467,9 +469,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             if fix and not passed:
                 rows.append([Paragraph(f"Fix: {fix[:160]}", S["fix_txt"]), "", ""])
 
-            spans = [("SPAN",(0,1),(2,1))]
-            if len(rows) > 2: spans.append(("SPAN",(0,2),(2,2)))
-            if len(rows) > 3: spans.append(("SPAN",(0,3),(2,3)))
+            spans = [("SPAN", (0,1),(2,1))]
+            if len(rows) > 2: spans.append(("SPAN", (0,2),(2,2)))
+            if len(rows) > 3: spans.append(("SPAN", (0,3),(2,3)))
 
             ck_tbl = Table(rows, colWidths=[INNER_W*0.66, INNER_W*0.21, INNER_W*0.13])
             ck_tbl.setStyle(TableStyle([
@@ -486,23 +488,22 @@ def generate_pdf_report(vr: dict) -> bytes:
 
         story.append(Spacer(1, 5*mm))
 
-    # ══ AI PERSONALISED ANALYSIS (injected before action plan if present) ═══════
+    # ══ AI PERSONALISED ANALYSIS ══════════════════════════════════════════════
     ai_plan = vr.get("ai_plan")
     if ai_plan and isinstance(ai_plan, dict):
         story.append(PageBreak())
         story.append(Paragraph("AI PERSONALISED ANALYSIS", S["h_section"]))
         story.append(Spacer(1, 8))
 
-        # Summary
         summary_text = ai_plan.get("summary", "")
         if summary_text:
             story.append(Paragraph(summary_text, S["body"]))
             story.append(Spacer(1, 12))
 
-        # Ranked fixes
         fixes = ai_plan.get("fixes", [])
         if fixes:
-            story.append(Paragraph("RANKED FIX PLAN", S["h_sub"] if "h_sub" in S else S["body"]))
+            story.append(Paragraph("RANKED FIX PLAN",
+                _s("h_sub", fontName="Helvetica-Bold", fontSize=11, textColor=C_BLACK)))
             story.append(Spacer(1, 6))
             for fix in fixes:
                 rank         = fix.get("rank", "")
@@ -511,38 +512,29 @@ def generate_pdf_report(vr: dict) -> bytes:
                 specific     = fix.get("specific_fix", "")
                 score_impact = fix.get("score_impact", "")
                 effort       = fix.get("effort", "")
-
-                fix_color = C_DANGER if effort == "High" else C_WARN if effort == "Medium" else C_OK
-                header = f"#{rank} — {check}"
-                if score_impact:
-                    header += f"  |  {score_impact}"
-                if effort:
-                    header += f"  |  Effort: {effort}"
-
+                header       = f"#{rank} — {check}"
+                if score_impact: header += f"  |  {score_impact}"
+                if effort:       header += f"  |  Effort: {effort}"
                 story.append(Paragraph(header, S["label"]))
-                if why:
-                    story.append(Paragraph(f"<b>Why it matters:</b> {why}", S["body"]))
-                if specific:
-                    story.append(Paragraph(f"<b>Fix:</b> {specific}", S["body"]))
+                if why:      story.append(Paragraph(f"<b>Why it matters:</b> {why}", S["body"]))
+                if specific: story.append(Paragraph(f"<b>Fix:</b> {specific}", S["body"]))
                 story.append(Spacer(1, 8))
 
-        # Encouragement
         enc = ai_plan.get("encouragement", "")
         if enc:
             story.append(Spacer(1, 4))
             story.append(Paragraph(f"<i>{enc}</i>", S["body"]))
         story.append(Spacer(1, 16))
 
-    # ══ PAGE 3: ACTION PLAN ═══════════════════════════════════════════════════
-    failed = [c for c in checks if not c.get("passed", True) and
-              c.get("category") != "Plausibility"]
+    # ══ ACTION PLAN ═══════════════════════════════════════════════════════════
+    failed = [c for c in checks
+              if not c.get("passed", True) and c.get("category") != "Plausibility"]
     if failed:
         story.append(PageBreak())
         story.append(Paragraph("YOUR ACTION PLAN", S["h_section"]))
         story.append(Paragraph(
             f"You have <b>{len(failed)} failed checks</b>. Below are the highest-priority fixes "
-            f"ranked by impact — fix the top items first. Each issue includes the exact "
-            f"mathematical reason it failed and what to do about it.",
+            f"ranked by impact — fix the top items first.",
             S["body"]))
         story.append(Spacer(1, 5*mm))
 
@@ -551,10 +543,9 @@ def generate_pdf_report(vr: dict) -> bytes:
         ranked = sorted(failed, key=lambda c: priority.get(c.get("category",""), 8))
 
         for i, chk in enumerate(ranked[:10], 1):
-            cat = chk.get("category","")
-            badge_col = C_DANGER if priority.get(cat,8) <= 2 else \
-                        C_WARN   if priority.get(cat,8) <= 4 else C_LITE
-
+            cat       = chk.get("category", "")
+            badge_col = (C_DANGER if priority.get(cat,8) <= 2 else
+                         C_WARN   if priority.get(cat,8) <= 4 else C_LITE)
             row = Table([[
                 Paragraph(str(i), _s("bnum", fontName="Helvetica-Bold",
                     fontSize=16, textColor=badge_col, alignment=TA_CENTER, leading=20)),
@@ -566,8 +557,7 @@ def generate_pdf_report(vr: dict) -> bytes:
                     Spacer(1, 4),
                     Paragraph(chk.get("insight","")[:220], S["action_b"]),
                     Spacer(1, 4),
-                    Paragraph(
-                        f"<b>Fix:</b> {chk.get('fix','')[:220]}",
+                    Paragraph(f"<b>Fix:</b> {chk.get('fix','')[:220]}",
                         _s("act_fix", fontSize=9, leading=13,
                            textColor=C_ORANGE, fontName="Helvetica")),
                 ],
@@ -590,9 +580,11 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 3*mm))
     rid = abs(hash(str(score) + grade + str(n))) % 100000
+    # FIX: 'Engine: v1.6 · 31 checks' → 'Engine: v6.2 · 40 checks'
     story.append(Paragraph(
         f"Report ID: QP-{rid:05d}  ·  "
-        f"Engine: v1.6  ·  31 checks  ·  Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Engine: v6.2  ·  40 checks  ·  "
+        f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
         S["footer"]))
     story.append(Spacer(1, 2))
     story.append(Paragraph(
@@ -612,22 +604,18 @@ if __name__ == "__main__":
     from validator import QuantProofValidator
 
     for label, seed, mean, std, n_trades in [
-        ("institutional", 1,   0.005,  0.008, 300),
-        ("retail_ok",    42,   0.003,  0.012, 250),
-        ("disaster",      9,  -0.003,  0.018,  60),
+        ("institutional", 1,  0.005, 0.008, 300),
+        ("retail_ok",    42,  0.003, 0.012, 250),
+        ("disaster",      9, -0.003, 0.018,  60),
     ]:
-        r  = np.random.default_rng(seed).normal(mean, std, n_trades)
-        df = pd.DataFrame({'date': pd.date_range('2022-01-01', periods=n_trades), 'pnl': r})
+        r   = np.random.default_rng(seed).normal(mean, std, n_trades)
+        df  = pd.DataFrame({'date': pd.date_range('2022-01-01', periods=n_trades), 'pnl': r})
         rep = QuantProofValidator(df).run()
-
         scored = [c for c in rep.checks if c.category != "Plausibility"]
         vr = {
-            "fundable_score": rep.score,
-            "grade": rep.grade,
-            "sharpe": round(rep.sharpe, 2),
-            "max_drawdown": round(rep.max_drawdown, 4),
-            "win_rate": round(rep.win_rate, 1),
-            "total_trades": rep.total_trades,
+            "fundable_score": rep.score, "grade": rep.grade,
+            "sharpe": round(rep.sharpe, 2), "max_drawdown": round(rep.max_drawdown, 4),
+            "win_rate": round(rep.win_rate, 1), "total_trades": rep.total_trades,
             "date_range": "2022-01-01 to 2023-01-01",
             "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                         "value":c.value,"insight":c.insight,"fix":c.fix,
