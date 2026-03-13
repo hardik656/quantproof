@@ -1469,16 +1469,22 @@ def _is_kite_csv(df: pd.DataFrame) -> bool:
     return required_cols.issubset({c.lower().strip() for c in df.columns})
 
 
-def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str]:
+def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     """
-    Convert Zerodha Kite TradeBook CSV to QuantProof format.
+    Convert Zerodha Kite TradeBook CSV into QuantProof trades.
 
-    FIX K5: takes raw string, creates fresh StringIO per read — avoids
-    cursor exhaustion bug when called from smart_parse_csv.
+    Uses the same position-state tracker as pair_alpaca_orders:
+      - Chronological sort within each symbol
+      - FIFO lot queue per symbol
+      - Partial lot handling: SELL 5 from a 10-share position → closes 5, leaves 5 open
+      - Orphan sell detection: sell with no open position is flagged + excluded (not 0% fake trade)
+      - Short positions: detected via segment (FO = futures/options) or explicit short side
+      - Open positions logged in audit trail
+      - Returns (df, note, audit_flags) — same shape as pair_alpaca_orders
 
     Expected columns (case-insensitive):
-      trade_date, symbol, exchange, segment, trade_type, quantity, price
-    Returns (df_with_pnl, note_string).
+      trade_date, symbol, trade_type (BUY/SELL), quantity, price
+    Optional: segment (EQUITY/FO/CURRENCY), exchange
     """
     df = pd.read_csv(io.StringIO(raw))
     df.columns = [c.lower().strip() for c in df.columns]
@@ -1490,48 +1496,116 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str]:
 
     df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
     df = df.dropna(subset=["trade_date"])
+
+    # Sort chronologically within each symbol (same as Alpaca)
     df = df.sort_values(["symbol", "trade_date"]).reset_index(drop=True)
 
-    positions = {}
-    trades = []
+    # Position-state tracker: symbol → FIFO list of open lots
+    # Each lot: {"qty": int, "price": float, "date": Timestamp, "side": "long"/"short"}
+    lots        = defaultdict(list)
+    trades      = []
+    audit_flags = []
+    orphan_sells = []
+    orphan_buys  = []  # for short positions that close with a buy
 
     for _, row in df.iterrows():
-        symbol     = row["symbol"]
-        qty        = int(row["quantity"])
+        symbol     = str(row["symbol"])
+        qty        = float(row["quantity"])
         price      = float(row["price"])
-        trade_type = str(row["trade_type"]).upper()
+        trade_type = str(row["trade_type"]).upper().strip()
         date       = row["trade_date"]
+        segment    = str(row.get("segment", "EQUITY")).upper().strip()
 
-        if symbol not in positions:
-            positions[symbol] = {"qty": 0, "cost": 0.0}
-
-        pos = positions[symbol]
+        # Detect short positions: FO segment or explicit SELL with no prior BUY
+        # In Kite, F&O SELL could be opening a short, not closing a long
+        is_fo = segment in ("FO", "F&O", "FUTURES", "OPTIONS")
 
         if trade_type == "BUY":
-            pos["qty"]  += qty
-            pos["cost"] += qty * price
+            if lots[symbol] and lots[symbol][0]["side"] == "short":
+                # Closing a short position
+                remaining_qty = qty
+                while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
+                    lot       = lots[symbol][0]
+                    close_qty = min(remaining_qty, lot["qty"])
+                    # Short PnL: entry price - exit price (profit when price falls)
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    trades.append({
+                        "pnl":    round(pnl_pct, 6),
+                        "ticker": symbol,
+                        "side":   "short",
+                        "date":   date,
+                    })
+                    lot["qty"]    -= close_qty
+                    remaining_qty -= close_qty
+                    if lot["qty"] == 0:
+                        lots[symbol].pop(0)
+                # Any remaining qty opens a new long position
+                if remaining_qty > 0:
+                    lots[symbol].append({"qty": remaining_qty, "price": price, "date": date, "side": "long"})
+            else:
+                # Opening or adding to a long position
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
 
         elif trade_type == "SELL":
-            if pos["qty"] >= qty:
-                avg_entry = pos["cost"] / pos["qty"] if pos["qty"] > 0 else 0
-                pnl_pct   = (price - avg_entry) / avg_entry if avg_entry > 0 else 0
+            if not lots[symbol]:
+                # Orphan sell: no open position
+                if is_fo:
+                    # F&O sell without prior position = opening a short
+                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
+                else:
+                    # Equity sell without prior buy = position predates history window
+                    orphan_sells.append(
+                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
+                        f"(no open position — predates history window)"
+                    )
+                continue
+
+            # Close against open longs, handling partial lots
+            remaining_qty = qty
+            while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
+                lot       = lots[symbol][0]
+                close_qty = min(remaining_qty, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
                 trades.append({
-                    "pnl":    pnl_pct,
+                    "pnl":    round(pnl_pct, 6),
                     "ticker": symbol,
                     "side":   "long",
                     "date":   date,
                 })
-                pos["qty"]  -= qty
-                pos["cost"] -= qty * avg_entry
-                if pos["qty"] == 0:
-                    pos["cost"] = 0.0
+                lot["qty"]    -= close_qty
+                remaining_qty -= close_qty
+                if lot["qty"] == 0:
+                    lots[symbol].pop(0)
+
+    # Build audit flags for open positions
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
+            f"(position predates TradeBook history) — excluded"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} position(s) still open "
+            f"(no closing trade yet): {sym_list}"
+        )
 
     if not trades:
-        return pd.DataFrame(), "No completed trades found in Kite TradeBook"
+        return pd.DataFrame(), "No completed trades found in Kite TradeBook", audit_flags
 
     result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
-    note   = f"📊 Parsed {len(trades)} completed trades from Zerodha Kite TradeBook"
-    return result, note
+    note = (
+        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite TradeBook "
+        f"({len(orphan_sells)} orphan sell(s) excluded, "
+        f"{len(open_positions)} position(s) still open)"
+    )
+    return result, note, audit_flags
 
 
 @app.post("/validate/kite", response_model=ValidationResponse)
@@ -1582,7 +1656,7 @@ async def validate_kite(
         raise HTTPException(400, f"Could not read CSV: {str(e)}")
 
     try:
-        df, kite_note = _parse_kite_csv(raw)   # FIX K5: passes raw string
+        df, kite_note, kite_flags = _parse_kite_csv(raw)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -1654,7 +1728,7 @@ async def validate_kite(
         validation_hash=report.validation_hash + "-KITE",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
-        audit_flags=report.audit_flags + [kite_note],
+        audit_flags=report.audit_flags + [kite_note] + kite_flags,
         plausibility_summary=report.plausibility_summary,  # FIX K4
         scale_warning=getattr(report, '_scale_warning', False),  # FIX K4
         currency=detected_currency,   # FIX K4
@@ -1690,23 +1764,25 @@ def _tv_cleanup():
         del TV_SESSIONS[sid]
 
 
-def _tv_pair_alerts(alerts: list) -> list:
+def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
     """
     Pair TradingView BUY/SELL alerts into closed round-trip trades.
 
-    FIX TV3: Complete rewrite — previous version appended each alert to
-    positions[symbol] and then ALSO tried to remove it in the same loop
-    iteration, causing double-counting and incorrect pairing.
+    Same position-state tracker as pair_alpaca_orders and _parse_kite_csv:
+      - Chronological sort before any pairing
+      - FIFO lot queue per symbol
+      - Partial lot handling: SELL qty < open qty → partially closes, remainder stays open
+      - Orphan sell detection: sell with no open lot is flagged + excluded (not silently dropped)
+      - Open positions reported in audit trail
+      - Short support: SELL with no open long → opens a short lot
 
-    This version uses a clean two-pass approach:
-      Pass 1: collect all BUYs and SELLs per symbol (sorted chronologically)
-      Pass 2: FIFO pair BUYs against SELLs
+    Returns (trades_list, audit_flags_list).
     """
     if not alerts:
-        return []
+        return [], []
 
-    # FIX TV4: parse timestamp flexibly (unix float OR ISO string)
     def _parse_ts(ts):
+        """Parse timestamp — handles unix float, unix int, or ISO string."""
         if ts is None:
             return time.time()
         if isinstance(ts, (int, float)):
@@ -1716,51 +1792,110 @@ def _tv_pair_alerts(alerts: list) -> list:
         except Exception:
             return time.time()
 
-    # Sort chronologically
+    def _ts_to_datetime(ts_float):
+        try:
+            return pd.Timestamp(ts_float, unit="s")
+        except Exception:
+            return None
+
+    # Sort all alerts chronologically before ANY pairing
     sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
 
-    # Pass 1: separate BUYs and SELLs per symbol
-    buys  = defaultdict(list)
-    sells = defaultdict(list)
+    # Position-state tracker: symbol → FIFO list of open lots
+    lots         = defaultdict(list)
+    trades       = []
+    audit_flags  = []
+    orphan_sells = []
 
     for alert in sorted_alerts:
-        symbol = alert.get("symbol", "UNKNOWN")
-        action = str(alert.get("action", "")).upper()
+        symbol = str(alert.get("symbol", "UNKNOWN"))
+        action = str(alert.get("action", "")).upper().strip()
         price  = float(alert.get("price", 0))
         qty    = float(alert.get("quantity", 1))
         ts     = _parse_ts(alert.get("timestamp"))
-        entry  = {"price": price, "qty": qty, "ts": ts}
+        date   = _ts_to_datetime(ts)
+
+        if price <= 0:
+            continue
+
         if action == "BUY":
-            buys[symbol].append(entry)
+            if lots[symbol] and lots[symbol][0]["side"] == "short":
+                # Closing a short position (partial lot support)
+                remaining = qty
+                while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
+                    lot       = lots[symbol][0]
+                    close_qty = min(remaining, lot["qty"])
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": "short"}
+                    if date: row["date"] = date
+                    trades.append(row)
+                    lot["qty"] -= close_qty
+                    remaining  -= close_qty
+                    if lot["qty"] == 0:
+                        lots[symbol].pop(0)
+                if remaining > 0:
+                    lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
+            else:
+                # Opening or adding to a long position
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
+
         elif action == "SELL":
-            sells[symbol].append(entry)
+            if not lots[symbol]:
+                # No open long — could be opening a short (e.g. SHORT signal from TV strategy)
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
+                continue
 
-    # Pass 2: FIFO pairing
-    trades = []
-    for symbol in sells:
-        buy_queue  = list(buys.get(symbol, []))  # copy so we can pop
-        sell_queue = list(sells[symbol])
+            if lots[symbol][0]["side"] == "short":
+                # Already short, adding to it
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
+                continue
 
-        for sell in sell_queue:
-            if not buy_queue:
-                break   # orphan sell — no matching buy in history
-            buy     = buy_queue.pop(0)
-            pnl_pct = (sell["price"] - buy["price"]) / buy["price"] if buy["price"] > 0 else 0.0
-            # FIX TV4: convert unix timestamp to pd.Timestamp for dates
-            try:
-                trade_date = pd.Timestamp(sell["ts"], unit="s")
-            except Exception:
-                trade_date = None
-            row = {
-                "pnl":    pnl_pct,
-                "ticker": symbol,
-                "side":   "long",
-            }
-            if trade_date is not None:
-                row["date"] = trade_date
-            trades.append(row)
+            # Close against open longs with partial lot support
+            remaining = qty
+            while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
+                lot       = lots[symbol][0]
+                close_qty = min(remaining, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": "long"}
+                if date: row["date"] = date
+                trades.append(row)
+                lot["qty"] -= close_qty
+                remaining  -= close_qty
+                if lot["qty"] == 0:
+                    lots[symbol].pop(0)
 
-    return trades
+        elif action in ("CLOSE", "EXIT", "FLAT"):
+            # Explicit close signal — close entire position regardless of direction
+            if lots[symbol]:
+                lot = lots[symbol][0]
+                pnl_pct = (
+                    (price - lot["price"]) / lot["price"] if lot["side"] == "long"
+                    else (lot["price"] - price) / lot["price"]
+                )
+                row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": lot["side"]}
+                if date: row["date"] = date
+                trades.append(row)
+                lots[symbol].clear()
+
+    # Build audit flags
+    open_positions = {s: (sum(l["qty"] for l in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} position(s) still open "
+            f"(no closing alert yet): {sym_list}"
+        )
+
+    total_alerts = len(alerts)
+    completed    = len(trades)
+    audit_flags.append(
+        f"📊 {total_alerts} alert(s) → {completed} completed trade(s) | "
+        f"{len(open_positions)} position(s) open"
+    )
+
+    return trades, audit_flags
 
 
 class TVSessionResponse(BaseModel):
@@ -1836,7 +1971,7 @@ def get_tv_status(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     session = TV_SESSIONS[session_id]
     alerts  = session["alerts"]
-    trades  = _tv_pair_alerts(alerts)
+    trades, _ = _tv_pair_alerts(alerts)
     status  = "active"
     if time.time() > session["expires_at"]:
         status = "expired"
@@ -1876,7 +2011,7 @@ def validate_tv_alerts(session_id: str):
             "Keep sending webhook alerts and try again."
         )
 
-    trades = _tv_pair_alerts(alerts)
+    trades, tv_flags = _tv_pair_alerts(alerts)
 
     if len(trades) < 5:
         raise HTTPException(
@@ -1921,6 +2056,8 @@ def validate_tv_alerts(session_id: str):
         f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
         + (f" | {regime_note}" if regime_note else "")
     )
+    # Merge tv_flags into audit_flags for full transparency
+    extra_tv_flags = [f for f in tv_flags if f not in audit_note]
 
     return ValidationResponse(
         fundable_score=report.score,
@@ -1944,7 +2081,7 @@ def validate_tv_alerts(session_id: str):
         validation_hash=report.validation_hash + "-TV",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
-        audit_flags=report.audit_flags + [audit_note],
+        audit_flags=report.audit_flags + [audit_note] + extra_tv_flags,
         plausibility_summary=report.plausibility_summary,   # FIX TV2
         scale_warning=getattr(report, '_scale_warning', False),  # FIX TV2
         currency="USD",   # FIX TV2
@@ -1966,5 +2103,4 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
