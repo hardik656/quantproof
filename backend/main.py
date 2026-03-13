@@ -304,7 +304,7 @@ class ValidationResponse(BaseModel):
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     """
     Converts raw Alpaca filled orders into a trades DataFrame.
-    Uses chronological position-based reconstruction.
+    Uses chronological position-based reconstruction with VWAP entry calculation.
     """
     audit_flags = []
 
@@ -328,48 +328,58 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
             symbol = o.get("symbol")
             side = o.get("side")
             price = float(o.get("filled_avg_price", 0) or 0)
+            qty = float(o.get("filled_qty", 0) or 0)
             date_str = o.get("filled_at") or o.get("updated_at")
 
-            if not symbol or not side or price <= 0:
+            if not symbol or not side or price <= 0 or qty <= 0:
                 continue
 
             if symbol not in open_positions:
+                # New position entry
                 open_positions[symbol] = {
                     "side": side,
-                    "price": price,
+                    "size": qty,
+                    "cost": qty * price,
                     "date": date_str
                 }
                 continue
 
             entry = open_positions[symbol]
 
-            if entry["side"] != side:
+            if entry["side"] == side:
+                # Same side - scale into position
+                entry["size"] += qty
+                entry["cost"] += qty * price
+                continue
 
-                if entry["side"] == "buy":
-                    pnl = (price - entry["price"]) / entry["price"]
-                    trade_side = "long"
-                else:
-                    pnl = (entry["price"] - price) / entry["price"]
-                    trade_side = "short"
+            # Side flips - close the trade
+            entry_price = entry["cost"] / entry["size"]  # VWAP entry price
 
-                row = {
-                    "pnl": pnl,
-                    "ticker": symbol,
-                    "side": trade_side
-                }
+            if entry["side"] == "buy":
+                pnl = (price - entry_price) / entry_price
+                trade_side = "long"
+            else:
+                pnl = (entry_price - price) / entry_price
+                trade_side = "short"
 
-                if date_str:
-                    try:
-                        ts = pd.to_datetime(date_str)
-                        if ts.tzinfo is not None:
-                            ts = ts.tz_convert("UTC").tz_localize(None)
-                        row["date"] = ts
-                    except Exception:
-                        pass
+            row = {
+                "pnl": pnl,
+                "ticker": symbol,
+                "side": trade_side
+            }
 
-                rows.append(row)
+            if date_str:
+                try:
+                    ts = pd.to_datetime(date_str)
+                    if ts.tzinfo is not None:
+                        ts = ts.tz_convert("UTC").tz_localize(None)
+                    row["date"] = ts
+                except Exception:
+                    pass
 
-                del open_positions[symbol]
+            rows.append(row)
+
+            del open_positions[symbol]
 
         except Exception:
             continue
@@ -1411,4 +1421,5 @@ def ibkr_setup_guide():
         "note": "Your credentials are used only to pull trade data and are never stored.",
         "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash."
     }
+
 
