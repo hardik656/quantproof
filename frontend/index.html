@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -383,8 +384,21 @@
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'USD');
+    // Cold start warning — Render free tier can take 30-60s on first request
+    const coldStartTimer = setTimeout(() => {
+      const loadLine = document.querySelector('.terminal-line:last-child');
+      if (loadLine) {
+        const msg = document.createElement('div');
+        msg.className = 'terminal-line';
+        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
+        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
+        loadLine.parentNode.appendChild(msg);
+      }
+    }, 8000);
+
     try {
       const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
+      clearTimeout(coldStartTimer);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
@@ -410,12 +424,24 @@
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'INR');
+    const coldStartTimerKite = setTimeout(() => {
+      const loadLine = document.querySelector('.terminal-line:last-child');
+      if (loadLine) {
+        const msg = document.createElement('div');
+        msg.className = 'terminal-line';
+        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
+        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
+        loadLine.parentNode.appendChild(msg);
+      }
+    }, 8000);
+
     try {
       const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
+      clearTimeout(coldStartTimerKite);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        if(detail.error === 'insufficient_trades') throw new Error(`Only ${detail.trades_found} completed trades found. Need ${detail.trades_needed}.`);
+        if(detail.error === 'insufficient_trades') throw new Error(`Only ${detail.trades_found} completed trade(s) found — need ${detail.trades_needed}. A trade = one BUY and one matching SELL for the same stock.`);
         throw new Error(detail.message || detail || 'Kite validation failed');
       }
       const data = await resp.json();
@@ -509,7 +535,7 @@
 
       ${isVerified
         ?`<div class="verified-banner"><div class="verified-icon">✓</div><div><div class="verified-text">VERIFIED — Data pulled directly from Alpaca</div><div class="verified-sub">Trade history independently verified · Eligible for prop firm compliance certificate</div></div></div>`
-        :`<div class="csv-warning-banner"><div class="warn-icon">⚠</div><div class="warn-text"><strong>${modeLabel}</strong> — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div><div class="warn-link" onclick="resetApp()">Connect Broker →</div></div>`
+        :`<div class="csv-warning-banner"><div class="warn-icon">⚠</div><div class="warn-text"><strong>${modeLabel}</strong>${_validationMode==='tradingview'?' — alert prices are signal prices, not actual fills. Slippage not included.':''} — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div><div class="warn-link" onclick="resetApp()">Connect Broker →</div></div>`
       }
 
       <div class="section-title">// Historical Crash Simulations (5 scenarios)</div>
@@ -736,14 +762,26 @@
     _validationMode='broker'; _brokerSource='alpaca';
     try{sessionStorage.setItem('qp_broker',JSON.stringify({api_key:key,secret_key:secret,mode}));sessionStorage.setItem('qp_source','alpaca');}catch(e){}
     showLoading();
+    const coldStartTimerAlpaca = setTimeout(() => {
+      const loadLine = document.querySelector('.terminal-line:last-child');
+      if (loadLine) {
+        const msg = document.createElement('div');
+        msg.className = 'terminal-line';
+        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
+        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
+        loadLine.parentNode.appendChild(msg);
+      }
+    }, 8000);
+
     try {
       const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
+      clearTimeout(coldStartTimerAlpaca);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
         document.getElementById('alpacaPanel').style.display='block';
         if(detail&&detail.error==='rate_limit'){status.innerHTML=`<span style="color:#ffaa00">⚠ Daily limit reached — resets in ~${detail.hours_left}h.</span>`;return;}
-        if(detail&&detail.error==='insufficient_trades'){status.innerHTML=`<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> closed trades found. Need <b>${detail.trades_needed}</b>.</span>`;return;}
+        if(detail&&detail.error==='insufficient_trades'){status.innerHTML=`<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> completed round-trip(s) found — need <b>${detail.trades_needed}</b>.<br><span style='opacity:0.8;font-size:11px'>A round-trip = one BUY + one SELL of the same stock. Check paper vs live account type.</span></span>`;return;}
         throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
       const data=await resp.json();
