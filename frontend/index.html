@@ -7,455 +7,163 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --black: #080a0f;
-    --deep: #0d1117;
-    --surface: #131920;
-    --border: #1e2d3d;
-    --accent: #00ff88;
-    --accent2: #ff4444;
-    --accent3: #ffaa00;
-    --text: #e8edf2;
-    --muted: #5a7a8a;
-    --mono: 'Space Mono', monospace;
-    --sans: 'Syne', sans-serif;
+    --black: #080a0f; --deep: #0d1117; --surface: #131920; --border: #1e2d3d;
+    --accent: #00ff88; --accent2: #ff4444; --accent3: #ffaa00;
+    --text: #e8edf2; --muted: #5a7a8a;
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
   }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--black);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0,0,0,0.08) 2px,
-      rgba(0,0,0,0.08) 4px
-    );
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .container {
-    position: relative;
-    z-index: 2;
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
-
-  header {
-    padding: 32px 0 0;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 60px;
-  }
-
-  .header-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-bottom: 24px;
-  }
-
-  .logo { display: flex; align-items: center; gap: 12px; }
-
-  .logo-mark {
-    width: 36px; height: 36px;
-    border: 2px solid var(--accent);
-    display: grid; place-items: center;
-    font-family: var(--mono); font-size: 14px; color: var(--accent);
-    position: relative; animation: pulse-border 3s infinite;
-  }
-
-  @keyframes pulse-border {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
-    50%       { box-shadow: 0 0 0 8px rgba(0,255,136,0); }
-  }
-
-  .logo-name { font-family: var(--sans); font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
-  .logo-name span { color: var(--accent); }
-
-  .status-pill {
-    font-family: var(--mono); font-size: 11px; color: var(--accent);
-    border: 1px solid rgba(0,255,136,0.3); padding: 4px 12px;
-    display: flex; align-items: center; gap: 6px;
-  }
-
-  .status-dot {
-    width: 6px; height: 6px; background: var(--accent);
-    border-radius: 50%; animation: blink 1.5s infinite;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0.2; }
-  }
-
-  .hero {
-    text-align: center; margin-bottom: 64px;
-    animation: fadeUp 0.8s ease both;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(24px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .hero-tag {
-    font-family: var(--mono); font-size: 11px; color: var(--accent);
-    letter-spacing: 3px; text-transform: uppercase;
-    margin-bottom: 20px; display: inline-block;
-  }
-
-  .hero h1 {
-    font-size: clamp(36px, 6vw, 72px); font-weight: 800;
-    line-height: 1.0; letter-spacing: -2px; margin-bottom: 20px;
-  }
-
-  .hero h1 em { font-style: normal; color: var(--accent); position: relative; }
-
-  .hero p {
-    font-size: 18px; color: var(--muted); max-width: 540px;
-    margin: 0 auto 40px; line-height: 1.6; font-weight: 400;
-  }
-
-  .stats-row { display: flex; justify-content: center; gap: 48px; margin-top: 40px; }
-  .stat { text-align: center; }
-  .stat-num { font-family: var(--mono); font-size: 28px; color: var(--accent); font-weight: 700; }
-  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
-
-  .upload-section { margin-bottom: 64px; animation: fadeUp 0.8s 0.2s ease both; }
-
-  .upload-btn {
-    background: var(--accent); color: var(--black); border: none;
-    padding: 14px 32px; font-family: var(--mono); font-size: 13px;
-    font-weight: 700; letter-spacing: 1px; cursor: pointer;
-    transition: all 0.2s; text-transform: uppercase;
-  }
-
-  .upload-btn:hover { background: #00cc6e; transform: translateY(-1px); }
-
-  input[type="file"] { display: none; }
-
-  .format-hint { margin-top: 16px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-
-  .loading { display: none; text-align: center; padding: 80px 0; }
-  .loading.active { display: block; }
-
-  .terminal {
-    background: var(--deep); border: 1px solid var(--border);
-    padding: 24px; max-width: 500px; margin: 0 auto 32px; text-align: left;
-  }
-
-  .terminal-bar { display: flex; gap: 6px; margin-bottom: 16px; }
-  .t-dot { width: 10px; height: 10px; border-radius: 50%; }
-  .t-dot:nth-child(1) { background: #ff5f57; }
-  .t-dot:nth-child(2) { background: #febc2e; }
-  .t-dot:nth-child(3) { background: #28c840; }
-
-  .terminal-line {
-    font-family: var(--mono); font-size: 12px; color: var(--accent);
-    margin-bottom: 6px; opacity: 0;
-    animation: typeIn 0.3s ease forwards;
-  }
-
-  /* FIX #12: 11 lines now (was 9), delays extended */
-  .terminal-line:nth-child(2)  { animation-delay: 0.3s;  color: var(--text); }
-  .terminal-line:nth-child(3)  { animation-delay: 0.6s; }
-  .terminal-line:nth-child(4)  { animation-delay: 0.9s;  color: var(--text); }
-  .terminal-line:nth-child(5)  { animation-delay: 1.2s; }
-  .terminal-line:nth-child(6)  { animation-delay: 1.5s;  color: var(--accent3); }
-  .terminal-line:nth-child(7)  { animation-delay: 1.8s;  color: var(--accent3); }
-  .terminal-line:nth-child(8)  { animation-delay: 2.1s;  color: var(--accent2); }
-  .terminal-line:nth-child(9)  { animation-delay: 2.4s;  color: var(--accent2); }
-  .terminal-line:nth-child(10) { animation-delay: 2.7s;  color: var(--accent2); }
-  .terminal-line:nth-child(11) { animation-delay: 3.0s;  color: var(--accent); }
-
-  @keyframes typeIn {
-    from { opacity: 0; transform: translateX(-8px); }
-    to   { opacity: 1; transform: translateX(0); }
-  }
-
-  .results { display: none; }
-  .results.active { display: block; animation: fadeUp 0.6s ease both; }
-
-  .score-hero {
-    display: grid; grid-template-columns: 280px 1fr;
-    gap: 32px; margin-bottom: 40px;
-    background: var(--deep); border: 1px solid var(--border); padding: 40px;
-  }
-
-  .score-circle-wrap {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px;
-  }
-
-  .score-circle { width: 160px; height: 160px; position: relative; }
-  .score-circle svg { transform: rotate(-90deg); }
-  .score-circle-bg { fill: none; stroke: var(--border); stroke-width: 8; }
-  .score-circle-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
-
-  .score-number { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .score-val { font-family: var(--mono); font-size: 42px; font-weight: 700; line-height: 1; }
-  .score-max { font-family: var(--mono); font-size: 13px; color: var(--muted); }
-
-  .score-grade {
-    font-family: var(--mono); font-size: 12px;
-    text-align: center; padding: 6px 16px; border: 1px solid;
-  }
-
-  .score-meta { display: flex; flex-direction: column; justify-content: center; gap: 24px; }
-  .score-summary { font-size: 16px; line-height: 1.7; color: var(--muted); }
-
-  .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-
-  .meta-item { background: var(--surface); padding: 16px; border-left: 3px solid var(--border); }
-  .meta-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-  .meta-value { font-family: var(--mono); font-size: 20px; font-weight: 700; }
-
-  .section-title {
-    font-family: var(--mono); font-size: 11px;
-    letter-spacing: 3px; text-transform: uppercase; color: var(--muted);
-    margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
-  }
-
-  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  .crash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 48px; }
-
-  .crash-card {
-    background: var(--deep); border: 1px solid var(--border);
-    padding: 24px; position: relative; overflow: hidden; transition: transform 0.2s;
-  }
-
-  .crash-card:hover { transform: translateY(-2px); }
-
-  .crash-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-  .crash-card.survived::before { background: var(--accent); }
-  .crash-card.warning::before  { background: var(--accent3); }
-  .crash-card.failed::before   { background: var(--accent2); }
-
-  .crash-year   { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-  .crash-name   { font-size: 16px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
-  .crash-desc   { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 16px; }
-  .crash-stats  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-  .crash-stat   { background: var(--surface); padding: 10px; text-align: center; }
-  .crash-stat-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .crash-stat-val   { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 2px; }
-
-  .crash-verdict { font-size: 12px; line-height: 1.5; padding: 12px; border: 1px solid; font-weight: 600; }
-
-  .crash-card.survived .crash-verdict { border-color: rgba(0,255,136,0.3); color: var(--accent);  background: rgba(0,255,136,0.05); }
-  .crash-card.warning  .crash-verdict { border-color: rgba(255,170,0,0.3); color: var(--accent3); background: rgba(255,170,0,0.05); }
-  .crash-card.failed   .crash-verdict { border-color: rgba(255,68,68,0.3);  color: var(--accent2); background: rgba(255,68,68,0.05); }
-
-  .checks-section { margin-bottom: 48px; }
-  .category-block { margin-bottom: 32px; }
-
-  .category-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
-  }
-
-  .category-name   { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-  .category-score  { font-family: var(--mono); font-size: 13px; }
-
-  .check-item {
-    background: var(--deep); border: 1px solid var(--border); border-left: 3px solid;
-    padding: 16px 20px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
-  }
-
-  .check-item:hover { background: var(--surface); }
-  .check-item.pass  { border-left-color: var(--accent); }
-  .check-item.fail  { border-left-color: var(--accent2); }
-
-  .check-header { display: flex; align-items: center; justify-content: space-between; }
-
-  .check-name { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-
-  .check-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; font-weight: 700; }
-  .check-badge.pass { background: rgba(0,255,136,0.15); color: var(--accent); }
-  .check-badge.fail { background: rgba(255,68,68,0.15);  color: var(--accent2); }
-
-  .check-score-bar { display: flex; align-items: center; gap: 12px; }
-
-  .bar-track { width: 100px; height: 4px; background: var(--border); overflow: hidden; }
-  .bar-fill  { height: 100%; transition: width 1s ease; }
-
-  .check-score-num { font-family: var(--mono); font-size: 12px; width: 32px; text-align: right; }
-
-  .check-details { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-  .check-details.open { display: block; }
-
-  .check-value   { font-family: var(--mono); font-size: 12px; color: var(--accent3); margin-bottom: 10px; padding: 8px 12px; background: var(--surface); }
-  .check-insight { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
-  .check-fix     { font-size: 13px; color: var(--text); line-height: 1.6; padding: 10px 12px; border-left: 3px solid var(--accent3); background: rgba(255,170,0,0.05); }
-  .check-fix::before { content: '→ FIX: '; font-family: var(--mono); font-size: 11px; color: var(--accent3); font-weight: 700; }
-
-  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 48px; }
-
-  .insight-card { background: var(--deep); border: 1px solid var(--border); padding: 24px; }
-
-  .insight-card-title { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
-  .insight-card-title.issues    { color: var(--accent2); }
-  .insight-card-title.strengths { color: var(--accent); }
-
-  .insight-item { display: flex; gap: 10px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; color: var(--muted); }
-  .insight-num  { font-family: var(--mono); font-size: 11px; color: var(--border); min-width: 20px; margin-top: 2px; }
-
-  .reset-btn {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-    padding: 12px 24px; font-family: var(--mono); font-size: 12px; cursor: pointer;
-    transition: all 0.2s; margin: 0 auto 64px; display: block;
-  }
-
-  .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-  footer { border-top: 1px solid var(--border); padding: 32px 0; text-align: center; }
-  .footer-text { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  footer .accent { color: var(--accent); }
-
-  @media (max-width: 768px) {
-    .crash-grid       { grid-template-columns: 1fr; }
-    .score-hero       { grid-template-columns: 1fr; }
-    .meta-grid        { grid-template-columns: repeat(2, 1fr); }
-    .insights-grid    { grid-template-columns: 1fr; }
-    .stats-row        { gap: 24px; }
-    .mode-grid        { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 1024px) and (min-width: 769px) {
-    .mode-grid { grid-template-columns: 1fr 1fr; }
-  }
-
-  @media (min-width: 1025px) {
-    .mode-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; }
-  }
-
-  .mode-card {
-    background: var(--deep); border: 1px solid var(--border);
-    padding: 32px 28px; display: flex; flex-direction: column; transition: border-color 0.2s;
-  }
-
-  .mode-card:hover { border-color: rgba(0,255,136,0.25); }
-
-  .mode-card-verified { border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.02); }
-  .mode-card-verified:hover { border-color: rgba(0,255,136,0.5); }
-
-  .mode-tag   { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; }
-  .mode-icon  { font-size: 36px; margin-bottom: 12px; }
-  .mode-title { font-size: 20px; font-weight: 800; margin-bottom: 10px; letter-spacing: -0.3px; }
-  .mode-desc  { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 20px; flex: 1; }
-
-  .mode-limits { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-  .mode-limit-item { font-family: var(--mono); font-size: 10px; color: var(--muted); border: 1px solid var(--border); padding: 3px 10px; letter-spacing: 0.05em; }
-
-  .mode-warning      { font-family: var(--mono); font-size: 11px; color: var(--accent2); padding: 8px 12px; background: rgba(255,68,68,0.05);    border: 1px solid rgba(255,68,68,0.15); }
-  .mode-verified-note{ font-family: var(--mono); font-size: 11px; color: var(--accent);  padding: 8px 12px; background: rgba(0,255,136,0.05);    border: 1px solid rgba(0,255,136,0.15); }
-
-  .mode-btn-alpaca { background: var(--accent) !important; color: var(--black) !important; }
-  .mode-btn-alpaca:hover { background: #00cc6e !important; }
-
-  .csv-warning-banner {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; background: rgba(255,68,68,0.05);
-    border: 1px solid rgba(255,68,68,0.2); margin-bottom: 32px;
-    font-size: 13px; font-family: var(--mono);
-  }
-
-  .csv-warning-banner .warn-icon { font-size: 16px; flex-shrink: 0; }
-  .csv-warning-banner .warn-text { color: var(--muted); }
-  .csv-warning-banner .warn-text strong { color: var(--accent2); }
-  .csv-warning-banner .warn-link {
-    margin-left: auto; color: var(--accent); font-size: 11px;
-    cursor: pointer; white-space: nowrap; flex-shrink: 0;
-    border: 1px solid rgba(0,255,136,0.3); padding: 4px 12px; transition: all 0.2s;
-  }
-
-  .csv-warning-banner .warn-link:hover { background: rgba(0,255,136,0.08); }
-
-  .verified-banner {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 20px; background: rgba(0,255,136,0.05);
-    border: 1px solid rgba(0,255,136,0.25); margin-bottom: 32px;
-    font-size: 13px; font-family: var(--mono);
-  }
-
-  .verified-banner .verified-icon { font-size: 18px; }
-  .verified-banner .verified-text { color: var(--accent); font-weight: 700; }
-  .verified-banner .verified-sub  { color: var(--muted); font-size: 11px; margin-top: 2px; }
-
-  /* category pass/fail badges */
-  .cat-pass-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; background: rgba(0,255,136,0.12); color: var(--accent);  font-weight: 700; }
-  .cat-fail-badge { font-family: var(--mono); font-size: 10px; padding: 2px 8px; background: rgba(255,68,68,0.12);  color: var(--accent2); font-weight: 700; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--black); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+  body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px); pointer-events:none; z-index:1; }
+  .container { position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:0 24px; }
+  header { padding:32px 0 0; border-bottom:1px solid var(--border); margin-bottom:60px; }
+  .header-inner { display:flex; align-items:center; justify-content:space-between; padding-bottom:24px; }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-mark { width:36px; height:36px; border:2px solid var(--accent); display:grid; place-items:center; font-family:var(--mono); font-size:14px; color:var(--accent); animation:pulse-border 3s infinite; }
+  @keyframes pulse-border { 0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.4)}50%{box-shadow:0 0 0 8px rgba(0,255,136,0)} }
+  .logo-name { font-family:var(--sans); font-weight:800; font-size:22px; letter-spacing:-0.5px; }
+  .logo-name span { color:var(--accent); }
+  .status-pill { font-family:var(--mono); font-size:11px; color:var(--accent); border:1px solid rgba(0,255,136,0.3); padding:4px 12px; display:flex; align-items:center; gap:6px; }
+  .status-dot { width:6px; height:6px; background:var(--accent); border-radius:50%; animation:blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+  .hero { text-align:center; margin-bottom:64px; animation:fadeUp 0.8s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)} }
+  .hero-tag { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; margin-bottom:20px; display:inline-block; }
+  .hero h1 { font-size:clamp(36px,6vw,72px); font-weight:800; line-height:1.0; letter-spacing:-2px; margin-bottom:20px; }
+  .hero h1 em { font-style:normal; color:var(--accent); }
+  .hero p { font-size:18px; color:var(--muted); max-width:540px; margin:0 auto 40px; line-height:1.6; }
+  .stats-row { display:flex; justify-content:center; gap:48px; margin-top:40px; }
+  .stat { text-align:center; }
+  .stat-num { font-family:var(--mono); font-size:28px; color:var(--accent); font-weight:700; }
+  .stat-label { font-size:12px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:1px; }
+  .upload-section { margin-bottom:64px; animation:fadeUp 0.8s 0.2s ease both; }
+  .upload-btn { background:var(--accent); color:var(--black); border:none; padding:14px 32px; font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
+  .upload-btn:hover { background:#00cc6e; transform:translateY(-1px); }
+  input[type="file"] { display:none; }
+  .format-hint { margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .loading { display:none; text-align:center; padding:80px 0; }
+  .loading.active { display:block; }
+  .terminal { background:var(--deep); border:1px solid var(--border); padding:24px; max-width:500px; margin:0 auto 32px; text-align:left; }
+  .terminal-bar { display:flex; gap:6px; margin-bottom:16px; }
+  .t-dot { width:10px; height:10px; border-radius:50%; }
+  .t-dot:nth-child(1){background:#ff5f57}.t-dot:nth-child(2){background:#febc2e}.t-dot:nth-child(3){background:#28c840}
+  .terminal-line { font-family:var(--mono); font-size:12px; color:var(--accent); margin-bottom:6px; opacity:0; animation:typeIn 0.3s ease forwards; }
+  .terminal-line:nth-child(2){animation-delay:0.3s;color:var(--text)}.terminal-line:nth-child(3){animation-delay:0.6s}.terminal-line:nth-child(4){animation-delay:0.9s;color:var(--text)}.terminal-line:nth-child(5){animation-delay:1.2s}.terminal-line:nth-child(6){animation-delay:1.5s;color:var(--accent3)}.terminal-line:nth-child(7){animation-delay:1.8s;color:var(--accent3)}.terminal-line:nth-child(8){animation-delay:2.1s;color:var(--accent2)}.terminal-line:nth-child(9){animation-delay:2.4s;color:var(--accent2)}.terminal-line:nth-child(10){animation-delay:2.7s;color:var(--accent2)}.terminal-line:nth-child(11){animation-delay:3.0s;color:var(--accent)}
+  @keyframes typeIn { from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)} }
+  .results { display:none; }
+  .results.active { display:block; animation:fadeUp 0.6s ease both; }
+  .score-hero { display:grid; grid-template-columns:280px 1fr; gap:32px; margin-bottom:40px; background:var(--deep); border:1px solid var(--border); padding:40px; }
+  .score-circle-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+  .score-circle { width:160px; height:160px; position:relative; }
+  .score-circle svg { transform:rotate(-90deg); }
+  .score-circle-bg { fill:none; stroke:var(--border); stroke-width:8; }
+  .score-circle-fill { fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1); }
+  .score-number { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .score-val { font-family:var(--mono); font-size:42px; font-weight:700; line-height:1; }
+  .score-max { font-family:var(--mono); font-size:13px; color:var(--muted); }
+  .score-grade { font-family:var(--mono); font-size:12px; text-align:center; padding:6px 16px; border:1px solid; }
+  .score-meta { display:flex; flex-direction:column; justify-content:center; gap:24px; }
+  .score-summary { font-size:16px; line-height:1.7; color:var(--muted); }
+  .meta-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .meta-item { background:var(--surface); padding:16px; border-left:3px solid var(--border); }
+  .meta-label { font-family:var(--mono); font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .meta-value { font-family:var(--mono); font-size:20px; font-weight:700; }
+  .section-title { font-family:var(--mono); font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:20px; display:flex; align-items:center; gap:12px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  .crash-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:48px; }
+  .crash-card { background:var(--deep); border:1px solid var(--border); padding:24px; position:relative; overflow:hidden; transition:transform 0.2s; }
+  .crash-card:hover { transform:translateY(-2px); }
+  .crash-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .crash-card.survived::before{background:var(--accent)}.crash-card.warning::before{background:var(--accent3)}.crash-card.failed::before{background:var(--accent2)}
+  .crash-year{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px}
+  .crash-name{font-size:16px;font-weight:700;margin-bottom:12px;line-height:1.3}
+  .crash-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px}
+  .crash-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .crash-stat{background:var(--surface);padding:10px;text-align:center}
+  .crash-stat-label{font-family:var(--mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .crash-stat-val{font-family:var(--mono);font-size:18px;font-weight:700;margin-top:2px}
+  .crash-verdict{font-size:12px;line-height:1.5;padding:12px;border:1px solid;font-weight:600}
+  .crash-card.survived .crash-verdict{border-color:rgba(0,255,136,0.3);color:var(--accent);background:rgba(0,255,136,0.05)}
+  .crash-card.warning .crash-verdict{border-color:rgba(255,170,0,0.3);color:var(--accent3);background:rgba(255,170,0,0.05)}
+  .crash-card.failed .crash-verdict{border-color:rgba(255,68,68,0.3);color:var(--accent2);background:rgba(255,68,68,0.05)}
+  .checks-section{margin-bottom:48px}.category-block{margin-bottom:32px}
+  .category-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .category-name{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .category-score{font-family:var(--mono);font-size:13px}
+  .check-item{background:var(--deep);border:1px solid var(--border);border-left:3px solid;padding:16px 20px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
+  .check-item:hover{background:var(--surface)}.check-item.pass{border-left-color:var(--accent)}.check-item.fail{border-left-color:var(--accent2)}
+  .check-header{display:flex;align-items:center;justify-content:space-between}
+  .check-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .check-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;font-weight:700}
+  .check-badge.pass{background:rgba(0,255,136,0.15);color:var(--accent)}.check-badge.fail{background:rgba(255,68,68,0.15);color:var(--accent2)}
+  .check-score-bar{display:flex;align-items:center;gap:12px}
+  .bar-track{width:100px;height:4px;background:var(--border);overflow:hidden}.bar-fill{height:100%;transition:width 1s ease}
+  .check-score-num{font-family:var(--mono);font-size:12px;width:32px;text-align:right}
+  .check-details{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+  .check-details.open{display:block}
+  .check-value{font-family:var(--mono);font-size:12px;color:var(--accent3);margin-bottom:10px;padding:8px 12px;background:var(--surface)}
+  .check-insight{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:10px}
+  .check-fix{font-size:13px;color:var(--text);line-height:1.6;padding:10px 12px;border-left:3px solid var(--accent3);background:rgba(255,170,0,0.05)}
+  .check-fix::before{content:'→ FIX: ';font-family:var(--mono);font-size:11px;color:var(--accent3);font-weight:700}
+  .reset-btn{background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 24px;font-family:var(--mono);font-size:12px;cursor:pointer;transition:all 0.2s;margin:0 auto 64px;display:block}
+  .reset-btn:hover{border-color:var(--accent);color:var(--accent)}
+  footer{border-top:1px solid var(--border);padding:32px 0;text-align:center}
+  .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  footer .accent{color:var(--accent)}
+  @media(max-width:768px){.crash-grid,.mode-grid{grid-template-columns:1fr}.score-hero{grid-template-columns:1fr}.meta-grid{grid-template-columns:repeat(2,1fr)}.stats-row{gap:24px}}
+  .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:0}
+  @media(min-width:1025px){.mode-grid{grid-template-columns:repeat(4,1fr);gap:16px}}
+  .mode-card{background:var(--deep);border:1px solid var(--border);padding:28px 22px;display:flex;flex-direction:column;transition:border-color 0.2s}
+  .mode-card:hover{border-color:rgba(0,255,136,0.25)}
+  .mode-card-verified{border-color:rgba(0,255,136,0.2);background:rgba(0,255,136,0.02)}
+  .mode-card-verified:hover{border-color:rgba(0,255,136,0.5)}
+  .mode-tag{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;color:var(--muted);margin-bottom:12px;text-transform:uppercase}
+  .mode-icon{font-size:32px;margin-bottom:10px}
+  .mode-title{font-size:18px;font-weight:800;margin-bottom:8px;letter-spacing:-0.3px}
+  .mode-desc{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:16px;flex:1}
+  .mode-limits{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+  .mode-limit-item{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--border);padding:2px 8px}
+  .mode-warning{font-family:var(--mono);font-size:11px;color:var(--accent2);padding:7px 10px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15)}
+  .mode-verified-note{font-family:var(--mono);font-size:11px;color:var(--accent);padding:7px 10px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15)}
+  .mode-btn-alpaca{background:var(--accent)!important;color:var(--black)!important}
+  .mode-btn-alpaca:hover{background:#00cc6e!important}
+  .csv-warning-banner{display:flex;align-items:center;gap:12px;padding:12px 20px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.2);margin-bottom:32px;font-size:13px;font-family:var(--mono)}
+  .csv-warning-banner .warn-icon{font-size:16px;flex-shrink:0}
+  .csv-warning-banner .warn-text{color:var(--muted)}
+  .csv-warning-banner .warn-text strong{color:var(--accent2)}
+  .csv-warning-banner .warn-link{margin-left:auto;color:var(--accent);font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid rgba(0,255,136,0.3);padding:4px 12px;transition:all 0.2s}
+  .csv-warning-banner .warn-link:hover{background:rgba(0,255,136,0.08)}
+  .verified-banner{display:flex;align-items:center;gap:12px;padding:12px 20px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.25);margin-bottom:32px;font-size:13px;font-family:var(--mono)}
+  .verified-banner .verified-icon{font-size:18px}
+  .verified-banner .verified-text{color:var(--accent);font-weight:700}
+  .verified-banner .verified-sub{color:var(--muted);font-size:11px;margin-top:2px}
+  .cat-pass-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(0,255,136,0.12);color:var(--accent);font-weight:700}
+  .cat-fail-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(255,68,68,0.12);color:var(--accent2);font-weight:700}
 </style>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
-
 <div class="container">
   <header>
     <div class="header-inner">
-      <div class="logo">
-        <div class="logo-mark">QP</div>
-        <div class="logo-name">Quant<span>Proof</span></div>
-      </div>
-      <div class="status-pill">
-        <div class="status-dot"></div>
-        SYSTEM ONLINE
-      </div>
+      <div class="logo"><div class="logo-mark">QP</div><div class="logo-name">Quant<span>Proof</span></div></div>
+      <div class="status-pill"><div class="status-dot"></div>SYSTEM ONLINE</div>
     </div>
   </header>
 
-  <!-- HERO -->
   <div class="hero" id="heroSection">
     <div class="hero-tag">// Institutional-Grade Algo Validation</div>
     <h1>Does your strategy<br>survive the <em>real world?</em></h1>
-    <!-- FIX #10b: 38 → 40 -->
     <p>Validate your backtest against 40 institutional checks + 5 crash simulations. Connect your broker for verified, prop-firm eligible results.</p>
     <div class="stats-row">
-      <div class="stat">
-        <!-- FIX #10: 38 → 40 -->
-        <div class="stat-num">40</div>
-        <div class="stat-label">Checks Run</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">5</div>
-        <div class="stat-label">Crash Sims</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">0–100</div>
-        <div class="stat-label">Fundable Score</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num">&lt;30s</div>
-        <div class="stat-label">Analysis Time</div>
-      </div>
+      <div class="stat"><div class="stat-num">40</div><div class="stat-label">Checks Run</div></div>
+      <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
+      <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
+      <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">Analysis Time</div></div>
     </div>
   </div>
 
-  <!-- UPLOAD -->
   <div class="upload-section" id="uploadSection">
     <div class="mode-grid">
 
@@ -464,43 +172,27 @@
         <div class="mode-tag">// METHODOLOGY CHECK</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Upload CSV</div>
-        <!-- FIX #10b: 38 → 40 -->
-        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Trades are not independently verified.</div>
+        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Dates trigger SPY regime auto-detection.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
-          <!-- FIX #10c: 38 → 40 -->
           <span class="mode-limit-item">All 40 checks</span>
           <span class="mode-limit-item">5 crash sims</span>
         </div>
         <div class="mode-warning">⚠ Cannot be used for prop firm compliance</div>
-        <div style="margin:12px 0 4px 0">
+        <div style="margin:10px 0 4px 0">
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
-          <select id="csvCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--mono)">
-            <option value="USD">🇺🇸 USD — US Dollar</option>
-            <option value="INR">🇮🇳 INR — Indian Rupee</option>
-            <option value="GBP">🇬🇧 GBP — British Pound</option>
-            <option value="EUR">🇪🇺 EUR — Euro</option>
-            <option value="CAD">🇨🇦 CAD — Canadian Dollar</option>
-            <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
-            <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
-            <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
-            <option value="HKD">🇭🇰 HKD — Hong Kong Dollar</option>
-            <option value="CHF">🇨🇭 CHF — Swiss Franc</option>
-            <option value="AED">🇦🇪 AED — UAE Dirham</option>
-            <option value="SAR">🇸🇦 SAR — Saudi Riyal</option>
-            <option value="MYR">🇲🇾 MYR — Malaysian Ringgit</option>
-            <option value="BRL">🇧🇷 BRL — Brazilian Real</option>
-            <option value="ZAR">🇿🇦 ZAR — South African Rand</option>
-            <option value="KRW">🇰🇷 KRW — South Korean Won</option>
-            <option value="TRY">🇹🇷 TRY — Turkish Lira</option>
-            <option value="MXN">🇲🇽 MXN — Mexican Peso</option>
+          <select id="csvCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:12px;width:100%;cursor:pointer;font-family:var(--mono)">
+            <option value="USD">🇺🇸 USD</option><option value="INR">🇮🇳 INR</option><option value="GBP">🇬🇧 GBP</option>
+            <option value="EUR">🇪🇺 EUR</option><option value="CAD">🇨🇦 CAD</option><option value="AUD">🇦🇺 AUD</option>
+            <option value="SGD">🇸🇬 SGD</option><option value="JPY">🇯🇵 JPY</option><option value="HKD">🇭🇰 HKD</option>
+            <option value="CHF">🇨🇭 CHF</option><option value="AED">🇦🇪 AED</option><option value="SAR">🇸🇦 SAR</option>
+            <option value="MYR">🇲🇾 MYR</option><option value="BRL">🇧🇷 BRL</option><option value="ZAR">🇿🇦 ZAR</option>
+            <option value="KRW">🇰🇷 KRW</option><option value="TRY">🇹🇷 TRY</option><option value="MXN">🇲🇽 MXN</option>
           </select>
         </div>
-        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">
-          SELECT CSV FILE
-        </button>
+        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
-        <div class="format-hint" style="margin-top:10px;">pnl column required &nbsp;|&nbsp; date, ticker optional &nbsp;|&nbsp; regime auto-detected from SPY if dates present</div>
+        <div class="format-hint" style="margin-top:8px;">pnl col required · date/ticker optional · regime auto-detected</div>
       </div>
 
       <!-- KITE MODE -->
@@ -508,41 +200,23 @@
         <div class="mode-tag">// ZERODHA KITE</div>
         <div class="mode-icon">🪁</div>
         <div class="mode-title">Kite TradeBook</div>
-        <div class="mode-desc">Upload your Zerodha Kite TradeBook CSV for specialized parsing and validation. Automatically detects and pairs trades from Kite export format.</div>
+        <div class="mode-desc">Upload your Zerodha Kite TradeBook CSV. Auto-detects Kite format and pairs BUY/SELL trades before validation.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
-          <span class="mode-limit-item">Kite format</span>
           <span class="mode-limit-item">Auto-pairing</span>
+          <span class="mode-limit-item">5 crash sims</span>
         </div>
-        <div class="mode-warning">⚠ Self-reported data (not broker verified)</div>
-        <div style="margin:12px 0 4px 0">
+        <div class="mode-warning">⚠ Self-reported — not broker verified</div>
+        <div style="margin:10px 0 4px 0">
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
-          <select id="kiteCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:13px;width:100%;cursor:pointer;font-family:var(--mono)">
-            <option value="INR">🇮🇳 INR — Indian Rupee</option>
-            <option value="USD">🇺🇸 USD — US Dollar</option>
-            <option value="GBP">🇬🇧 GBP — British Pound</option>
-            <option value="EUR">🇪🇺 EUR — Euro</option>
-            <option value="CAD">🇨🇦 CAD — Canadian Dollar</option>
-            <option value="AUD">🇦🇺 AUD — Australian Dollar</option>
-            <option value="SGD">🇸🇬 SGD — Singapore Dollar</option>
-            <option value="JPY">🇯🇵 JPY — Japanese Yen</option>
-            <option value="HKD">🇭🇰 HKD — Hong Kong Dollar</option>
-            <option value="CHF">🇨🇭 CHF — Swiss Franc</option>
-            <option value="AED">🇦🇪 AED — UAE Dirham</option>
-            <option value="SAR">🇸🇦 SAR — Saudi Riyal</option>
-            <option value="MYR">🇲🇾 MYR — Malaysian Ringgit</option>
-            <option value="BRL">🇧🇷 BRL — Brazilian Real</option>
-            <option value="ZAR">🇿🇦 ZAR — South African Rand</option>
-            <option value="KRW">🇰🇷 KRW — South Korean Won</option>
-            <option value="TRY">🇹🇷 TRY — Turkish Lira</option>
-            <option value="MXN">🇲🇽 MXN — Mexican Peso</option>
+          <select id="kiteCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:12px;width:100%;cursor:pointer;font-family:var(--mono)">
+            <option value="INR">🇮🇳 INR</option><option value="USD">🇺🇸 USD</option><option value="GBP">🇬🇧 GBP</option>
+            <option value="EUR">🇪🇺 EUR</option>
           </select>
         </div>
-        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('kiteFileInput').click()">
-          SELECT KITE CSV
-        </button>
+        <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('kiteFileInput').click()">SELECT KITE CSV</button>
         <input type="file" id="kiteFileInput" accept=".csv">
-        <div class="format-hint" style="margin-top:10px;">Export from Kite TradeBook &nbsp;|&nbsp; trade_date, symbol, trade_type required &nbsp;|&nbsp; auto-pairs BUY/SELL</div>
+        <div class="format-hint" style="margin-top:8px;">trade_date · symbol · trade_type · quantity · price required</div>
       </div>
 
       <!-- TRADINGVIEW MODE -->
@@ -550,37 +224,31 @@
         <div class="mode-tag">// TRADINGVIEW</div>
         <div class="mode-icon">📈</div>
         <div class="mode-title">TradingView Webhook</div>
-        <div class="mode-desc">Create a webhook session to capture TradingView alerts in real-time. Pair alerts into trades and run institutional validation.</div>
+        <div class="mode-desc">Create a session, paste the webhook URL into TradingView, collect BUY/SELL alerts, then validate when ready.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">Free sessions</span>
-          <span class="mode-limit-item">7 day TTL</span>
+          <span class="mode-limit-item">7-day TTL</span>
           <span class="mode-limit-item">2000 alerts</span>
         </div>
         <div class="mode-verified-note">✓ Real-time alert capture</div>
-        <button class="upload-btn" style="width:100%;margin-top:16px;" onclick="createTradingViewSession()">
-          CREATE WEBHOOK SESSION
-        </button>
-        <div id="tradingviewStatus" style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:16px;"></div>
+        <button class="upload-btn" style="width:100%;margin-top:16px;" onclick="createTradingViewSession()">CREATE WEBHOOK SESSION</button>
+        <div id="tradingviewStatus" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:16px;"></div>
       </div>
 
       <!-- BROKER MODE -->
       <div class="mode-card mode-card-verified" id="brokerCard">
         <div class="mode-tag" style="color:var(--accent)">// VERIFIED VALIDATION</div>
         <div class="mode-icon">🔗</div>
-        <div class="mode-title">Connect Broker <span style="font-size:12px;color:var(--accent);font-family:var(--mono);font-weight:400;vertical-align:middle;margin-left:6px;">VERIFIED</span></div>
-        <div class="mode-desc">Pull real trade history directly from your broker. Results are independently verified and eligible for prop firm compliance certificates.</div>
+        <div class="mode-title">Connect Broker <span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:400;margin-left:4px;">VERIFIED</span></div>
+        <div class="mode-desc">Pull real trade history from your broker. Results are independently verified and eligible for prop firm compliance.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Verified badge</span>
           <span class="mode-limit-item">Compliance cert</span>
         </div>
         <div class="mode-verified-note">✓ Trades verified against real market data</div>
-        <button class="upload-btn mode-btn-alpaca" style="width:100%;margin-top:16px;" onclick="showAlpacaConnect()">
-          CONNECT ALPACA
-        </button>
-        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="showIBKRSoon()">
-          IBKR — COMING SOON
-        </button>
+        <button class="upload-btn mode-btn-alpaca" style="width:100%;margin-top:16px;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
+        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="showIBKRSoon()">IBKR — COMING SOON</button>
       </div>
 
     </div>
@@ -590,58 +258,45 @@
       <div style="background:var(--deep);border:1px solid var(--border);padding:40px;">
         <div class="mode-tag" style="color:var(--accent);margin-bottom:16px;">// CONNECT ALPACA</div>
         <div style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.7;max-width:520px;margin-left:auto;margin-right:auto;">
-          Enter your Alpaca API credentials. We use read-only access to pull your trade history — we cannot place trades or access funds.<br><br>
-          <span style="font-family:var(--mono);font-size:11px;color:var(--accent3);">Get your keys: alpaca.markets → Your Account → API Keys (Paper or Live)</span>
+          Enter your Alpaca API credentials. Read-only access only — we cannot place trades or access funds.<br><br>
+          <span style="font-family:var(--mono);font-size:11px;color:var(--accent3);">Get keys: alpaca.markets → Account → API Keys</span>
         </div>
         <div style="max-width:400px;margin:0 auto;">
           <div style="margin-bottom:12px;">
-            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:0.08em;">API KEY ID</div>
-            <input id="alpacaKey" type="text" placeholder="PKXXXXXXXXXXXXXXXXXX"
-              style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;">API KEY ID</div>
+            <input id="alpacaKey" type="text" placeholder="PKXXXXXXXXXXXXXXXXXX" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
           </div>
           <div style="margin-bottom:20px;">
-            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;letter-spacing:0.08em;">SECRET KEY</div>
-            <input id="alpacaSecret" type="password" placeholder="••••••••••••••••••••••••••••••••••••••••"
-              style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;">SECRET KEY</div>
+            <input id="alpacaSecret" type="password" placeholder="••••••••••••••••••••••••••••••••••••" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
           </div>
           <div style="margin-bottom:16px;">
-            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:0.08em;">ACCOUNT TYPE</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">ACCOUNT TYPE</div>
             <div style="display:flex;gap:8px;">
               <label style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:10px 14px;cursor:pointer;">
                 <input type="radio" name="alpacaMode" value="paper" checked style="accent-color:var(--accent);">
-                <span style="font-family:var(--mono);font-size:12px;">Paper Trading</span>
+                <span style="font-family:var(--mono);font-size:12px;">Paper</span>
               </label>
               <label style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:10px 14px;cursor:pointer;">
                 <input type="radio" name="alpacaMode" value="live" style="accent-color:var(--accent);">
-                <span style="font-family:var(--mono);font-size:12px;">Live Trading</span>
+                <span style="font-family:var(--mono);font-size:12px;">Live</span>
               </label>
             </div>
           </div>
-          <button class="upload-btn" style="width:100%;" onclick="handleAlpacaConnect()">
-            FETCH & VALIDATE
-          </button>
-          <button onclick="hideAlpacaPanel()" style="width:100%;margin-top:8px;background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;padding:8px;">
-            ← Back
-          </button>
+          <button class="upload-btn" style="width:100%;" onclick="handleAlpacaConnect()">FETCH & VALIDATE</button>
+          <button onclick="hideAlpacaPanel()" style="width:100%;margin-top:8px;background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;padding:8px;">← Back</button>
           <div id="alpacaStatus" style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;min-height:16px;"></div>
         </div>
         <div style="margin-top:24px;padding:12px 16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;max-width:400px;margin-left:auto;margin-right:auto;">
-          🔒 Keys are used only for this request and never stored.<br>
-          Read-only permissions only. Cannot place or cancel orders.
+          🔒 Keys used only for this request, never stored.<br>Read-only access only — cannot place or cancel orders.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- LOADING -->
   <div class="loading" id="loadingSection">
     <div class="terminal">
-      <div class="terminal-bar">
-        <div class="t-dot"></div>
-        <div class="t-dot"></div>
-        <div class="t-dot"></div>
-      </div>
-      <!-- FIX #12: 5 crash lines (was 3), all 5 sims listed -->
+      <div class="terminal-bar"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
       <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
       <div class="terminal-line">→ Parsing trade data + auto-detecting regime...</div>
       <div class="terminal-line">→ Running overfitting detection (8 checks)...</div>
@@ -656,204 +311,170 @@
     </div>
   </div>
 
-  <!-- RESULTS -->
   <div class="results" id="resultsSection"></div>
 </div>
 
 <footer>
   <div class="container">
-    <div class="footer-text">
-      <span class="accent">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
-    </div>
+    <div class="footer-text"><span class="accent">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice</div>
   </div>
 </footer>
 
 <script>
   const API_URL = 'https://quantproof-backend.onrender.com';
+  const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
   const CURRENCY_SYMBOLS = {
-    USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",
-    CHF:"CHF ",SGD:"S$",HKD:"HK$",NZD:"NZ$",NOK:"kr ",SEK:"kr ",
-    DKK:"kr ",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
-    MYR:"RM",THB:"฿",IDR:"Rp",PHP:"₱",TRY:"₺",RUB:"₽",ILS:"₪",
-    KRW:"₩",TWD:"NT$",CNY:"¥",CLP:"CLP$",COP:"COL$",PKR:"₨",
-    BDT:"৳",VND:"₫",NGN:"₦",EGP:"E£",KES:"KSh",GHS:"GH₵"
+    USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",CHF:"CHF ",
+    SGD:"S$",HKD:"HK$",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
+    MYR:"RM",KRW:"₩",TRY:"₺"
   };
   let _activeCurrency = 'USD';
   function setCurrency(c) { _activeCurrency = (c||'USD').toUpperCase(); }
-  function currencySymbol() { return CURRENCY_SYMBOLS[_activeCurrency] || (_activeCurrency+' '); }
   function currencyBadge() {
     if (_activeCurrency === 'USD') return '';
-    const sym = currencySymbol();
     return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
   }
-
-  const csvCard  = document.getElementById('csvCard');
-  const fileInput = document.getElementById('fileInput');
-  const kiteCard  = document.getElementById('kiteCard');
-  const kiteFileInput = document.getElementById('kiteFileInput');
-
-  if (csvCard) {
-    csvCard.addEventListener('dragover', e => { e.preventDefault(); csvCard.style.borderColor = 'var(--accent)'; });
-    csvCard.addEventListener('dragleave', () => csvCard.style.borderColor = '');
-    csvCard.addEventListener('drop', e => {
-      e.preventDefault();
-      csvCard.style.borderColor = '';
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    });
-  }
-
-  if (fileInput) fileInput.addEventListener('change', e => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
-  });
-
-  if (kiteCard) {
-    kiteCard.addEventListener('dragover', e => { e.preventDefault(); kiteCard.style.borderColor = 'var(--accent)'; });
-    kiteCard.addEventListener('dragleave', () => kiteCard.style.borderColor = '');
-    kiteCard.addEventListener('drop', e => {
-      e.preventDefault();
-      kiteCard.style.borderColor = '';
-      const file = e.dataTransfer.files[0];
-      if (file) handleKiteFile(file);
-    });
-  }
-
-  if (kiteFileInput) kiteFileInput.addEventListener('change', e => {
-    if (e.target.files[0]) handleKiteFile(e.target.files[0]);
-  });
 
   let _lastValidatedFile = null;
   let _validationMode    = 'csv';
   let _brokerSource      = '';
 
-  async function handleFile(file) {
-    if (!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
+  // ── File drag/drop handlers ────────────────────────────────
+  const csvCard = document.getElementById('csvCard');
+  const kiteCard = document.getElementById('kiteCard');
+  document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+  document.getElementById('kiteFileInput').addEventListener('change', e => { if(e.target.files[0]) handleKiteFile(e.target.files[0]); });
+  if(csvCard) {
+    csvCard.addEventListener('dragover', e=>{e.preventDefault();csvCard.style.borderColor='var(--accent)'});
+    csvCard.addEventListener('dragleave', ()=>csvCard.style.borderColor='');
+    csvCard.addEventListener('drop', e=>{e.preventDefault();csvCard.style.borderColor='';if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0])});
+  }
+  if(kiteCard) {
+    kiteCard.addEventListener('dragover', e=>{e.preventDefault();kiteCard.style.borderColor='var(--accent)'});
+    kiteCard.addEventListener('dragleave', ()=>kiteCard.style.borderColor='');
+    kiteCard.addEventListener('drop', e=>{e.preventDefault();kiteCard.style.borderColor='';if(e.dataTransfer.files[0])handleKiteFile(e.dataTransfer.files[0])});
+  }
 
+  function showLoading() {
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('heroSection').style.display   = 'none';
     document.getElementById('loadingSection').classList.add('active');
-
-    _lastValidatedFile = file;
-    _validationMode = 'csv';
-    _brokerSource   = '';
-
-    // Persist file for post-payment download
-    try {
-      const reader = new FileReader();
-      reader.onload = e => {
-        sessionStorage.setItem('qp_filename', file.name);
-        sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
-        sessionStorage.setItem('qp_source', 'csv');
-      };
-      reader.readAsDataURL(file);
-    } catch(e) {}
-
-    const formData = new FormData();
-    formData.append('file', file);
-    const selCur = document.getElementById('csvCurrency');
-    if (selCur) formData.append('currency', selCur.value);
-    setCurrency(selCur ? selCur.value : 'USD');
-
-    try {
-      const response = await fetch(`${API_URL}/validate`, { method: 'POST', body: formData });
-      if (!response.ok) {
-        const err    = await response.json();
-        const detail = err.detail || err;
-        if (detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        throw new Error(detail.message || detail || 'Validation failed');
-      }
-      const data = await response.json();
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
-      setTimeout(() => {
-        document.getElementById('loadingSection').classList.remove('active');
-        renderResults(data);
-      }, 3200);
-    } catch (err) {
-      document.getElementById('loadingSection').classList.remove('active');
+  }
+  function hideLoading(err) {
+    document.getElementById('loadingSection').classList.remove('active');
+    if(err) {
       document.getElementById('uploadSection').style.display = 'block';
       document.getElementById('heroSection').style.display   = 'block';
-      alert(`Error: ${err.message}`);
     }
   }
 
+  // ── CSV handler ────────────────────────────────────────────
+  async function handleFile(file) {
+    if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
+    _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
+    try {
+      const r = new FileReader();
+      r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','csv'); };
+      r.readAsDataURL(file);
+    } catch(e){}
+    showLoading();
+    const fd = new FormData(); fd.append('file', file);
+    const selCur = document.getElementById('csvCurrency');
+    if(selCur) fd.append('currency', selCur.value);
+    setCurrency(selCur ? selCur.value : 'USD');
+    try {
+      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
+      if(!resp.ok) {
+        const err = await resp.json(); const detail = err.detail || err;
+        if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        throw new Error(detail.message || detail || 'Validation failed');
+      }
+      const data = await resp.json();
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
+    } catch(err) { hideLoading(true); alert(`Error: ${err.message}`); }
+  }
+
+  // ── Kite handler ───────────────────────────────────────────
+  async function handleKiteFile(file) {
+    if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
+    _lastValidatedFile = file; _validationMode = 'kite'; _brokerSource = '';
+    try {
+      const r = new FileReader();
+      r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','kite'); };
+      r.readAsDataURL(file);
+    } catch(e){}
+    showLoading();
+    const fd = new FormData(); fd.append('file', file);
+    const selCur = document.getElementById('kiteCurrency');
+    if(selCur) fd.append('currency', selCur.value);
+    setCurrency(selCur ? selCur.value : 'INR');
+    try {
+      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
+      if(!resp.ok) {
+        const err = await resp.json(); const detail = err.detail || err;
+        if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        if(detail.error === 'insufficient_trades') throw new Error(`Only ${detail.trades_found} completed trades found. Need ${detail.trades_needed}.`);
+        throw new Error(detail.message || detail || 'Kite validation failed');
+      }
+      const data = await resp.json();
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
+    } catch(err) { hideLoading(true); alert(`Kite error: ${err.message}`); }
+  }
+
+  // ── Results rendering ──────────────────────────────────────
   function renderResults(data) {
     setCurrency(data.currency || 'USD');
     const section = document.getElementById('resultsSection');
-    if (data.scale_warning) {
+    if(data.scale_warning) {
       const warn = document.createElement('div');
       warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
-      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns are at maximum boundary. Did you submit percentages (e.g. <code>2.5</code>) instead of decimals (<code>0.025</code>)? Divide all P&L values by 100 and resubmit.';
+      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns at max boundary. Submit decimals (0.025) not percentages (2.5).';
       section.prepend(warn);
     }
-    try {
-      section.innerHTML = buildResultsHTML(data);
-    } catch(e) {
-      console.error('buildResultsHTML crashed:', e, data);
-      section.innerHTML = '<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ' + e.message + '<br><br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>';
-    }
+    try { section.innerHTML = buildResultsHTML(data); }
+    catch(e) { section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`; }
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
-    setTimeout(() => {
-      document.querySelectorAll('.bar-fill').forEach(bar => { bar.style.width = bar.dataset.width + '%'; });
-    }, 300);
+    setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
   }
 
-  function getScoreColor(score) {
-    if (score >= 80) return '#00ff88';
-    if (score >= 65) return '#00cc6e';
-    if (score >= 50) return '#ffaa00';
-    if (score >= 35) return '#ff6600';
-    return '#ff4444';
-  }
+  function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
+  function getCrashClass(sim) { return !sim.survived?'failed':sim.strategy_drop>-0.05?'survived':'warning'; }
 
-  function getCrashClass(sim) {
-    if (!sim.survived) return 'failed';
-    if (sim.strategy_drop > -0.05)  return 'survived';
-    return 'warning';
-  }
-
-  /**
-   * FIX #11 (CRITICAL): strip [UNCALIBRATED] prefix before checking emoji.
-   * v6.2 prefixes undated crash verdicts with "[UNCALIBRATED] " — without
-   * this strip, all undated strategies show the wrong crash card color
-   * (verdict.startsWith('🟢') is false when "[UNCALIBRATED] 🟢" is the string).
-   */
+  // FIX #11: strip [UNCALIBRATED] before emoji check
   function getCrashVerdictColor(verdict) {
-    const v = verdict.replace('[UNCALIBRATED] ', '').replace('[UNCALIBRATED]', '').trim();
-    if (v.startsWith('🟢')) return 'var(--accent)';
-    if (v.startsWith('🟡')) return 'var(--accent3)';
-    if (v.startsWith('🟠')) return '#ff8800';
+    const v = verdict.replace('[UNCALIBRATED] ','').replace('[UNCALIBRATED]','').trim();
+    if(v.startsWith('🟢')) return 'var(--accent)';
+    if(v.startsWith('🟡')) return 'var(--accent3)';
+    if(v.startsWith('🟠')) return '#ff8800';
     return 'var(--accent2)';
   }
 
   function animateScore(score) {
     const circle = document.querySelector('.score-circle-fill');
     const numEl  = document.querySelector('.score-val');
-    if (!circle || !numEl) return;
-    const circumference = 2 * Math.PI * 60;
-    const offset        = circumference - (score / 100) * circumference;
-    circle.style.strokeDasharray  = circumference;
-    circle.style.strokeDashoffset = offset;
-    circle.style.stroke           = getScoreColor(score);
-    let current = 0;
-    const increment = score / 60;
-    const timer = setInterval(() => {
-      current = Math.min(current + increment, score);
-      numEl.textContent = Math.round(current);
-      if (current >= score) clearInterval(timer);
-    }, 25);
+    if(!circle||!numEl) return;
+    const circ = 2*Math.PI*60;
+    circle.style.strokeDasharray  = circ;
+    circle.style.strokeDashoffset = circ - (score/100)*circ;
+    circle.style.stroke = getScoreColor(score);
+    let cur = 0; const inc = score/60;
+    const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.round(cur); if(cur>=score)clearInterval(t); }, 25);
   }
 
   function buildResultsHTML(data) {
     const scoreColor = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
-    const gradeDesc   = data.grade.split('—')[1]?.trim() || '';
+    const gradeDesc   = data.grade.split('—')[1]?.trim()||'';
     const categories  = {};
-    (data.checks || []).forEach(c => {
-      if (!categories[c.category]) categories[c.category] = [];
-      categories[c.category].push(c);
-    });
+    (data.checks||[]).forEach(c=>{ if(!categories[c.category])categories[c.category]=[]; categories[c.category].push(c); });
+
+    // Banner: verified = alpaca; kite/tv = self-reported with specific label; csv = generic
+    const isVerified = _validationMode==='broker'||_validationMode==='alpaca';
+    const modeLabel  = _validationMode==='kite'?'Kite TradeBook':_validationMode==='tradingview'?'TradingView Webhook':'CSV Mode';
 
     return `
       <div class="score-hero">
@@ -861,82 +482,47 @@
           <div class="score-circle">
             <svg width="160" height="160" viewBox="0 0 160 160">
               <circle class="score-circle-bg" cx="80" cy="80" r="60"/>
-              <circle class="score-circle-fill" cx="80" cy="80" r="60"
-                style="stroke-dasharray:0;stroke-dashoffset:0;"/>
+              <circle class="score-circle-fill" cx="80" cy="80" r="60" style="stroke-dasharray:0;stroke-dashoffset:0;"/>
             </svg>
             <div class="score-number">
               <span class="score-val" style="color:${scoreColor}">0</span>
               <span class="score-max">/100</span>
             </div>
           </div>
-          <div class="score-grade" style="color:${scoreColor};border-color:${scoreColor}40">
-            ${gradeLetter} — ${gradeDesc}
-          </div>
+          <div class="score-grade" style="color:${scoreColor};border-color:${scoreColor}40">${gradeLetter} — ${gradeDesc}</div>
         </div>
         <div class="score-meta">
           <div class="score-summary">${data.summary}</div>
           <div class="meta-grid">
-            <div class="meta-item">
-              <div class="meta-label">Sharpe Ratio</div>
-              <div class="meta-value" style="color:${data.sharpe > 1 ? 'var(--accent)' : data.sharpe > 0 ? 'var(--accent3)' : 'var(--accent2)'}">${data.sharpe}</div>
-            </div>
-            <div class="meta-item">
-              <div class="meta-label">Win Rate</div>
-              <div class="meta-value" style="color:${data.win_rate > 50 ? 'var(--accent)' : 'var(--accent3)'}">${data.win_rate}%</div>
-            </div>
-            <div class="meta-item">
-              <div class="meta-label">Total Trades</div>
-              <div class="meta-value">${data.total_trades}</div>
-            </div>
-            <div class="meta-item">
-              <div class="meta-label">Max Drawdown</div>
-              <div class="meta-value" style="color:${data.max_drawdown < 0.1 ? 'var(--accent)' : data.max_drawdown < 0.2 ? 'var(--accent3)' : 'var(--accent2)'}">${(data.max_drawdown * 100).toFixed(1)}%</div>
-            </div>
+            <div class="meta-item"><div class="meta-label">Sharpe Ratio</div><div class="meta-value" style="color:${data.sharpe>1?'var(--accent)':data.sharpe>0?'var(--accent3)':'var(--accent2)'}">${data.sharpe}</div></div>
+            <div class="meta-item"><div class="meta-label">Win Rate</div><div class="meta-value" style="color:${data.win_rate>50?'var(--accent)':'var(--accent3)'}">${data.win_rate}%</div></div>
+            <div class="meta-item"><div class="meta-label">Total Trades</div><div class="meta-value">${data.total_trades}</div></div>
+            <div class="meta-item"><div class="meta-label">Max Drawdown</div><div class="meta-value" style="color:${data.max_drawdown<0.1?'var(--accent)':data.max_drawdown<0.2?'var(--accent3)':'var(--accent2)'}">${(data.max_drawdown*100).toFixed(1)}%</div></div>
           </div>
-          ${data.date_range !== 'No date data'
-            ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}${currencyBadge()}</div>`
-            : `<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`
+          ${data.date_range!=='No date data'
+            ?`<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">📅 ${data.date_range} &nbsp;|&nbsp; Engine ${data.engine_version}${currencyBadge()}</div>`
+            :`<div style="font-size:11px;color:var(--muted);margin-top:8px;font-family:var(--mono)">⚠ No date column — add dates for full score &nbsp;|&nbsp; Engine ${data.engine_version}</div>`
           }
-          ${data.plausibility_summary
-            ? `<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.05)' : 'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅') ? 'rgba(0,255,136,0.15)' : 'rgba(255,170,0,0.2)'};font-family:var(--mono)">${data.plausibility_summary}</div>`
-            : ''
-          }
+          ${data.plausibility_summary?`<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅')?'rgba(0,255,136,0.05)':'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅')?'rgba(0,255,136,0.15)':'rgba(255,170,0,0.2)'};font-family:var(--mono)">${data.plausibility_summary}</div>`:''}
         </div>
       </div>
 
-      ${_validationMode === 'broker' || _validationMode === 'alpaca'
-        ? `<div class="verified-banner">
-            <div class="verified-icon">✓</div>
-            <div>
-              <div class="verified-text">VERIFIED — Data pulled directly from Alpaca</div>
-              <div class="verified-sub">Trade history independently verified · Eligible for prop firm compliance certificate</div>
-            </div>
-          </div>`
-        : `<div class="csv-warning-banner">
-            <div class="warn-icon">⚠</div>
-            <div class="warn-text"><strong>${_validationMode === 'kite' ? 'Kite TradeBook' : _validationMode === 'tradingview' ? 'TradingView Webhook' : 'CSV Mode'}</strong> — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div>
-            <div class="warn-link" onclick="resetApp()">Connect Broker →</div>
-          </div>`
+      ${isVerified
+        ?`<div class="verified-banner"><div class="verified-icon">✓</div><div><div class="verified-text">VERIFIED — Data pulled directly from Alpaca</div><div class="verified-sub">Trade history independently verified · Eligible for prop firm compliance certificate</div></div></div>`
+        :`<div class="csv-warning-banner"><div class="warn-icon">⚠</div><div class="warn-text"><strong>${modeLabel}</strong> — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div><div class="warn-link" onclick="resetApp()">Connect Broker →</div></div>`
       }
 
       <div class="section-title">// Historical Crash Simulations (5 scenarios)</div>
       <div class="crash-grid">
-        ${(data.crash_sims || []).map(sim => `
+        ${(data.crash_sims||[]).map(sim=>`
           <div class="crash-card ${getCrashClass(sim)}">
             <div class="crash-year">${sim.year}</div>
             <div class="crash-name">${sim.crash_name}</div>
             <div class="crash-desc">${sim.description}</div>
             <div class="crash-stats">
-              <div class="crash-stat">
-                <div class="crash-stat-label">Market Drop</div>
-                <div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div>
-              </div>
-              <div class="crash-stat">
-                <div class="crash-stat-label">Your Strategy</div>
-                <div class="crash-stat-val" style="color:${sim.strategy_drop > 0 ? 'var(--accent)' : 'var(--accent2)'}">${sim.strategy_drop > 0 ? '+' : ''}${(sim.strategy_drop * 100).toFixed(1)}%</div>
-              </div>
+              <div class="crash-stat"><div class="crash-stat-label">Market Drop</div><div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div></div>
+              <div class="crash-stat"><div class="crash-stat-label">Your Strategy</div><div class="crash-stat-val" style="color:${sim.strategy_drop>0?'var(--accent)':'var(--accent2)'}">${sim.strategy_drop>0?'+':''}${(sim.strategy_drop*100).toFixed(1)}%</div></div>
             </div>
-            <!-- FIX #11: getCrashVerdictColor now strips [UNCALIBRATED] before emoji check -->
             <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
           </div>
         `).join('')}
@@ -944,32 +530,25 @@
 
       <div class="checks-section" style="margin-top:40px;">
         <div class="section-title">// Full Validation Breakdown — 40 checks (click to expand)</div>
-        ${Object.entries(categories).map(([cat, checks]) => {
-          const catScore = Math.round(checks.reduce((a,c) => a + c.score, 0) / checks.length);
-          const passed   = checks.filter(c =>  c.passed).length;
-          const failed   = checks.filter(c => !c.passed).length;
-          const col      = catScore > 65 ? 'var(--accent)' : catScore > 45 ? 'var(--accent3)' : 'var(--accent2)';
-          return `
-          <div class="category-block">
+        ${Object.entries(categories).map(([cat,checks])=>{
+          const catScore = Math.round(checks.reduce((a,c)=>a+c.score,0)/checks.length);
+          const passed=checks.filter(c=>c.passed).length, failed=checks.filter(c=>!c.passed).length;
+          const col=catScore>65?'var(--accent)':catScore>45?'var(--accent3)':'var(--accent2)';
+          return `<div class="category-block">
             <div class="category-header">
               <div class="category-name" style="color:${col}">${cat}</div>
               <div style="display:flex;align-items:center;gap:10px;">
-                ${passed > 0 ? `<span class="cat-pass-badge">${passed} PASS</span>` : ''}
-                ${failed > 0 ? `<span class="cat-fail-badge">${failed} FAIL</span>` : ''}
+                ${passed>0?`<span class="cat-pass-badge">${passed} PASS</span>`:''}
+                ${failed>0?`<span class="cat-fail-badge">${failed} FAIL</span>`:''}
                 <div class="category-score" style="color:${col}">${catScore}/100</div>
               </div>
             </div>
-            ${checks.map(check => `
-              <div class="check-item ${check.passed ? 'pass' : 'fail'}" onclick="toggleCheck(this)">
+            ${checks.map(check=>`
+              <div class="check-item ${check.passed?'pass':'fail'}" onclick="toggleCheck(this)">
                 <div class="check-header">
-                  <div class="check-name">
-                    <span class="check-badge ${check.passed ? 'pass' : 'fail'}">${check.passed ? 'PASS' : 'FAIL'}</span>
-                    ${check.name}
-                  </div>
+                  <div class="check-name"><span class="check-badge ${check.passed?'pass':'fail'}">${check.passed?'PASS':'FAIL'}</span>${check.name}</div>
                   <div class="check-score-bar">
-                    <div class="bar-track">
-                      <div class="bar-fill" data-width="${check.score}" style="width:0%;background:${check.score > 65 ? 'var(--accent)' : check.score > 45 ? 'var(--accent3)' : 'var(--accent2)'}"></div>
-                    </div>
+                    <div class="bar-track"><div class="bar-fill" data-width="${check.score}" style="width:0%;background:${check.score>65?'var(--accent)':check.score>45?'var(--accent3)':'var(--accent2)'}"></div></div>
                     <div class="check-score-num">${check.score}</div>
                   </div>
                 </div>
@@ -977,45 +556,27 @@
                   <div class="check-value">${check.value}</div>
                   <div class="check-insight">${check.insight}</div>
                   ${check.passed
-                    ? `<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
-                    : `<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">
-                          🔒 Fix instructions + AI analysis locked
-                        </div>
-                        <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">
-                          Unlock — ₹999
-                        </button>
+                    ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
+                    :`<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">🔒 Fix instructions + AI analysis locked</div>
+                        <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Unlock — ₹999</button>
                       </div>`
                   }
                 </div>
-              </div>
-            `).join('')}
+              </div>`).join('')}
           </div>`;
         }).join('')}
       </div>
 
-      <!-- UNLOCK BANNER -->
       <div style="margin:32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
         <div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// FULL ANALYSIS REPORT</div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">
-            ${(data.checks || []).filter(c => !c.passed).length} fixes waiting — get the complete action plan
-          </div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.6;">
-            Every fix ranked by impact &nbsp;·&nbsp; AI personalised action plan &nbsp;·&nbsp; Crash sim analysis &nbsp;·&nbsp; Audit hash &nbsp;·&nbsp; Instant PDF
-          </div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">${(data.checks||[]).filter(c=>!c.passed).length} fixes waiting — get the complete action plan</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6;">Every fix ranked by impact &nbsp;·&nbsp; AI personalised action plan &nbsp;·&nbsp; Crash sim analysis &nbsp;·&nbsp; Instant PDF</div>
         </div>
         <div style="text-align:center;flex-shrink:0;">
-          <button id="pdfBtn" onclick="buyPdfReport()"
-            style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;width:100%;"
-            onmouseover="this.style.background='#00cc6e'"
-            onmouseout="this.style.background='var(--accent)'">
-            🇮🇳 Pay ₹999 (India — UPI / Cards)
-          </button>
-          <button id="pdfBtnIntl" onclick="showIntlComingSoon()"
-            style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">
-            🌍 International Payments — Coming Soon
-          </button>
+          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Pay ₹999 (India — UPI / Cards)</button>
+          <button onclick="showIntlComingSoon()" style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:default;white-space:nowrap;width:100%;margin-top:8px;">🌍 International — Coming Soon</button>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time &nbsp;·&nbsp; Instant download</div>
         </div>
       </div>
@@ -1028,16 +589,12 @@
           <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
           <div><span style="color:var(--muted)">Engine:</span> <span style="color:var(--text)">${data.engine_version}</span></div>
         </div>
-        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">
-          Full fix list, methodology and audit log in the ₹999 report.
-        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">Full fix list, methodology and audit log in the ₹999 report.</div>
       </div>
     `;
   }
 
-  function toggleCheck(el) {
-    el.querySelector('.check-details').classList.toggle('open');
-  }
+  function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
 
   function resetApp() {
     document.getElementById('resultsSection').classList.remove('active');
@@ -1046,504 +603,214 @@
     document.getElementById('heroSection').style.display   = 'block';
     document.getElementById('fileInput').value = '';
     document.getElementById('kiteFileInput').value = '';
-    document.getElementById('alpacaPanel').style.display = 'none';
+    document.getElementById('alpacaPanel').style.display   = 'none';
     document.getElementById('tradingviewStatus').innerHTML = '';
-    _validationMode = 'csv';
-    _brokerSource   = '';
+    _validationMode = 'csv'; _brokerSource = '';
     window.scrollTo(0, 0);
   }
 
-  // ── PDF PURCHASE + DOWNLOAD ──────────────────────────────────────────────
-  const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
-
+  // ── PDF purchase ───────────────────────────────────────────
   function showIntlComingSoon() {
-    const status = document.getElementById('pdfBtnStatus');
-    if (status) {
-      status.innerText = '🌍 International payments launching soon — Indian users can pay via UPI/cards above.';
-      status.style.color = 'var(--muted)';
-    }
+    const s = document.getElementById('pdfBtnStatus');
+    if(s){s.innerText='🌍 International payments launching soon.';s.style.color='var(--muted)';}
   }
 
   async function generatePdfBlob(token) {
-    const reportSource = sessionStorage.getItem('qp_source') || _brokerSource || 'csv';
+    const src = sessionStorage.getItem('qp_source')||_brokerSource||'csv';
     let res;
-
-    if (reportSource === 'alpaca') {
-      const storedBroker = sessionStorage.getItem('qp_broker');
-      if (!storedBroker) throw new Error('Alpaca credentials not found — please reconnect Alpaca and try again');
-      let brokerCreds;
-      try { brokerCreds = JSON.parse(storedBroker); } catch(e) { throw new Error('Stored credentials corrupted — please reconnect Alpaca'); }
-      const apiKey    = brokerCreds.api_key    || brokerCreds.key    || '';
-      const secretKey = brokerCreds.secret_key || brokerCreds.secret || '';
-      const mode      = brokerCreds.mode || 'paper';
-      if (!apiKey || !secretKey) throw new Error('Alpaca credentials incomplete — please reconnect Alpaca');
-      const vHash = sessionStorage.getItem('qp_validation_hash') || '';
-      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-report-token': token },
-        body: JSON.stringify({ api_key: apiKey, secret_key: secretKey, mode, validation_hash: vHash })
-      });
+    if(src==='alpaca') {
+      const sb = sessionStorage.getItem('qp_broker');
+      if(!sb) throw new Error('Alpaca credentials not found — please reconnect');
+      let bc; try{bc=JSON.parse(sb);}catch(e){throw new Error('Credentials corrupted');}
+      const apiKey=bc.api_key||bc.key||'', secretKey=bc.secret_key||bc.secret||'', mode=bc.mode||'paper';
+      if(!apiKey||!secretKey) throw new Error('Alpaca credentials incomplete');
+      res = await fetch(`${API_URL_REPORT}/report/generate-broker`,{method:'POST',headers:{'Content-Type':'application/json','x-report-token':token},body:JSON.stringify({api_key:apiKey,secret_key:secretKey,mode,validation_hash:sessionStorage.getItem('qp_validation_hash')||''})});
     } else {
-      if (!_lastValidatedFile) {
-        const storedName = sessionStorage.getItem('qp_filename');
-        const storedData = sessionStorage.getItem('qp_filedata');
-        if (storedName && storedData) {
-          const byteStr = atob(storedData);
-          const arr = new Uint8Array(byteStr.length);
-          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-          _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
-        }
+      if(!_lastValidatedFile) {
+        const sn=sessionStorage.getItem('qp_filename'), sd=sessionStorage.getItem('qp_filedata');
+        if(sn&&sd){const ba=atob(sd),arr=new Uint8Array(ba.length);for(let i=0;i<ba.length;i++)arr[i]=ba.charCodeAt(i);_lastValidatedFile=new File([arr],sn,{type:'text/csv'});}
       }
-      if (!_lastValidatedFile) throw new Error('CSV file not found — please re-upload your file');
-      const form = new FormData();
-      form.append('file', _lastValidatedFile);
-      res = await fetch(`${API_URL_REPORT}/report/generate`, {
-        method: 'POST',
-        headers: { 'x-report-token': token },
-        body: form
-      });
+      if(!_lastValidatedFile) throw new Error('File not found — please re-upload');
+      const fd=new FormData(); fd.append('file',_lastValidatedFile);
+      res = await fetch(`${API_URL_REPORT}/report/generate`,{method:'POST',headers:{'x-report-token':token},body:fd});
     }
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || errData.message || `Server error ${res.status}`);
-    }
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||e.message||`Server error ${res.status}`);}
     return await res.blob();
   }
 
   async function generatePdfWithToken(token) {
-    const btn    = document.getElementById('pdfBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    if (btn)    { btn.disabled = true; btn.innerText = 'Generating PDF...'; }
-    if (status) { status.innerText = 'Building your report...'; status.style.color = 'var(--accent)'; }
+    const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
+    if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
+    if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
     try {
-      const blob = await generatePdfBlob(token);
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = 'QuantProof_Report.pdf';
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      if (btn)    { btn.innerText = '✓ Report Downloaded'; btn.style.background = 'var(--accent)'; btn.style.color = '#000'; }
-      if (status) { status.innerText = 'Your full report has been downloaded.'; status.style.color = 'var(--accent)'; }
+      const blob=await generatePdfBlob(token), url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='QuantProof_Report.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      if(btn){btn.innerText='✓ Report Downloaded';btn.style.background='var(--accent)';btn.style.color='#000';}
+      if(status){status.innerText='Your full report has been downloaded.';status.style.color='var(--accent)';}
     } catch(err) {
-      if (btn)    { btn.disabled = false; btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)'; }
-      if (status) { status.innerText = 'Download failed: ' + err.message; status.style.color = '#ff4444'; }
+      if(btn){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';}
+      if(status){status.innerText='Download failed: '+err.message;status.style.color='#ff4444';}
     }
   }
 
   async function buyPdfReport() {
-    const btn    = document.getElementById('pdfBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    if (!btn) return;
-    btn.disabled  = true;
-    btn.innerText = 'Opening payment...';
-
+    const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
+    if(!btn) return;
+    btn.disabled=true; btn.innerText='Opening payment...';
     try {
-      const res  = await fetch(`${API_URL_REPORT}/report/create-checkout`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.message || data.error);
-
-      const options = {
-        key:         data.key_id,
-        amount:      data.amount,
-        currency:    data.currency,
-        name:        'QuantProof',
-        // FIX #10d: 38 checks → 40 checks in Razorpay description
-        description: 'Full Validation Report — 40 checks + AI plan',
-        order_id:    data.order_id,
-        theme:       { color: '#00ff88' },
-        prefill:     {},
+      const res=await fetch(`${API_URL_REPORT}/report/create-checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+      const data=await res.json();
+      if(data.error) throw new Error(data.message||data.error);
+      const options={
+        key:data.key_id, amount:data.amount, currency:data.currency,
+        name:'QuantProof', description:'Full Validation Report — 40 checks + AI plan',
+        order_id:data.order_id, theme:{color:'#00ff88'}, prefill:{},
         handler: async function(response) {
-          if (status) { status.innerText = 'Verifying payment...'; status.style.color = 'var(--accent)'; }
+          if(status){status.innerText='Verifying payment...';status.style.color='var(--accent)';}
           try {
-            const verifyRes = await fetch(`${API_URL_REPORT}/report/webhook`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id:   response.razorpay_order_id,
-                razorpay_signature:  response.razorpay_signature
-              })
-            });
-            const verifyData = await verifyRes.json();
-            if (!verifyData.token) throw new Error('Payment verification failed');
-            if (btn) btn.innerText = 'Generating PDF...';
-            await generatePdfWithToken(verifyData.token);
-          } catch(verifyErr) {
-            btn.disabled  = false;
-            btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
-            if (status) { status.innerText = 'Payment error: ' + verifyErr.message; status.style.color = '#ff4444'; }
-          }
+            const vr=await fetch(`${API_URL_REPORT}/report/webhook`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_payment_id:response.razorpay_payment_id,razorpay_order_id:response.razorpay_order_id,razorpay_signature:response.razorpay_signature})});
+            const vd=await vr.json();
+            if(!vd.token) throw new Error('Payment verification failed');
+            if(btn) btn.innerText='Generating PDF...';
+            await generatePdfWithToken(vd.token);
+          } catch(ve){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
         },
-        modal: {
-          ondismiss: function() {
-            btn.disabled  = false;
-            btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
-            if (status) status.innerText = '';
-          }
-        }
+        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status)status.innerText='';}}
       };
-
-      if (typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh and try again.');
-      const rzp = new Razorpay(options);
-      rzp.on('payment.failed', function(response) {
-        btn.disabled  = false;
-        btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
-        if (status) { status.innerText = 'Payment failed: ' + (response.error.description || 'Card declined'); status.style.color = '#ff4444'; }
-      });
+      if(typeof Razorpay==='undefined') throw new Error('Payment system failed to load. Please refresh.');
+      const rzp=new Razorpay(options);
+      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
       rzp.open();
-
-    } catch(err) {
-      btn.disabled  = false;
-      btn.innerText = '🇮🇳 Pay ₹999 (India — UPI / Cards)';
-      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
-    }
+    } catch(err){btn.disabled=false;btn.innerText='🇮🇳 Pay ₹999 (India — UPI / Cards)';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
 
-  // Lemon Squeezy return handler
+  // ── LS return handler ──────────────────────────────────────
   async function handleLSReturn() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') !== 'success' || params.get('provider') !== 'ls') return;
-    const orderId = params.get('order_id') || '';
-
-    const uploadSection = document.getElementById('uploadSection');
-    const heroSection   = document.getElementById('heroSection');
-    if (uploadSection) uploadSection.style.display = 'none';
-    if (heroSection)   heroSection.style.display   = 'none';
-
-    const panel = document.createElement('div');
-    panel.id = 'ls-return-panel';
-    panel.style.cssText = 'max-width:560px;margin:80px auto;padding:40px;background:var(--surface);border:1px solid var(--border);text-align:center;font-family:var(--mono)';
-    panel.innerHTML = `
-      <div style="font-size:40px;margin-bottom:16px">✓</div>
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)">Payment Received!</div>
-      <div style="font-size:14px;color:var(--muted);margin-bottom:32px">Verifying and generating your PDF report...</div>
-      <div id="ls-status" style="font-size:13px;color:var(--accent);margin-bottom:24px">Connecting to payment server...</div>
-      <div style="background:var(--border);height:4px;overflow:hidden;margin-bottom:24px">
-        <div id="ls-progress" style="background:var(--accent);height:100%;width:5%;transition:width 0.5s"></div>
-      </div>
-      <div id="ls-download-btn" style="display:none">
-        <a id="ls-pdf-link" style="display:inline-block;background:var(--accent);color:#000;padding:14px 32px;font-weight:700;font-size:14px;text-decoration:none;cursor:pointer">↓ DOWNLOAD YOUR REPORT</a>
-        <div style="font-size:11px;color:var(--muted);margin-top:12px">Click above to download your PDF</div>
-      </div>
-    `;
+    const params=new URLSearchParams(window.location.search);
+    if(params.get('payment')!=='success'||params.get('provider')!=='ls') return;
+    const orderId=params.get('order_id')||'';
+    document.getElementById('uploadSection').style.display='none';
+    document.getElementById('heroSection').style.display='none';
+    const panel=document.createElement('div');
+    panel.style.cssText='max-width:560px;margin:80px auto;padding:40px;background:var(--surface);border:1px solid var(--border);text-align:center;font-family:var(--mono)';
+    panel.innerHTML=`<div style="font-size:40px;margin-bottom:16px">✓</div><div style="font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)">Payment Received!</div><div style="font-size:14px;color:var(--muted);margin-bottom:32px">Verifying and generating your PDF...</div><div id="ls-status" style="font-size:13px;color:var(--accent);margin-bottom:24px">Connecting...</div><div style="background:var(--border);height:4px;overflow:hidden;margin-bottom:24px"><div id="ls-progress" style="background:var(--accent);height:100%;width:5%;transition:width 0.5s"></div></div><div id="ls-download-btn" style="display:none"><a id="ls-pdf-link" style="display:inline-block;background:var(--accent);color:#000;padding:14px 32px;font-weight:700;font-size:14px;text-decoration:none;cursor:pointer">↓ DOWNLOAD YOUR REPORT</a></div>`;
     document.body.insertBefore(panel, document.body.firstChild);
-
-    const statusEl   = document.getElementById('ls-status');
-    const progressEl = document.getElementById('ls-progress');
-
-    if (!_lastValidatedFile) {
-      const storedName = sessionStorage.getItem('qp_filename');
-      const storedData = sessionStorage.getItem('qp_filedata');
-      if (storedName && storedData) {
-        try {
-          const byteStr = atob(storedData);
-          const arr = new Uint8Array(byteStr.length);
-          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-          _lastValidatedFile = new File([arr], storedName, { type: 'text/csv' });
-        } catch(e) {}
-      }
-    }
-
-    const safeOrderId = (orderId && orderId !== '{order_id}') ? orderId : '';
-    const maxAttempts = 20;
-    for (let i = 0; i < maxAttempts; i++) {
-      if (i > 0) await new Promise(r => setTimeout(r, 2000));
-      if (progressEl) progressEl.style.width = `${Math.min(90, 5 + i * 4.5)}%`;
-      if (statusEl)   statusEl.innerText = `Verifying payment... (${i+1}/${maxAttempts})`;
-      try {
-        const res  = await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(safeOrderId)}`);
-        const data = await res.json();
-        if (data.status === 'ready' && data.token) {
-          if (statusEl)   statusEl.innerText = 'Payment verified! Generating PDF...';
-          if (progressEl) progressEl.style.width = '95%';
-          try {
-            const pdfBlob = await generatePdfBlob(data.token);
-            const url     = URL.createObjectURL(pdfBlob);
-            if (progressEl) progressEl.style.width = '100%';
-            if (statusEl)   statusEl.innerText = '✓ Your report is ready!';
-            const dlBtn  = document.getElementById('ls-download-btn');
-            const dlLink = document.getElementById('ls-pdf-link');
-            if (dlBtn)  dlBtn.style.display = 'block';
-            if (dlLink) { dlLink.href = url; dlLink.download = 'QuantProof_Report.pdf'; dlLink.click(); }
-          } catch(pdfErr) {
-            if (statusEl) { statusEl.innerText = 'PDF error: ' + pdfErr.message; statusEl.style.color = '#ff4444'; }
-          }
-          window.history.replaceState({}, '', window.location.pathname);
-          return;
+    if(!_lastValidatedFile){const sn=sessionStorage.getItem('qp_filename'),sd=sessionStorage.getItem('qp_filedata');if(sn&&sd){try{const ba=atob(sd),arr=new Uint8Array(ba.length);for(let i=0;i<ba.length;i++)arr[i]=ba.charCodeAt(i);_lastValidatedFile=new File([arr],sn,{type:'text/csv'});}catch(e){}}}
+    const safeOid=(orderId&&orderId!=='{order_id}')?orderId:'';
+    const sEl=document.getElementById('ls-status'), pEl=document.getElementById('ls-progress');
+    for(let i=0;i<20;i++){
+      if(i>0) await new Promise(r=>setTimeout(r,2000));
+      if(pEl) pEl.style.width=`${Math.min(90,5+i*4.5)}%`;
+      if(sEl) sEl.innerText=`Verifying payment... (${i+1}/20)`;
+      try{
+        const r=await fetch(`${API_URL_REPORT}/report/ls-token?order_id=${encodeURIComponent(safeOid)}`),d=await r.json();
+        if(d.status==='ready'&&d.token){
+          if(sEl) sEl.innerText='Generating PDF...'; if(pEl) pEl.style.width='95%';
+          try{
+            const blob=await generatePdfBlob(d.token),url=URL.createObjectURL(blob);
+            if(pEl) pEl.style.width='100%'; if(sEl) sEl.innerText='✓ Your report is ready!';
+            const db=document.getElementById('ls-download-btn'),dl=document.getElementById('ls-pdf-link');
+            if(db) db.style.display='block'; if(dl){dl.href=url;dl.download='QuantProof_Report.pdf';dl.click();}
+          }catch(pe){if(sEl){sEl.innerText='PDF error: '+pe.message;sEl.style.color='#ff4444';}}
+          window.history.replaceState({},'',window.location.pathname); return;
         }
-      } catch(e) {}
+      }catch(e){}
     }
-    if (statusEl) {
-      statusEl.innerText = 'Verification timed out. Your payment was received — please email quantproof@gmail.com with your order ID: ' + orderId;
-      statusEl.style.color = '#ffaa00';
-    }
+    if(sEl){sEl.innerText='Timed out. Email quantproof@gmail.com with order: '+orderId;sEl.style.color='#ffaa00';}
   }
-
   window.addEventListener('load', handleLSReturn);
 
-  function showAlpacaConnect() {
-    document.getElementById('alpacaPanel').style.display = 'block';
-    document.getElementById('alpacaPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function hideAlpacaPanel() {
-    document.getElementById('alpacaPanel').style.display = 'none';
-  }
-
-  function showIBKRSoon() {
-    alert('IBKR integration is coming soon. Use Alpaca for now, or upload a CSV for methodology validation.');
-  }
+  // ── Alpaca ─────────────────────────────────────────────────
+  function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
+  function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
+  function showIBKRSoon(){alert('IBKR integration is coming soon. Use Alpaca for now, or upload a CSV.');}
 
   async function handleAlpacaConnect() {
-    const key    = document.getElementById('alpacaKey').value.trim();
-    const secret = document.getElementById('alpacaSecret').value.trim();
-    const mode   = document.querySelector('input[name="alpacaMode"]:checked').value;
-    const status = document.getElementById('alpacaStatus');
-
-    if (!key || !secret) { status.innerText = 'Please enter both API Key and Secret Key.'; status.style.color = '#ff4444'; return; }
-    if (!key.startsWith('PK') && !key.startsWith('AK')) { status.innerText = 'Key format looks wrong — Alpaca keys start with PK or AK.'; status.style.color = '#ffaa00'; }
-
-    status.innerText = 'Connecting to Alpaca...';
-    status.style.color = 'var(--accent3)';
-
-    document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display   = 'none';
-    document.getElementById('loadingSection').classList.add('active');
-
-    _validationMode = 'broker';
-    _brokerSource   = 'alpaca';
+    const key=document.getElementById('alpacaKey').value.trim(), secret=document.getElementById('alpacaSecret').value.trim();
+    const mode=document.querySelector('input[name="alpacaMode"]:checked').value;
+    const status=document.getElementById('alpacaStatus');
+    if(!key||!secret){status.innerText='Please enter both API Key and Secret Key.';status.style.color='#ff4444';return;}
+    if(!key.startsWith('PK')&&!key.startsWith('AK')){status.innerText='Key format looks wrong — Alpaca keys start with PK or AK.';status.style.color='#ffaa00';}
+    status.innerText='Connecting to Alpaca...';status.style.color='var(--accent3)';
+    _validationMode='broker'; _brokerSource='alpaca';
+    try{sessionStorage.setItem('qp_broker',JSON.stringify({api_key:key,secret_key:secret,mode}));sessionStorage.setItem('qp_source','alpaca');}catch(e){}
+    showLoading();
     try {
-      sessionStorage.setItem('qp_broker', JSON.stringify({ api_key: key, secret_key: secret, mode }));
-      sessionStorage.setItem('qp_source', 'alpaca');
-    } catch(e) {}
-
-    try {
-      const response = await fetch(`${API_URL}/validate/alpaca`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: key, secret_key: secret, mode })
-      });
-
-      if (!response.ok) {
-        const err    = await response.json();
-        const detail = err.detail || err;
-        document.getElementById('loadingSection').classList.remove('active');
-        document.getElementById('uploadSection').style.display = 'block';
-        document.getElementById('heroSection').style.display   = 'block';
-        document.getElementById('alpacaPanel').style.display   = 'block';
-        if (detail && detail.error === 'rate_limit') {
-          status.innerHTML = `<span style="color:#ffaa00">⚠ Daily limit reached — 3 free verifications/day. Resets in ~${detail.hours_left}h.</span>`;
-          return;
-        }
-        if (detail && detail.error === 'insufficient_trades') {
-          status.innerHTML = `<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> closed trades found. Need <b>${detail.trades_needed}</b>.<br><span style="opacity:0.7;font-size:11px">Keep trading and come back with more history.</span></span>`;
-          return;
-        }
-        throw new Error((detail && detail.message) || detail || 'Alpaca connection failed');
+      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
+      if(!resp.ok){
+        const err=await resp.json(); const detail=err.detail||err;
+        hideLoading(true);
+        document.getElementById('alpacaPanel').style.display='block';
+        if(detail&&detail.error==='rate_limit'){status.innerHTML=`<span style="color:#ffaa00">⚠ Daily limit reached — resets in ~${detail.hours_left}h.</span>`;return;}
+        if(detail&&detail.error==='insufficient_trades'){status.innerHTML=`<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> closed trades found. Need <b>${detail.trades_needed}</b>.</span>`;return;}
+        throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
-
-      const data = await response.json();
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
-      setTimeout(() => {
-        document.getElementById('loadingSection').classList.remove('active');
-        renderResults(data);
-      }, 2500);
-
-    } catch(err) {
-      document.getElementById('loadingSection').classList.remove('active');
-      document.getElementById('uploadSection').style.display = 'block';
-      document.getElementById('heroSection').style.display   = 'block';
-      document.getElementById('alpacaPanel').style.display   = 'block';
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
-    }
+      const data=await resp.json();
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      setTimeout(()=>{hideLoading();renderResults(data);},2500);
+    } catch(err){hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 
-  // KITE TRADEBOOK HANDLER
-  async function handleKiteFile(file) {
-    if (!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
-
-    document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display   = 'none';
-    document.getElementById('loadingSection').classList.add('active');
-
-    _lastValidatedFile = file;
-    _validationMode = 'kite';
-    _brokerSource   = '';
-
-    // Persist file for post-payment download
-    try {
-      const reader = new FileReader();
-      reader.onload = e => {
-        sessionStorage.setItem('qp_filename', file.name);
-        sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
-        sessionStorage.setItem('qp_source', 'kite');
-      };
-      reader.readAsDataURL(file);
-    } catch(e) {}
-
-    const formData = new FormData();
-    formData.append('file', file);
-    const selCur = document.getElementById('kiteCurrency');
-    if (selCur) formData.append('currency', selCur.value);
-    setCurrency(selCur ? selCur.value : 'INR');
-
-    try {
-      const response = await fetch(`${API_URL}/validate/kite`, { method: 'POST', body: formData });
-      if (!response.ok) {
-        const err    = await response.json();
-        const detail = err.detail || err;
-        if (detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        throw new Error(detail.message || detail || 'Kite validation failed');
-      }
-      const data = await response.json();
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
-      setTimeout(() => {
-        document.getElementById('loadingSection').classList.remove('active');
-        renderResults(data);
-      }, 3200);
-    } catch (err) {
-      document.getElementById('loadingSection').classList.remove('active');
-      document.getElementById('uploadSection').style.display = 'block';
-      document.getElementById('heroSection').style.display   = 'block';
-      alert(`Kite validation error: ${err.message}`);
-    }
-  }
-
-  // TRADINGVIEW WEBHOOK HANDLER
+  // ── TradingView ────────────────────────────────────────────
   async function createTradingViewSession() {
-    const status = document.getElementById('tradingviewStatus');
-    status.innerText = 'Creating webhook session...';
-    status.style.color = 'var(--accent3)';
-
+    const status=document.getElementById('tradingviewStatus');
+    status.innerText='Creating webhook session...';status.style.color='var(--accent3)';
     try {
-      const response = await fetch(`${API_URL}/webhook/tradingview/new-session`, { method: 'GET' });
-      if (!response.ok) throw new Error('Failed to create session');
-      
-      const session = await response.json();
-      
-      // Show session details
-      const sessionDiv = document.createElement('div');
-      sessionDiv.style.cssText = 'background:var(--surface);border:1px solid var(--border);padding:16px;margin:12px 0;font-family:var(--mono);font-size:12px;line-height:1.6;';
-      sessionDiv.innerHTML = `
-        <div style="color:var(--accent);margin-bottom:8px;font-weight:700;">✓ WEBHOOK SESSION CREATED</div>
-        <div style="margin-bottom:6px;"><strong>Session ID:</strong> ${session.session_id}</div>
-        <div style="margin-bottom:6px;"><strong>Webhook URL:</strong></div>
-        <div style="background:var(--deep);padding:8px;margin:4px 0;word-break:break-all;font-size:11px;color:var(--accent3);">${session.webhook_url}</div>
-        <div style="margin-bottom:6px;"><strong>Max Alerts:</strong> ${session.max_alerts}</div>
-        <div style="margin-bottom:6px;"><strong>TTL:</strong> ${session.ttl_hours} hours</div>
-        <div style="margin-top:12px;color:var(--muted);font-size:11px;">
-          Use this URL in your TradingView webhook strategy. Send POST requests with:<br>
-          {"symbol": "AAPL", "action": "BUY", "price": 150.0, "quantity": 10}<br><br>
-          <button onclick="validateTradingViewSession('${session.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;margin-right:8px;">Validate Now</button>
-          <button onclick="checkTradingViewStatus('${session.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;">Check Status</button>
-        </div>
-      `;
-      
-      status.innerHTML = '';
-      status.appendChild(sessionDiv);
-      
-    } catch (err) {
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
-    }
+      const resp=await fetch(`${API_URL}/webhook/tradingview/new-session`);
+      if(!resp.ok) throw new Error('Failed to create session');
+      const session=await resp.json();
+      status.innerHTML=`
+        <div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-top:8px;text-align:left;font-size:11px;line-height:1.7;">
+          <div style="color:var(--accent);font-weight:700;margin-bottom:6px;">✓ SESSION CREATED</div>
+          <div><b>Webhook URL</b> (paste into TradingView alert):</div>
+          <div style="background:var(--deep);padding:6px;margin:4px 0;word-break:break-all;color:var(--accent3);font-size:10px;">${session.webhook_url}</div>
+          <div>Alerts: 0/${session.max_alerts} · TTL: ${session.ttl_hours}h</div>
+          <div style="margin-top:10px;">
+            <b>Alert message format:</b><br>
+            <code style="color:var(--accent3);font-size:10px;">{"symbol":"AAPL","action":"BUY","price":{{close}}}</code>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="checkTVStatus('${session.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;">Check Status</button>
+            <button onclick="validateTVSession('${session.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:700;">Validate Now</button>
+            <button onclick="resetTVSession('${session.session_id}')" style="background:transparent;border:1px solid rgba(255,68,68,0.3);color:var(--accent2);padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;">Reset</button>
+          </div>
+        </div>`;
+    } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 
-  async function validateTradingViewSession(sessionId) {
-    const status = document.getElementById('tradingviewStatus');
-    status.innerText = 'Validating TradingView alerts...';
-    status.style.color = 'var(--accent3)';
-
+  async function checkTVStatus(sessionId) {
+    const status=document.getElementById('tradingviewStatus');
     try {
-      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`, { method: 'POST' });
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.detail || 'Validation failed');
-      }
-      
-      const data = await response.json();
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
-      
-      // Hide upload section and show results
-      document.getElementById('uploadSection').style.display = 'none';
-      document.getElementById('heroSection').style.display   = 'none';
-      document.getElementById('loadingSection').classList.add('active');
-      
-      _validationMode = 'tradingview';
-      _brokerSource   = 'tradingview';
-      
-      setTimeout(() => {
-        document.getElementById('loadingSection').classList.remove('active');
-        renderResults(data);
-      }, 2500);
-
-    } catch(err) {
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
-    }
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/status`);
+      if(!resp.ok) throw new Error('Session not found or expired');
+      const d=await resp.json();
+      const exp=new Date(d.expires_at*1000).toLocaleString();
+      status.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);padding:12px;margin-top:8px;font-size:11px;line-height:1.7;"><div style="color:var(--accent);font-weight:700;margin-bottom:6px;">SESSION STATUS: ${d.status.toUpperCase()}</div><div>Alerts received: <b>${d.alerts_received}</b> · Trades paired: <b>${d.trades_paired}</b></div><div>Expires: ${exp}</div><div style="margin-top:10px;display:flex;gap:8px;"><button onclick="validateTVSession('${d.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:700;">Validate Now</button><button onclick="resetTVSession('${d.session_id}')" style="background:transparent;border:1px solid rgba(255,68,68,0.3);color:var(--accent2);padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;">Reset Alerts</button></div></div>`;
+    } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 
-  async function checkTradingViewStatus(sessionId) {
-    const status = document.getElementById('tradingviewStatus');
-    status.innerText = 'Checking session status...';
-    status.style.color = 'var(--accent3)';
-
+  async function validateTVSession(sessionId) {
+    _validationMode='tradingview'; _brokerSource='';
+    showLoading();
     try {
-      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/status`, { method: 'GET' });
-      if (!response.ok) throw new Error('Failed to get status');
-      
-      const sessionData = await response.json();
-      
-      // Update status display
-      const statusDiv = document.createElement('div');
-      statusDiv.style.cssText = 'background:var(--surface);border:1px solid var(--border);padding:16px;margin:12px 0;font-family:var(--mono);font-size:12px;line-height:1.6;';
-      statusDiv.innerHTML = `
-        <div style="color:var(--accent);margin-bottom:8px;font-weight:700;">SESSION STATUS</div>
-        <div style="margin-bottom:6px;"><strong>Session ID:</strong> ${sessionData.session_id}</div>
-        <div style="margin-bottom:6px;"><strong>Alerts Received:</strong> ${sessionData.alerts_received}</div>
-        <div style="margin-bottom:6px;"><strong>Trades Paired:</strong> ${sessionData.trades_paired}</div>
-        <div style="margin-bottom:6px;"><strong>Status:</strong> ${sessionData.status}</div>
-        <div style="margin-bottom:6px;"><strong>Expires:</strong> ${new Date(sessionData.expires_at * 1000).toLocaleString()}</div>
-        <div style="margin-top:12px;">
-          <button onclick="validateTradingViewSession('${sessionData.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;margin-right:8px;">Validate Now</button>
-          <button onclick="resetTradingViewSession('${sessionData.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;">Reset Session</button>
-        </div>
-      `;
-      
-      status.innerHTML = '';
-      status.appendChild(statusDiv);
-      
-    } catch (err) {
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
-    }
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST'});
+      if(!resp.ok){const err=await resp.json();hideLoading(true);throw new Error(err.detail||'Validation failed');}
+      const data=await resp.json();
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      setTimeout(()=>{hideLoading();renderResults(data);},2500);
+    } catch(err){hideLoading(true);alert('TradingView validation error: '+err.message);}
   }
 
-  async function resetTradingViewSession(sessionId) {
-    const status = document.getElementById('tradingviewStatus');
-    status.innerText = 'Resetting session...';
-    status.style.color = 'var(--accent3)';
-
+  async function resetTVSession(sessionId) {
+    const status=document.getElementById('tradingviewStatus');
     try {
-      const response = await fetch(`${API_URL}/webhook/tradingview/${sessionId}/reset`, { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to reset');
-      
-      const result = await response.json();
-      status.innerText = '✓ Session reset - alerts cleared';
-      status.style.color = 'var(--accent)';
-      
-      setTimeout(() => {
-        status.innerText = 'Ready for new alerts';
-        status.style.color = 'var(--muted)';
-      }, 2000);
-      
-    } catch (err) {
-      status.innerText = 'Error: ' + err.message;
-      status.style.color = '#ff4444';
-    }
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/reset`,{method:'POST'});
+      if(!resp.ok) throw new Error('Failed to reset');
+      const d=await resp.json();
+      status.innerText='✓ Session reset — alerts cleared.';status.style.color='var(--accent)';
+      setTimeout(()=>checkTVStatus(sessionId),1500);
+    } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 </script>
 </body>
