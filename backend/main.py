@@ -1366,29 +1366,106 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     except Exception as e:
         raise HTTPException(503, f"Could not retrieve IBKR report: {str(e)}")
 
-    trades = []
+    trades      = []
+    audit_flags_ibkr = []
+    open_skipped = 0
+    acct_currency = "USD"
+
     for stmt in report_root.iter("FlexStatement"):
         acct = stmt.get("accountId", "")
+        # Detect account currency from statement
+        stmt_currency = stmt.get("currency", "") or stmt.get("Currency", "")
+        if stmt_currency:
+            acct_currency = stmt_currency.upper()
         if payload.account_id and acct != payload.account_id:
             continue
         for trade in stmt.iter("Trade"):
             try:
-                date_str = trade.get("tradeDate") or trade.get("TradeDate", "")
-                net_cash = float(trade.get("netCash") or trade.get("NetCash", 0))
-                price    = float(trade.get("tradePrice") or trade.get("TradePrice", 1))
-                pnl_frac = net_cash / abs(price * float(trade.get("quantity", 1) or 1))
-                pnl_frac = max(-0.5, min(0.5, pnl_frac))
+                date_str  = trade.get("tradeDate") or trade.get("TradeDate", "")
+                symbol    = trade.get("symbol", "") or trade.get("Symbol", "")
+                qty       = float(trade.get("quantity", 0) or 0)
+                price     = float(trade.get("tradePrice") or trade.get("TradePrice", 0) or 0)
+                net_cash  = float(trade.get("netCash")    or trade.get("NetCash", 0) or 0)
+                buy_sell  = (trade.get("buySell") or trade.get("BuySell") or "").upper()
+
+                # openCloseIndicator: "O" = opening trade, "C" = closing trade
+                # Only closing trades represent realised P&L — skip opening trades
+                open_close = (trade.get("openCloseIndicator") or
+                              trade.get("OpenCloseIndicator") or "").upper()
+                if open_close == "O":
+                    open_skipped += 1
+                    continue  # skip opening legs — no realised P&L yet
+
+                # fifoPnlRealized: if Flex query includes it, use directly
+                fifo_pnl = trade.get("fifoPnlRealized") or trade.get("FifoPnlRealized")
+                if fifo_pnl is not None:
+                    try:
+                        fifo_val = float(fifo_pnl)
+                        if abs(fifo_val) < 0.001:
+                            open_skipped += 1
+                            continue   # zero realised P&L = opening or wash trade
+                        # normalise to percentage: P&L / cost basis
+                        cost = abs(price * qty) if price > 0 and qty != 0 else 1
+                        pnl_frac = fifo_val / cost
+                        pnl_frac = max(-0.5, min(0.5, pnl_frac))
+                        side = "short" if (buy_sell == "BUY" or qty > 0) else "long"
+                        # closing a short = BUY to cover; closing a long = SELL
+                        if open_close == "C":
+                            side = "short" if buy_sell == "BUY" else "long"
+                        trades.append({
+                            "date":   date_str,
+                            "pnl":    round(pnl_frac, 6),
+                            "ticker": symbol,
+                            "side":   side,
+                        })
+                        continue
+                    except (ValueError, ZeroDivisionError):
+                        pass
+
+                # Fallback: use netCash approach but only for closing trades
+                # Closing trade = negative quantity (SELL to close long) or
+                # positive quantity after a short (BUY to cover)
+                # netCash is positive for profitable closes, negative for losses
+                if price <= 0 or qty == 0:
+                    continue
+                cost_basis = abs(price * qty)
+                pnl_frac   = net_cash / cost_basis
+                pnl_frac   = max(-0.5, min(0.5, pnl_frac))
+
+                # Determine trade direction: negative qty = SELL (closing long)
+                if qty < 0:
+                    side = "long"   # sold to close long
+                else:
+                    side = "short"  # bought to cover short
+
+                # Skip if net_cash is near-zero (opening trade with no realised PnL)
+                if abs(net_cash) < 0.01:
+                    open_skipped += 1
+                    continue
+
                 trades.append({
                     "date":   date_str,
-                    "pnl":    pnl_frac,
-                    "ticker": trade.get("symbol", ""),
-                    "side":   "long" if float(trade.get("quantity", 1) or 1) > 0 else "short"
+                    "pnl":    round(pnl_frac, 6),
+                    "ticker": symbol,
+                    "side":   side,
                 })
             except (ValueError, ZeroDivisionError):
                 continue
 
+    if open_skipped > 0:
+        audit_flags_ibkr.append(
+            f"ℹ {open_skipped} opening trade leg(s) skipped — "
+            f"only closed trades contribute to P&L"
+        )
+
     if len(trades) < 5:
-        raise HTTPException(400, f"Only {len(trades)} parseable trades found in IBKR export. Need at least 5.")
+        raise HTTPException(
+            400,
+            f"Only {len(trades)} closed trade(s) found in IBKR export. Need at least 5. "
+            "Make sure your Flex Query includes: openCloseIndicator, fifoPnlRealized, "
+            "netCash, quantity, tradePrice, symbol, tradeDate. "
+            "Also check your date range covers enough completed trades."
+        )
 
     df = pd.DataFrame(trades)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
@@ -1426,7 +1503,30 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     )
 
     extra_flags = ([regime_note] if regime_note else []) + \
-                  ["SOURCE: Interactive Brokers Flex API — trade data verified"]
+                  ["SOURCE: Interactive Brokers Flex API — trade data verified",
+                   "VERIFIED: Flex Web Service — read-only, credentials never stored"]
+
+    # Cache result for PDF reuse (same as Alpaca/CSV paths)
+    _vr_cache = {
+        "fundable_score": report.score,
+        "grade":          report.grade,
+        "sharpe":         round(report.sharpe, 2),
+        "max_drawdown":   round(report.max_drawdown, 4),
+        "win_rate":       round(report.win_rate, 1),
+        "total_trades":   report.total_trades,
+        "date_range":     date_range,
+        "is_verified":    True,
+        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
+                    "value":c.value,"insight":c.insight,"fix":c.fix,
+                    "category":c.category} for c in report.checks],
+        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
+                        "description":s.description,"market_drop":s.market_drop,
+                        "strategy_drop":s.strategy_drop,"survived":s.survived,
+                        "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
+        "top_issues":    top_issues,
+        "top_strengths": top_strengths,
+    }
+    _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
 
     validation_resp = ValidationResponse(
         fundable_score=report.score, grade=report.grade, summary=summary,
@@ -1438,9 +1538,16 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         top_issues=top_issues, top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-IBKR",
         validation_date=report.validation_date, engine_version=report.engine_version,
-        audit_flags=report.audit_flags + extra_flags,
+        audit_flags=report.audit_flags + extra_flags + audit_flags_ibkr,
         plausibility_summary=report.plausibility_summary,
-        assumptions=report.assumptions, dashboard=None, ai_plan=None,
+        scale_warning=getattr(report, '_scale_warning', False),
+        currency=acct_currency,
+        assumptions=report.assumptions + [
+            "Trade data sourced from IBKR Flex Web Service",
+            "Only closing trades included — opening legs excluded (no realised P&L)",
+            "P&L uses fifoPnlRealized when available, netCash/cost-basis as fallback",
+        ],
+        dashboard=None, ai_plan=None,
     )
 
     return IBKRConnectResponse(
@@ -1458,14 +1565,32 @@ def ibkr_setup_guide():
             "1. Log into IBKR Client Portal (clientportal.ibkr.com)",
             "2. Go to: Performance & Reports > Flex Queries",
             "3. Click 'Create' — choose 'Trade Confirmation Flex Query'",
-            "4. Select fields: TradeDate, Symbol, Buy/Sell, Quantity, Price, NetCash, Commission",
-            "5. Save the query — note the Query ID",
-            "6. Go to: Settings > Flex Web Service > Create Token",
-            "7. Copy your Flex Token",
-            "8. Enter Account ID, Flex Token, and Query ID in QuantProof"
+            "4. IMPORTANT — select these specific fields:",
+            "     TradeDate, Symbol, Buy/Sell, Quantity, Price, NetCash,",
+            "     OpenCloseIndicator, FifoPnlRealized, Currency, Commission",
+            "5. Set date range to cover your full backtest period",
+            "6. Save the query — note the Query ID shown",
+            "7. Go to: Settings > Flex Web Service > Generate Token",
+            "8. Copy your Flex Token (keep it secret — treat it like a password)",
+            "9. Enter Account ID, Flex Token, and Query ID in QuantProof"
         ],
-        "note": "Your credentials are used only to pull trade data and are never stored.",
-        "why_ibkr": "IBKR-connected validations include a verified source flag in the audit hash."
+        "required_fields": {
+            "TradeDate":           "Date of each execution",
+            "Symbol":              "Ticker symbol",
+            "Quantity":            "Shares traded (negative = SELL)",
+            "Price":               "Execution price",
+            "NetCash":             "Net cash flow (realised P&L on closes)",
+            "OpenCloseIndicator":  "O=Opening trade, C=Closing trade (critical for accuracy)",
+            "FifoPnlRealized":     "FIFO realised P&L — most accurate P&L source",
+            "Currency":            "Account currency (USD/GBP/EUR etc.)",
+            "Commission":          "Optional — for cost analysis"
+        },
+        "note": "Your Flex Token is used read-only and never stored. "
+                "OpenCloseIndicator and FifoPnlRealized significantly improve P&L accuracy — "
+                "without them, opening trades may be incorrectly included.",
+        "why_ibkr": "IBKR-connected validations include a verified source flag. "
+                    "FifoPnlRealized gives IBKR's own FIFO P&L calculation — "
+                    "the most accurate measure for strategies with scaled entries."
     }
 
 
