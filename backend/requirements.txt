@@ -12,3 +12,4 @@ razorpay
 yfinance
 statsmodels
 hmmlearn
+yfinance
