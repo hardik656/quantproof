@@ -304,120 +304,81 @@ class ValidationResponse(BaseModel):
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     """
     Converts raw Alpaca filled orders into a trades DataFrame.
-
-    Fixes vs old buy/sell stack approach:
-    - Sorts by filled_at chronologically before pairing
-    - Tracks open position lots per symbol (FIFO)
-    - Orphaned sells (no open lot) are flagged and skipped,
-      not silently mispaired with a future buy
-    - Regime auto-assigned via assign_regimes() after pairing
-
-    Returns (df, audit_flags).
+    Uses chronological position-based reconstruction.
     """
     audit_flags = []
 
-    # Filter + parse filled orders
-    filled = []
-    for o in orders:
-        if o.get("status") != "filled":
-            continue
-        try:
-            qty   = float(o.get("filled_qty") or 0)
-            price = float(o.get("filled_avg_price") or 0)
-            if qty <= 0 or price <= 0:
-                continue
-            side = o.get("side", "").lower()
-            if side not in ("buy", "sell"):
-                continue
-            ts_str = o.get("filled_at") or o.get("updated_at") or ""
-            ts = pd.to_datetime(ts_str, utc=True).tz_localize(None)
-            filled.append({
-                "symbol":    o.get("symbol", "UNKNOWN"),
-                "side":      side,
-                "qty":       qty,
-                "price":     price,
-                "filled_at": ts,
-            })
-        except Exception:
-            continue
-
+    # Filter to only filled orders
+    filled = [o for o in orders if o.get("status") == "filled"]
+    
     if not filled:
         return pd.DataFrame(), ["No filled orders found"]
 
-    # Sort chronologically — critical fix
-    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
+    # Sort orders chronologically using filled_at, fallback to updated_at
+    filled_sorted = sorted(
+        filled,
+        key=lambda x: x.get("filled_at") or x.get("updated_at") or ""
+    )
 
-    # Position-state tracker: symbol → FIFO list of open lots
-    lots          = defaultdict(list)   # sym → [{"price", "qty", "entry_date"}, ...]
-    completed     = []
-    orphan_sells  = []
+    rows = []
+    open_positions = {}
 
-    for _, row in df_orders.iterrows():
-        sym   = row["symbol"]
-        side  = row["side"]
-        qty   = row["qty"]
-        price = row["price"]
-        ts    = row["filled_at"]
+    for o in filled_sorted:
+        try:
+            symbol = o.get("symbol")
+            side = o.get("side")
+            price = float(o.get("filled_avg_price", 0) or 0)
+            date_str = o.get("filled_at") or o.get("updated_at")
 
-        if side == "buy":
-            lots[sym].append({"price": price, "qty": qty, "entry_date": ts})
-
-        elif side == "sell":
-            if not lots[sym]:
-                # Sell with no open lot = position opened before history window
-                orphan_sells.append(
-                    f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(no matching buy in history — position predates window)"
-                )
+            if not symbol or not side or price <= 0:
                 continue
 
-            remaining = qty
-            while remaining > 0 and lots[sym]:
-                lot       = lots[sym][0]
-                close_qty = min(remaining, lot["qty"])
-                pnl_pct   = (price - lot["price"]) / lot["price"]
-                completed.append({
-                    "pnl":        pnl_pct,
-                    "date":       ts,
-                    "entry_date": lot["entry_date"],
-                    "ticker":     sym,
-                    "buy_price":  lot["price"],
-                    "sell_price": price,
-                    "qty":        close_qty,
-                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                })
-                lot["qty"]  -= close_qty
-                remaining   -= close_qty
-                if lot["qty"] == 0:
-                    lots[sym].pop(0)
+            if symbol not in open_positions:
+                open_positions[symbol] = {
+                    "side": side,
+                    "price": price,
+                    "date": date_str
+                }
+                continue
 
-    # Build audit flags
-    if orphan_sells:
-        audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy in history window "
-            f"(position opened before history) — excluded from analysis"
-        )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
+            entry = open_positions[symbol]
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
-        audit_flags.append(
-            f"ℹ {len(open_positions)} open position(s) not included "
-            f"(no closing trade yet): {sym_list}"
-        )
+            if entry["side"] != side:
 
-    if not completed:
-        return pd.DataFrame(), audit_flags + [
-            "No completed round-trip trades found. "
-            "All positions may still be open, or all sells predate the history window."
-        ]
+                if entry["side"] == "buy":
+                    pnl = (price - entry["price"]) / entry["price"]
+                    trade_side = "long"
+                else:
+                    pnl = (entry["price"] - price) / entry["price"]
+                    trade_side = "short"
 
-    df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
+                row = {
+                    "pnl": pnl,
+                    "ticker": symbol,
+                    "side": trade_side
+                }
 
+                if date_str:
+                    try:
+                        ts = pd.to_datetime(date_str)
+                        if ts.tzinfo is not None:
+                            ts = ts.tz_convert("UTC").tz_localize(None)
+                        row["date"] = ts
+                    except Exception:
+                        pass
+
+                rows.append(row)
+
+                del open_positions[symbol]
+
+        except Exception:
+            continue
+
+    if not rows:
+        return pd.DataFrame(), ["No completed round-trip trades found"]
+
+    df = pd.DataFrame(rows)
+    
     # Auto-assign regime from SPY
     df, regime_note = assign_regimes(df)
     audit_flags.append(regime_note)
