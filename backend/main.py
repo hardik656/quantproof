@@ -14,6 +14,15 @@ CHANGES FROM v1.3:
   - All Alpaca + IBKR paths now auto-assign regime after trade pairing
   - benchmark_returns not supplied anywhere — IR + Beta checks return
     score=50 informational (correct, fully backward-compatible)
+
+PARSER FIXES (v1.4.1):
+  - Added Kite Orders CSV support (_is_kite_orders_csv, _parse_kite_orders_csv)
+    Handles: transaction_type, order_execution_time, filled_quantity, average_price
+  - Added Alpaca UI export support (_is_alpaca_ui_export, _parse_alpaca_ui_export)
+    Handles: tab-separated UI table with human-readable dates like "Feb 24, 2026, 08:40:53 PM"
+  - smart_parse_csv() now detects both new formats before falling through to generic parse
+  - pair_alpaca_orders() hardened to handle both REST API JSON and UI export dict shapes
+    (normalises filled_qty/avg_fill_price/filled_at column names from both sources)
 """
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Response
@@ -24,6 +33,7 @@ import pandas as pd
 import numpy as np
 import io
 import os
+import re as _re
 import time
 import hashlib
 import traceback
@@ -299,59 +309,682 @@ class ValidationResponse(BaseModel):
 
 
 # =========================================================
+# KITE TRADEBOOK PARSER
+# (defined before smart_parse_csv which calls it)
+# =========================================================
+
+def _is_kite_csv(df: pd.DataFrame) -> bool:
+    """
+    Detect Zerodha Kite TradeBook CSV by characteristic column names.
+
+    Real Kite TradeBook columns (verified from Zerodha Console export):
+      trade_date, trade_time, settlement_id, exchange, segment, series,
+      trade_type, auction, quantity, price, trade_id, order_id, order_execution_time
+
+    Key: ticker/instrument is in 'series' column (NOT 'symbol').
+         segment is 'EQ' for equity, 'FO' for F&O (not 'EQUITY'/'FUTURES').
+    """
+    cols = {c.lower().strip() for c in df.columns}
+    required     = {"trade_date", "trade_type", "quantity", "price"}
+    kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
+    return required.issubset(cols) and bool(kite_signals & cols)
+
+
+def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """
+    Convert Zerodha Kite TradeBook CSV into QuantProof trades.
+
+    Uses the same position-state tracker as pair_alpaca_orders:
+      - Chronological sort within each symbol
+      - FIFO lot queue per symbol
+      - Partial lot handling
+      - Orphan sell detection
+      - Short positions via segment (FO = futures/options)
+      - Returns (df, note, audit_flags)
+    """
+    df = pd.read_csv(io.StringIO(raw))
+    df.columns = [c.lower().strip() for c in df.columns]
+
+    required = {"trade_date", "trade_type", "quantity", "price"}
+    missing  = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Kite CSV missing required columns: {missing}. "
+            "Please export from Zerodha Console → TradeBook → Download CSV. "
+            "Make sure you are downloading the TradeBook, not Positions or Holdings."
+        )
+
+    ticker_col = None
+    for candidate in ['series', 'symbol', 'instrument', 'scrip', 'tradingsymbol']:
+        if candidate in df.columns:
+            ticker_col = candidate
+            break
+
+    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
+    df = df.dropna(subset=["trade_date"])
+
+    sort_cols = ([ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns
+                 else ["trade_date"])
+    df = df.sort_values(sort_cols).reset_index(drop=True)
+
+    lots         = defaultdict(list)
+    trades       = []
+    audit_flags  = []
+    orphan_sells = []
+    orphan_buys  = []
+
+    for _, row in df.iterrows():
+        symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
+        qty        = float(row["quantity"])
+        price      = float(row["price"])
+        trade_type = str(row["trade_type"]).upper().strip()
+        date       = row["trade_date"]
+        segment    = str(row.get("segment", "EQ")).upper().strip()
+        is_fo      = segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF")
+
+        if trade_type == "BUY":
+            if lots[symbol] and lots[symbol][0]["side"] == "short":
+                remaining_qty = qty
+                while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
+                    lot       = lots[symbol][0]
+                    close_qty = min(remaining_qty, lot["qty"])
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    trades.append({
+                        "pnl":    round(pnl_pct, 6),
+                        "ticker": symbol,
+                        "side":   "short",
+                        "date":   date,
+                    })
+                    lot["qty"]    -= close_qty
+                    remaining_qty -= close_qty
+                    if lot["qty"] == 0:
+                        lots[symbol].pop(0)
+                if remaining_qty > 0:
+                    lots[symbol].append({"qty": remaining_qty, "price": price, "date": date, "side": "long"})
+            else:
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
+
+        elif trade_type == "SELL":
+            if not lots[symbol]:
+                if is_fo:
+                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
+                else:
+                    orphan_sells.append(
+                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
+                        f"(no open position — predates history window)"
+                    )
+                continue
+
+            remaining_qty = qty
+            while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
+                lot       = lots[symbol][0]
+                close_qty = min(remaining_qty, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                trades.append({
+                    "pnl":    round(pnl_pct, 6),
+                    "ticker": symbol,
+                    "side":   "long",
+                    "date":   date,
+                })
+                lot["qty"]    -= close_qty
+                remaining_qty -= close_qty
+                if lot["qty"] == 0:
+                    lots[symbol].pop(0)
+
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
+            f"(position predates TradeBook history) — excluded"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} position(s) still open "
+            f"(no closing trade yet): {sym_list}"
+        )
+
+    if not trades:
+        return pd.DataFrame(), "No completed trades found in Kite TradeBook", audit_flags
+
+    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
+    note = (
+        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite TradeBook "
+        f"({len(orphan_sells)} orphan sell(s) excluded, "
+        f"{len(open_positions)} position(s) still open)"
+    )
+    return result, note, audit_flags
+
+
+# =========================================================
+# KITE ORDERS CSV PARSER  (NEW — v1.4.1)
+#
+# Handles Kite Console → Orders → Download CSV format:
+#   order_id, exchange_order_id, tradingsymbol, exchange, segment, product,
+#   order_type, transaction_type, quantity, average_price, price,
+#   filled_quantity, pending_quantity, status, order_execution_time, trade_id
+#
+# Distinct from TradeBook: uses transaction_type/order_execution_time/
+# filled_quantity/average_price instead of trade_type/trade_date/quantity/price.
+# =========================================================
+
+def _is_kite_orders_csv(df: pd.DataFrame) -> bool:
+    """
+    Detect Zerodha Kite Orders CSV.
+    The combination of transaction_type + order_execution_time + tradingsymbol
+    + filled_quantity is unique to this format and absent from TradeBook.
+    """
+    cols = {c.lower().strip() for c in df.columns}
+    required = {"transaction_type", "order_execution_time", "tradingsymbol", "filled_quantity"}
+    return required.issubset(cols)
+
+
+def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """
+    Convert Zerodha Kite Orders CSV into QuantProof trades.
+
+    Column mapping vs TradeBook:
+      transaction_type      → side (BUY/SELL)
+      order_execution_time  → date
+      filled_quantity       → qty (actual shares filled)
+      average_price         → price (actual fill price, not limit price)
+      tradingsymbol         → ticker
+      status == "COMPLETE"  → only process completed orders
+
+    Uses identical FIFO position-state tracker as _parse_kite_csv and
+    pair_alpaca_orders. Returns (df, note, audit_flags).
+    """
+    df = pd.read_csv(io.StringIO(raw))
+    df.columns = [c.lower().strip() for c in df.columns]
+
+    required = {"transaction_type", "order_execution_time", "tradingsymbol",
+                "filled_quantity", "average_price"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Kite Orders CSV missing required columns: {missing}. "
+            "Export from Kite Console → Orders → Download CSV."
+        )
+
+    # Filter: COMPLETE orders only
+    df["status"] = df.get("status", pd.Series(["COMPLETE"] * len(df))).str.upper().str.strip()
+    df = df[df["status"] == "COMPLETE"].copy()
+
+    df["filled_quantity"] = pd.to_numeric(df["filled_quantity"], errors="coerce")
+    df["average_price"]   = pd.to_numeric(df["average_price"],   errors="coerce")
+    df = df.dropna(subset=["filled_quantity", "average_price"])
+    df = df[(df["filled_quantity"] > 0) & (df["average_price"] > 0)]
+
+    df["order_execution_time"] = pd.to_datetime(df["order_execution_time"], errors="coerce")
+    df = df.dropna(subset=["order_execution_time"])
+
+    df["transaction_type"] = df["transaction_type"].str.upper().str.strip()
+    df = df[df["transaction_type"].isin(["BUY", "SELL"])]
+
+    if df.empty:
+        return pd.DataFrame(), "No COMPLETE orders found in Kite Orders CSV", []
+
+    df = df.sort_values(["tradingsymbol", "order_execution_time"]).reset_index(drop=True)
+    df["segment"] = df.get("segment", pd.Series(["EQ"] * len(df))).str.upper().str.strip()
+
+    lots         = defaultdict(list)
+    trades       = []
+    audit_flags  = []
+    orphan_sells = []
+
+    for _, row in df.iterrows():
+        symbol = str(row["tradingsymbol"])
+        side   = row["transaction_type"]
+        qty    = float(row["filled_quantity"])
+        price  = float(row["average_price"])
+        date   = row["order_execution_time"]
+        is_fo  = row["segment"] in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS")
+
+        if side == "BUY":
+            if lots[symbol] and lots[symbol][0]["side"] == "short":
+                remaining = qty
+                while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
+                    lot       = lots[symbol][0]
+                    close_qty = min(remaining, lot["qty"])
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    trades.append({
+                        "pnl":    round(np.clip(pnl_pct, -0.50, 0.50), 6),
+                        "ticker": symbol,
+                        "side":   "short",
+                        "date":   date,
+                    })
+                    lot["qty"]  -= close_qty
+                    remaining   -= close_qty
+                    if lot["qty"] == 0:
+                        lots[symbol].pop(0)
+                if remaining > 0:
+                    lots[symbol].append({"qty": remaining, "price": price,
+                                         "date": date, "side": "long"})
+            else:
+                lots[symbol].append({"qty": qty, "price": price,
+                                     "date": date, "side": "long"})
+
+        elif side == "SELL":
+            if not lots[symbol]:
+                if is_fo:
+                    lots[symbol].append({"qty": qty, "price": price,
+                                         "date": date, "side": "short"})
+                else:
+                    orphan_sells.append(
+                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
+                        f"(no matching BUY — predates history window)"
+                    )
+                continue
+
+            remaining = qty
+            while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
+                lot       = lots[symbol][0]
+                close_qty = min(remaining, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                trades.append({
+                    "pnl":    round(np.clip(pnl_pct, -0.50, 0.50), 6),
+                    "ticker": symbol,
+                    "side":   "long",
+                    "date":   date,
+                })
+                lot["qty"]  -= close_qty
+                remaining   -= close_qty
+                if lot["qty"] == 0:
+                    lots[symbol].pop(0)
+
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching BUY "
+            f"(position predates Orders history) — excluded"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} position(s) still open "
+            f"(no closing trade yet): {sym_list}"
+        )
+
+    if not trades:
+        return (
+            pd.DataFrame(),
+            "No completed round-trip trades found in Kite Orders CSV",
+            audit_flags,
+        )
+
+    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
+    note = (
+        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite Orders CSV "
+        f"({len(orphan_sells)} orphan sell(s) excluded, "
+        f"{len(open_positions)} position(s) still open)"
+    )
+    return result, note, audit_flags
+
+
+# =========================================================
+# ALPACA UI EXPORT PARSER  (NEW — v1.4.1)
+#
+# Handles the tab-separated table exported/pasted from the Alpaca
+# dashboard UI — distinct from the REST API JSON response.
+#
+# UI format:
+#   Asset | Order Type | Side | Qty | Filled Qty | Avg. Fill Price |
+#   Status | Source | Submitted At | Filled At | Expires At
+#
+# Key differences from REST API:
+#   - Tab-separated, not JSON
+#   - Dates: "Feb 24, 2026, 08:40:53 PM" not ISO
+#   - "Avg. Fill Price" not "filled_avg_price"
+#   - "Filled Qty" not "filled_qty"
+#   - Status: "filled"/"canceled" lowercase
+#   - Asset cell sometimes contains "ARM\nStop @ $131.17" — ticker is first token
+# =========================================================
+
+def _is_alpaca_ui_export(df: pd.DataFrame) -> bool:
+    """
+    Detect Alpaca UI export by its distinctive column set.
+    'filled at' + 'avg fill price' (after stripping '.') + 'side' is unique
+    to this format.
+    """
+    cols = {c.lower().strip().replace(".", "") for c in df.columns}
+    return (
+        ("avg fill price" in cols or "avg  fill price" in cols)
+        and "filled at" in cols
+        and "side" in cols
+    )
+
+
+def _parse_alpaca_ui_date(s) -> pd.Timestamp | None:
+    """
+    Parse Alpaca UI date strings: "Feb 24, 2026, 08:40:53 PM".
+    Also handles ISO strings and "-" (unfilled/canceled rows).
+    """
+    if not s or str(s).strip() in ("-", "", "nan", "None"):
+        return None
+    try:
+        return pd.to_datetime(str(s).strip(), errors="coerce")
+    except Exception:
+        return None
+
+
+def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """
+    Convert Alpaca UI order export (tab-separated) into QuantProof trades.
+
+    Steps:
+      1. Detect delimiter (tab vs comma)
+      2. Normalise column names (strip dots, lower-case)
+      3. Filter status == "filled" and filled_qty > 0
+      4. Parse "Filled At" timestamps
+      5. Clean ticker from "Asset" column (strip order-type annotations)
+      6. FIFO pairing — identical logic to pair_alpaca_orders
+
+    Returns (df, note, audit_flags).
+    """
+    audit_flags = []
+
+    sample = raw[:4096]
+    delim  = "\t" if sample.count("\t") > sample.count(",") else ","
+
+    try:
+        df = pd.read_csv(io.StringIO(raw), sep=delim, dtype=str)
+    except Exception as e:
+        raise ValueError(f"Could not parse Alpaca UI export: {e}")
+
+    def _norm_col(c):
+        return c.lower().strip().replace(".", "").replace("  ", " ")
+
+    df.columns = [_norm_col(c) for c in df.columns]
+
+    col_map = {
+        "asset":          "symbol_raw",
+        "side":           "side",
+        "qty":            "qty",
+        "filled qty":     "filled_qty",
+        "avg fill price": "avg_fill_price",
+        "status":         "status",
+        "filled at":      "filled_at",
+        "submitted at":   "submitted_at",
+    }
+    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+
+    required = {"symbol_raw", "side", "filled_qty", "avg_fill_price", "status", "filled_at"}
+    missing  = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"Alpaca UI export missing columns: {missing}. "
+            "Export from Alpaca dashboard → Orders → copy/download table."
+        )
+
+    df["status"] = df["status"].str.lower().str.strip()
+    df = df[df["status"] == "filled"].copy()
+
+    df["filled_qty"]     = pd.to_numeric(df["filled_qty"],     errors="coerce")
+    df["avg_fill_price"] = pd.to_numeric(df["avg_fill_price"], errors="coerce")
+    df = df.dropna(subset=["filled_qty", "avg_fill_price"])
+    df = df[(df["filled_qty"] > 0) & (df["avg_fill_price"] > 0)]
+
+    df["filled_at"] = df["filled_at"].apply(_parse_alpaca_ui_date)
+    df = df.dropna(subset=["filled_at"])
+
+    def _clean_ticker(raw_val):
+        if pd.isna(raw_val):
+            return "UNKNOWN"
+        s = str(raw_val).strip()
+        m = _re.match(r"([A-Z]{1,6})", s.upper())
+        return m.group(1) if m else s.split()[0]
+
+    df["symbol"] = df["symbol_raw"].apply(_clean_ticker)
+    df["side"]   = df["side"].str.lower().str.strip()
+    df = df[df["side"].isin(["buy", "sell"])]
+
+    if df.empty:
+        return (
+            pd.DataFrame(),
+            "No filled orders found in Alpaca UI export",
+            ["No filled orders after filtering"],
+        )
+
+    df = df.sort_values("filled_at").reset_index(drop=True)
+
+    lots         = defaultdict(list)
+    completed    = []
+    orphan_sells = []
+
+    for _, row in df.iterrows():
+        sym   = row["symbol"]
+        side  = row["side"]
+        qty   = float(row["filled_qty"])
+        price = float(row["avg_fill_price"])
+        ts    = row["filled_at"]
+
+        if side == "buy":
+            if lots[sym] and lots[sym][0]["side"] == "short":
+                remaining = qty
+                while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
+                    lot       = lots[sym][0]
+                    close_qty = min(remaining, lot["qty"])
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    completed.append({
+                        "pnl":        round(np.clip(float(pnl_pct), -0.50, 0.50), 6),
+                        "date":       ts,
+                        "entry_date": lot["entry_date"],
+                        "ticker":     sym,
+                        "buy_price":  price,
+                        "sell_price": lot["price"],
+                        "qty":        close_qty,
+                        "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                        "side":       "short",
+                    })
+                    lot["qty"]  -= close_qty
+                    remaining   -= close_qty
+                    if lot["qty"] == 0:
+                        lots[sym].pop(0)
+                if remaining > 0:
+                    lots[sym].append({"price": price, "qty": remaining,
+                                      "entry_date": ts, "side": "long"})
+            else:
+                lots[sym].append({"price": price, "qty": qty,
+                                  "entry_date": ts, "side": "long"})
+
+        elif side == "sell":
+            if not lots[sym]:
+                orphan_sells.append(
+                    f"{sym} sell@{price:.2f} on {ts.date()} "
+                    f"(no matching buy — position predates history window)"
+                )
+                continue
+
+            remaining = qty
+            while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
+                lot       = lots[sym][0]
+                close_qty = min(remaining, lot["qty"])
+                pnl_pct   = (price - lot["price"]) / lot["price"]
+                completed.append({
+                    "pnl":        round(np.clip(float(pnl_pct), -0.50, 0.50), 6),
+                    "date":       ts,
+                    "entry_date": lot["entry_date"],
+                    "ticker":     sym,
+                    "buy_price":  lot["price"],
+                    "sell_price": price,
+                    "qty":        close_qty,
+                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                    "side":       "long",
+                })
+                lot["qty"]  -= close_qty
+                remaining   -= close_qty
+                if lot["qty"] == 0:
+                    lots[sym].pop(0)
+
+    if orphan_sells:
+        audit_flags.append(
+            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
+            f"(position predates window) — excluded"
+        )
+        for s in orphan_sells[:3]:
+            audit_flags.append(f"   └ {s}")
+
+    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    if open_positions:
+        sym_list = ", ".join(
+            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
+        )
+        audit_flags.append(
+            f"ℹ {len(open_positions)} open position(s) not included "
+            f"(no closing trade yet): {sym_list}"
+        )
+
+    if not completed:
+        return (
+            pd.DataFrame(),
+            "No completed round-trip trades found in Alpaca UI export.",
+            audit_flags + [
+                "All sells may predate the visible order history, "
+                "or all positions are still open."
+            ],
+        )
+
+    result_df = (
+        pd.DataFrame(completed)
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+
+    total_filled  = len(df)
+    paired_trades = len(completed)
+    note = (
+        f"📊 Parsed {paired_trades} completed trade(s) from Alpaca UI export "
+        f"({total_filled} filled order-sides → {paired_trades} round-trips, "
+        f"{len(orphan_sells)} orphan sell(s) excluded)"
+    )
+    return result_df, note, audit_flags
+
+
+# =========================================================
 # ALPACA ORDER PAIRING — position-state tracker
+# Hardened v1.4.1: handles both REST API JSON and UI export dict shapes.
+# Normalises column names before FIFO pairing so both sources work.
 # =========================================================
 
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     """
-    Converts raw Alpaca filled orders into a trades DataFrame.
+    Converts raw Alpaca orders into a trades DataFrame.
 
-    Fixes vs old buy/sell stack approach:
-    - Sorts by filled_at chronologically before pairing
-    - Tracks open position lots per symbol (FIFO)
-    - Orphaned sells (no open lot) are flagged and skipped,
-      not silently mispaired with a future buy
-    - Regime auto-assigned via assign_regimes() after pairing
+    Accepts BOTH:
+      a) REST API JSON dicts — keys: filled_qty, filled_avg_price,
+         filled_at, side, status, symbol
+      b) Pre-normalised UI export dicts — same internal keys after
+         _parse_alpaca_ui_export normalisation
+
+    Normalisation applied before FIFO pairing:
+      filled_qty        → qty  (also accepts filled_qty from API)
+      filled_avg_price  → price (also accepts avg_fill_price from UI)
+      filled_at         → ts  (handles both ISO and human-readable strings)
+      symbol            → cleaned ticker (strips order-type annotations)
+
+    FIFO pairing logic (unchanged from v1.4):
+      - Sort chronologically by filled_at
+      - FIFO lot queue per symbol
+      - Orphan sell detection and flagging
+      - Short position support
+      - Regime auto-assigned after pairing
 
     Returns (df, audit_flags).
     """
     audit_flags = []
 
-    # Filter + parse filled orders
+    def _norm_order(o: dict) -> dict | None:
+        """Normalise one order dict → internal keys, or None to skip."""
+        status = str(o.get("status", "")).lower().strip()
+        if status != "filled":
+            return None
+
+        # Qty: REST API uses filled_qty; UI dicts also use filled_qty after rename
+        qty_raw = o.get("filled_qty") or o.get("qty") or 0
+        try:
+            qty = float(qty_raw)
+        except (ValueError, TypeError):
+            return None
+        if qty <= 0:
+            return None
+
+        # Price: REST API uses filled_avg_price; UI uses avg_fill_price
+        price_raw = (
+            o.get("filled_avg_price")
+            or o.get("avg_fill_price")
+            or o.get("price")
+            or 0
+        )
+        try:
+            price_str = str(price_raw).replace(",", "").strip()
+            if price_str in ("-", "", "nan", "None"):
+                return None
+            price = float(price_str)
+        except (ValueError, TypeError):
+            return None
+        if price <= 0:
+            return None
+
+        side = str(o.get("side", "")).lower().strip()
+        if side not in ("buy", "sell"):
+            return None
+
+        # Timestamp: REST API gives ISO string; UI may give pre-parsed Timestamp
+        ts_raw = o.get("filled_at") or o.get("updated_at") or ""
+        if isinstance(ts_raw, pd.Timestamp):
+            ts = ts_raw.tz_localize(None) if ts_raw.tzinfo else ts_raw
+        else:
+            ts_str = str(ts_raw).strip()
+            if ts_str in ("-", "", "nan", "None"):
+                return None
+            try:
+                ts_parsed = pd.to_datetime(ts_str, utc=True)
+                ts = ts_parsed.tz_localize(None)
+            except Exception:
+                try:
+                    ts = pd.to_datetime(ts_str, errors="coerce")
+                    if pd.isna(ts):
+                        return None
+                    if hasattr(ts, "tzinfo") and ts.tzinfo:
+                        ts = ts.tz_convert("UTC").tz_localize(None)
+                except Exception:
+                    return None
+
+        # Symbol: clean up "ARM\nStop @ $131.17" style asset strings from UI
+        symbol_raw = str(o.get("symbol", "UNKNOWN")).strip()
+        m = _re.match(r"([A-Z]{1,6})", symbol_raw.upper())
+        symbol = m.group(1) if m else symbol_raw.split()[0]
+
+        return {"symbol": symbol, "side": side, "qty": qty, "price": price, "filled_at": ts}
+
     filled = []
     for o in orders:
-        if o.get("status") != "filled":
-            continue
-        try:
-            qty   = float(o.get("filled_qty") or 0)
-            price = float(o.get("filled_avg_price") or 0)
-            if qty <= 0 or price <= 0:
-                continue
-            side = o.get("side", "").lower()
-            if side not in ("buy", "sell"):
-                continue
-            ts_str = o.get("filled_at") or o.get("updated_at") or ""
-            ts = pd.to_datetime(ts_str, utc=True).tz_localize(None)
-            filled.append({
-                "symbol":    o.get("symbol", "UNKNOWN"),
-                "side":      side,
-                "qty":       qty,
-                "price":     price,
-                "filled_at": ts,
-            })
-        except Exception:
-            continue
+        normed = _norm_order(o)
+        if normed:
+            filled.append(normed)
 
     if not filled:
         return pd.DataFrame(), ["No filled orders found"]
 
-    # Sort chronologically — critical fix
-    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
+    df_orders = (
+        pd.DataFrame(filled)
+        .sort_values("filled_at")
+        .reset_index(drop=True)
+    )
 
-    # Position-state tracker: symbol → FIFO list of open lots
-    lots          = defaultdict(list)   # sym → [{"price", "qty", "entry_date"}, ...]
-    completed     = []
-    orphan_sells  = []
+    lots         = defaultdict(list)
+    completed    = []
+    orphan_sells = []
 
     for _, row in df_orders.iterrows():
         sym   = row["symbol"]
@@ -361,11 +994,36 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
         ts    = row["filled_at"]
 
         if side == "buy":
-            lots[sym].append({"price": price, "qty": qty, "entry_date": ts})
+            if lots[sym] and lots[sym][0]["side"] == "short":
+                remaining = qty
+                while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
+                    lot       = lots[sym][0]
+                    close_qty = min(remaining, lot["qty"])
+                    pnl_pct   = (lot["price"] - price) / lot["price"]
+                    completed.append({
+                        "pnl":        round(np.clip(float(pnl_pct), -0.50, 0.50), 6),
+                        "date":       ts,
+                        "entry_date": lot["entry_date"],
+                        "ticker":     sym,
+                        "buy_price":  price,
+                        "sell_price": lot["price"],
+                        "qty":        close_qty,
+                        "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                        "side":       "short",
+                    })
+                    lot["qty"]  -= close_qty
+                    remaining   -= close_qty
+                    if lot["qty"] == 0:
+                        lots[sym].pop(0)
+                if remaining > 0:
+                    lots[sym].append({"price": price, "qty": remaining,
+                                      "entry_date": ts, "side": "long"})
+            else:
+                lots[sym].append({"price": price, "qty": qty,
+                                  "entry_date": ts, "side": "long"})
 
         elif side == "sell":
             if not lots[sym]:
-                # Sell with no open lot = position opened before history window
                 orphan_sells.append(
                     f"{sym} sell@{price:.2f} on {ts.date()} "
                     f"(no matching buy in history — position predates window)"
@@ -373,12 +1031,12 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
                 continue
 
             remaining = qty
-            while remaining > 0 and lots[sym]:
+            while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
                 lot       = lots[sym][0]
                 close_qty = min(remaining, lot["qty"])
                 pnl_pct   = (price - lot["price"]) / lot["price"]
                 completed.append({
-                    "pnl":        pnl_pct,
+                    "pnl":        round(np.clip(float(pnl_pct), -0.50, 0.50), 6),
                     "date":       ts,
                     "entry_date": lot["entry_date"],
                     "ticker":     sym,
@@ -386,13 +1044,13 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
                     "sell_price": price,
                     "qty":        close_qty,
                     "hold_days":  max(0, (ts - lot["entry_date"]).days),
+                    "side":       "long",
                 })
                 lot["qty"]  -= close_qty
                 remaining   -= close_qty
                 if lot["qty"] == 0:
                     lots[sym].pop(0)
 
-    # Build audit flags
     if orphan_sells:
         audit_flags.append(
             f"⚠ {len(orphan_sells)} sell(s) had no matching buy in history window "
@@ -428,37 +1086,77 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
 
 # =========================================================
 # CSV PARSER
+# Detection order (most-specific first):
+#   1. Kite TradeBook     (_is_kite_csv)
+#   2. Kite Orders CSV    (_is_kite_orders_csv)   ← NEW v1.4.1
+#   3. Alpaca UI export   (_is_alpaca_ui_export)  ← NEW v1.4.1
+#   4. Generic PnL CSV    (pnl/profit/return column heuristic)
+#   5. Flexible fallback  (numeric column heuristic)
 # =========================================================
 
 def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     """
-    Parses CSV into a trades DataFrame.
-    Returns (df, regime_note) where regime_note is empty string if
-    regime was already in the CSV or dates were absent.
+    Parses CSV/TSV into a trades DataFrame for QuantProofValidator.
+    Returns (df, regime_note).
 
-    New in v1.4: if CSV has dates but no regime column, auto-assigns
-    regime via assign_regimes() (yfinance SPY → monthly fallback).
+    New in v1.4.1: detects Kite Orders CSV and Alpaca UI export before
+    falling through to the generic pnl-column heuristic.
     """
-    raw = contents.decode("utf-8", errors="ignore")
+    raw         = contents.decode("utf-8", errors="ignore")
     regime_note = ""
 
-    # Auto-detect Kite TradeBook and route correctly
-    # (handles case where user uploads Kite file to generic CSV endpoint)
-    try:
-        _kite_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-        if _is_kite_csv(_kite_probe):
-            _kt_df, _kt_note, _kt_flags = _parse_kite_csv(raw)
-            if len(_kt_df) > 0:
-                if "date" in _kt_df.columns and _kt_df["date"].notna().any():
-                    _kt_df, _regime_note = assign_regimes(_kt_df)
-                    _kt_note += (" | " + _regime_note if _regime_note else "")
-                if _kt_flags:
-                    _kt_note += " | " + " | ".join(_kt_flags[:2])
-                return _kt_df, _kt_note
-    except Exception:
-        pass  # not Kite, fall through to generic parse
+    # Sniff delimiter for tab-separated formats (Alpaca UI export)
+    sample = raw[:4096]
+    delim  = "\t" if sample.count("\t") > sample.count(",") else ","
 
-    # Primary parse — look for known pnl column names
+    try:
+        _probe = pd.read_csv(io.StringIO(raw), sep=delim, nrows=5, dtype=str)
+    except Exception:
+        _probe = pd.DataFrame()
+
+    # ── 1. Kite TradeBook ─────────────────────────────────────────────────
+    if not _probe.empty and _is_kite_csv(_probe):
+        try:
+            _df, _note, _flags = _parse_kite_csv(raw)
+            if len(_df) > 0:
+                if "date" in _df.columns and _df["date"].notna().any():
+                    _df, _regime_note = assign_regimes(_df)
+                    _note += (" | " + _regime_note if _regime_note else "")
+                if _flags:
+                    _note += " | " + " | ".join(_flags[:2])
+                return _df, _note
+        except Exception:
+            pass
+
+    # ── 2. Kite Orders CSV ────────────────────────────────────────────────
+    if not _probe.empty and _is_kite_orders_csv(_probe):
+        try:
+            _df, _note, _flags = _parse_kite_orders_csv(raw)
+            if len(_df) > 0:
+                if "date" in _df.columns and _df["date"].notna().any():
+                    _df, _regime_note = assign_regimes(_df)
+                    _note += (" | " + _regime_note if _regime_note else "")
+                if _flags:
+                    _note += " | " + " | ".join(_flags[:2])
+                return _df, _note
+        except Exception:
+            pass
+
+    # ── 3. Alpaca UI export ───────────────────────────────────────────────
+    if not _probe.empty and _is_alpaca_ui_export(_probe):
+        try:
+            _df, _note, _flags = _parse_alpaca_ui_export(raw)
+            if len(_df) > 0:
+                if "date" in _df.columns and _df["date"].notna().any():
+                    _df, _regime_note = assign_regimes(_df)
+                    _note += (" | " + _regime_note if _regime_note else "")
+                if _flags:
+                    _note += " | " + " | ".join(_flags[:2])
+                return _df, _note
+        except Exception:
+            pass
+
+    # ── 4. Generic PnL CSV ────────────────────────────────────────────────
     try:
         df = pd.read_csv(io.StringIO(raw))
         pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l", "net", "alpha"]
@@ -467,7 +1165,6 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                 vals = pd.to_numeric(df[col], errors="coerce").dropna()
                 if len(vals) >= 5:
                     if vals.abs().mean() > 1.0:
-                        # Returns submitted as percentages (e.g. 2.85) — convert to decimal
                         vals = vals / 100.0
                     vals = vals.clip(-0.50, 0.50)
                     result = pd.DataFrame({"pnl": vals.values})
@@ -490,23 +1187,22 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     if reg_cols:
                         result["regime"] = df[reg_cols[0]].values[:len(vals)]
                     elif "date" in result.columns and result["date"].notna().any():
-                        # Dates present, no regime → auto-detect from SPY
                         result, regime_note = assign_regimes(result)
 
                     return result, regime_note
     except Exception:
         pass
 
-    # Fallback — flexible parse
+    # ── 5. Flexible fallback ──────────────────────────────────────────────
     try:
-        lines = [l.strip() for l in raw.split("\n") if l.strip()]
+        lines    = [l.strip() for l in raw.split("\n") if l.strip()]
         max_cols = max(len(l.split(",")) for l in lines[1:] if l)
         df = pd.read_csv(
             io.StringIO(raw),
             names=[f"col_{i}" for i in range(max_cols)],
             skiprows=1,
             on_bad_lines="skip",
-            engine="python"
+            engine="python",
         )
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
@@ -525,7 +1221,10 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     except Exception as e:
         raise ValueError(f"Could not parse CSV: {str(e)}")
 
-    raise ValueError("No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column.")
+    raise ValueError(
+        "No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column, "
+        "or upload a Kite TradeBook, Kite Orders CSV, or Alpaca export."
+    )
 
 
 # =========================================================
@@ -853,7 +1552,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "fundable_score": r.score, "grade": r.grade,
             "sharpe": round(r.sharpe, 2), "max_drawdown": round(r.max_drawdown, 4),
             "win_rate": round(r.win_rate, 1), "total_trades": r.total_trades,
-            "date_range": date_range, "is_verified": True,
+            "mar_range": date_range, "is_verified": True,
             "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                         "value":c.value,"insight":c.insight,"fix":c.fix,
                         "category":c.category} for c in r.checks],
@@ -1390,7 +2089,6 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
 
     for stmt in report_root.iter("FlexStatement"):
         acct = stmt.get("accountId", "")
-        # Detect account currency from statement
         stmt_currency = stmt.get("currency", "") or stmt.get("Currency", "")
         if stmt_currency:
             acct_currency = stmt_currency.upper()
@@ -1405,28 +2103,23 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                 net_cash  = float(trade.get("netCash")    or trade.get("NetCash", 0) or 0)
                 buy_sell  = (trade.get("buySell") or trade.get("BuySell") or "").upper()
 
-                # openCloseIndicator: "O" = opening trade, "C" = closing trade
-                # Only closing trades represent realised P&L — skip opening trades
                 open_close = (trade.get("openCloseIndicator") or
                               trade.get("OpenCloseIndicator") or "").upper()
                 if open_close == "O":
                     open_skipped += 1
-                    continue  # skip opening legs — no realised P&L yet
+                    continue
 
-                # fifoPnlRealized: if Flex query includes it, use directly
                 fifo_pnl = trade.get("fifoPnlRealized") or trade.get("FifoPnlRealized")
                 if fifo_pnl is not None:
                     try:
                         fifo_val = float(fifo_pnl)
                         if abs(fifo_val) < 0.001:
                             open_skipped += 1
-                            continue   # zero realised P&L = opening or wash trade
-                        # normalise to percentage: P&L / cost basis
+                            continue
                         cost = abs(price * qty) if price > 0 and qty != 0 else 1
                         pnl_frac = fifo_val / cost
                         pnl_frac = max(-0.5, min(0.5, pnl_frac))
                         side = "short" if (buy_sell == "BUY" or qty > 0) else "long"
-                        # closing a short = BUY to cover; closing a long = SELL
                         if open_close == "C":
                             side = "short" if buy_sell == "BUY" else "long"
                         trades.append({
@@ -1439,28 +2132,17 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                     except (ValueError, ZeroDivisionError):
                         pass
 
-                # Fallback: use netCash approach but only for closing trades
-                # Closing trade = negative quantity (SELL to close long) or
-                # positive quantity after a short (BUY to cover)
-                # netCash is positive for profitable closes, negative for losses
                 if price <= 0 or qty == 0:
                     continue
                 cost_basis = abs(price * qty)
                 pnl_frac   = net_cash / cost_basis
                 pnl_frac   = max(-0.5, min(0.5, pnl_frac))
 
-                # Determine trade direction: negative qty = SELL (closing long)
                 if qty < 0:
-                    side = "long"   # sold to close long
+                    side = "long"
                 else:
-                    side = "short"  # bought to cover short
+                    side = "short"
 
-                # Skip opening trades: BUY rows have large negative netCash (cost basis outflow)
-                # Without OCI field, we detect opening trades by qty direction:
-                #   qty > 0 (BUY) with negative netCash = opening long → skip
-                #   qty < 0 (SELL) with positive netCash = closing long → keep
-                #   qty > 0 (BUY) with positive netCash = closing short → keep
-                #   qty < 0 (SELL) with negative netCash = opening short → skip
                 is_opening_long  = qty > 0 and net_cash < -abs(price * qty) * 0.5
                 is_opening_short = qty < 0 and net_cash > 0 and abs(net_cash) < abs(price * qty) * 0.1
                 if is_opening_long or is_opening_short:
@@ -1498,7 +2180,6 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["pnl"])
 
-    # Auto-assign regime from SPY (same logic as CSV path)
     if "date" in df.columns and df["date"].notna().any():
         df, regime_note = assign_regimes(df)
     else:
@@ -1533,7 +2214,6 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                   ["SOURCE: Interactive Brokers Flex API — trade data verified",
                    "VERIFIED: Flex Web Service — read-only, credentials never stored"]
 
-    # Cache result for PDF reuse (same as Alpaca/CSV paths)
     _vr_cache = {
         "fundable_score": report.score,
         "grade":          report.grade,
@@ -1622,189 +2302,8 @@ def ibkr_setup_guide():
 
 
 # =========================================================
-# KITE TRADEBOOK PARSER + VALIDATION
-# Fixes applied:
-#   K1/K2/K3/K4: ValidationResponse shape — top_issues/top_strengths
-#                are List[str], crash_sims/profitable_trades/etc. all
-#                sourced from validator.run() directly
-#   K5: StringIO cursor — each pd.read_csv uses fresh io.StringIO(raw)
-#   K7: profitable_trades correctly sourced from report
+# KITE TRADEBOOK VALIDATION ENDPOINT
 # =========================================================
-
-def _is_kite_csv(df: pd.DataFrame) -> bool:
-    """
-    Detect Zerodha Kite TradeBook CSV by characteristic column names.
-    
-    Real Kite TradeBook columns (verified from Zerodha Console export):
-      trade_date, trade_time, settlement_id, exchange, segment, series,
-      trade_type, auction, quantity, price, trade_id, order_id, order_execution_time
-    
-    Key: ticker/instrument is in 'series' column (NOT 'symbol').
-         segment is 'EQ' for equity, 'FO' for F&O (not 'EQUITY'/'FUTURES').
-    """
-    cols = {c.lower().strip() for c in df.columns}
-    # Core required columns that uniquely identify a Kite TradeBook
-    required = {"trade_date", "trade_type", "quantity", "price"}
-    # At least one of these identifies it as Kite (not a generic CSV)
-    kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
-    return required.issubset(cols) and bool(kite_signals & cols)
-
-
-def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
-    """
-    Convert Zerodha Kite TradeBook CSV into QuantProof trades.
-
-    Uses the same position-state tracker as pair_alpaca_orders:
-      - Chronological sort within each symbol
-      - FIFO lot queue per symbol
-      - Partial lot handling: SELL 5 from a 10-share position → closes 5, leaves 5 open
-      - Orphan sell detection: sell with no open position is flagged + excluded (not 0% fake trade)
-      - Short positions: detected via segment (FO = futures/options) or explicit short side
-      - Open positions logged in audit trail
-      - Returns (df, note, audit_flags) — same shape as pair_alpaca_orders
-
-    Expected columns (case-insensitive):
-      trade_date, symbol, trade_type (BUY/SELL), quantity, price
-    Optional: segment (EQUITY/FO/CURRENCY), exchange
-    """
-    df = pd.read_csv(io.StringIO(raw))
-    df.columns = [c.lower().strip() for c in df.columns]
-
-    # Kite TradeBook: ticker is in 'series' column, not 'symbol'
-    required = {"trade_date", "trade_type", "quantity", "price"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"Kite CSV missing required columns: {missing}. "
-            "Please export from Zerodha Console → TradeBook → Download CSV. "
-            "Make sure you are downloading the TradeBook, not Positions or Holdings."
-        )
-    # Determine ticker column: Kite uses 'series' for stock symbol
-    # Some older exports may use 'symbol' or 'instrument'
-    ticker_col = None
-    for candidate in ['series', 'symbol', 'instrument', 'scrip', 'tradingsymbol']:
-        if candidate in df.columns:
-            ticker_col = candidate
-            break
-    if ticker_col is None:
-        # No ticker column found — use exchange+segment as identifier
-        ticker_col = None  # will fall back to "UNKNOWN"
-
-    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
-    df = df.dropna(subset=["trade_date"])
-
-    # Sort chronologically within each symbol (same as Alpaca)
-    sort_cols = ([ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns
-                 else ["trade_date"])
-    df = df.sort_values(sort_cols).reset_index(drop=True)
-
-    # Position-state tracker: symbol → FIFO list of open lots
-    # Each lot: {"qty": int, "price": float, "date": Timestamp, "side": "long"/"short"}
-    lots        = defaultdict(list)
-    trades      = []
-    audit_flags = []
-    orphan_sells = []
-    orphan_buys  = []  # for short positions that close with a buy
-
-    for _, row in df.iterrows():
-        symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
-        qty        = float(row["quantity"])
-        price      = float(row["price"])
-        trade_type = str(row["trade_type"]).upper().strip()
-        date       = row["trade_date"]
-        segment    = str(row.get("segment", "EQ")).upper().strip()
-
-        # Kite segment values: EQ=equity, FO=futures/options
-        # (Kite uses short codes, not EQUITY/FUTURES full names)
-        is_fo = segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF")
-
-        if trade_type == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                # Closing a short position
-                remaining_qty = qty
-                while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
-                    close_qty = min(remaining_qty, lot["qty"])
-                    # Short PnL: entry price - exit price (profit when price falls)
-                    pnl_pct   = (lot["price"] - price) / lot["price"]
-                    trades.append({
-                        "pnl":    round(pnl_pct, 6),
-                        "ticker": symbol,
-                        "side":   "short",
-                        "date":   date,
-                    })
-                    lot["qty"]    -= close_qty
-                    remaining_qty -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                # Any remaining qty opens a new long position
-                if remaining_qty > 0:
-                    lots[symbol].append({"qty": remaining_qty, "price": price, "date": date, "side": "long"})
-            else:
-                # Opening or adding to a long position
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
-
-        elif trade_type == "SELL":
-            if not lots[symbol]:
-                # Orphan sell: no open position
-                if is_fo:
-                    # F&O sell without prior position = opening a short
-                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                else:
-                    # Equity sell without prior buy = position predates history window
-                    orphan_sells.append(
-                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no open position — predates history window)"
-                    )
-                continue
-
-            # Close against open longs, handling partial lots
-            remaining_qty = qty
-            while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
-                close_qty = min(remaining_qty, lot["qty"])
-                pnl_pct   = (price - lot["price"]) / lot["price"]
-                trades.append({
-                    "pnl":    round(pnl_pct, 6),
-                    "ticker": symbol,
-                    "side":   "long",
-                    "date":   date,
-                })
-                lot["qty"]    -= close_qty
-                remaining_qty -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
-
-    # Build audit flags for open positions
-    if orphan_sells:
-        audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
-            f"(position predates TradeBook history) — excluded"
-        )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
-
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
-        audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
-            f"(no closing trade yet): {sym_list}"
-        )
-
-    if not trades:
-        return pd.DataFrame(), "No completed trades found in Kite TradeBook", audit_flags
-
-    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
-    note = (
-        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite TradeBook "
-        f"({len(orphan_sells)} orphan sell(s) excluded, "
-        f"{len(open_positions)} position(s) still open)"
-    )
-    return result, note, audit_flags
-
 
 @app.post("/validate/kite", response_model=ValidationResponse)
 async def validate_kite(
@@ -1814,6 +2313,7 @@ async def validate_kite(
 ):
     """
     Validate Zerodha Kite TradeBook CSV.
+    Also accepts Kite Orders CSV — smart_parse_csv() handles routing.
 
     All fixes applied:
       - K1/K2/K3/K4: Response matches ValidationResponse schema exactly
@@ -1842,45 +2342,50 @@ async def validate_kite(
     # FIX K5: use fresh StringIO for detection probe
     try:
         df_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-        if not _is_kite_csv(df_probe):
+        # Accept both TradeBook and Orders CSV formats
+        is_tradebook = _is_kite_csv(df_probe)
+        is_orders    = _is_kite_orders_csv(df_probe)
+        if not is_tradebook and not is_orders:
             raise HTTPException(
                 400,
-                "Invalid Kite TradeBook format. "
-                "Please export from Zerodha Kite → Console → TradeBook → Download."
+                "Invalid Kite CSV format. "
+                "Please export from Zerodha Kite → Console → TradeBook or Orders → Download."
             )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(400, f"Could not read CSV: {str(e)}")
 
-    # F&O options check: detect if significant portion of trades are options
-    try:
-        df_fo_check = pd.read_csv(io.StringIO(raw))
-        df_fo_check.columns = [c.lower().strip() for c in df_fo_check.columns]
-        if "segment" in df_fo_check.columns:
-            segments = df_fo_check["segment"].str.upper().str.strip()
-            fo_count  = (segments.isin(["FO", "F&O", "OPTIONS", "FUTURES"])).sum()
-            total     = len(df_fo_check)
-            fo_pct    = fo_count / max(total, 1)
-            if fo_pct > 0.30:
-                raise HTTPException(
-                    400,
-                    f"⚠ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
-                    "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
-                    "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
-                    "For options analysis, export only your equity trades, or manually calculate "
-                    "per-trade P&L as a percentage and upload as a generic CSV."
-                )
-            elif fo_count > 0:
-                # Minority F&O — allow but warn via audit flags later
-                pass
-    except HTTPException:
-        raise
-    except Exception:
-        pass   # F&O check is best-effort, never block a valid upload
+    # F&O options check (TradeBook only — Orders CSV uses segment differently)
+    if _is_kite_csv(df_probe):
+        try:
+            df_fo_check = pd.read_csv(io.StringIO(raw))
+            df_fo_check.columns = [c.lower().strip() for c in df_fo_check.columns]
+            if "segment" in df_fo_check.columns:
+                segments = df_fo_check["segment"].str.upper().str.strip()
+                fo_count  = (segments.isin(["FO", "F&O", "OPTIONS", "FUTURES"])).sum()
+                total     = len(df_fo_check)
+                fo_pct    = fo_count / max(total, 1)
+                if fo_pct > 0.30:
+                    raise HTTPException(
+                        400,
+                        f"⚠ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
+                        "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
+                        "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
+                        "For options analysis, export only your equity trades, or manually calculate "
+                        "per-trade P&L as a percentage and upload as a generic CSV."
+                    )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
+    # Parse using the appropriate parser
     try:
-        df, kite_note, kite_flags = _parse_kite_csv(raw)
+        if _is_kite_orders_csv(df_probe):
+            df, kite_note, kite_flags = _parse_kite_orders_csv(raw)
+        else:
+            df, kite_note, kite_flags = _parse_kite_csv(raw)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -1905,8 +2410,6 @@ async def validate_kite(
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
-    # FIX G2: report.score (not report.fundable_score)
-    # FIX K2/K3: top_issues and top_strengths must be List[str]
     scored        = [c for c in report.checks if c.category != "Plausibility"]
     top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
     top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
@@ -1929,35 +2432,34 @@ async def validate_kite(
 
     detected_currency = (currency or "INR").upper()
 
-    # FIX K4: all required fields populated (crash_sims from report, etc.)
     return ValidationResponse(
-        fundable_score=report.score,            # FIX G2: was result.fundable_score
+        fundable_score=report.score,
         grade=report.grade,
         summary=(
-            f"QuantProof analyzed {report.total_trades} Kite TradeBook trades across "
+            f"QuantProof analyzed {report.total_trades} Kite trades across "
             f"{len(scored)} institutional checks + 5 crash simulations. "
-            f"Source: Zerodha Kite TradeBook — self-reported data. "
+            f"Source: Zerodha Kite {'Orders' if _is_kite_orders_csv(df_probe) else 'TradeBook'} CSV — self-reported data. "
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX K4
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
         total_trades=report.total_trades,
-        profitable_trades=report.profitable_trades,   # FIX K7
+        profitable_trades=report.profitable_trades,
         date_range=date_range,
         sharpe=round(report.sharpe, 2),
         max_drawdown=round(report.max_drawdown, 4),
         win_rate=round(report.win_rate, 1),
-        top_issues=top_issues,       # FIX K2: List[str] from c.fix
-        top_strengths=top_strengths, # FIX K3: List[str] from c.name
+        top_issues=top_issues,
+        top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-KITE",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
         audit_flags=report.audit_flags + [kite_note] + kite_flags,
-        plausibility_summary=report.plausibility_summary,  # FIX K4
-        scale_warning=getattr(report, '_scale_warning', False),  # FIX K4
-        currency=detected_currency,   # FIX K4
-        assumptions=report.assumptions + [  # FIX K4
-            "Trade data sourced from Zerodha Kite TradeBook CSV — self-reported",
+        plausibility_summary=report.plausibility_summary,
+        scale_warning=getattr(report, '_scale_warning', False),
+        currency=detected_currency,
+        assumptions=report.assumptions + [
+            "Trade data sourced from Zerodha Kite CSV — self-reported",
             "Trades paired using FIFO lot matching (BUY→SELL per symbol)",
         ],
         dashboard=dashboard_data,
@@ -1967,11 +2469,6 @@ async def validate_kite(
 
 # =========================================================
 # TRADINGVIEW WEBHOOK
-# Fixes applied:
-#   TV1/TV2: Response matches ValidationResponse schema exactly
-#   TV3: _tv_pair_alerts rewritten — no double-append, clean FIFO pairing
-#   TV4: timestamp parsing handles both unix float and ISO strings
-#   TV6: ValueError from validator caught and re-raised as HTTPException
 # =========================================================
 
 TV_SESSIONS: dict = {}
@@ -1983,7 +2480,6 @@ def _tv_save_sessions():
     """Persist TV sessions to disk so they survive server restarts."""
     try:
         import json
-        # Convert Timestamp objects to strings for JSON serialisation
         serialisable = {}
         for sid, sess in TV_SESSIONS.items():
             s = dict(sess)
@@ -2011,7 +2507,6 @@ def _tv_load_sessions():
         now = time.time()
         loaded = 0
         for sid, sess in saved.items():
-            # Skip expired sessions
             if now > sess.get("expires_at", 0):
                 continue
             TV_SESSIONS[sid] = sess
@@ -2042,9 +2537,8 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
     Same position-state tracker as pair_alpaca_orders and _parse_kite_csv:
       - Chronological sort before any pairing
       - FIFO lot queue per symbol
-      - Partial lot handling: SELL qty < open qty → partially closes, remainder stays open
-      - Orphan sell detection: sell with no open lot is flagged + excluded (not silently dropped)
-      - Open positions reported in audit trail
+      - Partial lot handling
+      - Orphan sell detection
       - Short support: SELL with no open long → opens a short lot
 
     Returns (trades_list, audit_flags_list).
@@ -2053,7 +2547,6 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
         return [], []
 
     def _parse_ts(ts):
-        """Parse timestamp — handles unix float, unix int, or ISO string."""
         if ts is None:
             return time.time()
         if isinstance(ts, (int, float)):
@@ -2069,10 +2562,8 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
         except Exception:
             return None
 
-    # Sort all alerts chronologically before ANY pairing
     sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
 
-    # Position-state tracker: symbol → FIFO list of open lots
     lots         = defaultdict(list)
     trades       = []
     audit_flags  = []
@@ -2091,7 +2582,6 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
 
         if action == "BUY":
             if lots[symbol] and lots[symbol][0]["side"] == "short":
-                # Closing a short position (partial lot support)
                 remaining = qty
                 while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
                     lot       = lots[symbol][0]
@@ -2107,21 +2597,17 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                 if remaining > 0:
                     lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
             else:
-                # Opening or adding to a long position
                 lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
 
         elif action == "SELL":
             if not lots[symbol]:
-                # No open long — could be opening a short (e.g. SHORT signal from TV strategy)
                 lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
                 continue
 
             if lots[symbol][0]["side"] == "short":
-                # Already short, adding to it
                 lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
                 continue
 
-            # Close against open longs with partial lot support
             remaining = qty
             while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
                 lot       = lots[symbol][0]
@@ -2136,7 +2622,6 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                     lots[symbol].pop(0)
 
         elif action in ("CLOSE", "EXIT", "FLAT"):
-            # Explicit close signal — close entire position regardless of direction
             if lots[symbol]:
                 lot = lots[symbol][0]
                 pnl_pct = (
@@ -2148,7 +2633,6 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                 trades.append(row)
                 lots[symbol].clear()
 
-    # Build audit flags
     open_positions = {s: (sum(l["qty"] for l in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
     if open_positions:
         sym_list = ", ".join(
@@ -2177,10 +2661,10 @@ class TVSessionResponse(BaseModel):
 
 class TVAlert(BaseModel):
     symbol:    str
-    action:    str        # BUY or SELL
+    action:    str
     price:     float
     quantity:  Optional[float] = 1.0
-    timestamp: Optional[float] = None   # unix seconds preferred; ISO string also accepted
+    timestamp: Optional[float] = None
 
 class TVStatusResponse(BaseModel):
     session_id:      str
@@ -2207,7 +2691,7 @@ def create_tv_session():
         "created_at":  time.time(),
         "expires_at":  time.time() + TV_SESSION_TTL_SECONDS,
     }
-    _tv_save_sessions()   # persist immediately so restart doesn't lose new session
+    _tv_save_sessions()
     return TVSessionResponse(
         session_id=session_id,
         webhook_url=webhook_url,
@@ -2264,8 +2748,7 @@ def validate_tv_alerts(session_id: str):
     """
     Validate TradingView session alerts using QuantProof.
 
-    FIX TV1/TV2: Returns proper ValidationResponse with all required fields
-      (crash_sims, profitable_trades, scale_warning, currency, assumptions).
+    FIX TV1/TV2: Returns proper ValidationResponse with all required fields.
     FIX TV3: Uses fixed _tv_pair_alerts (no double-append bug).
     FIX TV6: ValueError from validator caught → 400 HTTPException.
     """
@@ -2295,13 +2778,11 @@ def validate_tv_alerts(session_id: str):
 
     df = pd.DataFrame(trades)
 
-    # Auto-assign regime
     regime_note = ""
     if "date" in df.columns and df["date"].notna().any():
         df, regime_note = assign_regimes(df)
 
     try:
-        # FIX TV6: catch ValueError (too few trades etc.) as 400 not 500
         validator = QuantProofValidator(df)
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -2311,7 +2792,6 @@ def validate_tv_alerts(session_id: str):
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
-    # FIX TV1/TV2: top_issues/top_strengths as List[str], all fields present
     scored        = [c for c in report.checks if c.category != "Plausibility"]
     top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
     top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
@@ -2329,7 +2809,6 @@ def validate_tv_alerts(session_id: str):
         f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
         + (f" | {regime_note}" if regime_note else "")
     )
-    # Merge tv_flags into audit_flags for full transparency
     extra_tv_flags = [f for f in tv_flags if f not in audit_note]
 
     return ValidationResponse(
@@ -2342,23 +2821,23 @@ def validate_tv_alerts(session_id: str):
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX TV2
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
         total_trades=report.total_trades,
-        profitable_trades=report.profitable_trades,   # FIX TV2
+        profitable_trades=report.profitable_trades,
         date_range=date_range,
         sharpe=round(report.sharpe, 2),
         max_drawdown=round(report.max_drawdown, 4),
         win_rate=round(report.win_rate, 1),
-        top_issues=top_issues,       # FIX TV1: List[str]
-        top_strengths=top_strengths, # FIX TV1: List[str]
+        top_issues=top_issues,
+        top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-TV",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
         audit_flags=report.audit_flags + [audit_note] + extra_tv_flags,
-        plausibility_summary=report.plausibility_summary,   # FIX TV2
-        scale_warning=getattr(report, '_scale_warning', False),  # FIX TV2
-        currency="USD",   # FIX TV2
-        assumptions=report.assumptions + [  # FIX TV2
+        plausibility_summary=report.plausibility_summary,
+        scale_warning=getattr(report, '_scale_warning', False),
+        currency="USD",
+        assumptions=report.assumptions + [
             "Trade data sourced from TradingView webhook alerts — self-reported",
             "Trades constructed by pairing BUY/SELL alerts in chronological order",
             "Not broker-verified — cannot be used for prop firm compliance submissions",
