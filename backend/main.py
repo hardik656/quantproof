@@ -1289,8 +1289,8 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    if len(df) < 5:
-        raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 5.")
+    if len(df) < 10:
+        raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
     try:
         # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
@@ -1499,27 +1499,49 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         except Exception:
             pass
 
-        if not orders or len(orders) < 5:
+        if not orders or len(orders) < 3:
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "trades_found": len(orders) if orders else 0,
-                "trades_needed": 5,
-                "message": f"Only {len(orders) if orders else 0} orders found. Connect your Alpaca account and make sure you have at least 5 completed round-trip trades (a buy AND a sell for the same stock)."
+                "trades_needed": 10,
+                "message": (
+                    f"Only {len(orders) if orders else 0} orders found in your Alpaca history. "
+                    "QuantProof needs at least 10 completed round-trip trades (a BUY and a SELL of the same stock). "
+                    "Make sure you have selected the correct account type (paper vs live) and have enough trading history."
+                )
             })
 
         # ── Position-state pairing + regime auto-detection ────────────────────
         df, parse_flags = pair_alpaca_orders(orders)
 
-        if len(df) < 5:
+        # Build a human-readable explanation of what happened during pairing
+        _orphan_flag = next((f for f in parse_flags if "orphan" in f.lower() or "predates" in f.lower()), "")
+        _open_flag   = next((f for f in parse_flags if "open position" in f.lower()), "")
+
+        if len(df) < 10:
+            _detail_lines = []
+            if _orphan_flag:
+                _detail_lines.append(
+                    "Some sells were excluded because their matching buy happened before "
+                    "the visible order history window — these are positions you held before "
+                    "the period covered by the API."
+                )
+            if _open_flag:
+                _detail_lines.append(
+                    "Some buys are still open (no closing sell yet) and cannot be counted as completed trades."
+                )
+            _detail = " ".join(_detail_lines) if _detail_lines else (
+                "Make sure you have at least 10 closed positions — a BUY and a matching SELL "
+                "for the same stock, both within the history window."
+            )
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "trades_found": len(df),
-                "trades_needed": 5,
+                "trades_needed": 10,
                 "message": (
-                    f"Only {len(df)} completed round-trip trades found. "
-                    "QuantProof needs at least 5 closed trades to run. "
-                    "Keep trading and come back — the more history you have, the more meaningful your results will be. "
-                    + (" | ".join(parse_flags) if parse_flags else "")
+                    f"Only {len(df)} completed round-trip trade(s) found — need 10. "
+                    "A round-trip = one BUY + one SELL of the same stock, both within your order history. "
+                    f"{_detail}"
                 )
             })
 
@@ -1681,8 +1703,8 @@ async def generate_report_endpoint(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    if len(df) < 5:
-        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 5.")
+    if len(df) < 10:
+        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
 
     try:
         # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
@@ -1975,11 +1997,25 @@ async def generate_broker_report(
         # Position-state pairing + regime auto-detection
         df, parse_flags = pair_alpaca_orders(orders)
 
-        if len(df) < 5:
+        _orphan_flag = next((f for f in parse_flags if "orphan" in f.lower() or "predates" in f.lower()), "")
+        _open_flag   = next((f for f in parse_flags if "open position" in f.lower()), "")
+
+        if len(df) < 10:
+            _detail_lines = []
+            if _orphan_flag:
+                _detail_lines.append(
+                    "Some sells were excluded because their matching buy happened before the visible history window."
+                )
+            if _open_flag:
+                _detail_lines.append("Some positions are still open (no closing sell yet).")
+            _detail = " ".join(_detail_lines) if _detail_lines else ""
             raise HTTPException(400, {
                 "error": "insufficient_trades",
-                "message": f"Only {len(df)} completed round-trip trades found. Need at least 5.",
-                "trades_found": len(df), "trades_needed": 5
+                "message": (
+                    f"Only {len(df)} completed round-trip trade(s) found — need 10. "
+                    f"{_detail}"
+                ),
+                "trades_found": len(df), "trades_needed": 10
             })
 
     except HTTPException:
@@ -2190,10 +2226,10 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             f"only closed trades contribute to P&L"
         )
 
-    if len(trades) < 5:
+    if len(trades) < 10:
         raise HTTPException(
             400,
-            f"Only {len(trades)} closed trade(s) found in IBKR export. Need at least 5. "
+            f"Only {len(trades)} closed trade(s) found in IBKR export. Need at least 10. "
             "Make sure your Flex Query includes: openCloseIndicator, fifoPnlRealized, "
             "netCash, quantity, tradePrice, symbol, tradeDate. "
             "Also check your date range covers enough completed trades."
@@ -2412,12 +2448,16 @@ async def validate_kite(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    if len(df) < 5:
+    if len(df) < 10:
         raise HTTPException(400, {
             "error": "insufficient_trades",
             "trades_found": len(df),
-            "trades_needed": 5,
-            "message": f"Only {len(df)} completed trades found. Need at least 5 to run a basic analysis. The more trades you have, the more meaningful the results."
+            "trades_needed": 10,
+            "message": (
+                f"Only {len(df)} completed trades found — need 10. "
+                "A completed trade requires both a BUY and a matching SELL of the same stock within the export. "
+                "Export a longer date range from Zerodha Console to include more closed positions."
+            )
         })
 
     # Auto-assign regime if dates present
@@ -2791,11 +2831,11 @@ def validate_tv_alerts(session_id: str):
 
     trades, tv_flags = _tv_pair_alerts(alerts)
 
-    if len(trades) < 5:
+    if len(trades) < 10:
         raise HTTPException(
             400,
             f"Only paired {len(trades)} completed trade(s) from {len(alerts)} alert(s). "
-            "Need at least 5 completed round-trips (BUY + SELL pairs). "
+            "Need at least 10 completed round-trips (BUY + SELL pairs). "
             "Keep sending alerts and validate again when you have more trades."
         )
 
