@@ -41,7 +41,7 @@
   .upload-btn { background:var(--accent); color:var(--black); border:none; padding:14px 32px; font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
   .upload-btn:hover { background:#00cc6e; transform:translateY(-1px); }
   input[type="file"] { display:none; }
-  .format-hint { margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .format-hint { margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.7; }
   .loading { display:none; text-align:center; padding:80px 0; }
   .loading.active { display:block; }
   .terminal { background:var(--deep); border:1px solid var(--border); padding:24px; max-width:500px; margin:0 auto 32px; text-align:left; }
@@ -140,6 +140,13 @@
   .verified-banner .verified-sub{color:var(--muted);font-size:11px;margin-top:2px}
   .cat-pass-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(0,255,136,0.12);color:var(--accent);font-weight:700}
   .cat-fail-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(255,68,68,0.12);color:var(--accent2);font-weight:700}
+  /* FIX 6/10: audit flags strip */
+  .audit-flags-strip{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
+  .audit-flag-item{font-family:var(--mono);font-size:10px;padding:4px 8px;background:var(--deep);border-left:2px solid;}
+  .audit-flag-item.info{border-left-color:var(--accent);color:var(--accent);}
+  .audit-flag-item.warn{border-left-color:var(--accent3);color:var(--accent3);}
+  .audit-flag-item.err{border-left-color:var(--accent2);color:var(--accent2);}
+  .audit-flag-item.muted{border-left-color:var(--border);color:var(--muted);}
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -172,7 +179,8 @@
         <div class="mode-tag">// METHODOLOGY CHECK</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Upload CSV</div>
-        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Dates trigger SPY regime auto-detection.</div>
+        <!-- FIX 4/11: updated description to mention Alpaca export auto-detection -->
+        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Also auto-detects Alpaca order exports and Kite Orders CSV — just upload and it figures out the format.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">All 40 checks</span>
@@ -192,15 +200,20 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
-        <div class="format-hint" style="margin-top:8px;">pnl must be decimal (0.0145=1.45%) NOT percent (1.45) · date/ticker optional</div>
+        <!-- FIX 4: format hint updated with all accepted formats -->
+        <div class="format-hint" style="margin-top:8px;">
+          pnl column must be decimal (0.0145 = 1.45%) not percent (1.45) · date/ticker optional<br>
+          also accepts: Alpaca dashboard export · Kite Orders CSV · semicolon-delimited files
+        </div>
       </div>
 
       <!-- KITE MODE -->
       <div class="mode-card" id="kiteCard">
         <div class="mode-tag">// ZERODHA KITE</div>
         <div class="mode-icon">🪁</div>
-        <div class="mode-title">Kite TradeBook</div>
-        <div class="mode-desc">Upload your Zerodha Kite TradeBook CSV. Auto-detects Kite format and pairs BUY/SELL trades before validation.</div>
+        <!-- FIX 1: title updated to reflect both TradeBook and Orders CSV support -->
+        <div class="mode-title">Kite TradeBook / Orders</div>
+        <div class="mode-desc">Upload your Zerodha Kite TradeBook or Orders CSV. Auto-detects both formats and pairs BUY/SELL trades using FIFO matching before validation.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Auto-pairing</span>
@@ -216,7 +229,11 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('kiteFileInput').click()">SELECT KITE CSV</button>
         <input type="file" id="kiteFileInput" accept=".csv">
-        <div class="format-hint" style="margin-top:8px;">trade_date · symbol · trade_type · quantity · price required</div>
+        <!-- FIX 1: hint text updated to cover both TradeBook and Orders CSV columns -->
+        <div class="format-hint" style="margin-top:8px;">
+          TradeBook: trade_date · trade_type · quantity · price<br>
+          Orders CSV: transaction_type · order_execution_time · filled_quantity · average_price
+        </div>
       </div>
 
       <!-- TRADINGVIEW MODE -->
@@ -272,6 +289,7 @@
             <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;">SECRET KEY</div>
             <input id="alpacaSecret" type="password" placeholder="••••••••••••••••••••••••••••••••••••" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
           </div>
+          <!-- FIX 8: clearer paper vs live explanation -->
           <div style="margin-bottom:16px;">
             <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">ACCOUNT TYPE</div>
             <div style="display:flex;gap:8px;">
@@ -283,6 +301,11 @@
                 <input type="radio" name="alpacaMode" value="live" style="accent-color:var(--accent);">
                 <span style="font-family:var(--mono);font-size:12px;">Live</span>
               </label>
+            </div>
+            <!-- FIX 8: paper vs live guidance -->
+            <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;">
+              Paper = practice account with simulated money. Live = real money account with real trades.<br>
+              Pick whichever matches the keys you entered above.
             </div>
           </div>
           <button class="upload-btn" style="width:100%;" onclick="handleAlpacaConnect()">FETCH & VALIDATE</button>
@@ -344,7 +367,7 @@
   let _brokerSource      = '';
 
   // ── File drag/drop handlers ────────────────────────────────
-  const csvCard = document.getElementById('csvCard');
+  const csvCard  = document.getElementById('csvCard');
   const kiteCard = document.getElementById('kiteCard');
   document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
   document.getElementById('kiteFileInput').addEventListener('change', e => { if(e.target.files[0]) handleKiteFile(e.target.files[0]); });
@@ -372,6 +395,20 @@
     }
   }
 
+  // ── Cold start warning helper ──────────────────────────────
+  function coldStartWarning() {
+    return setTimeout(() => {
+      const loadLine = document.querySelector('.terminal-line:last-child');
+      if (loadLine) {
+        const msg = document.createElement('div');
+        msg.className = 'terminal-line';
+        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
+        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
+        loadLine.parentNode.appendChild(msg);
+      }
+    }, 8000);
+  }
+
   // ── CSV handler ────────────────────────────────────────────
   async function handleFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
@@ -386,30 +423,20 @@
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'USD');
-    // Cold start warning — Render free tier can take 30-60s on first request
-    const coldStartTimer = setTimeout(() => {
-      const loadLine = document.querySelector('.terminal-line:last-child');
-      if (loadLine) {
-        const msg = document.createElement('div');
-        msg.className = 'terminal-line';
-        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
-        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
-        loadLine.parentNode.appendChild(msg);
-      }
-    }, 8000);
-
+    const cst = coldStartWarning();
     try {
       const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
-      clearTimeout(coldStartTimer);
+      clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        // FIX 5: surface dollar PnL warning from backend message if present
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
-    } catch(err) { hideLoading(true); alert(`Error: ${err.message}`); }
+    } catch(err) { clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
   }
 
   // ── Kite handler ───────────────────────────────────────────
@@ -426,43 +453,38 @@
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'INR');
-    const coldStartTimerKite = setTimeout(() => {
-      const loadLine = document.querySelector('.terminal-line:last-child');
-      if (loadLine) {
-        const msg = document.createElement('div');
-        msg.className = 'terminal-line';
-        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
-        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
-        loadLine.parentNode.appendChild(msg);
-      }
-    }, 8000);
-
+    const cst = coldStartWarning();
     try {
       const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
-      clearTimeout(coldStartTimerKite);
+      clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        if(detail.error === 'insufficient_trades') throw new Error(`Only ${detail.trades_found} completed trade(s) found — need ${detail.trades_needed}. A trade = one BUY and one matching SELL for the same stock.`);
+        // FIX 2: uses detail.trades_needed dynamically (backend now returns 10)
+        if(detail.error === 'insufficient_trades') throw new Error(
+          `Only ${detail.trades_found} completed trade(s) found — need ${detail.trades_needed}.\n\n${detail.message || 'A round-trip = one BUY + one SELL of the same stock. Export a longer date range from Zerodha Console.'}`
+        );
         throw new Error(detail.message || detail || 'Kite validation failed');
       }
       const data = await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
-    } catch(err) { hideLoading(true); alert(`Kite error: ${err.message}`); }
+    } catch(err) { clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
 
   // ── Results rendering ──────────────────────────────────────
   function renderResults(data) {
     setCurrency(data.currency || 'USD');
     const section = document.getElementById('resultsSection');
+    section.innerHTML = '';
+    // FIX 5: scale_warning banner
     if(data.scale_warning) {
       const warn = document.createElement('div');
       warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
-      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns at max boundary. Submit decimals (0.025) not percentages (2.5).';
-      section.prepend(warn);
+      warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns are at the maximum boundary. Submit decimals (0.025) not percentages (2.5) or dollar amounts.';
+      section.appendChild(warn);
     }
-    try { section.innerHTML = buildResultsHTML(data); }
+    try { section.innerHTML += buildResultsHTML(data); }
     catch(e) { section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`; }
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
@@ -472,7 +494,7 @@
   function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
   function getCrashClass(sim) { return !sim.survived?'failed':sim.strategy_drop>-0.05?'survived':'warning'; }
 
-  // FIX #11: strip [UNCALIBRATED] before emoji check
+  // Strip [UNCALIBRATED] before emoji check
   function getCrashVerdictColor(verdict) {
     const v = verdict.replace('[UNCALIBRATED] ','').replace('[UNCALIBRATED]','').trim();
     if(v.startsWith('🟢')) return 'var(--accent)';
@@ -493,6 +515,24 @@
     const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.round(cur); if(cur>=score)clearInterval(t); }, 25);
   }
 
+  // FIX 6/10: classify and render audit flags
+  function buildAuditFlagsHTML(flags) {
+    if (!flags || flags.length === 0) return '';
+    // Filter out empty strings
+    const relevant = flags.filter(f => f && f.trim());
+    if (relevant.length === 0) return '';
+    return `<div class="audit-flags-strip">
+      ${relevant.map(f => {
+        const trimmed = f.trim();
+        let cls = 'muted';
+        if (trimmed.startsWith('✓') || trimmed.startsWith('✅')) cls = 'info';
+        else if (trimmed.startsWith('⚠') || trimmed.startsWith('ℹ')) cls = 'warn';
+        else if (trimmed.startsWith('✗') || trimmed.startsWith('❌')) cls = 'err';
+        return `<div class="audit-flag-item ${cls}">${trimmed}</div>`;
+      }).join('')}
+    </div>`;
+  }
+
   function buildResultsHTML(data) {
     const scoreColor = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
@@ -500,9 +540,8 @@
     const categories  = {};
     (data.checks||[]).forEach(c=>{ if(!categories[c.category])categories[c.category]=[]; categories[c.category].push(c); });
 
-    // Banner: verified = alpaca; kite/tv = self-reported with specific label; csv = generic
     const isVerified = _validationMode==='broker'||_validationMode==='alpaca';
-    const modeLabel  = _validationMode==='kite'?'Kite TradeBook':_validationMode==='tradingview'?'TradingView Webhook':'CSV Mode';
+    const modeLabel  = _validationMode==='kite'?'Kite CSV':_validationMode==='tradingview'?'TradingView Webhook':'CSV Upload';
 
     return `
       <div class="score-hero">
@@ -596,13 +635,11 @@
         }).join('')}
       </div>
 
-
-      <!-- AI PLAN TEASER — visible free, creates urgency for paid -->
+      <!-- AI PLAN TEASER -->
       <div style="margin:32px 0 0 0;padding:20px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.15);position:relative;overflow:hidden;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:10px;">// AI ANALYSIS PREVIEW</div>
         <div id="aiTeaserText" style="font-size:13px;color:var(--muted);line-height:1.8;position:relative;">
           <span id="aiTeaserContent">${buildAiTeaser(data)}</span>
-          <!-- blur fade overlay -->
           <div style="position:absolute;bottom:0;left:0;right:0;height:48px;background:linear-gradient(transparent,rgba(13,17,23,0.97));pointer-events:none;"></div>
         </div>
         <div style="margin-top:14px;font-size:11px;color:var(--muted);font-family:var(--mono);">
@@ -624,13 +661,15 @@
 
       <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
 
+      <!-- FIX 10: audit trail now includes audit_flags from backend -->
       <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono);margin-bottom:8px;">
           <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
           <div><span style="color:var(--muted)">Engine:</span> <span style="color:var(--text)">${data.engine_version}</span></div>
         </div>
-        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">Full fix list, methodology and audit log in the ₹999 report.</div>
+        ${buildAuditFlagsHTML(data.audit_flags)}
+        <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">Full fix list, methodology and audit log in the ₹299 report.</div>
       </div>
     `;
   }
@@ -650,9 +689,6 @@
     window.scrollTo(0, 0);
   }
 
-
-  // Build a personalised 2-sentence teaser from the free data
-  // Specific enough to show value, not so specific they don't need to pay
   function buildAiTeaser(data) {
     const failed   = (data.checks || []).filter(c => !c.passed && c.category !== 'Plausibility');
     const score    = data.fundable_score;
@@ -660,39 +696,20 @@
     const dd       = (data.max_drawdown * 100).toFixed(1);
     const wr       = data.win_rate;
     const n        = data.total_trades;
-    
-    // Find worst category
     const cats = {};
     failed.forEach(c => { cats[c.category] = (cats[c.category] || 0) + 1; });
-    const worstCat = Object.entries(cats).sort((a,b) => b[1]-a[1])[0];
-    const worstName = worstCat ? worstCat[0] : 'Risk';
+    const worstCat   = Object.entries(cats).sort((a,b) => b[1]-a[1])[0];
+    const worstName  = worstCat ? worstCat[0] : 'Risk';
     const worstCount = worstCat ? worstCat[1] : 0;
-    
-    // Find single worst check by score
     const worst = failed.sort((a,b) => a.score - b.score)[0];
-    
-    if (!worst) {
-      return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. The AI analysis found no critical failures — see the full report for optimisation suggestions.`;
-    }
-    
-    // Build specific teaser sentence 1: the core problem
+    if (!worst) return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. The AI analysis found no critical failures — see the full report for optimisation suggestions.`;
     let s1 = '';
-    if (worstName === 'Overfitting') {
-      s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
-    } else if (worstName === 'Risk') {
-      s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
-    } else if (worstName === 'Regime') {
-      s1 = `Your strategy's behaviour across different market conditions is the main issue — it hasn't been tested in enough regime types to be trusted live.`;
-    } else if (worstName === 'Execution') {
-      s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
-    } else {
-      s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
-    }
-    
-    // Sentence 2: the single most actionable fix (specific to their worst check)
-    const s2 = `The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
-    
-    return s1 + ' ' + s2;
+    if      (worstName === 'Overfitting') s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
+    else if (worstName === 'Risk')        s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
+    else if (worstName === 'Regime')      s1 = `Your strategy's behaviour across different market conditions is the main issue — it hasn't been tested in enough regime types to be trusted live.`;
+    else if (worstName === 'Execution')   s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
+    else                                  s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
+    return s1 + ` The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
   }
 
   // ── PDF purchase ───────────────────────────────────────────
@@ -810,21 +827,16 @@
   // ── Alpaca ─────────────────────────────────────────────────
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
   function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
-  function showIBKRSoon(){alert('IBKR integration is coming soon. Use Alpaca for now, or upload a CSV.');}
 
   function showIBKRConnect() {
-    // Show IBKR instructions panel
     const existing = document.getElementById('ibkrPanel');
     if (existing) { existing.remove(); return; }
-    
     const panel = document.createElement('div');
     panel.id = 'ibkrPanel';
     panel.style.cssText = 'margin-top:16px;background:var(--deep);border:1px solid rgba(0,255,136,0.2);padding:28px;';
     panel.innerHTML = `
       <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:14px;">// CONNECT INTERACTIVE BROKERS</div>
-      <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:18px;">
-        IBKR uses a Flex Web Service for data access. One-time setup takes ~5 minutes.
-      </div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:18px;">IBKR uses a Flex Web Service for data access. One-time setup takes ~5 minutes.</div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:2.0;margin-bottom:18px;">
         1. Log into <a href="https://clientportal.ibkr.com" target="_blank" style="color:var(--accent)">IBKR Client Portal</a><br>
         2. Go to: Performance & Reports → Flex Queries → Create<br>
@@ -836,24 +848,20 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>
           <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">ACCOUNT ID</div>
-          <input id="ibkrAccountId" type="text" placeholder="U1234567"
-            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+          <input id="ibkrAccountId" type="text" placeholder="U1234567" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
         </div>
         <div>
           <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">QUERY ID</div>
-          <input id="ibkrQueryId" type="text" placeholder="123456"
-            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+          <input id="ibkrQueryId" type="text" placeholder="123456" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
         </div>
       </div>
       <div style="margin-bottom:14px;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:5px;">FLEX TOKEN</div>
-        <input id="ibkrToken" type="password" placeholder="••••••••••••••••••••••••••••••"
-          style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
+        <input id="ibkrToken" type="password" placeholder="••••••••••••••••••••••••••••••" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="handleIBKRConnect()" class="upload-btn" style="flex:1;">FETCH & VALIDATE</button>
-        <button onclick="document.getElementById('ibkrPanel').remove()" 
-          style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 20px;font-family:var(--mono);font-size:12px;cursor:pointer;">Cancel</button>
+        <button onclick="document.getElementById('ibkrPanel').remove()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 20px;font-family:var(--mono);font-size:12px;cursor:pointer;">Cancel</button>
       </div>
       <div id="ibkrStatus" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:16px;"></div>
       <div style="margin-top:14px;padding:10px 14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
@@ -869,89 +877,63 @@
     const queryId   = document.getElementById('ibkrQueryId').value.trim();
     const token     = document.getElementById('ibkrToken').value.trim();
     const status    = document.getElementById('ibkrStatus');
-
-    if (!accountId || !queryId || !token) {
-      status.innerText = 'Please fill in all three fields.';
-      status.style.color = '#ff4444';
-      return;
-    }
-
-    status.innerText = 'Connecting to IBKR Flex...';
-    status.style.color = 'var(--accent3)';
-
-    _validationMode = 'broker';
-    _brokerSource   = 'ibkr';
+    if (!accountId || !queryId || !token) { status.innerText='Please fill in all three fields.'; status.style.color='#ff4444'; return; }
+    status.innerText='Connecting to IBKR Flex...'; status.style.color='var(--accent3)';
+    _validationMode='broker'; _brokerSource='ibkr';
     showLoading();
-
     try {
-      const resp = await fetch(`${API_URL}/connect/ibkr`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          account_id:  accountId,
-          flex_token:  token,
-          query_id:    queryId,
-          days_back:   365
-        })
-      });
-
+      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accountId,flex_token:token,query_id:queryId,days_back:365})});
       if (!resp.ok) {
-        const err    = await resp.json();
-        const detail = err.detail || err;
+        const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
-        document.getElementById('ibkrPanel') && (document.getElementById('ibkrStatus').innerText = 'Error: ' + (detail.message || detail));
-        document.getElementById('ibkrStatus') && (document.getElementById('ibkrStatus').style.color = '#ff4444');
-        throw new Error(detail.message || detail || 'IBKR connection failed');
+        const ibkrSt = document.getElementById('ibkrStatus');
+        if(ibkrSt){ ibkrSt.innerText='Error: '+(detail.message||detail); ibkrSt.style.color='#ff4444'; }
+        return;
       }
-
-      const result = await resp.json();
-      const data   = result.validation;
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
-      setTimeout(() => { hideLoading(); renderResults(data); }, 2500);
-
-    } catch(err) {
-      hideLoading(true);
-      alert('IBKR error: ' + err.message);
-    }
+      const result=await resp.json(); const data=result.validation;
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      setTimeout(()=>{hideLoading();renderResults(data);},2500);
+    } catch(err) { hideLoading(true); alert('IBKR error: '+err.message); }
   }
 
-
   async function handleAlpacaConnect() {
-    const key=document.getElementById('alpacaKey').value.trim(), secret=document.getElementById('alpacaSecret').value.trim();
-    const mode=document.querySelector('input[name="alpacaMode"]:checked').value;
-    const status=document.getElementById('alpacaStatus');
+    const key    = document.getElementById('alpacaKey').value.trim();
+    const secret = document.getElementById('alpacaSecret').value.trim();
+    const mode   = document.querySelector('input[name="alpacaMode"]:checked').value;
+    const status = document.getElementById('alpacaStatus');
     if(!key||!secret){status.innerText='Please enter both API Key and Secret Key.';status.style.color='#ff4444';return;}
     if(!key.startsWith('PK')&&!key.startsWith('AK')){status.innerText='Key format looks wrong — Alpaca keys start with PK or AK.';status.style.color='#ffaa00';}
     status.innerText='Connecting to Alpaca...';status.style.color='var(--accent3)';
     _validationMode='broker'; _brokerSource='alpaca';
     try{sessionStorage.setItem('qp_broker',JSON.stringify({api_key:key,secret_key:secret,mode}));sessionStorage.setItem('qp_source','alpaca');}catch(e){}
     showLoading();
-    const coldStartTimerAlpaca = setTimeout(() => {
-      const loadLine = document.querySelector('.terminal-line:last-child');
-      if (loadLine) {
-        const msg = document.createElement('div');
-        msg.className = 'terminal-line';
-        msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
-        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
-        loadLine.parentNode.appendChild(msg);
-      }
-    }, 8000);
-
+    const cst = coldStartWarning();
     try {
       const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
-      clearTimeout(coldStartTimerAlpaca);
+      clearTimeout(cst);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
         document.getElementById('alpacaPanel').style.display='block';
-        if(detail&&detail.error==='rate_limit'){status.innerHTML=`<span style="color:#ffaa00">⚠ Daily limit reached — resets in ~${detail.hours_left}h.</span>`;return;}
-        if(detail&&detail.error==='insufficient_trades'){status.innerHTML=`<span style="color:#ffaa00">⚠ Only <b>${detail.trades_found}</b> completed round-trip(s) found — need <b>${detail.trades_needed}</b>.<br><span style='opacity:0.8;font-size:11px'>A round-trip = one BUY + one SELL of the same stock. Check paper vs live account type.</span></span>`;return;}
+        if(detail&&detail.error==='rate_limit'){
+          status.innerHTML=`<span style="color:#ffaa00">⚠ Daily limit reached — resets in ~${detail.hours_left}h.</span>`;
+          return;
+        }
+        // FIX 3: surface backend's full explanation message for insufficient_trades
+        if(detail&&detail.error==='insufficient_trades'){
+          status.innerHTML=`<span style="color:#ffaa00">
+            ⚠ Only <b>${detail.trades_found}</b> completed round-trip(s) found — need <b>${detail.trades_needed}</b>.<br>
+            <span style="opacity:0.85;font-size:11px;display:block;margin-top:6px;line-height:1.6;">${detail.message||'A round-trip = one BUY + one SELL of the same stock. Both must be within the Alpaca order history window.'}</span>
+            <span style="opacity:0.7;font-size:10px;display:block;margin-top:4px;">Tip: check you selected the correct account type (paper vs live) above.</span>
+          </span>`;
+          return;
+        }
         throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
       const data=await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
-    } catch(err){hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
+    } catch(err){clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 
   // ── TradingView ────────────────────────────────────────────
@@ -968,10 +950,8 @@
           <div><b>Webhook URL</b> (paste into TradingView alert):</div>
           <div style="background:var(--deep);padding:6px;margin:4px 0;word-break:break-all;color:var(--accent3);font-size:10px;">${session.webhook_url}</div>
           <div>Alerts: 0/${session.max_alerts} · TTL: ${session.ttl_hours}h</div>
-          <div style="margin-top:10px;">
-            <b>Alert message format:</b><br>
-            <code style="color:var(--accent3);font-size:10px;">{"symbol":"AAPL","action":"BUY","price":{{close}}}</code>
-          </div>
+          <div style="margin-top:10px;"><b>Alert message format:</b><br>
+          <code style="color:var(--accent3);font-size:10px;">{"symbol":"AAPL","action":"BUY","price":{{close}}}</code></div>
           <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="checkTVStatus('${session.session_id}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;">Check Status</button>
             <button onclick="validateTVSession('${session.session_id}')" style="background:var(--accent);color:var(--black);border:none;padding:5px 10px;cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:700;">Validate Now</button>
@@ -997,7 +977,17 @@
     showLoading();
     try {
       const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST'});
-      if(!resp.ok){const err=await resp.json();hideLoading(true);throw new Error(err.detail||'Validation failed');}
+      if(!resp.ok){
+        const err=await resp.json(); const detail=err.detail||err;
+        hideLoading(true);
+        // FIX 9: structured error handling for TV insufficient alerts/trades
+        if(typeof detail === 'string' && (detail.includes('Need at least') || detail.includes('Only paired'))) {
+          alert(`TradingView: ${detail}`);
+        } else {
+          alert('TradingView validation error: '+(detail.message||detail||'Unknown error'));
+        }
+        return;
+      }
       const data=await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
@@ -1009,7 +999,6 @@
     try {
       const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/reset`,{method:'POST'});
       if(!resp.ok) throw new Error('Failed to reset');
-      const d=await resp.json();
       status.innerText='✓ Session reset — alerts cleared.';status.style.color='var(--accent)';
       setTimeout(()=>checkTVStatus(sessionId),1500);
     } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
