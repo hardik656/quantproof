@@ -1334,7 +1334,10 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
 
     visible_checks = [c for c in r.checks if c.category != "Plausibility"]
 
-    extra_flags = [regime_note] if regime_note else []
+    # Only add regime_note as extra flag if it isn't already embedded in
+    # the Kite/Alpaca parser audit note (those parsers append it to their note string)
+    existing_flags_text = " ".join(r.audit_flags)
+    extra_flags = [regime_note] if (regime_note and regime_note not in existing_flags_text) else []
 
     _vr_cache = {
         "fundable_score": r.score,
@@ -1589,7 +1592,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "fundable_score": r.score, "grade": r.grade,
             "sharpe": round(r.sharpe, 2), "max_drawdown": round(r.max_drawdown, 4),
             "win_rate": round(r.win_rate, 1), "total_trades": r.total_trades,
-            "mar_range": date_range, "is_verified": True,
+            "date_range": date_range, "is_verified": True,
             "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                         "value":c.value,"insight":c.insight,"fix":c.fix,
                         "category":c.category} for c in r.checks],
@@ -1946,7 +1949,12 @@ async def generate_broker_report(
                     )
                 except Exception as _e:
                     issues = cached_vr.get("top_issues", [])
-                    cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else None
+                    # Must be a dict or None — generate_report.py calls ai_plan.get()
+                    cached_vr["ai_plan"] = {
+                        "summary": "Top improvements: " + "; ".join(issues[:3]) if issues else "See failed checks above.",
+                        "fixes": [],
+                        "encouragement": ""
+                    } if issues else None
             if not _PDF_AVAILABLE:
                 raise HTTPException(503, "PDF module not available.")
             try:
@@ -2872,7 +2880,8 @@ def validate_tv_alerts(session_id: str):
         f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
         + (f" | {regime_note}" if regime_note else "")
     )
-    extra_tv_flags = [f for f in tv_flags if f not in audit_note]
+    # De-duplicate tv_flags against audit_note using exact string match (not substring)
+    extra_tv_flags = [f for f in tv_flags if f.strip() not in audit_note]
 
     return ValidationResponse(
         fundable_score=report.score,
