@@ -1105,9 +1105,10 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     raw         = contents.decode("utf-8", errors="ignore")
     regime_note = ""
 
-    # Sniff delimiter for tab-separated formats (Alpaca UI export)
+    # Sniff delimiter — support tab (Alpaca UI), semicolon (Excel/LibreOffice), comma (standard)
     sample = raw[:4096]
-    delim  = "\t" if sample.count("\t") > sample.count(",") else ","
+    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
+    delim  = max(counts, key=counts.get)   # pick whichever occurs most
 
     try:
         _probe = pd.read_csv(io.StringIO(raw), sep=delim, nrows=5, dtype=str)
@@ -1158,15 +1159,21 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
 
     # ── 4. Generic PnL CSV ────────────────────────────────────────────────
     try:
-        df = pd.read_csv(io.StringIO(raw))
+        df = pd.read_csv(io.StringIO(raw), sep=delim)
         pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l", "net", "alpha"]
         for col in df.columns:
             if any(p in col.lower() for p in pnl_names):
-                vals = pd.to_numeric(df[col], errors="coerce").dropna()
+                # Strip '%' suffix (e.g. "2.5%" → "2.5") before numeric parse
+                raw_vals = df[col].astype(str).str.replace("%", "", regex=False).str.strip()
+                vals = pd.to_numeric(raw_vals, errors="coerce").dropna()
                 if len(vals) >= 5:
                     if vals.abs().mean() > 1.0:
                         vals = vals / 100.0
+                    # Detect dollar PnL: if >50% of values still exceed ±0.5 after /100,
+                    # the column is likely dollar amounts, not returns — flag it
+                    _clipped_pct = (vals.abs() > 0.50).mean()
                     vals = vals.clip(-0.50, 0.50)
+                    _dollar_pnl_warning = _clipped_pct > 0.50
                     result = pd.DataFrame({"pnl": vals.values})
 
                     date_cols = [c for c in df.columns
@@ -1189,6 +1196,13 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     elif "date" in result.columns and result["date"].notna().any():
                         result, regime_note = assign_regimes(result)
 
+                    if _dollar_pnl_warning:
+                        regime_note = (
+                            ("⚠ " + regime_note + " | " if regime_note else "⚠ ")
+                            + "PnL values appear to be dollar amounts, not decimal returns "
+                            "— clipped to ±0.5. Upload a column with decimal returns (e.g. 0.015 = 1.5%)."
+                        )
+
                     return result, regime_note
     except Exception:
         pass
@@ -1196,9 +1210,10 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     # ── 5. Flexible fallback ──────────────────────────────────────────────
     try:
         lines    = [l.strip() for l in raw.split("\n") if l.strip()]
-        max_cols = max(len(l.split(",")) for l in lines[1:] if l)
+        max_cols = max(len(l.split(delim)) for l in lines[1:] if l)
         df = pd.read_csv(
             io.StringIO(raw),
+            sep=delim,
             names=[f"col_{i}" for i in range(max_cols)],
             skiprows=1,
             on_bad_lines="skip",
@@ -2144,7 +2159,15 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                     side = "short"
 
                 is_opening_long  = qty > 0 and net_cash < -abs(price * qty) * 0.5
-                is_opening_short = qty < 0 and net_cash > 0 and abs(net_cash) < abs(price * qty) * 0.1
+                # is_opening_short heuristic: only apply when OCI field is absent.
+                # When OCI=='C' (confirmed closing), trust it and skip the heuristic.
+                # The 0.1 threshold incorrectly skips all closing sells with pnl < 10%.
+                is_opening_short = (
+                    open_close != "C"          # OCI absent or ambiguous only
+                    and qty < 0
+                    and net_cash > 0
+                    and abs(net_cash) < abs(price * qty) * 0.01   # tightened: 1% threshold
+                )
                 if is_opening_long or is_opening_short:
                     open_skipped += 1
                     continue
