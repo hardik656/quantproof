@@ -685,7 +685,15 @@
     document.getElementById('kiteFileInput').value = '';
     document.getElementById('alpacaPanel').style.display   = 'none';
     document.getElementById('tradingviewStatus').innerHTML = '';
-    _validationMode = 'csv'; _brokerSource = '';
+    _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
+    // FIX MED: clear session so stale broker creds don't bleed into next validation
+    try {
+      sessionStorage.removeItem('qp_source');
+      sessionStorage.removeItem('qp_broker');
+      sessionStorage.removeItem('qp_validation_hash');
+      sessionStorage.removeItem('qp_filename');
+      sessionStorage.removeItem('qp_filedata');
+    } catch(e) {}
     window.scrollTo(0, 0);
   }
 
@@ -880,6 +888,8 @@
     if (!accountId || !queryId || !token) { status.innerText='Please fill in all three fields.'; status.style.color='#ff4444'; return; }
     status.innerText='Connecting to IBKR Flex...'; status.style.color='var(--accent3)';
     _validationMode='broker'; _brokerSource='ibkr';
+    // FIX HIGH-4: set qp_source so generatePdfBlob routes to broker PDF endpoint
+    try { sessionStorage.setItem('qp_source','ibkr'); } catch(e) {}
     showLoading();
     try {
       const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accountId,flex_token:token,query_id:queryId,days_back:365})});
