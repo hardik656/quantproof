@@ -1024,10 +1024,23 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
 
         elif side == "sell":
             if not lots[sym]:
-                orphan_sells.append(
-                    f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(no matching buy in history — position predates window)"
-                )
+                # No open long position — this SELL opens a short position
+                lots[sym].append({
+                    "price":      price,
+                    "qty":        qty,
+                    "entry_date": ts,
+                    "side":       "short",
+                })
+                continue
+
+            # If there's an existing short lot (and no long), stack it
+            if lots[sym] and lots[sym][0]["side"] == "short":
+                lots[sym].append({
+                    "price":      price,
+                    "qty":        qty,
+                    "entry_date": ts,
+                    "side":       "short",
+                })
                 continue
 
             remaining = qty
