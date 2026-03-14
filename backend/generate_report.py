@@ -1,15 +1,6 @@
 """
 QuantProof PDF Report Generator v1.1
 Synced to validator v6.2
-
-CHANGES FROM v1.0:
-  - Footer: 'Engine: v1.6 · 31 checks' → 'Engine: v6.2 · 40 checks'
-  - Page 2 heading: 'ALL 38 CHECKS' → 'ALL 40 CHECKS'
-  - Crash intro: 'three major market crashes' → 'five historical crash scenarios'
-  - Crash survival count: X/3 → X/5
-  - Crash verdict rendering: strips [UNCALIBRATED] prefix before emoji strip
-    (v6.2 prefixes undated crash verdicts with [UNCALIBRATED] — was leaking
-    as literal text in the PDF)
 """
 
 from reportlab.lib.pagesizes import A4
@@ -151,20 +142,34 @@ def cat_color(s):
     return C_DANGER
 
 
-def _clean_verdict(raw: str) -> str:
+def _clean_text(raw: str) -> str:
     """
-    Strip [UNCALIBRATED] prefix (v6.2 undated crash label) and emoji
-    before rendering in PDF. Both must be stripped — PDF renderer
-    cannot display emoji and [UNCALIBRATED] should not appear as
-    literal text.
+    Strip all emoji and special Unicode symbols that reportlab cannot render.
+    Covers:
+      - Crash verdict prefixes: [UNCALIBRATED]
+      - Status emoji: 🟢 🟡 🟠 🔴
+      - Checkmark/cross emoji used in validator value strings: ✓ ✅ ✗ ❌
+      - Info/data emoji: ℹ 📊 ⚠ → replaced with text equivalents
+      - Bullet emoji sometimes returned by AI plan
     """
     v = raw or ""
-    # Strip [UNCALIBRATED] prefix — added by v6.2 for undated strategies
+    # Strip [UNCALIBRATED] prefix (v6.2 undated crash label)
     v = v.replace("[UNCALIBRATED] ", "").replace("[UNCALIBRATED]", "")
-    # Strip emoji
-    for emoji in ("🟢", "🟡", "🟠", "🔴"):
-        v = v.replace(emoji, "")
+    # Coloured circle emoji (crash verdicts)
+    for e in ("🟢", "🟡", "🟠", "🔴"):
+        v = v.replace(e, "")
+    # Status/check emoji in validator value strings
+    v = v.replace("✅", "PASS").replace("✓", "OK").replace("✗", "FAIL").replace("❌", "FAIL")
+    # Info/data emoji → text
+    v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:")
+    # Strip any remaining non-Latin-1 characters that reportlab Helvetica can't render
+    v = v.encode("latin-1", errors="replace").decode("latin-1")
     return v.strip()
+
+
+# Keep backward-compat alias used in crash section
+def _clean_verdict(raw: str) -> str:
+    return _clean_text(raw)
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
@@ -289,12 +294,12 @@ def generate_pdf_report(vr: dict) -> bytes:
             col_a.append(Paragraph("PRIMARY ISSUES", S["label"]))
             col_a.append(Spacer(1, 3))
             for iss in issues[:4]:
-                col_a.append(Paragraph(f"<bullet>&#x2022;</bullet> {iss[:110]}", S["body_sm"]))
+                col_a.append(Paragraph(f"<bullet>&#x2022;</bullet> {_clean_text(iss)[:110]}", S["body_sm"]))
         if strengths:
             col_b.append(Paragraph("CONFIRMED STRENGTHS", S["label"]))
             col_b.append(Spacer(1, 3))
             for st in strengths[:3]:
-                col_b.append(Paragraph(f"<bullet>&#x2022;</bullet> {st}", S["body_sm"]))
+                col_b.append(Paragraph(f"<bullet>&#x2022;</bullet> {_clean_text(st)}", S["body_sm"]))
         if col_a or col_b:
             summ_row = Table([[col_a or [""], col_b or [""]]],
                              colWidths=[INNER_W*0.52, INNER_W*0.48])
@@ -315,7 +320,6 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
         story.append(Spacer(1, 4*mm))
         story.append(Paragraph("HISTORICAL CRASH STRESS TESTS", S["h_section"]))
-        # FIX: 'three major market crashes' → 'five historical crash scenarios'
         story.append(Paragraph(
             "Your strategy was stress-tested against five historical crash scenarios using "
             "a 60-day crisis window with Almgren-Chriss volatility scaling and liquidity drag. "
@@ -323,7 +327,6 @@ def generate_pdf_report(vr: dict) -> bytes:
             S["body"]))
         story.append(Spacer(1, 4))
 
-        # FIX: survived_count/3 → survived_count/5
         survived_count = sum(1 for c in crashes if c.get("survived"))
         story.append(Paragraph(
             f"Crash survival: <b>{survived_count}/5</b> — "
@@ -338,14 +341,12 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(Spacer(1, 4))
 
         for crash in crashes:
-            surv = crash.get("survived", False)
-            drop = crash.get("strategy_drop", 0) * 100
-            name = crash.get("crash_name", "")
-            year = crash.get("year", "")
+            surv  = crash.get("survived", False)
+            drop  = crash.get("strategy_drop", 0) * 100
+            name  = crash.get("crash_name", "")
+            year  = crash.get("year", "")
             mkt_d = crash.get("market_drop", 0)
             desc  = crash.get("description", "")[:100]
-
-            # FIX: strip [UNCALIBRATED] prefix + emoji before rendering
             verdict = _clean_verdict(crash.get("emotional_verdict", ""))
 
             bg_row  = colors.HexColor("#EDF9F3") if surv else colors.HexColor("#FDF0EF")
@@ -385,7 +386,6 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ PAGE 2: DETAILED CHECKS ════════════════════════════════════════════════
     story.append(PageBreak())
-    # FIX: 'ALL 38 CHECKS' → 'ALL 40 CHECKS'
     story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 40 CHECKS", S["h_section"]))
     story.append(Paragraph(
         "Every check below was run against your specific strategy data. "
@@ -395,7 +395,8 @@ def generate_pdf_report(vr: dict) -> bytes:
         S["body"]))
     story.append(Spacer(1, 4*mm))
 
-    cat_order  = ["Overfitting", "Risk", "Regime", "Execution", "Compliance", "Plausibility"]
+    cat_order  = ["Overfitting", "Risk", "Regime", "Execution", "Compliance",
+                  "Plausibility", "Operational"]
     cat_labels = {
         "Overfitting":  "OVERFITTING DETECTION",
         "Risk":         "RISK MANAGEMENT",
@@ -403,6 +404,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         "Execution":    "EXECUTION & CAPACITY",
         "Compliance":   "COMPLIANCE",
         "Plausibility": "PLAUSIBILITY AUDIT",
+        "Operational":  "OPERATIONAL METRICS",
     }
 
     by_cat = {}
@@ -440,12 +442,11 @@ def generate_pdf_report(vr: dict) -> bytes:
             passed  = chk.get("passed", False)
             cscore  = float(chk.get("score", 0))
             name    = chk.get("name", "")
-            value   = (chk.get("value", "")
-                       .replace("✅","").replace("⚠","")
-                       .replace("🔴","").replace("🟢","")
-                       .replace("🟡","").replace("🟠","").strip())
-            insight = chk.get("insight", "")
-            fix     = chk.get("fix", "")
+            # FIX MED: use _clean_text to strip ALL emoji variants, not just 6
+            # FIX LOW: increase truncation from 120 to 180 chars
+            value   = _clean_text(chk.get("value", ""))[:180]
+            insight = _clean_text(chk.get("insight", ""))
+            fix     = _clean_text(chk.get("fix", ""))
 
             row_bg  = (colors.HexColor("#F0FBF5") if passed else
                        colors.HexColor("#FFF8EC") if cscore > 20 else
@@ -462,12 +463,12 @@ def generate_pdf_report(vr: dict) -> bytes:
                 Paragraph(ico_txt, _s("ckico", fontName="Helvetica-Bold",
                     fontSize=9, textColor=ico_col, alignment=TA_CENTER, leading=12)),
             ], [
-                Paragraph(value[:120], S["body_sm"]), "", "",
+                Paragraph(value, S["body_sm"]), "", "",
             ]]
             if insight:
-                rows.append([Paragraph(insight[:180], S["insight"]), "", ""])
+                rows.append([Paragraph(insight[:200], S["insight"]), "", ""])
             if fix and not passed:
-                rows.append([Paragraph(f"Fix: {fix[:160]}", S["fix_txt"]), "", ""])
+                rows.append([Paragraph(f"Fix: {fix[:200]}", S["fix_txt"]), "", ""])
 
             spans = [("SPAN", (0,1),(2,1))]
             if len(rows) > 2: spans.append(("SPAN", (0,2),(2,2)))
@@ -490,6 +491,11 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ AI PERSONALISED ANALYSIS ══════════════════════════════════════════════
     ai_plan = vr.get("ai_plan")
+    # FIX HIGH: ai_plan must be a dict — guard against string fallback from cached path
+    if ai_plan and not isinstance(ai_plan, dict):
+        # Plain string fallback — wrap it so downstream .get() calls don't crash
+        ai_plan = {"summary": str(ai_plan), "fixes": [], "encouragement": ""}
+
     if ai_plan and isinstance(ai_plan, dict):
         story.append(PageBreak())
         story.append(Paragraph("AI PERSONALISED ANALYSIS", S["h_section"]))
@@ -497,7 +503,7 @@ def generate_pdf_report(vr: dict) -> bytes:
 
         summary_text = ai_plan.get("summary", "")
         if summary_text:
-            story.append(Paragraph(summary_text, S["body"]))
+            story.append(Paragraph(_clean_text(summary_text), S["body"]))
             story.append(Spacer(1, 12))
 
         fixes = ai_plan.get("fixes", [])
@@ -510,20 +516,20 @@ def generate_pdf_report(vr: dict) -> bytes:
                 check        = fix.get("check", "")
                 why          = fix.get("why_it_matters", "")
                 specific     = fix.get("specific_fix", "")
-                score_impact = fix.get("score_impact", "")
-                effort       = fix.get("effort", "")
+                score_impact = fix.get("score_impact") or ""   # FIX LOW: guard None
+                effort       = fix.get("effort") or ""         # FIX LOW: guard None
                 header       = f"#{rank} — {check}"
                 if score_impact: header += f"  |  {score_impact}"
                 if effort:       header += f"  |  Effort: {effort}"
-                story.append(Paragraph(header, S["label"]))
-                if why:      story.append(Paragraph(f"<b>Why it matters:</b> {why}", S["body"]))
-                if specific: story.append(Paragraph(f"<b>Fix:</b> {specific}", S["body"]))
+                story.append(Paragraph(_clean_text(header), S["label"]))
+                if why:      story.append(Paragraph(f"<b>Why it matters:</b> {_clean_text(why)}", S["body"]))
+                if specific: story.append(Paragraph(f"<b>Fix:</b> {_clean_text(specific)}", S["body"]))
                 story.append(Spacer(1, 8))
 
         enc = ai_plan.get("encouragement", "")
         if enc:
             story.append(Spacer(1, 4))
-            story.append(Paragraph(f"<i>{enc}</i>", S["body"]))
+            story.append(Paragraph(f"<i>{_clean_text(enc)}</i>", S["body"]))
         story.append(Spacer(1, 16))
 
     # ══ ACTION PLAN ═══════════════════════════════════════════════════════════
@@ -555,9 +561,9 @@ def generate_pdf_report(vr: dict) -> bytes:
                         f"<font color='#8E8E93' size=8>  {cat}</font>",
                         S["action_h"]),
                     Spacer(1, 4),
-                    Paragraph(chk.get("insight","")[:220], S["action_b"]),
+                    Paragraph(_clean_text(chk.get("insight",""))[:220], S["action_b"]),
                     Spacer(1, 4),
-                    Paragraph(f"<b>Fix:</b> {chk.get('fix','')[:220]}",
+                    Paragraph(f"<b>Fix:</b> {_clean_text(chk.get('fix',''))[:220]}",
                         _s("act_fix", fontSize=9, leading=13,
                            textColor=C_ORANGE, fontName="Helvetica")),
                 ],
@@ -580,7 +586,6 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 3*mm))
     rid = abs(hash(str(score) + grade + str(n))) % 100000
-    # FIX: 'Engine: v1.6 · 31 checks' → 'Engine: v6.2 · 40 checks'
     story.append(Paragraph(
         f"Report ID: QP-{rid:05d}  ·  "
         f"Engine: v6.2  ·  40 checks  ·  "
@@ -590,44 +595,8 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(Paragraph(
         "This report is for educational and analytical purposes only and does not constitute "
         "financial advice. Past backtest performance does not guarantee future results. "
-        "Methodology: López de Prado (2018) AFML, Almgren-Chriss (2001), Bailey & López de Prado (2012).",
+        "Methodology: Lopez de Prado (2018) AFML, Almgren-Chriss (2001), Bailey & Lopez de Prado (2012).",
         S["footer"]))
 
     doc.build(story, onLaterPages=footer_canvas, onFirstPage=footer_canvas)
     return buf.getvalue()
-
-
-# ─── SELF-TEST ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import sys, numpy as np, pandas as pd
-    sys.path.insert(0, '/mnt/user-data/outputs/quantproof/backend')
-    from validator import QuantProofValidator
-
-    for label, seed, mean, std, n_trades in [
-        ("institutional", 1,  0.005, 0.008, 300),
-        ("retail_ok",    42,  0.003, 0.012, 250),
-        ("disaster",      9, -0.003, 0.018,  60),
-    ]:
-        r   = np.random.default_rng(seed).normal(mean, std, n_trades)
-        df  = pd.DataFrame({'date': pd.date_range('2022-01-01', periods=n_trades), 'pnl': r})
-        rep = QuantProofValidator(df).run()
-        scored = [c for c in rep.checks if c.category != "Plausibility"]
-        vr = {
-            "fundable_score": rep.score, "grade": rep.grade,
-            "sharpe": round(rep.sharpe, 2), "max_drawdown": round(rep.max_drawdown, 4),
-            "win_rate": round(rep.win_rate, 1), "total_trades": rep.total_trades,
-            "date_range": "2022-01-01 to 2023-01-01",
-            "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
-                        "value":c.value,"insight":c.insight,"fix":c.fix,
-                        "category":c.category} for c in rep.checks],
-            "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                "description":s.description,"market_drop":s.market_drop,
-                "strategy_drop":s.strategy_drop,"survived":s.survived,
-                "emotional_verdict":s.emotional_verdict} for s in rep.crash_sims],
-            "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
-            "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
-        }
-        pdf = generate_pdf_report(vr)
-        out = f"/mnt/user-data/outputs/quantproof_report_{label}.pdf"
-        open(out, "wb").write(pdf)
-        print(f"[{label}] {len(pdf)//1024}KB -> {out}")
