@@ -442,6 +442,22 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     raw = contents.decode("utf-8", errors="ignore")
     regime_note = ""
 
+    # Auto-detect Kite TradeBook and route correctly
+    # (handles case where user uploads Kite file to generic CSV endpoint)
+    try:
+        _kite_probe = pd.read_csv(io.StringIO(raw), nrows=5)
+        if _is_kite_csv(_kite_probe):
+            _kt_df, _kt_note, _kt_flags = _parse_kite_csv(raw)
+            if len(_kt_df) > 0:
+                if "date" in _kt_df.columns and _kt_df["date"].notna().any():
+                    _kt_df, _regime_note = assign_regimes(_kt_df)
+                    _kt_note += (" | " + _regime_note if _regime_note else "")
+                if _kt_flags:
+                    _kt_note += " | " + " | ".join(_kt_flags[:2])
+                return _kt_df, _kt_note
+    except Exception:
+        pass  # not Kite, fall through to generic parse
+
     # Primary parse — look for known pnl column names
     try:
         df = pd.read_csv(io.StringIO(raw))
@@ -451,7 +467,8 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                 vals = pd.to_numeric(df[col], errors="coerce").dropna()
                 if len(vals) >= 5:
                     if vals.abs().mean() > 1.0:
-                        vals = vals / 10000.0
+                        # Returns submitted as percentages (e.g. 2.85) — convert to decimal
+                        vals = vals / 100.0
                     vals = vals.clip(-0.50, 0.50)
                     result = pd.DataFrame({"pnl": vals.values})
 
@@ -459,15 +476,15 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                                  if any(x in c.lower() for x in ["date", "time", "dt"])]
                     if date_cols:
                         result["date"] = pd.to_datetime(
-                            df.loc[vals.index, date_cols[0]], errors="coerce"
-                        ).values
+                            df[date_cols[0]].values[:len(vals)], errors="coerce"
+                        )
 
                     vol_cols = [c for c in df.columns
                                 if "volume" in c.lower() or "vol" == c.lower()]
                     if vol_cols:
                         result["volume"] = pd.to_numeric(
-                            df.loc[vals.index, vol_cols[0]], errors="coerce"
-                        ).values
+                            df[vol_cols[0]], errors="coerce"
+                        ).values[:len(vals)]
 
                     reg_cols = [c for c in df.columns if "regime" in c.lower()]
                     if reg_cols:
@@ -495,14 +512,14 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
                 if vals.abs().mean() > 1.0:
-                    vals = vals / 10000.0
+                    vals = vals / 100.0
                 vals = vals.clip(-0.50, 0.50)
                 return pd.DataFrame({"pnl": vals.values}), ""
         for col in df.columns:
             vals = pd.to_numeric(df[col], errors="coerce").dropna()
             if len(vals) >= 5 and vals.std() > 0:
                 if vals.abs().mean() > 1.0:
-                    vals = vals / 10000.0
+                    vals = vals / 100.0
                 vals = vals.clip(-0.50, 0.50)
                 return pd.DataFrame({"pnl": vals.values}), ""
     except Exception as e:
@@ -656,7 +673,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
 def sample_csv():
     return {
         "format": "CSV with these columns",
-        "required": ["pnl (profit/loss per trade as DECIMAL, e.g. 0.0145 = 1.45% - NOT percentage 1.45)"],
+        "required": ["pnl (profit/loss per trade as decimal, e.g. 0.015 = 1.5%)"],
         "optional": ["date", "ticker", "side (long/short)", "regime (BULL/BEAR/CONSOLIDATION/TRANSITION)", "volume"],
         "example_row": {
             "date": "2024-01-15",
@@ -665,7 +682,7 @@ def sample_csv():
             "side": "long",
             "regime": "BULL"
         },
-        "note": "IMPORTANT: pnl must be decimal format (0.0145 = 1.45%) NOT percentage (1.45). If you include dates but no regime column, regime is auto-detected from SPY 20-day SMA. Add regime column to override."
+        "note": "If you include dates but no regime column, regime is auto-detected from SPY 20-day SMA. Add regime column to override."
     }
 
 @app.get("/health")
@@ -1405,9 +1422,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                             open_skipped += 1
                             continue   # zero realised P&L = opening or wash trade
                         # normalise to percentage: P&L / cost basis
-                        # For options, apply multiplier if available
-                        multiplier = float(trade.get("multiplier") or trade.get("Multiplier") or 1)
-                        cost = abs(price * qty * multiplier) if price > 0 and qty != 0 else 1
+                        cost = abs(price * qty) if price > 0 and qty != 0 else 1
                         pnl_frac = fifo_val / cost
                         pnl_frac = max(-0.5, min(0.5, pnl_frac))
                         side = "short" if (buy_sell == "BUY" or qty > 0) else "long"
@@ -1440,7 +1455,17 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                 else:
                     side = "short"  # bought to cover short
 
-                # Skip if net_cash is near-zero (opening trade with no realised PnL)
+                # Skip opening trades: BUY rows have large negative netCash (cost basis outflow)
+                # Without OCI field, we detect opening trades by qty direction:
+                #   qty > 0 (BUY) with negative netCash = opening long → skip
+                #   qty < 0 (SELL) with positive netCash = closing long → keep
+                #   qty > 0 (BUY) with positive netCash = closing short → keep
+                #   qty < 0 (SELL) with negative netCash = opening short → skip
+                is_opening_long  = qty > 0 and net_cash < -abs(price * qty) * 0.5
+                is_opening_short = qty < 0 and net_cash > 0 and abs(net_cash) < abs(price * qty) * 0.1
+                if is_opening_long or is_opening_short:
+                    open_skipped += 1
+                    continue
                 if abs(net_cash) < 0.01:
                     open_skipped += 1
                     continue
@@ -1607,9 +1632,22 @@ def ibkr_setup_guide():
 # =========================================================
 
 def _is_kite_csv(df: pd.DataFrame) -> bool:
-    """Detect Zerodha Kite TradeBook CSV by characteristic column names."""
-    required_cols = {"order_execution_time", "tradingsymbol", "exchange", "segment", "trade_type", "quantity", "price"}
-    return required_cols.issubset({c.lower().strip() for c in df.columns})
+    """
+    Detect Zerodha Kite TradeBook CSV by characteristic column names.
+    
+    Real Kite TradeBook columns (verified from Zerodha Console export):
+      trade_date, trade_time, settlement_id, exchange, segment, series,
+      trade_type, auction, quantity, price, trade_id, order_id, order_execution_time
+    
+    Key: ticker/instrument is in 'series' column (NOT 'symbol').
+         segment is 'EQ' for equity, 'FO' for F&O (not 'EQUITY'/'FUTURES').
+    """
+    cols = {c.lower().strip() for c in df.columns}
+    # Core required columns that uniquely identify a Kite TradeBook
+    required = {"trade_date", "trade_type", "quantity", "price"}
+    # At least one of these identifies it as Kite (not a generic CSV)
+    kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
+    return required.issubset(cols) and bool(kite_signals & cols)
 
 
 def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
@@ -1632,16 +1670,33 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df = pd.read_csv(io.StringIO(raw))
     df.columns = [c.lower().strip() for c in df.columns]
 
-    required = {"order_execution_time", "tradingsymbol", "trade_type", "quantity", "price"}
+    # Kite TradeBook: ticker is in 'series' column, not 'symbol'
+    required = {"trade_date", "trade_type", "quantity", "price"}
     missing = required - set(df.columns)
     if missing:
-        raise ValueError(f"Kite CSV missing required columns: {missing}")
+        raise ValueError(
+            f"Kite CSV missing required columns: {missing}. "
+            "Please export from Zerodha Console → TradeBook → Download CSV. "
+            "Make sure you are downloading the TradeBook, not Positions or Holdings."
+        )
+    # Determine ticker column: Kite uses 'series' for stock symbol
+    # Some older exports may use 'symbol' or 'instrument'
+    ticker_col = None
+    for candidate in ['series', 'symbol', 'instrument', 'scrip', 'tradingsymbol']:
+        if candidate in df.columns:
+            ticker_col = candidate
+            break
+    if ticker_col is None:
+        # No ticker column found — use exchange+segment as identifier
+        ticker_col = None  # will fall back to "UNKNOWN"
 
-    df["order_execution_time"] = pd.to_datetime(df["order_execution_time"], errors="coerce")
-    df = df.dropna(subset=["order_execution_time"])
+    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
+    df = df.dropna(subset=["trade_date"])
 
     # Sort chronologically within each symbol (same as Alpaca)
-    df = df.sort_values(["tradingsymbol", "order_execution_time"]).reset_index(drop=True)
+    sort_cols = ([ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns
+                 else ["trade_date"])
+    df = df.sort_values(sort_cols).reset_index(drop=True)
 
     # Position-state tracker: symbol → FIFO list of open lots
     # Each lot: {"qty": int, "price": float, "date": Timestamp, "side": "long"/"short"}
@@ -1652,16 +1707,16 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     orphan_buys  = []  # for short positions that close with a buy
 
     for _, row in df.iterrows():
-        symbol     = str(row["tradingsymbol"])
+        symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
         qty        = float(row["quantity"])
         price      = float(row["price"])
         trade_type = str(row["trade_type"]).upper().strip()
-        date       = row["order_execution_time"]
-        segment    = str(row.get("segment", "EQUITY")).upper().strip()
+        date       = row["trade_date"]
+        segment    = str(row.get("segment", "EQ")).upper().strip()
 
-        # Detect short positions: FO segment or explicit SELL with no prior BUY
-        # In Kite, F&O SELL could be opening a short, not closing a long
-        is_fo = segment in ("FO", "F&O", "FUTURES", "OPTIONS")
+        # Kite segment values: EQ=equity, FO=futures/options
+        # (Kite uses short codes, not EQUITY/FUTURES full names)
+        is_fo = segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF")
 
         if trade_type == "BUY":
             if lots[symbol] and lots[symbol][0]["side"] == "short":
@@ -2055,7 +2110,7 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                 # Opening or adding to a long position
                 lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
 
-        elif action in ("SELL", "SHORT", "EXIT_LONG"):
+        elif action == "SELL":
             if not lots[symbol]:
                 # No open long — could be opening a short (e.g. SHORT signal from TV strategy)
                 lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
