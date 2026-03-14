@@ -1,260 +1,234 @@
 """
-QuantProof — FastAPI Backend v1.4
-Synced to validator v6.2
+QuantProof — Validation Engine v6.2
+Institutional Edition — Full Audit Correction
 
-CHANGES FROM v1.3:
-  - Version bumped to 2.6.0
-  - Root endpoint: 38 → 40 checks
-  - All summary strings: '3 crash simulations' → '5 crash simulations'
-  - smart_parse_csv(): auto-assigns regime via yfinance SPY SMA when dates
-    present but no regime column (fallback: SPY monthly lookup table)
-  - /validate/alpaca + /report/generate-broker: replaced broken buy/sell
-    stack pairing with position-state tracker (sort by filled_at, FIFO lots,
-    orphan sell detection)
-  - All Alpaca + IBKR paths now auto-assign regime after trade pairing
-  - benchmark_returns not supplied anywhere — IR + Beta checks return
-    score=50 informational (correct, fully backward-compatible)
+PATCH v6.2 — ADVERSARIAL AUDIT FIXES (delta from v6.1)
+═══════════════════════════════════════════════════════
+
+F1. Market-Neutral Benchmark Test added.
+    QuantProofValidator now accepts an optional benchmark_returns array.
+    When provided, two new checks run in the Overfitting category:
+      - check_information_ratio(): computes beta, Jensen's alpha,
+        tracking error, and information ratio vs the benchmark.
+        Flags beta-capture disguised as alpha (IR < 0.3 = low alpha).
+      - check_beta_exposure(): warns when strategy beta > 0.6,
+        indicating high correlation to market drift.
+    Both checks are informational (score=50, no cap) when no benchmark
+    is supplied, so existing usage is fully backward-compatible.
+    Fixes audit case C12: random walk with positive drift during bull
+    period scored 55 with zero alpha — now flagged explicitly.
+
+F3. Crash simulation exposure model hardened.
+    Previous: exposure = clip(vol / 0.012, 0.10, 0.80) — gamed by
+    low-vol or undated strategies; all 5 crash sims showed "survived".
+    New model:
+      - Undated strategies: exposure floor = 0.40 (was 0.10).
+        Crash result labels prefixed with [UNCALIBRATED] to prevent
+        misleading green signals on dateless submissions.
+      - AR(1) autocorrelation adjustment: if |AR(1)| >= 0.20, multiply
+        exposure by 1.30 (momentum-reversal penalty in crises).
+      - Hard minimum exposure = 0.25 for all strategies (was 0.10).
+    Crash simulations remain illustrative only — they do not affect
+    prop firm compliance scoring (by design).
+
+PATCH v6.1 — ADVERSARIAL AUDIT FIXES (delta from v6.0)
+═══════════════════════════════════════════════════════
+P1. Score cap at 50 when Sharpe > 5 AND no date column present.
+P2. Ljung-Box serial correlation test + Newey-West HAC correction.
+P3. Prop Firm Eligible suppressed when Manual Audit Required active.
+
+ORIGINAL CHANGES FROM v3.0 (complete audit log):
+
+══════════════════════════════════════════════════════════════════
+CRITICAL BUG FIXES
+══════════════════════════════════════════════════════════════════
+
+C1. Sharpe: ddof=0→1 (population→sample std). All derivatives corrected.
+
+C2. Removed arbitrary 0.85 Sharpe multiplier. Was applied inconsistently
+    (missing from CPCV fold Sharpes, ruin probability, etc.) and has no
+    academic basis. Now using pure textbook SR = mean(r)/std(r,ddof=1)*sqrt(T).
+
+C3. Sortino denominator fixed. Was std(negative_returns_only). Correct
+    formula: sqrt(mean(min(r, MAR)^2)) using ALL returns below MAR=0.
+    Reference: Sortino & van der Meer (1991).
+
+C4. Ruin probability formula replaced. Was using non-standard Kelly transform
+    that produced near-zero values for winning strategies (ruin≈0.0001 for
+    win_rate=0.55). Now uses correct gambler's ruin: P=((1-p)/p)^N.
+
+C5. DSR standard error formula corrected. Now uses per-trade SR (mean/std)
+    directly, not annualized SR divided back by sqrt(tpy). The 0.85 factor
+    was causing SE to be 15% too small, inflating DSR significance.
+
+C6. CPCV purge logic rewritten from scratch. Previous version had both
+    purge_start and purge_end set to the same boolean, so right-side folds
+    were never purged. Full bidirectional purge+embargo now implemented.
+
+C7. _detect_timeframe: removed cap at 252 for HFT. Was: min(n/years, 252).
+    Now: n/years with no cap. HFT strategies with 10k+ trades/year are now
+    correctly annualized.
+
+C8. Slippage/commission impact: denominator changed from abs(sum(r)) to
+    sum(abs(r)) (gross turnover). Previous formula blew up to infinity for
+    zero-sum or losing strategies.
+
+══════════════════════════════════════════════════════════════════
+IMPORTANT FIXES
+══════════════════════════════════════════════════════════════════
+
+I1. Sharpe CI: 0.85 factor (removed) was applied to center but not SE width.
+    Now both center and SE use consistent ddof=1 formula.
+
+I2. calculate_win_rate: removed |r|<0.001 filter that reversed win rate
+    for HFT strategies with tiny-but-valid trades. Now counts all non-zero trades.
+
+I3. calculate_calmar: changed to geometric annualization (CAGR) instead of
+    arithmetic mean × tpy. Institutional standard.
+
+I4. check_outlier_dependency: now also checks loss concentration (bottom 1%),
+    not just profit concentration.
+
+I5. Capacity model: uses strategy's actual volatility (not hardcoded 0.015)
+    and turnover-adjusted trade size.
+
+I6. DSR n_trials: added n_trials parameter to QuantProofValidator constructor
+    so users can specify how many strategies they tested.
+
+I7. CVaR KDE seed: now uses validator's self.seed, not hardcoded 42.
+
+I8. Harvey-Liu-Zhu docstring: clarified this is Bonferroni-adjusted minimum-n,
+    not the full HLZ Bayesian procedure.
+
+I9. Crash sim: now stochastic per-strategy using combined strategy+crash seed
+    to maintain reproducibility while adding proper MC variability.
+
+I10. check_commission_drag denominator: sum(abs(r)) for gross turnover.
+
+══════════════════════════════════════════════════════════════════
+NEW CHECKS ADDED
+══════════════════════════════════════════════════════════════════
+
+N1. Tail Risk Concentration check (loss-side mirror of profit concentration).
+N2. White's Reality Check (simplified bootstrap version).
+N3. Parameter sensitivity gate: n_trials now flows through to DSR properly.
+N4. CPCV threshold calibrated empirically (not arbitrary 2.0).
+
+══════════════════════════════════════════════════════════════════
+PATCH v6.1 — ADVERSARIAL AUDIT FIXES
+══════════════════════════════════════════════════════════════════
+
+P1. Score cap at 50 when Sharpe > 5 AND no date column present.
+    A no-date, high-Sharpe strategy cannot be regime-checked and is
+    therefore unverifiable — misleading to score above 50.
+
+P2. Ljung-Box autocorrelation test + Newey-West corrected SE(SR).
+    Returns with AR(1) ≥ 0.3 invalidate IID-assuming tests (DSR, CI,
+    Bootstrap). New check_autocorrelation() warns and corrects SE(SR).
+    Ljung-Box Q-statistic at lags 1, 5, 10 — any p < 0.05 triggers fail.
+
+P3. Prop Firm Eligible gate: "Prop Firm Eligible" label suppressed when
+    any Plausibility check carries a "Manual Audit Required" flag.
+
+══════════════════════════════════════════════════════════════════
+ARCHITECTURE
+══════════════════════════════════════════════════════════════════
+
+- All randomness flows through self.rng (seeded deterministically).
+- All named constants in one block at top.
+- Type hints throughout.
+- No global mutable state.
 """
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
 import pandas as pd
 import numpy as np
-import io
-import os
-import time
 import hashlib
-import traceback
-import uuid
-from collections import defaultdict
+import json
+from dataclasses import dataclass, field
+from typing import List, Tuple, Optional, Dict
+from datetime import datetime
+from itertools import combinations as _combinations
+from scipy import stats
+from scipy.optimize import curve_fit
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import Ridge
+from sklearn.metrics import r2_score
+import warnings
+warnings.filterwarnings('ignore')
 
-from validator import QuantProofValidator, ValidationDashboard
+# ── CONSTANTS ────────────────────────────────────────────────────────────────
+ENGINE_VERSION           = "v6.2"
+METHODOLOGY_DATE         = "2026-03-13"
+RISK_FREE_DAILY          = 0.04 / 252
+EPSILON                  = 1e-9
 
-# ── Rate limiting (3 free validations / IP / day) ────────────────────────────
-_validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
-FREE_DAILY_LIMIT = 3
+MIN_TRADES_STANDARD      = 50
+MIN_TRADES_STRICT        = 100
 
-def check_rate_limit(ip: str) -> tuple[bool, int]:
-    now = time.time()
-    rec = _validation_counts[ip]
-    if now > rec["reset"]:
-        rec["count"] = 0
-        rec["reset"] = now + 86400
-    if rec["count"] >= FREE_DAILY_LIMIT:
-        remaining_secs = int(rec["reset"] - now)
-        return False, remaining_secs
-    rec["count"] += 1
-    return True, FREE_DAILY_LIMIT - rec["count"]
+# Commission tiers (round-trip)
+COMMISSION_INSTITUTIONAL  = 0.0002   # 2 bps  — prime broker
+COMMISSION_RETAIL_EQUITY  = 0.0010   # 10 bps — retail equity
+COMMISSION_RETAIL_SPREAD  = 0.0020   # 20 bps — HFT / small-cap
 
-app = FastAPI(title="QuantProof API", version="2.7.0")
+# CPCV
+CPCV_N_SPLITS            = 6
+CPCV_N_TEST              = 2
+CPCV_EMBARGO_FRAC        = 0.01      # 1% of dataset as embargo gap
+# Empirically calibrated: p95 of random-walk CPCV path_std ≈ 2.05 (n=300)
+CPCV_ROBUST_THRESHOLD    = 1.5       # < this = truly robust
+CPCV_ACCEPTABLE_THRESHOLD = 2.5      # < this = acceptable
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Capacity
+ADV_DEFAULT              = 50_000_000
+IMPACT_ETA               = 0.10      # Almgren-Chriss η
 
-# ── AI Fix Plan ───────────────────────────────────────────────────────────────
-GROQ_API_KEY      = os.getenv("GROQ_API_KEY",      "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY",    "")
+# Crash caps
+CRASH_MAX_GAIN           = 0.25
+CRASH_NEG_EDGE_CAP       = 0.15
 
-async def generate_ai_plan(report, date_range: str) -> dict:
-    if not any([GROQ_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY]):
-        return None
+# F3: Hardened crash exposure model
+CRASH_EXPOSURE_MIN       = 0.25    # floor for all strategies (was 0.10)
+CRASH_EXPOSURE_MIN_NODATE= 0.40    # floor when no date column supplied
+CRASH_AUTOCORR_THRESHOLD = 0.20    # |AR(1)| above this → +30% exposure
+CRASH_AUTOCORR_MULT      = 1.30    # momentum-reversal penalty multiplier
 
-    scored = [c for c in report.checks if c.category != "Plausibility"]
-    failed = [c for c in scored if not c.passed]
-    passed = [c for c in scored if c.passed]
+# Risk thresholds
+DD_DURATION_MAX_MONTHS   = 6
+ULCER_INDEX_THRESHOLD    = 5.0
 
-    if not failed:
-        return {
-            "summary": "Your strategy passed all checks. Focus on live execution and position sizing.",
-            "fixes": [],
-            "encouragement": "Rare result — this strategy has institutional-grade statistical foundations."
-        }
-
-    failed_text = "\n".join([
-        f"- {c.name} (score {c.score}/100, category {c.category}): {c.value}. {c.insight}"
-        for c in sorted(failed, key=lambda x: x.score)
-    ])
-    passed_text = ", ".join([c.name for c in passed])
-
-    prompt = f"""You are a quantitative trading risk analyst reviewing a backtest validation report.
-
-STRATEGY STATS:
-- Fundable Score: {report.score}/100 ({report.grade})
-- Sharpe: {round(report.sharpe, 2)} | Max Drawdown: {round(report.max_drawdown * 100, 1)}% | Win Rate: {round(report.win_rate, 1)}%
-- Total Trades: {report.total_trades} | Date Range: {date_range}
-
-FAILED CHECKS ({len(failed)} failures):
-{failed_text}
-
-PASSED CHECKS:
-{passed_text}
-
-Produce a personalised fix plan in JSON format with exactly these keys:
-{{
-  "summary": "2-3 sentence plain English summary of the core problem(s) — be specific to their numbers, not generic",
-  "fixes": [
-    {{
-      "rank": 1,
-      "check": "check name",
-      "why_it_matters": "1 sentence — real-world consequence of this failure",
-      "specific_fix": "concrete actionable step — reference their actual numbers where possible",
-      "score_impact": "estimated score improvement if fixed e.g. +8 to +12 points",
-      "effort": "Low | Medium | High"
-    }}
-  ],
-  "encouragement": "1 honest sentence — what is genuinely strong about this strategy"
-}}
-
-Rules:
-- Rank fixes by score impact (highest first)
-- Reference actual values (e.g. 'your DSR of 0.71') not generic descriptions
-- If two failures share a root cause, say so explicitly
-- Be direct, not encouraging — traders respect honesty
-- Return ONLY valid JSON, no preamble or markdown"""
-
-    try:
-        import httpx, json
-
-        if GROQ_API_KEY:
-            url     = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-            body    = {"model": "llama-3.3-70b-versatile", "messages": [{"role": "user", "content": prompt}],
-                       "max_tokens": 1500, "temperature": 0.3}
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(url, headers=headers, json=body)
-            resp.raise_for_status()
-            raw = resp.json()["choices"][0]["message"]["content"].strip()
-
-        elif ANTHROPIC_API_KEY:
-            url     = "https://api.anthropic.com/v1/messages"
-            headers = {"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
-                       "content-type": "application/json"}
-            body    = {"model": "claude-sonnet-4-20250514", "max_tokens": 1500,
-                       "messages": [{"role": "user", "content": prompt}]}
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(url, headers=headers, json=body)
-            resp.raise_for_status()
-            raw = resp.json()["content"][0]["text"].strip()
-
-        elif OPENAI_API_KEY:
-            url     = "https://api.openai.com/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-            body    = {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}],
-                       "max_tokens": 1500, "temperature": 0.3}
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(url, headers=headers, json=body)
-            resp.raise_for_status()
-            raw = resp.json()["choices"][0]["message"]["content"].strip()
-
-        else:
-            return None
-
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        return json.loads(raw)
-
-    except Exception as e:
-        print(f"AI plan failed ({type(e).__name__}): {e}")
-        return None
+# ── P2: Autocorrelation thresholds ───────────────────────────────────────────
+AUTOCORR_AR1_WARN        = 0.20   # |AR(1)| above this → warn
+AUTOCORR_AR1_FAIL        = 0.30   # |AR(1)| above this → fail check
+LJUNG_BOX_LAGS           = [1, 5, 10]
+LJUNG_BOX_ALPHA          = 0.05
 
 
-# =========================================================
-# SPY REGIME HELPERS
-# =========================================================
+# ── DATACLASSES ──────────────────────────────────────────────────────────────
 
-# Monthly fallback table — used when yfinance is unavailable.
-# Based on SPY 20-day SMA trend direction at month-end.
-SPY_REGIME_LOOKUP: Dict[str, str] = {
-    "2020-01": "BULL",  "2020-02": "BEAR",  "2020-03": "BEAR",
-    "2020-04": "BULL",  "2020-05": "BULL",  "2020-06": "CONSOLIDATION",
-    "2020-07": "BULL",  "2020-08": "BULL",  "2020-09": "BEAR",
-    "2020-10": "BEAR",  "2020-11": "BULL",  "2020-12": "BULL",
-    "2021-01": "CONSOLIDATION", "2021-02": "BULL", "2021-03": "BULL",
-    "2021-04": "BULL",  "2021-05": "CONSOLIDATION", "2021-06": "BULL",
-    "2021-07": "BULL",  "2021-08": "BULL",  "2021-09": "CONSOLIDATION",
-    "2021-10": "BULL",  "2021-11": "BEAR",  "2021-12": "BULL",
-    "2022-01": "BEAR",  "2022-02": "BEAR",  "2022-03": "CONSOLIDATION",
-    "2022-04": "BEAR",  "2022-05": "BEAR",  "2022-06": "BEAR",
-    "2022-07": "BULL",  "2022-08": "BEAR",  "2022-09": "BEAR",
-    "2022-10": "BULL",  "2022-11": "BULL",  "2022-12": "BEAR",
-    "2023-01": "BULL",  "2023-02": "CONSOLIDATION", "2023-03": "BULL",
-    "2023-04": "BULL",  "2023-05": "CONSOLIDATION", "2023-06": "BULL",
-    "2023-07": "BULL",  "2023-08": "BEAR",  "2023-09": "BEAR",
-    "2023-10": "BEAR",  "2023-11": "BULL",  "2023-12": "BULL",
-    "2024-01": "BULL",  "2024-02": "BULL",  "2024-03": "BULL",
-    "2024-04": "BEAR",  "2024-05": "BULL",  "2024-06": "BULL",
-    "2024-07": "CONSOLIDATION", "2024-08": "CONSOLIDATION",
-    "2024-09": "BULL",  "2024-10": "BULL",  "2024-11": "BULL",
-    "2024-12": "BEAR",
-    "2025-01": "BULL",  "2025-02": "BULL",  "2025-03": "BEAR",
-    "2025-04": "BEAR",  "2025-05": "BULL",  "2025-06": "BULL",
-    "2025-07": "BULL",  "2025-08": "CONSOLIDATION",
-    "2025-09": "BULL",  "2025-10": "BULL",  "2025-11": "BULL",
-    "2025-12": "BULL",
-    "2026-01": "BULL",  "2026-02": "BEAR",  "2026-03": "BEAR",
-}
+@dataclass
+class AlphaDecayProfile:
+    half_life_periods: float
+    half_life_seconds: Optional[float]
+    optimal_holding: int
+    regime_dependent: bool
+    latency_sensitive: bool
+    decay_curve: List[float]
+    informational_only: bool = True
 
 
-def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
-    """
-    Assigns a 'regime' column to df using SPY 20-day SMA via yfinance.
-    Falls back to SPY monthly lookup table if yfinance is unavailable.
-    df must have a 'date' column. Returns (df_with_regime, audit_note).
-    Only called when df has dates but no regime column.
-    """
-    try:
-        import yfinance as yf
-        start = df["date"].min() - pd.Timedelta(days=30)  # extra buffer for SMA warmup
-        end   = df["date"].max() + pd.Timedelta(days=1)
-        spy   = yf.download("SPY", start=start, end=end, progress=False)["Close"]
-        spy   = spy.squeeze()  # handle MultiIndex columns from newer yfinance
-        sma20 = spy.rolling(20).mean()
-
-        def _regime(d):
-            try:
-                d_ts = pd.Timestamp(d).tz_localize(None)
-                price = float(spy.asof(d_ts))
-                sma   = float(sma20.asof(d_ts))
-                if np.isnan(price) or np.isnan(sma) or sma == 0:
-                    return "CONSOLIDATION"
-                ratio = price / sma
-                if ratio > 1.01:   return "BULL"
-                elif ratio < 0.99: return "BEAR"
-                else:              return "CONSOLIDATION"
-            except Exception:
-                return "CONSOLIDATION"
-
-        df["regime"] = df["date"].apply(_regime)
-        dist = df["regime"].value_counts().to_dict()
-        return df, f"✓ Regime auto-detected from SPY 20-day SMA — {dist}"
-
-    except Exception as e:
-        # Fallback: monthly lookup table — works for any date back to 2020
-        def _regime_fallback(d):
-            try:
-                return SPY_REGIME_LOOKUP.get(
-                    pd.Timestamp(d).strftime("%Y-%m"), "CONSOLIDATION"
-                )
-            except Exception:
-                return "CONSOLIDATION"
-
-        df["regime"] = df["date"].apply(_regime_fallback)
-        dist = df["regime"].value_counts().to_dict()
-        return df, f"⚠ Regime from monthly SPY approximation (live data unavailable) — {dist}"
+@dataclass
+class OverfitProfile:
+    score: float
+    is_overfit: bool
+    p_value: float
+    adjusted_sharpe: float
+    raw_sharpe: float
+    indicators: Dict
+    informational: str = ""
 
 
-# =========================================================
-# RESPONSE MODELS
-# =========================================================
-
-class CheckResultResponse(BaseModel):
+@dataclass
+class CheckResult:
     name: str
     passed: bool
     score: float
@@ -263,7 +237,9 @@ class CheckResultResponse(BaseModel):
     fix: str
     category: str
 
-class CrashSimResponse(BaseModel):
+
+@dataclass
+class CrashSimResult:
     crash_name: str
     year: str
     description: str
@@ -272,2107 +248,2034 @@ class CrashSimResponse(BaseModel):
     survived: bool
     emotional_verdict: str
 
-class ValidationResponse(BaseModel):
-    fundable_score: float
+
+@dataclass
+class ValidationReport:
+    score: float
     grade: str
-    summary: str
-    total_trades: int
-    profitable_trades: int
-    date_range: str
     sharpe: float
     max_drawdown: float
     win_rate: float
-    checks: List[CheckResultResponse]
-    crash_sims: List[CrashSimResponse]
-    top_issues: List[str]
-    top_strengths: List[str]
+    total_trades: int
+    profitable_trades: int
+    checks: List[CheckResult]
+    crash_sims: List[CrashSimResult]
+    assumptions: List[str]
     validation_hash: str
     validation_date: str
-    engine_version: str
     audit_flags: List[str]
     plausibility_summary: str
-    scale_warning: bool = False
-    currency: str = "USD"
-    assumptions: List[str]
-    dashboard: Optional[Dict[str, Any]] = None
-    ai_plan: Optional[Dict[str, Any]] = None
+    engine_version: str = ENGINE_VERSION
+    methodology_version: str = METHODOLOGY_DATE
+    alpha_decay: Optional[AlphaDecayProfile] = None
+    overfit_profile: Optional[OverfitProfile] = None
 
 
-# =========================================================
-# ALPACA ORDER PAIRING — position-state tracker
-# =========================================================
+# Backward-compat stub
+class ValidationDashboard:
+    def __init__(self, validator, report):
+        self.validator = validator
+        self.report = report
+    def generate_interactive_report(self):
+        return None
 
-def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
-    """
-    Converts raw Alpaca filled orders into a trades DataFrame.
 
-    Fixes vs old buy/sell stack approach:
-    - Sorts by filled_at chronologically before pairing
-    - Tracks open position lots per symbol (FIFO)
-    - Orphaned sells (no open lot) are flagged and skipped,
-      not silently mispaired with a future buy
-    - Regime auto-assigned via assign_regimes() after pairing
+# ── CRASH PROFILES ───────────────────────────────────────────────────────────
 
-    Returns (df, audit_flags).
-    """
-    audit_flags = []
+CRASH_PROFILES = {
+    "2008_gfc": {
+        "name": "2008 Global Financial Crisis",
+        "year": "Sep 2008 – Mar 2009",
+        "description": (
+            "Lehman Brothers collapsed. S&P 500 lost 56%. VIX hit 80. "
+            "Correlations spiked to 1 — everything fell together. "
+            "Leverage unwinding forced selling in all asset classes simultaneously."
+        ),
+        "market_drop": -56.0,
+        "vol_multiplier": 4.5,
+        "liquidity_factor": 0.3,
+        "gap_risk": 0.08,
+        "autocorr": 0.40,          # strong loss momentum in crises
+        "fat_tail_df": 3,           # t-dist degrees of freedom for tail modelling
+    },
+    "2020_covid": {
+        "name": "2020 COVID Crash",
+        "year": "Feb 2020 – Mar 2020",
+        "description": (
+            "Fastest 30%+ drop in market history — 34% in 33 days. "
+            "Circuit breakers triggered 4 times. "
+            "Then one of the fastest recoveries ever seen."
+        ),
+        "market_drop": -34.0,
+        "vol_multiplier": 5.0,
+        "liquidity_factor": 0.2,
+        "gap_risk": 0.12,
+        "autocorr": 0.35,
+        "fat_tail_df": 2.5,
+    },
+    "2022_bear": {
+        "name": "2022 Rate Hike Bear Market",
+        "year": "Jan 2022 – Dec 2022",
+        "description": (
+            "Fed raised rates 425bps in 12 months. "
+            "Nasdaq lost 33%, S&P lost 19%. "
+            "Momentum strategies that crushed 2021 were destroyed. "
+            "Growth stocks fell 60–90%."
+        ),
+        "market_drop": -19.4,
+        "vol_multiplier": 2.5,
+        "liquidity_factor": 0.7,
+        "gap_risk": 0.04,
+        "autocorr": 0.20,
+        "fat_tail_df": 5,
+    },
+    "2010_flash_crash": {
+        "name": "2010 Flash Crash",
+        "year": "May 6, 2010",
+        "description": (
+            "Dow dropped 1000 points in minutes from algorithmic cascade. "
+            "Liquidity vanished — many stocks traded at $0.01. "
+            "HFT strategies blown out in seconds."
+        ),
+        "market_drop": -9.0,
+        "vol_multiplier": 5.0,
+        "liquidity_factor": 0.05,
+        "gap_risk": 0.15,
+        "autocorr": 0.50,           # extreme autocorr in intraday crash
+        "fat_tail_df": 2,
+    },
+    "1998_ltcm": {
+        "name": "1998 LTCM / Russia Default",
+        "year": "Aug–Sep 1998",
+        "description": (
+            "Russia defaulted; LTCM collapsed under hidden leverage. "
+            "Correlation assumptions broke simultaneously across all pairs. "
+            "Strategies with similar factor exposures were destroyed together."
+        ),
+        "market_drop": -19.0,
+        "vol_multiplier": 3.0,
+        "liquidity_factor": 0.25,
+        "gap_risk": 0.08,
+        "autocorr": 0.30,
+        "fat_tail_df": 3,
+    },
+}
 
-    # Filter + parse filled orders
-    filled = []
-    for o in orders:
-        if o.get("status") != "filled":
-            continue
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CORE MATH — all formulas academically sourced
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calculate_sharpe(returns: np.ndarray, trades_per_year: float = 252) -> float:
+    if len(returns) < 2:
+        return 0.0
+    std  = np.std(returns, ddof=1)
+    mean = np.mean(returns)
+    if std < EPSILON:
+        # Zero variance — constant returns
+        if mean > EPSILON:  return 10.0   # effectively infinite positive Sharpe
+        if mean < -EPSILON: return -10.0  # effectively infinite negative Sharpe
+        return 0.0
+    return float(mean / std * np.sqrt(trades_per_year))
+
+
+def calculate_sharpe_ci(
+    returns: np.ndarray, trades_per_year: float = 252
+) -> Tuple[float, float, float, float]:
+    n = len(returns)
+    if n < 10:
+        s = calculate_sharpe(returns, trades_per_year)
+        return s, s - 1.0, s + 1.0, 0.5
+
+    excess = returns - RISK_FREE_DAILY
+    std_e = np.std(excess, ddof=1)
+    if std_e < EPSILON:
+        s = calculate_sharpe(returns, trades_per_year)
+        return s, s, s, 0.0
+
+    sr_d  = np.mean(excess) / std_e
+    skew  = float(stats.skew(excess))
+    kurt  = float(stats.kurtosis(excess, fisher=False))
+
+    var_sr_d = (1 + 0.5 * sr_d**2 - skew * sr_d + (kurt - 3) / 4 * sr_d**2) / n
+    se_sr_d  = max(np.sqrt(max(var_sr_d, EPSILON)), 0.001)
+
+    sharpe_ann = float(np.clip(sr_d * np.sqrt(trades_per_year), -15, 20))
+    se_ann     = se_sr_d * np.sqrt(trades_per_year)
+
+    p_val = float(2 * (1 - stats.norm.cdf(abs(sr_d / se_sr_d))))
+    return sharpe_ann, sharpe_ann - 1.96 * se_ann, sharpe_ann + 1.96 * se_ann, p_val
+
+
+def calculate_sortino(returns: np.ndarray, trades_per_year: float = 252,
+                      mar: float = 0.0) -> float:
+    if len(returns) < 2:
+        return 0.0
+    excess = returns - mar
+    downside_sq = np.minimum(excess, 0.0) ** 2
+    downside_dev = np.sqrt(np.mean(downside_sq))
+    if downside_dev < EPSILON:
+        mean_r = np.mean(returns)
+        return 5.0 if mean_r > mar else 0.0
+    return float(np.mean(returns) / downside_dev * np.sqrt(trades_per_year))
+
+
+def calculate_cvar(returns: np.ndarray, confidence: float = 0.95,
+                   seed: int = 42) -> float:
+    if len(returns) == 0:
+        return 0.0
+    alpha = 1 - confidence
+    if len(returns) < 100:
         try:
-            qty   = float(o.get("filled_qty") or 0)
-            price = float(o.get("filled_avg_price") or 0)
-            if qty <= 0 or price <= 0:
-                continue
-            side = o.get("side", "").lower()
-            if side not in ("buy", "sell"):
-                continue
-            ts_str = o.get("filled_at") or o.get("updated_at") or ""
-            ts = pd.to_datetime(ts_str, utc=True).tz_localize(None)
-            filled.append({
-                "symbol":    o.get("symbol", "UNKNOWN"),
-                "side":      side,
-                "qty":       qty,
-                "price":     price,
-                "filled_at": ts,
-            })
+            from scipy.stats import gaussian_kde
+            kde = gaussian_kde(returns)
+            samples = kde.resample(10000, seed=seed)[0]
+            var = np.percentile(samples, alpha * 100)
+            tail = samples[samples <= var]
+            return float(np.mean(tail)) if len(tail) > 0 else float(var)
         except Exception:
+            pass
+    threshold = np.percentile(returns, alpha * 100)
+    tail = returns[returns <= threshold]
+    return float(np.mean(tail)) if len(tail) > 0 else float(threshold)
+
+
+def calculate_max_drawdown(returns: np.ndarray) -> float:
+    if len(returns) == 0:
+        return 0.0
+    cumulative  = np.cumprod(1 + returns)
+    running_max = np.maximum.accumulate(cumulative)
+    drawdown    = (running_max - cumulative) / (running_max + EPSILON)
+    return float(np.max(drawdown))
+
+
+def calculate_win_rate(returns: np.ndarray) -> float:
+    if len(returns) == 0:
+        return 0.0
+    nonzero = returns[returns != 0.0]
+    if len(nonzero) == 0:
+        return 0.0
+    return float(np.mean(nonzero > 0) * 100)
+
+
+def calculate_calmar(returns: np.ndarray, trades_per_year: float = 252) -> float:
+    if len(returns) == 0:
+        return 0.0
+    total_return = float(np.prod(1 + returns))
+    years        = len(returns) / trades_per_year
+    cagr         = total_return ** (1 / max(years, EPSILON)) - 1
+    dd           = abs(calculate_max_drawdown(returns))
+    if dd < EPSILON:
+        return 10.0 if cagr > 0 else 0.0
+    return float(cagr / dd)
+
+
+def calculate_ruin_probability(win_rate: float, avg_win: float,
+                                avg_loss: float, capital_units: int = 10) -> float:
+    if win_rate <= 0 or avg_loss < EPSILON:
+        return 1.0
+    if win_rate >= 1.0:
+        return 0.0
+    edge = win_rate * avg_win - (1.0 - win_rate) * avg_loss
+    if edge <= 0:
+        return 1.0
+    p = float(win_rate)
+    q = 1.0 - p
+    if p <= 0.5:
+        return 1.0
+    ruin = (q / p) ** capital_units
+    return float(np.clip(ruin, 0.0, 1.0))
+
+
+def calculate_deflated_sharpe(
+    returns: np.ndarray,
+    sharpe_ann: float,
+    n_trials: int = 1,
+    trades_per_year: float = 252
+) -> dict:
+    n = len(returns)
+    if n < 10:
+        return {
+            'dsr': 0.5, 'sr_benchmark': 0.0, 'is_significant': False,
+            'n_trials': n_trials, 'note': 'Insufficient data'
+        }
+
+    skew    = float(stats.skew(returns))
+    kurt    = float(stats.kurtosis(returns, fisher=False))
+
+    sr_d    = np.mean(returns) / (np.std(returns, ddof=1) + EPSILON)
+
+    var_sr_d = (1 + 0.5 * sr_d**2 - skew * sr_d + (kurt - 3) / 4 * sr_d**2) / n
+    se_sr_d  = max(np.sqrt(max(var_sr_d, EPSILON)), 1e-4)
+
+    se_sr_ann = se_sr_d * np.sqrt(trades_per_year)
+    se_sr_ann = max(se_sr_ann, 0.01)
+
+    if n_trials > 1:
+        gamma_em     = 0.5772156649
+        sr_benchmark = (
+            (1 - gamma_em) * stats.norm.ppf(1 - 1.0 / n_trials)
+            + gamma_em     * stats.norm.ppf(1 - 1.0 / (n_trials * np.e))
+        ) * se_sr_ann
+    else:
+        sr_benchmark = 0.0
+    sr_benchmark = max(sr_benchmark, 0.0)
+
+    dsr      = float(stats.norm.cdf((sharpe_ann - sr_benchmark) / se_sr_ann))
+    sr_min95 = sr_benchmark + 1.645 * se_sr_ann
+
+    return {
+        'dsr':           round(dsr, 4),
+        'sr_benchmark':  round(sr_benchmark, 4),
+        'sr_min_95':     round(sr_min95, 4),
+        'se_sr':         round(se_sr_ann, 4),
+        'is_significant': dsr > 0.95,
+        'n_trials':      n_trials,
+        'skew':          round(skew, 3),
+        'excess_kurt':   round(kurt - 3, 3),
+    }
+
+
+def calculate_drawdown_duration(
+    returns: np.ndarray,
+    has_dates: bool = False,
+    dates=None
+) -> dict:
+    if len(returns) == 0:
+        return {'max_dd_duration': 0, 'recovery_periods': None, 'ever_recovered': False,
+                'dd_duration_days': None, 'recovery_days': None}
+
+    equity      = np.cumprod(1 + returns)
+    running_max = np.maximum.accumulate(equity)
+    underwater  = equity < running_max
+
+    max_duration = current = 0
+    for u in underwater:
+        if u:
+            current      += 1
+            max_duration  = max(max_duration, current)
+        else:
+            current = 0
+
+    dd_series          = (running_max - equity) / (running_max + EPSILON)
+    peak_dd_idx        = int(np.argmax(dd_series))
+    peak_equity_before = running_max[peak_dd_idx]
+
+    recovery_periods = None
+    ever_recovered   = False
+    for i in range(peak_dd_idx + 1, len(equity)):
+        if equity[i] >= peak_equity_before:
+            recovery_periods = i - peak_dd_idx
+            ever_recovered   = True
+            break
+
+    dd_duration_days = recovery_days = None
+    if has_dates and dates is not None and len(dates) > 1:
+        try:
+            total_days = (dates.iloc[-1] - dates.iloc[0]).days
+            ppd = len(returns) / max(total_days, 1)
+            if max_duration > 0:
+                dd_duration_days = round(max_duration / ppd)
+            if recovery_periods is not None:
+                recovery_days = round(recovery_periods / ppd)
+        except Exception:
+            pass
+
+    return {
+        'max_dd_duration':  max_duration,
+        'recovery_periods': recovery_periods,
+        'ever_recovered':   ever_recovered,
+        'dd_duration_days': dd_duration_days,
+        'recovery_days':    recovery_days,
+    }
+
+
+def calculate_ulcer_index(returns: np.ndarray) -> float:
+    if len(returns) == 0:
+        return 0.0
+    equity      = np.cumprod(1 + returns)
+    running_max = np.maximum.accumulate(equity)
+    dd_pct      = (running_max - equity) / (running_max + EPSILON) * 100
+    return float(np.sqrt(np.mean(dd_pct ** 2)))
+
+
+def calculate_harvey_liu_zhu_min_obs(
+    sharpe_target: float,
+    n_trials: int = 1,
+    alpha: float = 0.05
+) -> int:
+    if sharpe_target <= 0:
+        return 9999
+    alpha_adj       = alpha / max(n_trials, 1)
+    z               = stats.norm.ppf(1 - alpha_adj / 2)
+    variance_factor = 1 + 0.5 * sharpe_target ** 2
+    min_n           = int(np.ceil(z**2 * variance_factor / sharpe_target**2))
+    return max(min_n, 30)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# P2: AUTOCORRELATION HELPERS (Ljung-Box + Newey-West corrected SE)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _ljung_box_test(returns: np.ndarray, lags: List[int]) -> dict:
+    """
+    Compute Ljung-Box Q-statistic at specified lags.
+    Returns dict of {lag: (Q_stat, p_value)}.
+    Reference: Ljung & Box (1978), Biometrika 65(2):297-303.
+    """
+    n = len(returns)
+    results = {}
+    for lag in lags:
+        if lag >= n:
             continue
+        # Autocorrelations at lags 1..lag
+        acf_vals = []
+        for k in range(1, lag + 1):
+            r_lag = np.corrcoef(returns[:-k], returns[k:])[0, 1]
+            acf_vals.append(0.0 if np.isnan(r_lag) else r_lag)
+        # Q = n*(n+2) * sum( rho_k^2 / (n-k) )
+        q_stat = float(n * (n + 2) * sum(
+            rk**2 / max(n - k, 1)
+            for k, rk in enumerate(acf_vals, start=1)
+        ))
+        p_val = float(1 - stats.chi2.cdf(q_stat, df=lag))
+        results[lag] = (round(q_stat, 4), round(p_val, 4))
+    return results
 
-    if not filled:
-        return pd.DataFrame(), ["No filled orders found"]
 
-    # Sort chronologically — critical fix
-    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
+def _newey_west_se_sharpe(returns: np.ndarray, trades_per_year: float,
+                           max_lag: int = 10) -> float:
+    """
+    Newey-West HAC standard error for the annualised Sharpe ratio.
+    Accounts for serial correlation in returns — critical when AR(1) is
+    large (≥0.20) because the IID variance formula underestimates SE.
 
-    # Position-state tracker: symbol → FIFO list of open lots
-    lots          = defaultdict(list)   # sym → [{"price", "qty", "entry_date"}, ...]
-    completed     = []
-    orphan_sells  = []
+    Reference: Newey & West (1987), Econometrica 55(3):703-708.
+              Lo (2002) — Sharpe ratio under serial correlation.
+    """
+    n = len(returns)
+    if n < 20:
+        return float(np.sqrt(1.0 / n) * np.sqrt(trades_per_year))
 
-    for _, row in df_orders.iterrows():
-        sym   = row["symbol"]
-        side  = row["side"]
-        qty   = row["qty"]
-        price = row["price"]
-        ts    = row["filled_at"]
+    mean_r = np.mean(returns)
+    std_r  = np.std(returns, ddof=1)
+    if std_r < EPSILON:
+        return 0.0
 
-        if side == "buy":
-            lots[sym].append({"price": price, "qty": qty, "entry_date": ts})
+    # Demeaned, standardised returns
+    z = (returns - mean_r) / std_r
 
-        elif side == "sell":
-            if not lots[sym]:
-                # Sell with no open lot = position opened before history window
-                orphan_sells.append(
-                    f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(no matching buy in history — position predates window)"
+    # HAC variance of z using Bartlett kernel
+    gamma0 = float(np.mean(z ** 2))
+    hac_var = gamma0
+    for k in range(1, min(max_lag + 1, n)):
+        bartlett_w = 1.0 - k / (max_lag + 1)
+        gamma_k    = float(np.mean(z[k:] * z[:-k]))
+        hac_var   += 2.0 * bartlett_w * gamma_k
+
+    hac_var = max(hac_var, EPSILON)
+    # SE of daily SR = sqrt(HAC_var / n); annualise by sqrt(tpy)
+    se_ann = float(np.sqrt(hac_var / n) * np.sqrt(trades_per_year))
+    return max(se_ann, 0.01)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ALPHA DECAY ANALYSIS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _analyze_alpha_decay(
+    returns: np.ndarray,
+    timestamps=None,
+    max_lags: int = 40
+) -> 'AlphaDecayProfile':
+    n         = len(returns)
+    autocorrs = []
+    for lag in range(1, min(max_lags, n // 4)):
+        if lag < n:
+            c = np.corrcoef(returns[:-lag], returns[lag:])[0, 1]
+            autocorrs.append(0.0 if np.isnan(c) else float(c))
+    autocorrs = np.array(autocorrs) if autocorrs else np.array([0.0])
+    lags      = np.arange(1, len(autocorrs) + 1)
+
+    def exp_decay(t, rho0, lam):
+        return rho0 * np.exp(-lam * t)
+
+    half_life = float('inf')
+    rho0_est  = autocorrs[0] if len(autocorrs) > 0 else 0.0
+    if abs(rho0_est) > 0.10 and len(autocorrs) > 5:
+        try:
+            popt, _ = curve_fit(
+                exp_decay, lags, autocorrs,
+                p0=[rho0_est, 0.1],
+                bounds=([-1, 0.001], [1, 5]), maxfev=5000
+            )
+            rho0_fit, lam_fit = popt
+            if lam_fit > 0:
+                half_life = np.log(2) / lam_fit
+        except Exception:
+            pass
+
+    hl_periods   = half_life if half_life != float('inf') else 999.0
+    optimal_hold = max(1, int(hl_periods))
+
+    hl_seconds        = None
+    latency_sensitive = False
+    if timestamps is not None and len(timestamps) > 1:
+        try:
+            intervals       = np.diff(timestamps).astype('timedelta64[s]').astype(float)
+            median_interval = float(np.median(intervals))
+            if median_interval > 0 and hl_periods < 999:
+                hl_seconds        = hl_periods * median_interval
+                latency_sensitive = hl_seconds < 60
+        except Exception:
+            pass
+
+    regime_dependent = False
+    vol_series = pd.Series(returns).rolling(20).std().values
+    if np.sum(~np.isnan(vol_series)) > 50:
+        high_mask = vol_series > np.nanpercentile(vol_series, 75)
+        low_mask  = vol_series < np.nanpercentile(vol_series, 25)
+        h_rets    = returns[np.where(high_mask)[0]]
+        l_rets    = returns[np.where(low_mask)[0]]
+        if len(h_rets) > 20 and len(l_rets) > 20:
+            hac = np.corrcoef(h_rets[:-1], h_rets[1:])[0, 1]
+            lac = np.corrcoef(l_rets[:-1], l_rets[1:])[0, 1]
+            regime_dependent = abs(hac - lac) > 0.15
+
+    return AlphaDecayProfile(
+        half_life_periods=round(hl_periods, 2),
+        half_life_seconds=hl_seconds,
+        optimal_holding=optimal_hold,
+        regime_dependent=regime_dependent,
+        latency_sensitive=latency_sensitive,
+        decay_curve=autocorrs[:20].tolist(),
+        informational_only=not latency_sensitive,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# OVERFIT DETECTOR
+# ══════════════════════════════════════════════════════════════════════════════
+
+class _OverfitDetector:
+    def __init__(self, returns: np.ndarray, timestamps=None):
+        self.returns    = returns
+        self.n          = len(returns)
+        self.timestamps = timestamps
+        _seed           = int(abs(hash(self.returns.tobytes())) % (2**32))
+        self._rng       = np.random.default_rng(_seed)
+
+    def _noise_baselines(self, n: int = 50) -> List[np.ndarray]:
+        vol = np.std(self.returns, ddof=1)
+        b   = []
+        for _ in range(n // 4):
+            b.append(self._rng.normal(0, vol, self.n))
+        for _ in range(n // 4):
+            x = self._rng.normal(0, vol, self.n)
+            b.append(np.convolve(x, np.ones(3) / 3, 'same') * 0.5 + x * 0.5)
+        for _ in range(n // 4):
+            x = self._rng.normal(0, vol, self.n)
+            b.append(-np.diff(x, prepend=x[0]) * 0.3 + x * 0.7)
+        for _ in range(n // 4):
+            rs  = max(10, self.n // 50)
+            reg = np.repeat(self._rng.choice([-1, 1], rs),
+                            (self.n + rs - 1) // rs)[:self.n]
+            b.append(self._rng.normal(0, vol, self.n) * (1 + reg * 0.5))
+        return b
+
+    def _metrics(self, r: np.ndarray) -> dict:
+        cum   = np.cumprod(1 + r)
+        d1    = np.diff(cum)
+        d2    = np.diff(d1) if len(d1) > 1 else np.array([0.0])
+        hist, _ = np.histogram(r, bins=20, density=True)
+        return {
+            'smoothness': float(np.var(d2) / (np.var(d1) + EPSILON)),
+            'entropy':    float(stats.entropy(hist + EPSILON)),
+            'kurtosis':   float(stats.kurtosis(r, fisher=False)),
+        }
+
+    def detect(self) -> 'OverfitProfile':
+        baselines = self._noise_baselines(50)
+        strat_m   = self._metrics(self.returns)
+        base_m    = [self._metrics(b) for b in baselines]
+
+        z = {}
+        for key in strat_m:
+            vals   = [m[key] for m in base_m]
+            z[key] = (strat_m[key] - np.mean(vals)) / (np.std(vals) + EPSILON)
+
+        indicators = {
+            'too_smooth':  z.get('smoothness', 0) < -2.5,
+            'low_entropy': z.get('entropy', 0) < -2.5,
+        }
+
+        t = np.arange(self.n)
+        X = np.column_stack([
+            t, t**2,
+            pd.Series(self.returns).rolling(5).mean().fillna(0).values,
+            np.concatenate([[0], self.returns[:-1]])
+        ])
+        poly  = PolynomialFeatures(degree=2, include_bias=False)
+        Xp    = poly.fit_transform(X)
+        model = Ridge(alpha=1.0)
+        model.fit(Xp, self.returns)
+        r2    = r2_score(self.returns, model.predict(Xp))
+        comp  = Xp.shape[1]
+
+        base_r2s = []
+        for b in baselines[:20]:
+            Xb = poly.transform(np.column_stack([
+                t, t**2,
+                pd.Series(b).rolling(5).mean().fillna(0).values,
+                np.concatenate([[0], b[:-1]])
+            ]))
+            m2 = Ridge(alpha=1.0)
+            m2.fit(Xb, b)
+            base_r2s.append(r2_score(b, m2.predict(Xb)))
+
+        indicators['complex_overfit'] = r2 > np.percentile(base_r2s, 92)
+
+        overfit_score = max(0, 100 - sum(indicators.values()) * 25)
+
+        raw_sharpe  = float(np.mean(self.returns) / (np.std(self.returns, ddof=1) + EPSILON))
+        adj_sharpe  = raw_sharpe * (1 - 0.005 * comp)
+        base_sharpes = [
+            np.mean(b) / (np.std(b, ddof=1) + EPSILON) for b in baselines
+        ]
+        p_value = float(np.mean(np.array(base_sharpes) > adj_sharpe))
+
+        is_overfit = (overfit_score < 60) and (p_value > 0.10)
+
+        info = ""
+        if is_overfit:
+            active = [k for k, v in indicators.items() if v]
+            info   = "Overfit flags: " + ", ".join(active)
+
+        return OverfitProfile(
+            score=overfit_score, is_overfit=is_overfit, p_value=p_value,
+            adjusted_sharpe=adj_sharpe, raw_sharpe=raw_sharpe,
+            indicators=indicators, informational=info
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VALIDATOR
+# ══════════════════════════════════════════════════════════════════════════════
+
+class QuantProofValidator:
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        strict_mode: bool = False,
+        seed: int = 42,
+        n_trials: int = 1,
+        benchmark_returns: Optional[np.ndarray] = None,
+    ):
+        self.strict_mode = strict_mode
+        self.seed        = seed
+        self.n_trials    = max(1, int(n_trials))
+        self.rng         = np.random.default_rng(seed)
+        self.df          = self._clean(df)
+        self.trades_per_year, self.timeframe_info = self._detect_timeframe()
+        self.has_dates   = 'date' in self.df.columns
+        self.returns     = self._get_returns()
+
+        # F1: store benchmark; validate length if supplied
+        if benchmark_returns is not None:
+            bm = np.asarray(benchmark_returns, dtype=float)
+            if len(bm) != len(self.returns):
+                raise ValueError(
+                    f"benchmark_returns length ({len(bm)}) must match "
+                    f"strategy returns length ({len(self.returns)})."
                 )
-                continue
+            self.benchmark_returns: Optional[np.ndarray] = bm
+        else:
+            self.benchmark_returns = None
 
-            remaining = qty
-            while remaining > 0 and lots[sym]:
-                lot       = lots[sym][0]
-                close_qty = min(remaining, lot["qty"])
-                pnl_pct   = (price - lot["price"]) / lot["price"]
-                completed.append({
-                    "pnl":        pnl_pct,
-                    "date":       ts,
-                    "entry_date": lot["entry_date"],
-                    "ticker":     sym,
-                    "buy_price":  lot["price"],
-                    "sell_price": price,
-                    "qty":        close_qty,
-                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                })
-                lot["qty"]  -= close_qty
-                remaining   -= close_qty
-                if lot["qty"] == 0:
-                    lots[sym].pop(0)
+        # Detect likely scale error (user submitted % not decimal)
+        clipped_pct = float(np.mean(np.abs(self.returns) >= 0.499))
+        self._scale_warning = clipped_pct > 0.50
 
-    # Build audit flags
-    if orphan_sells:
-        audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy in history window "
-            f"(position opened before history) — excluded from analysis"
-        )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
+        n = len(self.returns)
+        min_required = MIN_TRADES_STRICT if strict_mode else MIN_TRADES_STANDARD
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
-        audit_flags.append(
-            f"ℹ {len(open_positions)} open position(s) not included "
-            f"(no closing trade yet): {sym_list}"
-        )
+        if n < 10:
+            raise ValueError(f"Insufficient data: {n} trades. Minimum 10 trades required.")
+        self._low_sample_warning = n < min_required
+        self._n_trades           = n
 
-    if not completed:
-        return pd.DataFrame(), audit_flags + [
-            "No completed round-trip trades found. "
-            "All positions may still be open, or all sells predate the history window."
+        if strict_mode:
+            self._validate_strict_requirements()
+
+    def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+        date_cols = [c for c in df.columns if any(x in c for x in ["date", "time", "dt"])]
+        pnl_cols  = [c for c in df.columns if any(x in c for x in ["pnl", "profit", "return", "gain", "pl"])]
+        if date_cols:
+            df = df.rename(columns={date_cols[0]: "date"})
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        if pnl_cols:
+            df = df.rename(columns={pnl_cols[0]: "pnl"})
+            df["pnl"] = pd.to_numeric(df["pnl"], errors="coerce")
+        return df.dropna(subset=["pnl"])
+
+    def _detect_timeframe(self) -> Tuple[float, str]:
+        if 'date' not in self.df.columns:
+            return 252.0, "No timestamp data — using daily (252/yr) metrics"
+        delta = self.df['date'].max() - self.df['date'].min()
+        time_span_years = delta.total_seconds() / (365.25 * 24 * 3600)
+        if time_span_years < EPSILON:
+            return 252.0, "Insufficient time span — default annualization"
+        trades_per_year = len(self.df) / time_span_years
+        if time_span_years < 0.25:
+            desc = (f"Short backtest ({time_span_years*12:.1f} months) — Sharpe may be inflated ({trades_per_year:.0f} trades/yr)")
+        elif trades_per_year > 10_000:
+            desc = f"High-frequency ({trades_per_year:.0f} trades/yr)"
+        elif trades_per_year > 1_000:
+            desc = f"Intraday ({trades_per_year:.0f} trades/yr)"
+        elif trades_per_year > 250:
+            desc = f"Active trading ({trades_per_year:.0f} trades/yr)"
+        else:
+            desc = f"Position trading ({trades_per_year:.0f} trades/yr)"
+        return trades_per_year, desc
+
+    def _validate_strict_requirements(self):
+        if 'date' in self.df.columns:
+            span = (self.df['date'].max() - self.df['date'].min()).days / 365.25
+            if span < 0.5:
+                raise ValueError(f"Strict mode requires 6 months minimum (got {span*12:.1f} months)")
+        if len(self.returns) < MIN_TRADES_STRICT:
+            raise ValueError(f"Strict mode requires {MIN_TRADES_STRICT}+ trades (got {len(self.returns)})")
+
+    def _get_returns(self) -> np.ndarray:
+        r = self.df["pnl"].values.astype(float)
+        max_abs = np.abs(r).max()
+        if max_abs > 1.0:
+            raise ValueError(f"Returns appear to be dollar amounts (max |r|={max_abs:.2f}).")
+        return r
+
+    def _generate_validation_hash(self) -> str:
+        try:
+            src_hash = hashlib.sha256(open(__file__).read().encode()).hexdigest()[:8]
+        except Exception:
+            src_hash = "unknown"
+        hash_data = {
+            'returns': np.round(self.returns, 8).tolist(),
+            'timeframe': self.timeframe_info,
+            'trades_per_year': float(self.trades_per_year),
+            'engine_version': ENGINE_VERSION,
+            'source_fingerprint': src_hash,
+            'seed': self.seed,
+            'n_trials': self.n_trials,
+        }
+        return hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:12]
+
+    def _get_assumptions(self) -> List[str]:
+        base = [
+            "Assumes full capital deployed per trade",
+            "Assumes trades are sequential and non-overlapping",
+            "Assumes fractional returns (not dollar P&L)",
+            f"Engine {ENGINE_VERSION} — methodology date {METHODOLOGY_DATE}",
+        ]
+        if self._low_sample_warning:
+            base += [f"⚠ Low sample: {self._n_trades} trades"]
+        return base
+
+    def _generate_audit_flags(self) -> List[str]:
+        return [
+            f"⚠ {c.name}: {c.insight}"
+            for c in self.checks
+            if c.category == "Plausibility" and not c.passed and "Manual Audit Required" in c.value
         ]
 
-    df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
-
-    # Auto-assign regime from SPY
-    df, regime_note = assign_regimes(df)
-    audit_flags.append(regime_note)
-
-    return df, audit_flags
-
-
-# =========================================================
-# CSV PARSER
-# =========================================================
-
-def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
-    """
-    Parses CSV into a trades DataFrame.
-    Returns (df, regime_note) where regime_note is empty string if
-    regime was already in the CSV or dates were absent.
-
-    New in v1.4: if CSV has dates but no regime column, auto-assigns
-    regime via assign_regimes() (yfinance SPY → monthly fallback).
-    """
-    raw = contents.decode("utf-8", errors="ignore")
-    regime_note = ""
-
-    # Auto-detect Kite TradeBook and route correctly
-    # (handles case where user uploads Kite file to generic CSV endpoint)
-    try:
-        _kite_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-        if _is_kite_csv(_kite_probe):
-            _kt_df, _kt_note, _kt_flags = _parse_kite_csv(raw)
-            if len(_kt_df) > 0:
-                if "date" in _kt_df.columns and _kt_df["date"].notna().any():
-                    _kt_df, _regime_note = assign_regimes(_kt_df)
-                    _kt_note += (" | " + _regime_note if _regime_note else "")
-                if _kt_flags:
-                    _kt_note += " | " + " | ".join(_kt_flags[:2])
-                return _kt_df, _kt_note
-    except Exception:
-        pass  # not Kite, fall through to generic parse
-
-    # Primary parse — look for known pnl column names
-    try:
-        df = pd.read_csv(io.StringIO(raw))
-        pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l", "net", "alpha"]
-        for col in df.columns:
-            if any(p in col.lower() for p in pnl_names):
-                vals = pd.to_numeric(df[col], errors="coerce").dropna()
-                if len(vals) >= 5:
-                    if vals.abs().mean() > 1.0:
-                        # Returns submitted as percentages (e.g. 2.85) — convert to decimal
-                        vals = vals / 100.0
-                    vals = vals.clip(-0.50, 0.50)
-                    result = pd.DataFrame({"pnl": vals.values})
-
-                    date_cols = [c for c in df.columns
-                                 if any(x in c.lower() for x in ["date", "time", "dt"])]
-                    if date_cols:
-                        result["date"] = pd.to_datetime(
-                            df[date_cols[0]].values[:len(vals)], errors="coerce"
-                        )
-
-                    vol_cols = [c for c in df.columns
-                                if "volume" in c.lower() or "vol" == c.lower()]
-                    if vol_cols:
-                        result["volume"] = pd.to_numeric(
-                            df[vol_cols[0]], errors="coerce"
-                        ).values[:len(vals)]
-
-                    reg_cols = [c for c in df.columns if "regime" in c.lower()]
-                    if reg_cols:
-                        result["regime"] = df[reg_cols[0]].values[:len(vals)]
-                    elif "date" in result.columns and result["date"].notna().any():
-                        # Dates present, no regime → auto-detect from SPY
-                        result, regime_note = assign_regimes(result)
-
-                    return result, regime_note
-    except Exception:
-        pass
-
-    # Fallback — flexible parse
-    try:
-        lines = [l.strip() for l in raw.split("\n") if l.strip()]
-        max_cols = max(len(l.split(",")) for l in lines[1:] if l)
-        df = pd.read_csv(
-            io.StringIO(raw),
-            names=[f"col_{i}" for i in range(max_cols)],
-            skiprows=1,
-            on_bad_lines="skip",
-            engine="python"
-        )
-        for col in df.columns:
-            vals = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
-                if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
-                vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"pnl": vals.values}), ""
-        for col in df.columns:
-            vals = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(vals) >= 5 and vals.std() > 0:
-                if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
-                vals = vals.clip(-0.50, 0.50)
-                return pd.DataFrame({"pnl": vals.values}), ""
-    except Exception as e:
-        raise ValueError(f"Could not parse CSV: {str(e)}")
-
-    raise ValueError("No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column.")
-
-
-# =========================================================
-# ROUTES
-# =========================================================
-
-@app.get("/")
-def root():
-    return {
-        "status": "QuantProof API is live",
-        "version": "2.7.0",
-        "checks": "40 institutional checks + 5 crash simulations",
-        "new_in_v1.4": [
-            "Information Ratio (vs Benchmark) — detects beta-capture disguised as alpha",
-            "Beta Exposure (vs Benchmark) — flags high market correlation",
-            "Crash exposure model hardened: higher floor, AR(1) penalty, [UNCALIBRATED] labels",
-            "Regime auto-detection via SPY 20-day SMA (yfinance) for CSV + Alpaca paths",
-            "Alpaca: position-state tracker replaces broken buy/sell stack pairing",
-        ],
-        "new_in_v1.3": ["CVaR/Expected Shortfall", "Fractional Kelly + Ruin Probability",
-                        "Market Impact (Almgren-Chriss)", "Deflated Sharpe",
-                        "Purged Walk-Forward CV", "HMM Regime Detection",
-                        "Capacity Analysis", "Interactive Dashboard API"]
-    }
-
-@app.post("/validate", response_model=ValidationResponse)
-async def validate(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
-    if request:
-        ip = request.client.host if request.client else "unknown"
-        allowed, remaining = check_rate_limit(ip)
-        if not allowed:
-            hours_left = remaining // 3600
-            raise HTTPException(
-                status_code=429,
-                detail={"error": "rate_limit",
-                        "message": f"Free limit of {FREE_DAILY_LIMIT} validations/day reached. Resets in ~{hours_left}h.",
-                        "hours_left": hours_left}
-            )
-
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Please upload a CSV file")
-
-    contents = await file.read()
-
-    try:
-        df, regime_note = smart_parse_csv(contents)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    if len(df) < 5:
-        raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 5.")
-
-    try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report = validator.run()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
-
-    r = report
-    scored_checks = [c for c in r.checks if c.category != "Plausibility"]
-    top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
-    top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
-
-    date_range = "No date data"
-    if "date" in validator.df.columns:
-        try:
-            date_range = f"{validator.df['date'].min().date()} to {validator.df['date'].max().date()}"
-        except Exception:
-            pass
-
-    check_count = len(scored_checks)
-    summary = (
-        f"QuantProof analyzed {r.total_trades} trades across {check_count} institutional checks "
-        f"+ 5 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
-        f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
-    )
-
-    detected_currency = (currency or "USD").upper()
-    if detected_currency == "USD" and "currency" in df.columns:
-        currencies = df["currency"].dropna().unique()
-        if len(currencies) == 1:
-            detected_currency = str(currencies[0]).upper()
-        elif len(currencies) > 1:
-            detected_currency = "MULTI"
-
-    try:
-        dashboard_obj  = ValidationDashboard(validator, report)
-        dashboard_data = dashboard_obj.generate_interactive_report()
-    except Exception:
-        dashboard_data = None
-
-    visible_checks = [c for c in r.checks if c.category != "Plausibility"]
-
-    extra_flags = [regime_note] if regime_note else []
-
-    _vr_cache = {
-        "fundable_score": r.score,
-        "grade":          r.grade,
-        "sharpe":         round(r.sharpe, 2),
-        "max_drawdown":   round(r.max_drawdown, 4),
-        "win_rate":       round(r.win_rate, 1),
-        "total_trades":   r.total_trades,
-        "date_range":     date_range,
-        "is_verified":    False,
-        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
-                    "value":c.value,"insight":c.insight,"fix":c.fix,
-                    "category":c.category} for c in r.checks],
-        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
-                        "strategy_drop":s.strategy_drop,"survived":s.survived,
-                        "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
-        "top_issues":    top_issues,
-        "top_strengths": top_strengths,
-    }
-    _cache_validation(r.validation_hash, _vr_cache)
-
-    return ValidationResponse(
-        fundable_score=r.score,
-        grade=r.grade,
-        summary=summary,
-        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
-        total_trades=r.total_trades,
-        profitable_trades=r.profitable_trades,
-        date_range=date_range,
-        sharpe=round(r.sharpe, 2),
-        max_drawdown=round(r.max_drawdown, 4),
-        win_rate=round(r.win_rate, 1),
-        top_issues=top_issues,
-        top_strengths=top_strengths,
-        validation_hash=r.validation_hash,
-        validation_date=r.validation_date,
-        engine_version=r.engine_version,
-        audit_flags=r.audit_flags + extra_flags,
-        plausibility_summary=r.plausibility_summary,
-        scale_warning=getattr(r, '_scale_warning', False),
-        currency=detected_currency,
-        assumptions=r.assumptions,
-        dashboard=dashboard_data,
-        ai_plan=None,
-    )
-
-@app.get("/sample-csv")
-def sample_csv():
-    return {
-        "format": "CSV with these columns",
-        "required": ["pnl (profit/loss per trade as decimal, e.g. 0.015 = 1.5%)"],
-        "optional": ["date", "ticker", "side (long/short)", "regime (BULL/BEAR/CONSOLIDATION/TRANSITION)", "volume"],
-        "example_row": {
-            "date": "2024-01-15",
-            "ticker": "AAPL",
-            "pnl": 0.0145,
-            "side": "long",
-            "regime": "BULL"
-        },
-        "note": "If you include dates but no regime column, regime is auto-detected from SPY 20-day SMA. Add regime column to override."
-    }
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "version": "2.7.0"}
-
-
-@app.get("/ping")
-def ping():
-    """
-    Keep-alive endpoint.
-    Hit this every 10 minutes via an external cron (cron-job.org, UptimeRobot, etc.)
-    to prevent Render free tier from spinning down.
-    URL to monitor: https://quantproof-backend.onrender.com/ping
-    """
-    return {"status": "alive", "version": "2.7.0"}
-
-
-
-# =========================================================
-# ALPACA BROKER INTEGRATION — VERIFIED VALIDATION
-# =========================================================
-
-class AlpacaConnectRequest(BaseModel):
-    api_key:    str
-    secret_key: str
-    mode:       str = "paper"
-
-def _scrub_keys(d: dict) -> dict:
-    sensitive = {"api_key", "secret_key", "key", "secret", "token", "password", "auth"}
-    return {k: "[REDACTED]" if k.lower() in sensitive else v for k, v in d.items()}
-
-@app.post("/validate/alpaca", response_model=ValidationResponse)
-async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None):
-    BROKER_DAILY_LIMIT = 3
-    if request:
-        ip = request.client.host if request.client else "unknown"
-        key_hash = "broker:" + hashlib.sha256(f"broker:{ip}".encode()).hexdigest()[:16]
-        rec = _validation_counts[key_hash]
-        now = time.time()
-        if rec.get("reset", 0) == 0 or now > rec["reset"]:
-            rec["count"] = 0
-            rec["reset"] = now + 86400
-        if rec["count"] >= BROKER_DAILY_LIMIT:
-            hours_left = int((rec["reset"] - now) / 3600)
-            raise HTTPException(
-                status_code=429,
-                detail={"error": "rate_limit",
-                        "message": f"Free limit of {BROKER_DAILY_LIMIT} Alpaca verifications/day reached. Resets in ~{hours_left}h.",
-                        "hours_left": hours_left}
-            )
-        rec["count"] += 1
-
-    api_key    = payload.api_key.strip()
-    secret_key = payload.secret_key.strip()
-    if not api_key or not secret_key:
-        raise HTTPException(400, "API key and secret key are required.")
-    if len(api_key) < 10 or len(secret_key) < 10:
-        raise HTTPException(400, "Invalid key format — keys are too short.")
-
-    is_paper = payload.mode == "paper"
-    base_url = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
-
-    try:
-        import httpx
-
-        headers = {
-            "APCA-API-KEY-ID":     api_key,
-            "APCA-API-SECRET-KEY": secret_key,
-            "accept":              "application/json"
-        }
-
-        async with httpx.AsyncClient(timeout=20) as client:
-            acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
-            if acct_resp.status_code == 401:
-                raise HTTPException(401, "Invalid Alpaca credentials. Please check your API key and secret.")
-            if acct_resp.status_code == 403:
-                raise HTTPException(403, "Alpaca API access denied. Make sure your keys have read permissions.")
-            if not acct_resp.is_success:
-                raise HTTPException(400, f"Alpaca connection failed (status {acct_resp.status_code}).")
-            try:
-                acct_currency = str(acct_resp.json().get("currency", "USD")).upper()
-            except Exception:
-                acct_currency = "USD"
-
-            orders_resp = await client.get(
-                f"{base_url}/v2/orders",
-                headers=headers,
-                params={"status": "closed", "limit": 500, "direction": "desc"}
-            )
-            if not orders_resp.is_success:
-                raise HTTPException(400, "Could not fetch order history from Alpaca.")
-            orders = orders_resp.json()
-
-        # Discard credentials immediately
-        api_key = secret_key = "[DISCARDED]"
-        headers = {}
-        try:
-            payload.api_key = payload.secret_key = "[DISCARDED]"
-        except Exception:
-            pass
-
-        if not orders or len(orders) < 5:
-            raise HTTPException(400, {
-                "error": "insufficient_trades",
-                "trades_found": len(orders) if orders else 0,
-                "trades_needed": 5,
-                "message": f"Only {len(orders) if orders else 0} orders found. Connect your Alpaca account and make sure you have at least 5 completed round-trip trades (a buy AND a sell for the same stock)."
-            })
-
-        # ── Position-state pairing + regime auto-detection ────────────────────
-        df, parse_flags = pair_alpaca_orders(orders)
-
-        if len(df) < 5:
-            raise HTTPException(400, {
-                "error": "insufficient_trades",
-                "trades_found": len(df),
-                "trades_needed": 5,
-                "message": (
-                    f"Only {len(df)} completed round-trip trades found. "
-                    "QuantProof needs at least 5 closed trades to run. "
-                    "Keep trading and come back — the more history you have, the more meaningful your results will be. "
-                    + (" | ".join(parse_flags) if parse_flags else "")
-                )
-            })
-
-        total_filled_sides = len([o for o in orders if o.get("status") == "filled"])
-        paired_sides = len(df) * 2
-        unpaired_pct = (total_filled_sides - paired_sides) / max(total_filled_sides, 1) * 100
-        if unpaired_pct > 30:
-            print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
-
-        # ── Run validation ────────────────────────────────────────────────────
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report    = validator.run()
-
-        r = report
-        scored_checks = [c for c in r.checks if c.category != "Plausibility"]
-        top_issues    = [c.fix  for c in sorted(scored_checks, key=lambda x: x.score)[:3]]
-        top_strengths = [c.name for c in sorted(scored_checks, key=lambda x: x.score, reverse=True)[:3]]
-
-        date_range = "No date data"
-        if "date" in df.columns:
-            try:
-                date_range = f"{df['date'].dropna().min().date()} to {df['date'].dropna().max().date()}"
-            except Exception:
-                pass
-
-        check_count = len(scored_checks)
-        summary = (
-            f"QuantProof VERIFIED analysis of {r.total_trades} trades pulled directly from Alpaca "
-            f"({'paper' if is_paper else 'live'} account) across {check_count} institutional checks "
-            f"+ 5 crash simulations. "
-            f"Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
-            f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
-        )
-
-        visible_checks = [c for c in r.checks if c.category != "Plausibility"]
-
-        try:
-            dashboard_obj  = ValidationDashboard(validator, report)
-            dashboard_data = dashboard_obj.generate_interactive_report()
-        except Exception:
-            dashboard_data = None
-
-        _vr_cache = {
-            "fundable_score": r.score, "grade": r.grade,
-            "sharpe": round(r.sharpe, 2), "max_drawdown": round(r.max_drawdown, 4),
-            "win_rate": round(r.win_rate, 1), "total_trades": r.total_trades,
-            "date_range": date_range, "is_verified": True,
-            "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
-                        "value":c.value,"insight":c.insight,"fix":c.fix,
-                        "category":c.category} for c in r.checks],
-            "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                            "description":s.description,"market_drop":s.market_drop,
-                            "strategy_drop":s.strategy_drop,"survived":s.survived,
-                            "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
-            "top_issues": top_issues, "top_strengths": top_strengths,
-        }
-        _cache_validation(r.validation_hash, _vr_cache)
-
-        return ValidationResponse(
-            fundable_score=r.score, grade=r.grade, summary=summary,
-            checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-            crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
-            total_trades=r.total_trades, profitable_trades=r.profitable_trades,
-            date_range=date_range, sharpe=round(r.sharpe, 2),
-            max_drawdown=round(r.max_drawdown, 4), win_rate=round(r.win_rate, 1),
-            top_issues=top_issues, top_strengths=top_strengths,
-            validation_hash=r.validation_hash, validation_date=r.validation_date,
-            engine_version=r.engine_version + "-VERIFIED",
-            audit_flags=r.audit_flags + parse_flags + [
-                f"✓ Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
-                "✓ Trades independently verified — not user-uploaded",
-                "✓ Credential handling: keys discarded after fetch, never logged",
-            ],
-            plausibility_summary=r.plausibility_summary,
-            assumptions=r.assumptions + [
-                "Trade data sourced directly from Alpaca API — not user-submitted",
-                f"Account type: {'paper trading' if is_paper else 'live trading'}",
-                "API credentials were used read-only and discarded after data fetch",
-            ],
-            dashboard=dashboard_data, ai_plan=None,
-            scale_warning=False, currency=acct_currency,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        err_str = str(e)
-        for sensitive in [payload.api_key, payload.secret_key]:
-            if sensitive and sensitive != "[DISCARDED]" and len(sensitive) > 4:
-                err_str = err_str.replace(sensitive, "[REDACTED]")
-        raise HTTPException(500, f"Broker validation failed: {err_str}")
-
-
-# =========================================================
-# PDF REPORT — PAYWALL ENDPOINT
-# =========================================================
-
-from fastapi import Header
-from fastapi.responses import Response as FastAPIResponse
-try:
-    from generate_report import generate_pdf_report as _generate_pdf_report
-    _PDF_AVAILABLE = True
-except ImportError:
-    _generate_pdf_report = None
-    _PDF_AVAILABLE = False
-
-REPORT_ACCESS_TOKENS = set()
-LS_ORDER_TOKENS: dict = {}
-import collections
-import asyncio as _asyncio
-_PDF_SEMAPHORE = _asyncio.Semaphore(2)  # max 2 concurrent PDF generations
-VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
-VALIDATION_CACHE_MAX = 50
-
-def _cache_validation(v_hash: str, vr: dict):
-    VALIDATION_RESULT_CACHE[v_hash] = vr
-    if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
-        VALIDATION_RESULT_CACHE.popitem(last=False)
-
-def _get_cached_validation(v_hash: str) -> dict | None:
-    return VALIDATION_RESULT_CACHE.get(v_hash)
-
-_TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
-RAZORPAY_KEY_ID     = os.getenv("RAZORPAY_KEY_ID", "")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
-REPORT_PRICE_USD    = 4
-REPORT_PRICE_INR    = 299
-
-
-@app.post("/report/generate")
-async def generate_report_endpoint(
-    file: UploadFile = File(...),
-    x_report_token: str = Header(default=""),
-    x_report_source: str = Header(default="csv")
-):
-    def _verify_token(token: str) -> bool:
-        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-        if _test_tok and token == _test_tok: return True
-        if token in REPORT_ACCESS_TOKENS: return True
-        if token.startswith("cs_"): return False
-        return False
-
-    if not _verify_token(x_report_token):
-        raise HTTPException(
-            status_code=402,
-            detail={"error": "payment_required",
-                    "message": "Purchase required to download the full analysis report.",
-                    "price_inr": REPORT_PRICE_INR,
-                    "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"}
-        )
-
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(400, "Please upload a CSV file")
-
-    contents = await file.read()
-    try:
-        df, regime_note = smart_parse_csv(contents)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-    if len(df) < 5:
-        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 5.")
-
-    try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report    = validator.run()
-    except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
-
-    scored = [c for c in report.checks if c.category != "Plausibility"]
-    date_range = "No date data"
-    if "date" in validator.df.columns:
-        try:
-            date_range = f"{validator.df['date'].min().date()} to {validator.df['date'].max().date()}"
-        except Exception:
-            pass
-
-    PROP_FIRM_CHECK_NAMES = {
-        "Prop Firm Compliance (FTMO/Topstep/The5ers)",
-        "Institutional Compliance (CTA/Fund Standard)",
-        "Prop Firm Compliance",
-    }
-    def _csv_check_filter(c):
-        if c.name in PROP_FIRM_CHECK_NAMES:
-            return {
-                "name": c.name, "passed": False, "score": 0,
-                "value": "⚠ NOT APPLICABLE — CSV Upload",
-                "insight": (
-                    "Prop firm and institutional compliance certificates require "
-                    "broker-verified trade data. CSV uploads cannot be used for "
-                    "compliance submissions as the data is self-reported and unverified."
-                ),
-                "fix": "Connect your Alpaca account (or IBKR when available) to generate a verified compliance report.",
-                "category": c.category,
-            }
-        return {"name": c.name, "passed": c.passed, "score": c.score,
-                "value": c.value, "insight": c.insight, "fix": c.fix,
-                "category": c.category}
-
-    vr = {
-        "fundable_score": report.score, "grade": report.grade,
-        "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
-        "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
-        "date_range": date_range,
-        "is_verified": x_report_source in ("alpaca", "ibkr"),
-        "checks": [
-            (_csv_check_filter(c) if x_report_source == "csv" else
-             {"name": c.name, "passed": c.passed, "score": c.score,
-              "value": c.value, "insight": c.insight, "fix": c.fix,
-              "category": c.category})
-            for c in report.checks
-        ],
-        "crash_sims": [
-            {"crash_name": s.crash_name, "year": s.year, "description": s.description,
-             "market_drop": s.market_drop, "strategy_drop": s.strategy_drop,
-             "survived": s.survived, "emotional_verdict": s.emotional_verdict}
-            for s in report.crash_sims
-        ],
-        "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
-        "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
-        "regime_note":   regime_note,
-    }
-
-    ai_plan = await generate_ai_plan(report, date_range)
-    vr["ai_plan"] = ai_plan
-    _cache_validation(report.validation_hash, vr)
-
-    try:
-        if not _PDF_AVAILABLE:
-            raise HTTPException(503, "PDF module not available.")
-        async with _PDF_SEMAPHORE:
-            pdf_bytes = _generate_pdf_report(vr)
-    except Exception as e:
-        raise HTTPException(500, f"PDF generation failed: {str(e)}")
-
-    score     = int(report.score)
-    grade_str = report.grade.split("—")[0].strip().replace(" ", "")
-    filename  = f"QuantProof_Report_{grade_str}_{score}.pdf"
-    return FastAPIResponse(
-        content=pdf_bytes, media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
-
-
-@app.post("/report/create-checkout")
-async def create_checkout(payload: dict):
-    import hmac, hashlib
-    try:
-        import razorpay
-    except ImportError:
-        raise HTTPException(503, {"error": "razorpay_not_installed",
-            "message": "razorpay package not installed. Run: pip install razorpay"})
-    key_id     = os.getenv("RAZORPAY_KEY_ID", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
-    if not key_id or not key_secret:
-        raise HTTPException(503, {"error": "razorpay_not_configured",
-            "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
-    try:
-        client = razorpay.Client(auth=(key_id, key_secret))
-        order  = client.order.create({
-            "amount": 29900, "currency": "INR", "payment_capture": 1,
-            "notes": {"product": "QuantProof Full Report"}
-        })
-        return {"order_id": order["id"], "amount": order["amount"],
-                "currency": order["currency"], "key_id": key_id, "checkout_url": None}
-    except Exception as e:
-        raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
-
-
-@app.post("/report/create-checkout-intl")
-async def create_checkout_intl(payload: dict):
-    import httpx
-    ls_key      = os.getenv("LEMONSQUEEZY_API_KEY", "")
-    ls_store_id = os.getenv("LEMONSQUEEZY_STORE_ID", "")
-    ls_variant  = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")
-    if not ls_key or not ls_store_id or not ls_variant:
-        raise HTTPException(503, {"error": "ls_not_configured",
-            "message": "International payments not yet configured."})
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                "https://api.lemonsqueezy.com/v1/checkouts",
-                headers={"Authorization": f"Bearer {ls_key}",
-                         "Accept": "application/vnd.api+json",
-                         "Content-Type": "application/vnd.api+json"},
-                json={"data": {"type": "checkouts",
-                    "attributes": {"checkout_options": {"dark": True},
-                        "product_options": {"redirect_url":
-                            "https://quantproof-frontend.onrender.com/?payment=success&provider=ls&order_id={order_id}"}},
-                    "relationships": {
-                        "store":   {"data": {"type": "stores",   "id": ls_store_id}},
-                        "variant": {"data": {"type": "variants", "id": ls_variant}}}}}
-            )
-        if not resp.is_success:
-            raise HTTPException(500, {"error": "ls_checkout_failed", "message": resp.text[:200]})
-        return {"checkout_url": resp.json()["data"]["attributes"]["url"]}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, {"error": "ls_error", "message": str(e)})
-
-
-@app.post("/report/webhook-ls")
-async def lemonsqueezy_webhook(request: Request):
-    import hashlib, hmac, time, json
-    body      = await request.body()
-    ls_secret = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
-    if ls_secret:
-        sig      = request.headers.get("x-signature", "")
-        expected = hmac.new(ls_secret.encode(), body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, sig):
-            raise HTTPException(400, "Invalid Lemon Squeezy webhook signature")
-    try:
-        event = json.loads(body)
-        if event.get("meta", {}).get("event_name") == "order_created":
-            order_id     = str(event["data"]["id"])
-            key_secret   = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
-            current_hour = int(time.time() // 3600)
-            token_now    = hashlib.sha256(f"report:{current_hour}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
-            token_next   = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:ls_{order_id}".encode()).hexdigest()[:32]
-            REPORT_ACCESS_TOKENS.add(token_now)
-            REPORT_ACCESS_TOKENS.add(token_next)
-            LS_ORDER_TOKENS[order_id] = token_now
-            return {"status": "ok", "token": token_now}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-    return {"status": "ignored"}
-
-
-@app.get("/report/ls-token")
-async def get_ls_token(order_id: str = ""):
-    if order_id and order_id != "{order_id}" and order_id in LS_ORDER_TOKENS:
-        return {"status": "ready", "token": LS_ORDER_TOKENS[order_id]}
-    if LS_ORDER_TOKENS:
-        return {"status": "ready", "token": list(LS_ORDER_TOKENS.values())[-1]}
-    return {"status": "pending", "message": "Payment processing — please wait a moment"}
-
-
-@app.post("/report/webhook")
-async def payment_webhook(request: Request):
-    import hashlib, hmac, time, json
-    body = await request.body()
-    try:
-        data = json.loads(body)
-    except Exception:
-        raise HTTPException(400, "Invalid JSON")
-    payment_id = data.get("razorpay_payment_id", "")
-    order_id   = data.get("razorpay_order_id", "")
-    signature  = data.get("razorpay_signature", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
-    if not payment_id or not order_id or not signature:
-        raise HTTPException(400, "Missing payment fields")
-    expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected, signature):
-        raise HTTPException(400, "Invalid payment signature")
-    current_hour = int(time.time() // 3600)
-    token_now  = hashlib.sha256(f"report:{current_hour}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
-    token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
-    REPORT_ACCESS_TOKENS.add(token_now)
-    REPORT_ACCESS_TOKENS.add(token_next)
-    return {"status": "ok", "token": token_now}
-
-
-# =========================================================
-# BROKER PDF REPORT
-# =========================================================
-
-class BrokerReportRequest(BaseModel):
-    api_key:         str
-    secret_key:      str
-    mode:            str = "paper"
-    validation_hash: str = ""
-
-@app.post("/report/generate-broker")
-async def generate_broker_report(
-    payload: BrokerReportRequest,
-    x_report_token: str = Header(default=""),
-):
-    # Fast path: cached result
-    if payload.validation_hash:
-        cached_vr = _get_cached_validation(payload.validation_hash)
-        if cached_vr:
-            _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-            _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
-            if not _token_ok:
-                raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
-            if not cached_vr.get("ai_plan"):
-                try:
-                    class _CachedCheck:
-                        def __init__(self, d): self.__dict__.update(d)
-                    class _CachedReport:
-                        def __init__(self, vr):
-                            self.score = vr["fundable_score"]; self.grade = vr["grade"]
-                            self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
-                            self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
-                            self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
-                            self.audit_flags = []
-                    cached_vr["ai_plan"] = await generate_ai_plan(
-                        _CachedReport(cached_vr), cached_vr.get("date_range", "")
-                    )
-                except Exception as _e:
-                    issues = cached_vr.get("top_issues", [])
-                    cached_vr["ai_plan"] = "Top improvements: " + "; ".join(issues[:3]) if issues else None
-            if not _PDF_AVAILABLE:
-                raise HTTPException(503, "PDF module not available.")
-            try:
-                pdf_bytes = _generate_pdf_report(cached_vr)
-            except Exception as e:
-                raise HTTPException(500, f"PDF generation failed: {str(e)}")
-            score     = int(cached_vr["fundable_score"])
-            grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
-            return Response(
-                content=pdf_bytes, media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename=QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"}
-            )
-
-    def _verify_token(token: str) -> bool:
-        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-        if _test_tok and token == _test_tok: return True
-        if token in REPORT_ACCESS_TOKENS: return True
-        return False
-
-    if not _verify_token(x_report_token):
-        raise HTTPException(402, {"error": "payment_required", "message": "Purchase required."})
-
-    api_key    = payload.api_key.strip()
-    secret_key = payload.secret_key.strip()
-    if not api_key or not secret_key:
-        raise HTTPException(400, "API key and secret required.")
-
-    is_paper = payload.mode == "paper"
-    base_url  = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
-
-    try:
-        import httpx
-        headers = {"APCA-API-KEY-ID": api_key, "APCA-API-SECRET-KEY": secret_key, "accept": "application/json"}
-        async with httpx.AsyncClient(timeout=20) as client:
-            acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
-            if not acct_resp.is_success:
-                raise HTTPException(401, "Invalid Alpaca credentials.")
-            orders_resp = await client.get(
-                f"{base_url}/v2/orders", headers=headers,
-                params={"status": "closed", "limit": 500, "direction": "desc"}
-            )
-        raw_orders = orders_resp.json() if orders_resp.is_success else []
-        orders     = raw_orders if isinstance(raw_orders, list) else []
-
-        api_key = secret_key = "[DISCARDED]"
-        headers = {}
-
-        # Position-state pairing + regime auto-detection
-        df, parse_flags = pair_alpaca_orders(orders)
-
-        if len(df) < 5:
-            raise HTTPException(400, {
-                "error": "insufficient_trades",
-                "message": f"Only {len(df)} completed round-trip trades found. Need at least 5.",
-                "trades_found": len(df), "trades_needed": 5
-            })
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(500, f"Alpaca fetch failed: {str(e)[:200]}")
-
-    try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report    = validator.run()
-    except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
-
-    scored = [c for c in report.checks if c.category != "Plausibility"]
-    date_range = "No date data"
-    if "date" in df.columns:
-        try:
-            date_range = f"{df['date'].dropna().min().date()} to {df['date'].dropna().max().date()}"
-        except Exception:
-            pass
-
-    vr = {
-        "fundable_score": report.score, "grade": report.grade,
-        "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
-        "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
-        "date_range": date_range, "is_verified": True,
-        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
-                    "value":c.value,"insight":c.insight,"fix":c.fix,
-                    "category":c.category} for c in report.checks],
-        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
-                        "strategy_drop":s.strategy_drop,"survived":s.survived,
-                        "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
-        "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
-        "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
-        "parse_flags":   parse_flags,
-    }
-
-    ai_plan = await generate_ai_plan(report, date_range)
-    vr["ai_plan"] = ai_plan
-    _cache_validation(report.validation_hash, vr)
-
-    if not _PDF_AVAILABLE:
-        raise HTTPException(503, "PDF module not available on this server.")
-    try:
-        pdf_bytes = _generate_pdf_report(vr)
-    except Exception as e:
-        raise HTTPException(500, f"PDF generation failed: {str(e)}")
-
-    score     = int(report.score)
-    grade_str = report.grade.split("—")[0].strip().replace(" ", "")
-    return FastAPIResponse(
-        content=pdf_bytes, media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
-    )
-
-
-# =========================================================
-# IBKR BROKER INTEGRATION
-# =========================================================
-
-class IBKRConnectRequest(BaseModel):
-    account_id: str
-    flex_token: str
-    query_id:   str
-    days_back:  int = 365
-
-class IBKRConnectResponse(BaseModel):
-    source:       str
-    account_id:   str
-    trades_pulled: int
-    date_range:   str
-    validation:   ValidationResponse
-
-@app.post("/connect/ibkr", response_model=IBKRConnectResponse)
-async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
-    if request:
-        ip = request.client.host if request.client else "unknown"
-        allowed, _ = check_rate_limit(ip)
-        if not allowed:
-            raise HTTPException(429, f"Daily limit of {FREE_DAILY_LIMIT} validations reached.")
-
-    import httpx, xml.etree.ElementTree as ET
-    from datetime import datetime, timedelta
-
-    request_url = (
-        f"https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
-        f"?t={payload.flex_token}&q={payload.query_id}&v=3"
-    )
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(request_url)
-        resp.raise_for_status()
-        root   = ET.fromstring(resp.text)
-        status = root.findtext("Status")
-        if status != "Success":
-            raise HTTPException(400, f"IBKR Flex request failed: {root.findtext('ErrorMessage') or 'Unknown error'}")
-        reference_code = root.findtext("ReferenceCode")
-        base_url       = root.findtext("Url")
-    except ET.ParseError:
-        raise HTTPException(400, "Could not parse IBKR response.")
-    except httpx.HTTPError as e:
-        raise HTTPException(503, f"Could not reach IBKR servers: {str(e)}")
-
-    import asyncio
-    await asyncio.sleep(5)
-
-    retrieve_url = f"{base_url}?t={payload.flex_token}&q={reference_code}&v=3"
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp2 = await client.get(retrieve_url)
-        resp2.raise_for_status()
-        report_root = ET.fromstring(resp2.text)
-    except Exception as e:
-        raise HTTPException(503, f"Could not retrieve IBKR report: {str(e)}")
-
-    trades      = []
-    audit_flags_ibkr = []
-    open_skipped = 0
-    acct_currency = "USD"
-
-    for stmt in report_root.iter("FlexStatement"):
-        acct = stmt.get("accountId", "")
-        # Detect account currency from statement
-        stmt_currency = stmt.get("currency", "") or stmt.get("Currency", "")
-        if stmt_currency:
-            acct_currency = stmt_currency.upper()
-        if payload.account_id and acct != payload.account_id:
-            continue
-        for trade in stmt.iter("Trade"):
-            try:
-                date_str  = trade.get("tradeDate") or trade.get("TradeDate", "")
-                symbol    = trade.get("symbol", "") or trade.get("Symbol", "")
-                qty       = float(trade.get("quantity", 0) or 0)
-                price     = float(trade.get("tradePrice") or trade.get("TradePrice", 0) or 0)
-                net_cash  = float(trade.get("netCash")    or trade.get("NetCash", 0) or 0)
-                buy_sell  = (trade.get("buySell") or trade.get("BuySell") or "").upper()
-
-                # openCloseIndicator: "O" = opening trade, "C" = closing trade
-                # Only closing trades represent realised P&L — skip opening trades
-                open_close = (trade.get("openCloseIndicator") or
-                              trade.get("OpenCloseIndicator") or "").upper()
-                if open_close == "O":
-                    open_skipped += 1
-                    continue  # skip opening legs — no realised P&L yet
-
-                # fifoPnlRealized: if Flex query includes it, use directly
-                fifo_pnl = trade.get("fifoPnlRealized") or trade.get("FifoPnlRealized")
-                if fifo_pnl is not None:
-                    try:
-                        fifo_val = float(fifo_pnl)
-                        if abs(fifo_val) < 0.001:
-                            open_skipped += 1
-                            continue   # zero realised P&L = opening or wash trade
-                        # normalise to percentage: P&L / cost basis
-                        cost = abs(price * qty) if price > 0 and qty != 0 else 1
-                        pnl_frac = fifo_val / cost
-                        pnl_frac = max(-0.5, min(0.5, pnl_frac))
-                        side = "short" if (buy_sell == "BUY" or qty > 0) else "long"
-                        # closing a short = BUY to cover; closing a long = SELL
-                        if open_close == "C":
-                            side = "short" if buy_sell == "BUY" else "long"
-                        trades.append({
-                            "date":   date_str,
-                            "pnl":    round(pnl_frac, 6),
-                            "ticker": symbol,
-                            "side":   side,
-                        })
-                        continue
-                    except (ValueError, ZeroDivisionError):
-                        pass
-
-                # Fallback: use netCash approach but only for closing trades
-                # Closing trade = negative quantity (SELL to close long) or
-                # positive quantity after a short (BUY to cover)
-                # netCash is positive for profitable closes, negative for losses
-                if price <= 0 or qty == 0:
-                    continue
-                cost_basis = abs(price * qty)
-                pnl_frac   = net_cash / cost_basis
-                pnl_frac   = max(-0.5, min(0.5, pnl_frac))
-
-                # Determine trade direction: negative qty = SELL (closing long)
-                if qty < 0:
-                    side = "long"   # sold to close long
-                else:
-                    side = "short"  # bought to cover short
-
-                # Skip opening trades: BUY rows have large negative netCash (cost basis outflow)
-                # Without OCI field, we detect opening trades by qty direction:
-                #   qty > 0 (BUY) with negative netCash = opening long → skip
-                #   qty < 0 (SELL) with positive netCash = closing long → keep
-                #   qty > 0 (BUY) with positive netCash = closing short → keep
-                #   qty < 0 (SELL) with negative netCash = opening short → skip
-                is_opening_long  = qty > 0 and net_cash < -abs(price * qty) * 0.5
-                is_opening_short = qty < 0 and net_cash > 0 and abs(net_cash) < abs(price * qty) * 0.1
-                if is_opening_long or is_opening_short:
-                    open_skipped += 1
-                    continue
-                if abs(net_cash) < 0.01:
-                    open_skipped += 1
-                    continue
-
-                trades.append({
-                    "date":   date_str,
-                    "pnl":    round(pnl_frac, 6),
-                    "ticker": symbol,
-                    "side":   side,
-                })
-            except (ValueError, ZeroDivisionError):
-                continue
-
-    if open_skipped > 0:
-        audit_flags_ibkr.append(
-            f"ℹ {open_skipped} opening trade leg(s) skipped — "
-            f"only closed trades contribute to P&L"
-        )
-
-    if len(trades) < 5:
-        raise HTTPException(
-            400,
-            f"Only {len(trades)} closed trade(s) found in IBKR export. Need at least 5. "
-            "Make sure your Flex Query includes: openCloseIndicator, fifoPnlRealized, "
-            "netCash, quantity, tradePrice, symbol, tradeDate. "
-            "Also check your date range covers enough completed trades."
-        )
-
-    df = pd.DataFrame(trades)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["pnl"])
-
-    # Auto-assign regime from SPY (same logic as CSV path)
-    if "date" in df.columns and df["date"].notna().any():
-        df, regime_note = assign_regimes(df)
-    else:
-        regime_note = ""
-
-    try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report    = validator.run()
-    except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
-
-    scored        = [c for c in report.checks if c.category != "Plausibility"]
-    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
-    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
-
-    date_range = "No date data"
-    try:
-        date_range = f"{df['date'].min().date()} to {df['date'].max().date()}"
-    except Exception:
-        pass
-
-    check_count = len(scored)
-    summary = (
-        f"QuantProof analyzed {report.total_trades} IBKR-verified trades across "
-        f"{check_count} institutional checks + 5 crash simulations. "
-        f"Source: Interactive Brokers Flex API — data integrity verified. "
-        f"Fundable Score: {report.score}/100 ({report.grade.split(chr(8212))[0].strip()})."
-    )
-
-    extra_flags = ([regime_note] if regime_note else []) + \
-                  ["SOURCE: Interactive Brokers Flex API — trade data verified",
-                   "VERIFIED: Flex Web Service — read-only, credentials never stored"]
-
-    # Cache result for PDF reuse (same as Alpaca/CSV paths)
-    _vr_cache = {
-        "fundable_score": report.score,
-        "grade":          report.grade,
-        "sharpe":         round(report.sharpe, 2),
-        "max_drawdown":   round(report.max_drawdown, 4),
-        "win_rate":       round(report.win_rate, 1),
-        "total_trades":   report.total_trades,
-        "date_range":     date_range,
-        "is_verified":    True,
-        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
-                    "value":c.value,"insight":c.insight,"fix":c.fix,
-                    "category":c.category} for c in report.checks],
-        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
-                        "strategy_drop":s.strategy_drop,"survived":s.survived,
-                        "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
-        "top_issues":    top_issues,
-        "top_strengths": top_strengths,
-    }
-    _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
-
-    validation_resp = ValidationResponse(
-        fundable_score=report.score, grade=report.grade, summary=summary,
-        checks=[CheckResultResponse(**vars(c)) for c in scored],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
-        total_trades=report.total_trades, profitable_trades=report.profitable_trades,
-        date_range=date_range, sharpe=round(report.sharpe, 2),
-        max_drawdown=round(report.max_drawdown, 4), win_rate=round(report.win_rate, 1),
-        top_issues=top_issues, top_strengths=top_strengths,
-        validation_hash=report.validation_hash + "-IBKR",
-        validation_date=report.validation_date, engine_version=report.engine_version,
-        audit_flags=report.audit_flags + extra_flags + audit_flags_ibkr,
-        plausibility_summary=report.plausibility_summary,
-        scale_warning=getattr(report, '_scale_warning', False),
-        currency=acct_currency,
-        assumptions=report.assumptions + [
-            "Trade data sourced from IBKR Flex Web Service",
-            "Only closing trades included — opening legs excluded (no realised P&L)",
-            "P&L uses fifoPnlRealized when available, netCash/cost-basis as fallback",
-        ],
-        dashboard=None, ai_plan=None,
-    )
-
-    return IBKRConnectResponse(
-        source="IBKR_FLEX", account_id=payload.account_id,
-        trades_pulled=len(trades), date_range=date_range,
-        validation=validation_resp,
-    )
-
-
-@app.get("/connect/ibkr/setup")
-def ibkr_setup_guide():
-    return {
-        "title": "Connect Interactive Brokers to QuantProof",
-        "steps": [
-            "1. Log into IBKR Client Portal (clientportal.ibkr.com)",
-            "2. Go to: Performance & Reports > Flex Queries",
-            "3. Click 'Create' — choose 'Trade Confirmation Flex Query'",
-            "4. IMPORTANT — select these specific fields:",
-            "     TradeDate, Symbol, Buy/Sell, Quantity, Price, NetCash,",
-            "     OpenCloseIndicator, FifoPnlRealized, Currency, Commission",
-            "5. Set date range to cover your full backtest period",
-            "6. Save the query — note the Query ID shown",
-            "7. Go to: Settings > Flex Web Service > Generate Token",
-            "8. Copy your Flex Token (keep it secret — treat it like a password)",
-            "9. Enter Account ID, Flex Token, and Query ID in QuantProof"
-        ],
-        "required_fields": {
-            "TradeDate":           "Date of each execution",
-            "Symbol":              "Ticker symbol",
-            "Quantity":            "Shares traded (negative = SELL)",
-            "Price":               "Execution price",
-            "NetCash":             "Net cash flow (realised P&L on closes)",
-            "OpenCloseIndicator":  "O=Opening trade, C=Closing trade (critical for accuracy)",
-            "FifoPnlRealized":     "FIFO realised P&L — most accurate P&L source",
-            "Currency":            "Account currency (USD/GBP/EUR etc.)",
-            "Commission":          "Optional — for cost analysis"
-        },
-        "note": "Your Flex Token is used read-only and never stored. "
-                "OpenCloseIndicator and FifoPnlRealized significantly improve P&L accuracy — "
-                "without them, opening trades may be incorrectly included.",
-        "why_ibkr": "IBKR-connected validations include a verified source flag. "
-                    "FifoPnlRealized gives IBKR's own FIFO P&L calculation — "
-                    "the most accurate measure for strategies with scaled entries."
-    }
-
-
-# =========================================================
-# KITE TRADEBOOK PARSER + VALIDATION
-# Fixes applied:
-#   K1/K2/K3/K4: ValidationResponse shape — top_issues/top_strengths
-#                are List[str], crash_sims/profitable_trades/etc. all
-#                sourced from validator.run() directly
-#   K5: StringIO cursor — each pd.read_csv uses fresh io.StringIO(raw)
-#   K7: profitable_trades correctly sourced from report
-# =========================================================
-
-def _is_kite_csv(df: pd.DataFrame) -> bool:
-    """
-    Detect Zerodha Kite TradeBook CSV by characteristic column names.
-    
-    Real Kite TradeBook columns (verified from Zerodha Console export):
-      trade_date, trade_time, settlement_id, exchange, segment, series,
-      trade_type, auction, quantity, price, trade_id, order_id, order_execution_time
-    
-    Key: ticker/instrument is in 'series' column (NOT 'symbol').
-         segment is 'EQ' for equity, 'FO' for F&O (not 'EQUITY'/'FUTURES').
-    """
-    cols = {c.lower().strip() for c in df.columns}
-    # Core required columns that uniquely identify a Kite TradeBook
-    required = {"trade_date", "trade_type", "quantity", "price"}
-    # At least one of these identifies it as Kite (not a generic CSV)
-    kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
-    return required.issubset(cols) and bool(kite_signals & cols)
-
-
-def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
-    """
-    Convert Zerodha Kite TradeBook CSV into QuantProof trades.
-
-    Uses the same position-state tracker as pair_alpaca_orders:
-      - Chronological sort within each symbol
-      - FIFO lot queue per symbol
-      - Partial lot handling: SELL 5 from a 10-share position → closes 5, leaves 5 open
-      - Orphan sell detection: sell with no open position is flagged + excluded (not 0% fake trade)
-      - Short positions: detected via segment (FO = futures/options) or explicit short side
-      - Open positions logged in audit trail
-      - Returns (df, note, audit_flags) — same shape as pair_alpaca_orders
-
-    Expected columns (case-insensitive):
-      trade_date, symbol, trade_type (BUY/SELL), quantity, price
-    Optional: segment (EQUITY/FO/CURRENCY), exchange
-    """
-    df = pd.read_csv(io.StringIO(raw))
-    df.columns = [c.lower().strip() for c in df.columns]
-
-    # Kite TradeBook: ticker is in 'series' column, not 'symbol'
-    required = {"trade_date", "trade_type", "quantity", "price"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"Kite CSV missing required columns: {missing}. "
-            "Please export from Zerodha Console → TradeBook → Download CSV. "
-            "Make sure you are downloading the TradeBook, not Positions or Holdings."
-        )
-    # Determine ticker column: Kite uses 'series' for stock symbol
-    # Some older exports may use 'symbol' or 'instrument'
-    ticker_col = None
-    for candidate in ['series', 'symbol', 'instrument', 'scrip', 'tradingsymbol']:
-        if candidate in df.columns:
-            ticker_col = candidate
-            break
-    if ticker_col is None:
-        # No ticker column found — use exchange+segment as identifier
-        ticker_col = None  # will fall back to "UNKNOWN"
-
-    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
-    df = df.dropna(subset=["trade_date"])
-
-    # Sort chronologically within each symbol (same as Alpaca)
-    sort_cols = ([ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns
-                 else ["trade_date"])
-    df = df.sort_values(sort_cols).reset_index(drop=True)
-
-    # Position-state tracker: symbol → FIFO list of open lots
-    # Each lot: {"qty": int, "price": float, "date": Timestamp, "side": "long"/"short"}
-    lots        = defaultdict(list)
-    trades      = []
-    audit_flags = []
-    orphan_sells = []
-    orphan_buys  = []  # for short positions that close with a buy
-
-    for _, row in df.iterrows():
-        symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
-        qty        = float(row["quantity"])
-        price      = float(row["price"])
-        trade_type = str(row["trade_type"]).upper().strip()
-        date       = row["trade_date"]
-        segment    = str(row.get("segment", "EQ")).upper().strip()
-
-        # Kite segment values: EQ=equity, FO=futures/options
-        # (Kite uses short codes, not EQUITY/FUTURES full names)
-        is_fo = segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF")
-
-        if trade_type == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                # Closing a short position
-                remaining_qty = qty
-                while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
-                    close_qty = min(remaining_qty, lot["qty"])
-                    # Short PnL: entry price - exit price (profit when price falls)
-                    pnl_pct   = (lot["price"] - price) / lot["price"]
-                    trades.append({
-                        "pnl":    round(pnl_pct, 6),
-                        "ticker": symbol,
-                        "side":   "short",
-                        "date":   date,
-                    })
-                    lot["qty"]    -= close_qty
-                    remaining_qty -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                # Any remaining qty opens a new long position
-                if remaining_qty > 0:
-                    lots[symbol].append({"qty": remaining_qty, "price": price, "date": date, "side": "long"})
-            else:
-                # Opening or adding to a long position
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
-
-        elif trade_type == "SELL":
-            if not lots[symbol]:
-                # Orphan sell: no open position
-                if is_fo:
-                    # F&O sell without prior position = opening a short
-                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                else:
-                    # Equity sell without prior buy = position predates history window
-                    orphan_sells.append(
-                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no open position — predates history window)"
-                    )
-                continue
-
-            # Close against open longs, handling partial lots
-            remaining_qty = qty
-            while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
-                close_qty = min(remaining_qty, lot["qty"])
-                pnl_pct   = (price - lot["price"]) / lot["price"]
-                trades.append({
-                    "pnl":    round(pnl_pct, 6),
-                    "ticker": symbol,
-                    "side":   "long",
-                    "date":   date,
-                })
-                lot["qty"]    -= close_qty
-                remaining_qty -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
-
-    # Build audit flags for open positions
-    if orphan_sells:
-        audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
-            f"(position predates TradeBook history) — excluded"
-        )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
-
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
-        audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
-            f"(no closing trade yet): {sym_list}"
-        )
-
-    if not trades:
-        return pd.DataFrame(), "No completed trades found in Kite TradeBook", audit_flags
-
-    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
-    note = (
-        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite TradeBook "
-        f"({len(orphan_sells)} orphan sell(s) excluded, "
-        f"{len(open_positions)} position(s) still open)"
-    )
-    return result, note, audit_flags
-
-
-@app.post("/validate/kite", response_model=ValidationResponse)
-async def validate_kite(
-    file: UploadFile = File(...),
-    currency: str = Form("INR"),
-    request: Request = None
-):
-    """
-    Validate Zerodha Kite TradeBook CSV.
-
-    All fixes applied:
-      - K1/K2/K3/K4: Response matches ValidationResponse schema exactly
-        (top_issues/top_strengths as List[str], all required fields present)
-      - K5: fresh StringIO per read (no cursor exhaustion)
-      - K7: profitable_trades from report object
-      - G2: uses report.score not report.fundable_score
-    """
-    if request:
-        ip = request.client.host if request.client else "unknown"
-        allowed, remaining = check_rate_limit(ip)
-        if not allowed:
-            hours_left = remaining // 3600
-            raise HTTPException(429, {
-                "error": "rate_limit",
-                "message": f"Daily limit of {FREE_DAILY_LIMIT} validations reached. Resets in ~{hours_left}h.",
-                "hours_left": hours_left
-            })
-
-    if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(400, "Please upload a CSV file")
-
-    contents = await file.read()
-    raw      = contents.decode("utf-8", errors="ignore")
-
-    # FIX K5: use fresh StringIO for detection probe
-    try:
-        df_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-        if not _is_kite_csv(df_probe):
-            raise HTTPException(
-                400,
-                "Invalid Kite TradeBook format. "
-                "Please export from Zerodha Kite → Console → TradeBook → Download."
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(400, f"Could not read CSV: {str(e)}")
-
-    # F&O options check: detect if significant portion of trades are options
-    try:
-        df_fo_check = pd.read_csv(io.StringIO(raw))
-        df_fo_check.columns = [c.lower().strip() for c in df_fo_check.columns]
-        if "segment" in df_fo_check.columns:
-            segments = df_fo_check["segment"].str.upper().str.strip()
-            fo_count  = (segments.isin(["FO", "F&O", "OPTIONS", "FUTURES"])).sum()
-            total     = len(df_fo_check)
-            fo_pct    = fo_count / max(total, 1)
-            if fo_pct > 0.30:
-                raise HTTPException(
-                    400,
-                    f"⚠ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
-                    "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
-                    "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
-                    "For options analysis, export only your equity trades, or manually calculate "
-                    "per-trade P&L as a percentage and upload as a generic CSV."
-                )
-            elif fo_count > 0:
-                # Minority F&O — allow but warn via audit flags later
-                pass
-    except HTTPException:
-        raise
-    except Exception:
-        pass   # F&O check is best-effort, never block a valid upload
-
-    try:
-        df, kite_note, kite_flags = _parse_kite_csv(raw)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-
-    if len(df) < 5:
-        raise HTTPException(400, {
-            "error": "insufficient_trades",
-            "trades_found": len(df),
-            "trades_needed": 5,
-            "message": f"Only {len(df)} completed trades found. Need at least 5 to run a basic analysis. The more trades you have, the more meaningful the results."
-        })
-
-    # Auto-assign regime if dates present
-    regime_note = ""
-    if "date" in df.columns and df["date"].notna().any():
-        df, regime_note = assign_regimes(df)
-        kite_note += " | " + regime_note
-
-    try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
-        report    = validator.run()
-    except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
-
-    # FIX G2: report.score (not report.fundable_score)
-    # FIX K2/K3: top_issues and top_strengths must be List[str]
-    scored        = [c for c in report.checks if c.category != "Plausibility"]
-    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
-    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
-
-    date_range = "No date data"
-    if "date" in df.columns and df["date"].notna().any():
-        try:
-            dates = pd.to_datetime(df["date"]).dropna()
-            date_range = f"{dates.min().date()} to {dates.max().date()}"
-        except Exception:
-            pass
-
-    visible_checks = [c for c in report.checks if c.category != "Plausibility"]
-
-    try:
-        dashboard_obj  = ValidationDashboard(validator, report)
-        dashboard_data = dashboard_obj.generate_interactive_report()
-    except Exception:
-        dashboard_data = None
-
-    detected_currency = (currency or "INR").upper()
-
-    # FIX K4: all required fields populated (crash_sims from report, etc.)
-    return ValidationResponse(
-        fundable_score=report.score,            # FIX G2: was result.fundable_score
-        grade=report.grade,
-        summary=(
-            f"QuantProof analyzed {report.total_trades} Kite TradeBook trades across "
-            f"{len(scored)} institutional checks + 5 crash simulations. "
-            f"Source: Zerodha Kite TradeBook — self-reported data. "
-            f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
-        ),
-        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX K4
-        total_trades=report.total_trades,
-        profitable_trades=report.profitable_trades,   # FIX K7
-        date_range=date_range,
-        sharpe=round(report.sharpe, 2),
-        max_drawdown=round(report.max_drawdown, 4),
-        win_rate=round(report.win_rate, 1),
-        top_issues=top_issues,       # FIX K2: List[str] from c.fix
-        top_strengths=top_strengths, # FIX K3: List[str] from c.name
-        validation_hash=report.validation_hash + "-KITE",
-        validation_date=report.validation_date,
-        engine_version=report.engine_version,
-        audit_flags=report.audit_flags + [kite_note] + kite_flags,
-        plausibility_summary=report.plausibility_summary,  # FIX K4
-        scale_warning=getattr(report, '_scale_warning', False),  # FIX K4
-        currency=detected_currency,   # FIX K4
-        assumptions=report.assumptions + [  # FIX K4
-            "Trade data sourced from Zerodha Kite TradeBook CSV — self-reported",
-            "Trades paired using FIFO lot matching (BUY→SELL per symbol)",
-        ],
-        dashboard=dashboard_data,
-        ai_plan=None,
-    )
-
-
-# =========================================================
-# TRADINGVIEW WEBHOOK
-# Fixes applied:
-#   TV1/TV2: Response matches ValidationResponse schema exactly
-#   TV3: _tv_pair_alerts rewritten — no double-append, clean FIFO pairing
-#   TV4: timestamp parsing handles both unix float and ISO strings
-#   TV6: ValueError from validator caught and re-raised as HTTPException
-# =========================================================
-
-TV_SESSIONS: dict = {}
-TV_SESSION_TTL_SECONDS      = 7 * 24 * 3600
-TV_MAX_ALERTS_PER_SESSION   = 2000
-TV_SESSIONS_FILE            = "/tmp/qp_tv_sessions.json"
-
-def _tv_save_sessions():
-    """Persist TV sessions to disk so they survive server restarts."""
-    try:
-        import json
-        # Convert Timestamp objects to strings for JSON serialisation
-        serialisable = {}
-        for sid, sess in TV_SESSIONS.items():
-            s = dict(sess)
-            alerts_clean = []
-            for a in s.get("alerts", []):
-                ac = dict(a)
-                if hasattr(ac.get("timestamp"), "isoformat"):
-                    ac["timestamp"] = ac["timestamp"].isoformat()
-                alerts_clean.append(ac)
-            s["alerts"] = alerts_clean
-            serialisable[sid] = s
-        with open(TV_SESSIONS_FILE, "w") as f:
-            json.dump(serialisable, f)
-    except Exception as e:
-        print(f"[tv_save] Warning: could not persist sessions: {e}")
-
-def _tv_load_sessions():
-    """Load TV sessions from disk on startup."""
-    try:
-        import json
-        if not os.path.exists(TV_SESSIONS_FILE):
-            return
-        with open(TV_SESSIONS_FILE) as f:
-            saved = json.load(f)
-        now = time.time()
-        loaded = 0
-        for sid, sess in saved.items():
-            # Skip expired sessions
-            if now > sess.get("expires_at", 0):
-                continue
-            TV_SESSIONS[sid] = sess
-            loaded += 1
-        print(f"[tv_load] Restored {loaded} TV session(s) from disk")
-    except Exception as e:
-        print(f"[tv_load] Warning: could not load sessions: {e}")
-
-# Load persisted sessions on startup
-_tv_load_sessions()
-
-
-def _tv_cleanup():
-    """Remove expired TradingView sessions and persist to disk."""
-    now     = time.time()
-    expired = [sid for sid, data in TV_SESSIONS.items()
-               if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS]
-    for sid in expired:
-        del TV_SESSIONS[sid]
-    if expired:
-        _tv_save_sessions()
-
-
-def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
-    """
-    Pair TradingView BUY/SELL alerts into closed round-trip trades.
-
-    Same position-state tracker as pair_alpaca_orders and _parse_kite_csv:
-      - Chronological sort before any pairing
-      - FIFO lot queue per symbol
-      - Partial lot handling: SELL qty < open qty → partially closes, remainder stays open
-      - Orphan sell detection: sell with no open lot is flagged + excluded (not silently dropped)
-      - Open positions reported in audit trail
-      - Short support: SELL with no open long → opens a short lot
-
-    Returns (trades_list, audit_flags_list).
-    """
-    if not alerts:
-        return [], []
-
-    def _parse_ts(ts):
-        """Parse timestamp — handles unix float, unix int, or ISO string."""
-        if ts is None:
-            return time.time()
-        if isinstance(ts, (int, float)):
-            return float(ts)
-        try:
-            return pd.Timestamp(ts).timestamp()
-        except Exception:
-            return time.time()
-
-    def _ts_to_datetime(ts_float):
-        try:
-            return pd.Timestamp(ts_float, unit="s")
-        except Exception:
+    def _generate_plausibility_summary(self) -> str:
+        pc     = [c for c in self.checks if c.category == "Plausibility"]
+        manual = sum(1 for c in pc if not c.passed and "Manual Audit Required" in c.value)
+        review = sum(1 for c in pc if not c.passed and "Review Recommended" in c.value)
+        if manual > 0:
+            return f"⚠ {manual} statistical implausibility issues require manual audit"
+        if review > 0:
+            return f"⚠ {review} statistical issues merit review"
+        return "✅ All statistical metrics appear plausible"
+
+    def _classify_market_regime_by_date(self) -> Optional[dict]:
+        if not self.has_dates or 'date' not in self.df.columns:
             return None
-
-    # Sort all alerts chronologically before ANY pairing
-    sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
-
-    # Position-state tracker: symbol → FIFO list of open lots
-    lots         = defaultdict(list)
-    trades       = []
-    audit_flags  = []
-    orphan_sells = []
-
-    for alert in sorted_alerts:
-        symbol = str(alert.get("symbol", "UNKNOWN"))
-        action = str(alert.get("action", "")).upper().strip()
-        price  = float(alert.get("price", 0))
-        qty    = float(alert.get("quantity", 1))
-        ts     = _parse_ts(alert.get("timestamp"))
-        date   = _ts_to_datetime(ts)
-
-        if price <= 0:
-            continue
-
-        if action == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                # Closing a short position (partial lot support)
-                remaining = qty
-                while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
-                    close_qty = min(remaining, lot["qty"])
-                    pnl_pct   = (lot["price"] - price) / lot["price"]
-                    row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": "short"}
-                    if date: row["date"] = date
-                    trades.append(row)
-                    lot["qty"] -= close_qty
-                    remaining  -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                if remaining > 0:
-                    lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
+        bear_periods = [
+            (pd.Timestamp('2000-03-01'), pd.Timestamp('2002-10-31')),
+            (pd.Timestamp('2007-10-01'), pd.Timestamp('2009-03-31')),
+            (pd.Timestamp('2020-02-01'), pd.Timestamp('2020-03-31')),
+            (pd.Timestamp('2022-01-01'), pd.Timestamp('2022-10-31')),
+        ]
+        bull_periods = [
+            (pd.Timestamp('2003-03-01'), pd.Timestamp('2007-09-30')),
+            (pd.Timestamp('2009-04-01'), pd.Timestamp('2020-01-31')),
+            (pd.Timestamp('2020-04-01'), pd.Timestamp('2021-12-31')),
+            (pd.Timestamp('2023-01-01'), pd.Timestamp('2099-12-31')),
+        ]
+        labels = {}
+        for idx, row in self.df.iterrows():
+            d = row['date']
+            if pd.isna(d):
+                labels[idx] = 'UNKNOWN'
+                continue
+            # Strip timezone info for comparison — regime periods are tz-naive
+            try:
+                if hasattr(d, 'tzinfo') and d.tzinfo is not None:
+                    d = d.tz_convert('UTC').tz_localize(None)
+                d = pd.Timestamp(d)
+            except Exception:
+                labels[idx] = 'UNKNOWN'
+                continue
+            if any(s <= d <= e for s, e in bear_periods):
+                labels[idx] = 'BEAR'
+            elif any(s <= d <= e for s, e in bull_periods):
+                labels[idx] = 'BULL'
             else:
-                # Opening or adding to a long position
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
+                labels[idx] = 'CONSOL'
+        return labels
 
-        elif action == "SELL":
-            if not lots[symbol]:
-                # No open long — could be opening a short (e.g. SHORT signal from TV strategy)
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
+    def check_sharpe_decay(self) -> CheckResult:
+        r, n = self.returns, len(self.returns)
+        if n < 20:
+            return CheckResult("Sharpe Decay", False, 20, "Insufficient data", "Need 20+ trades", "Add more backtest history", "Overfitting")
+        mid   = n // 2
+        s_in  = calculate_sharpe(r[:mid], self.trades_per_year)
+        s_out = calculate_sharpe(r[mid:], self.trades_per_year)
+        decay = (s_in - s_out) / (abs(s_in) + EPSILON) * 100
+
+        # Additional: check return mean distribution shift — catches shuffled high-PnL outliers
+        mean_in  = float(np.mean(r[:mid]))
+        mean_out = float(np.mean(r[mid:]))
+        mean_decay = (mean_in - mean_out) / (abs(mean_in) + EPSILON) * 100 if mean_in > 0 else 0
+
+        # Use the worse of Sharpe decay or mean decay
+        effective_decay = max(decay, mean_decay * 0.7)
+        score = max(0, 100 - max(0, effective_decay))
+        passed = effective_decay < 40
+        return CheckResult("Sharpe Ratio Decay", passed, round(score, 1),
+            f"In-sample: {s_in:.2f} → Out-of-sample: {s_out:.2f} ({effective_decay:.1f}% effective decay)",
+            "High decay means the strategy was fitted to historical noise.",
+            "Run walk-forward optimization.", "Overfitting")
+
+    def check_monte_carlo(self) -> CheckResult:
+        r = self.returns
+        mean_sims = [np.mean(self.rng.choice(r, size=len(r), replace=True)) for _ in range(300)]
+        mean_pct = float(np.mean(np.array(mean_sims) > 0) * 100)
+        original_dd = calculate_max_drawdown(r)
+        seq_sims = [abs(calculate_max_drawdown(self.rng.permutation(r))) - abs(original_dd) < 0.10 for _ in range(200)]
+        sequence_pct = float(np.mean(seq_sims) * 100)
+        perms = [self.rng.permutation(r) for _ in range(500)]
+        equity_sims = [np.prod(1 + p) for p in perms]
+        worst_5pct  = np.percentile(equity_sims, 5)
+        if not self.has_dates:
+            worst_5pct_val = (worst_5pct - 1) * 100
+        else:
+            delta = self.df['date'].max() - self.df['date'].min()
+            tsy   = max(delta.total_seconds() / (365.25 * 24 * 3600), 0.1)
+            if 'Short backtest' in self.timeframe_info:
+                tsy = 1.0
+            worst_5pct_val = (worst_5pct ** (1 / tsy) - 1) * 100
+        worst_5pct_dd = np.percentile([abs(calculate_max_drawdown(p)) for p in perms], 95) * 100
+        equity_score = min(100, max(0, 100 + worst_5pct_val * 2 - worst_5pct_dd))
+        combined     = mean_pct * 0.4 + sequence_pct * 0.3 + equity_score * 0.3
+        passed       = combined > (70 if self.strict_mode else 60)
+        return CheckResult("Monte Carlo Robustness", passed, round(combined, 1),
+            f"Mean: {mean_pct:.1f}% | Seq: {sequence_pct:.1f}% | Equity: {equity_score:.1f}%",
+            "Three-component MC: mean stability, sequence fragility, worst-case equity.",
+            "If equity score low, strategy has tail risk.", "Overfitting")
+
+    def check_outlier_dependency(self) -> CheckResult:
+        r = self.returns
+        wins   = r[r > 0]
+        losses = r[r < 0]
+        if len(wins) < 3:
+            return CheckResult("Profit / Loss Concentration", False, 0, "Too few winning trades", "Need at least 3 winning trades.", "Extend backtest.", "Overfitting")
+        n             = len(r)
+        total_profit  = float(np.sum(wins))
+        total_loss    = float(abs(np.sum(losses))) if len(losses) > 0 else EPSILON
+        top1pct_count  = max(1, int(n * 0.01))
+        top1pct_profit = float(np.sum(np.sort(r)[::-1][:top1pct_count]))
+        top1pct_share  = top1pct_profit / total_profit * 100
+        top2_share     = float(np.sum(np.sort(r)[::-1][:2])) / total_profit * 100
+        loss_conc_share = 0.0
+        if len(losses) >= 3:
+            bot1pct_count = max(1, int(n * 0.01))
+            bot1pct_loss  = float(abs(np.sum(np.sort(losses)[:bot1pct_count])))
+            loss_conc_share = bot1pct_loss / total_loss * 100
+        r_trimmed = np.delete(r, np.argsort(r)[::-1][:top1pct_count])
+        sharpe_raw  = calculate_sharpe(r, self.trades_per_year)
+        sharpe_trim = (calculate_sharpe(r_trimmed, self.trades_per_year) if len(r_trimmed) > 5 else 0.0)
+        sharpe_decay = (sharpe_raw - sharpe_trim) / (abs(sharpe_raw) + EPSILON)
+        if top1pct_share > 25 or sharpe_decay > 0.50 or top2_share > 20:
+            passed, score = False, 0
+        elif loss_conc_share > 50 and len(losses) >= 3:
+            passed, score = False, 15
+        elif top1pct_share > 15 or sharpe_decay > 0.30:
+            passed, score = False, 40
+        else:
+            passed, score = True, 100
+        return CheckResult("Profit / Loss Concentration", passed, score,
+            f"Top-1% = {top1pct_share:.1f}% profit | Loss conc = {loss_conc_share:.1f}%",
+            "Profit concentration check.", "Remove your 3 best trades and recheck Sharpe.", "Overfitting")
+
+    def check_walk_forward(self) -> CheckResult:
+        r = self.returns
+        if len(r) < 60:
+            return CheckResult("CPCV Path Stability", False, 20, "Not enough data for CPCV", "Need 60+ trades.", "Extend backtest.", "Overfitting")
+        n_splits    = CPCV_N_SPLITS
+        n_test      = CPCV_N_TEST
+        fold_size   = len(r) // n_splits
+        folds       = [r[i * fold_size:(i + 1) * fold_size] for i in range(n_splits)]
+        embargo_sz  = max(1, int(len(r) * CPCV_EMBARGO_FRAC))
+        path_sharpes = []
+        for test_idx_tuple in _combinations(range(n_splits), n_test):
+            test_set = set(test_idx_tuple)
+            test     = np.concatenate([folds[i] for i in test_idx_tuple])
+            train_parts = []
+            for i in range(n_splits):
+                if i in test_set:
+                    continue
+                fold_data = folds[i].copy()
+                is_left_adjacent  = (i + 1) in test_set
+                is_right_adjacent = (i - 1) in test_set
+                if is_left_adjacent:
+                    fold_data = fold_data[:-embargo_sz] if len(fold_data) > embargo_sz else np.array([])
+                if is_right_adjacent:
+                    fold_data = fold_data[embargo_sz:] if len(fold_data) > embargo_sz else np.array([])
+                if len(fold_data) > 0:
+                    train_parts.append(fold_data)
+            if len(test) < 5 or np.std(test, ddof=1) < EPSILON:
                 continue
+            s = calculate_sharpe(test, self.trades_per_year)
+            path_sharpes.append(s)
+        if not path_sharpes:
+            return CheckResult("CPCV Path Stability", False, 0, "CPCV could not compute paths", "", "", "Overfitting")
+        paths        = np.array(path_sharpes)
+        pct_positive = float(np.mean(paths > 0) * 100)
+        path_std     = float(np.std(paths))
+        mean_sharpe  = float(np.mean(paths))
+        n_paths      = len(paths)
+        if path_std > CPCV_ACCEPTABLE_THRESHOLD or pct_positive < 60:
+            passed, score = False, 0
+        elif path_std > CPCV_ROBUST_THRESHOLD or pct_positive < 80:
+            passed, score = False, 45
+        else:
+            passed, score = True, min(100, int(pct_positive))
+        return CheckResult("CPCV Path Stability", passed, score,
+            f"{n_paths} paths: {pct_positive:.0f}% positive | Sharpe std: ±{path_std:.2f}",
+            "CPCV robustness.", "If std > 2.5, strategy relies on specific market history.", "Overfitting")
 
-            if lots[symbol][0]["side"] == "short":
-                # Already short, adding to it
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                continue
+    def check_bootstrap_stability(self) -> CheckResult:
+        r   = self.returns
+        pct = float(np.mean(np.array([np.mean(self.rng.choice(r, size=len(r), replace=True)) for _ in range(500)]) > 0) * 100)
+        return CheckResult("Bootstrap Stability", pct > 70, round(pct, 1),
+            f"Positive expectancy in {pct:.1f}% of 500 bootstrap samples",
+            "Stable edge shows up consistently in resampling.", "Fix win rate or R:R.", "Overfitting")
 
-            # Close against open longs with partial lot support
-            remaining = qty
-            while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
-                close_qty = min(remaining, lot["qty"])
-                pnl_pct   = (price - lot["price"]) / lot["price"]
-                row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": "long"}
-                if date: row["date"] = date
-                trades.append(row)
-                lot["qty"] -= close_qty
-                remaining  -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
+    def check_deflated_sharpe(self) -> CheckResult:
+        sharpe     = calculate_sharpe(self.returns, self.trades_per_year)
+        dsr_result = calculate_deflated_sharpe(self.returns, sharpe, self.n_trials, self.trades_per_year)
+        dsr    = dsr_result['dsr']
+        sr_min = dsr_result['sr_min_95']
+        se     = dsr_result['se_sr']
+        if dsr >= 0.99:
+            passed, score = True, 100
+        elif dsr >= 0.95:
+            passed, score = True, 80
+        elif dsr >= 0.85:
+            passed, score = False, 50
+        else:
+            passed, score = False, 10
+        return CheckResult("Deflated Sharpe Ratio", passed, round(score, 1),
+            f"DSR={dsr:.3f} | SE=±{se:.2f} | Min SR: {sr_min:.2f} | n_trials={self.n_trials}",
+            f"DSR corrects Sharpe={sharpe:.2f} for non-normality and {self.n_trials} trial(s).",
+            "Increase backtest length or reduce parameter count.", "Overfitting")
 
-        elif action in ("CLOSE", "EXIT", "FLAT"):
-            # Explicit close signal — close entire position regardless of direction
-            if lots[symbol]:
-                lot = lots[symbol][0]
-                pnl_pct = (
-                    (price - lot["price"]) / lot["price"] if lot["side"] == "long"
-                    else (lot["price"] - price) / lot["price"]
-                )
-                row = {"pnl": round(pnl_pct, 6), "ticker": symbol, "side": lot["side"]}
-                if date: row["date"] = date
-                trades.append(row)
-                lots[symbol].clear()
+    def check_sharpe_ci_enforcement(self) -> CheckResult:
+        sharpe, ci_low, ci_high, p_val = calculate_sharpe_ci(self.returns, self.trades_per_year)
+        ci_width = ci_high - ci_low
+        if ci_low > 0.5:
+            passed, score = True, 100
+        elif ci_low > 0.0:
+            passed, score = True, 70
+        elif ci_low > -0.5:
+            passed, score = False, 35
+        else:
+            passed, score = False, 10
+        return CheckResult("Sharpe CI Enforcement", passed, round(score, 1),
+            f"Sharpe {sharpe:.2f} | 95% CI: [{ci_low:.2f}, {ci_high:.2f}] | p={p_val:.3f}",
+            f"With {len(self.returns)} trades, CI width = ±{ci_width/2:.2f}.",
+            "Collect more backtest data.", "Overfitting")
 
-    # Build audit flags
-    open_positions = {s: (sum(l["qty"] for l in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6]
-        )
-        audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
-            f"(no closing alert yet): {sym_list}"
-        )
+    def check_min_backtest_length(self) -> CheckResult:
+        sharpe       = calculate_sharpe(self.returns, self.trades_per_year)
+        n            = len(self.returns)
+        min_required = calculate_harvey_liu_zhu_min_obs(max(sharpe, 0.1), n_trials=self.n_trials)
+        if n >= min_required * 2:
+            passed, score = True, 100
+        elif n >= min_required:
+            passed, score = True, 70
+        elif n >= min_required * 0.5:
+            passed, score = False, 35
+        else:
+            passed, score = False, 5
+        return CheckResult("Minimum Backtest Length", passed, round(score, 1),
+            f"{n} trades vs {min_required} required (Sharpe={sharpe:.2f})",
+            f"Need ≥{min_required} trades for statistical significance.",
+            f"Extend backtest to at least {min_required} trades.", "Overfitting")
 
-    total_alerts = len(alerts)
-    completed    = len(trades)
-    audit_flags.append(
-        f"📊 {total_alerts} alert(s) → {completed} completed trade(s) | "
-        f"{len(open_positions)} position(s) open"
-    )
+    # ── P2: NEW CHECK — Autocorrelation (Ljung-Box + Newey-West corrected SR) ──
 
-    return trades, audit_flags
+    def check_autocorrelation(self) -> CheckResult:
+        """
+        P2: Test for serial correlation in returns using Ljung-Box Q-test.
+        If significant autocorrelation is detected, also computes a
+        Newey-West corrected Sharpe SE and compares it to the IID SE.
 
+        Significant AR(1) invalidates DSR, CI, and Bootstrap checks because
+        they all assume IID returns. Corrected SE(SR) replaces the IID figure.
 
-class TVSessionResponse(BaseModel):
-    session_id:  str
-    webhook_url: str
-    max_alerts:  int
-    ttl_hours:   int
+        Reference:
+          Ljung & Box (1978) Biometrika 65(2):297-303
+          Newey & West (1987) Econometrica 55(3):703-708
+          Lo (2002) J. Portfolio Mgmt — Sharpe under serial correlation
+        """
+        r = self.returns
+        n = len(r)
 
-class TVAlert(BaseModel):
-    symbol:    str
-    action:    str        # BUY or SELL
-    price:     float
-    quantity:  Optional[float] = 1.0
-    timestamp: Optional[float] = None   # unix seconds preferred; ISO string also accepted
+        if n < 20:
+            return CheckResult(
+                "Autocorrelation (Ljung-Box)", True, 80,
+                "Insufficient data for Ljung-Box test (need 20+ trades)",
+                "Cannot assess serial correlation.", "Extend backtest.", "Overfitting"
+            )
 
-class TVStatusResponse(BaseModel):
-    session_id:      str
-    alerts_received: int
-    trades_paired:   int
-    status:          str
-    created_at:      float
-    expires_at:      float
+        # AR(1) estimate
+        ar1 = float(np.corrcoef(r[:-1], r[1:])[0, 1]) if n > 1 else 0.0
+        if np.isnan(ar1):
+            ar1 = 0.0
 
+        # Ljung-Box at lags 1, 5, 10
+        lb_results = _ljung_box_test(r, LJUNG_BOX_LAGS)
 
-@app.get("/webhook/tradingview/new-session", response_model=TVSessionResponse)
-def create_tv_session():
-    """Create a new TradingView webhook session."""
-    _tv_cleanup()
-    session_id  = str(uuid.uuid4())
-    webhook_url = (
-        f"{os.getenv('BASE_URL', 'https://quantproof-backend.onrender.com')}"
-        f"/webhook/tradingview/{session_id}"
-    )
-    TV_SESSIONS[session_id] = {
-        "session_id":  session_id,
-        "webhook_url": webhook_url,
-        "alerts":      [],
-        "created_at":  time.time(),
-        "expires_at":  time.time() + TV_SESSION_TTL_SECONDS,
-    }
-    _tv_save_sessions()   # persist immediately so restart doesn't lose new session
-    return TVSessionResponse(
-        session_id=session_id,
-        webhook_url=webhook_url,
-        max_alerts=TV_MAX_ALERTS_PER_SESSION,
-        ttl_hours=TV_SESSION_TTL_SECONDS // 3600,
-    )
+        # Any lag with p < alpha triggers a fail
+        lb_fails = {lag: (q, p) for lag, (q, p) in lb_results.items()
+                    if p < LJUNG_BOX_ALPHA}
+        has_autocorr = len(lb_fails) > 0 or abs(ar1) >= AUTOCORR_AR1_FAIL
 
+        # Newey-West corrected SE vs IID SE
+        iid_se = float(np.sqrt(1.0 / n) * np.sqrt(self.trades_per_year))
+        nw_se  = _newey_west_se_sharpe(r, self.trades_per_year)
+        se_inflation = nw_se / max(iid_se, EPSILON)
 
-@app.post("/webhook/tradingview/{session_id}")
-def receive_tv_alert(session_id: str, alert: TVAlert):
-    """Receive a TradingView webhook alert and store it in the session."""
-    _tv_cleanup()
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    session = TV_SESSIONS[session_id]
-    if time.time() > session["expires_at"]:
-        del TV_SESSIONS[session_id]
-        raise HTTPException(404, "Session expired")
-    if len(session["alerts"]) >= TV_MAX_ALERTS_PER_SESSION:
-        raise HTTPException(429, "Alert limit exceeded for this session")
-    alert_dict = alert.dict()
-    if alert_dict.get("timestamp") is None:
-        alert_dict["timestamp"] = time.time()
-    session["alerts"].append(alert_dict)
-    return {"status": "received", "alerts_count": len(session["alerts"])}
-
-
-@app.get("/webhook/tradingview/{session_id}/status", response_model=TVStatusResponse)
-def get_tv_status(session_id: str):
-    """Get TradingView session status and trade pair count."""
-    _tv_cleanup()
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    session = TV_SESSIONS[session_id]
-    alerts  = session["alerts"]
-    trades, _ = _tv_pair_alerts(alerts)
-    status  = "active"
-    if time.time() > session["expires_at"]:
-        status = "expired"
-    elif len(alerts) >= TV_MAX_ALERTS_PER_SESSION:
-        status = "full"
-    return TVStatusResponse(
-        session_id=session_id,
-        alerts_received=len(alerts),
-        trades_paired=len(trades),
-        status=status,
-        created_at=session["created_at"],
-        expires_at=session["expires_at"],
-    )
-
-
-@app.post("/webhook/tradingview/{session_id}/validate", response_model=ValidationResponse)
-def validate_tv_alerts(session_id: str):
-    """
-    Validate TradingView session alerts using QuantProof.
-
-    FIX TV1/TV2: Returns proper ValidationResponse with all required fields
-      (crash_sims, profitable_trades, scale_warning, currency, assumptions).
-    FIX TV3: Uses fixed _tv_pair_alerts (no double-append bug).
-    FIX TV6: ValueError from validator caught → 400 HTTPException.
-    """
-    _tv_cleanup()
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-
-    session = TV_SESSIONS[session_id]
-    alerts  = session["alerts"]
-
-    if len(alerts) < 10:
-        raise HTTPException(
-            400,
-            f"Need at least 10 alerts for validation, only have {len(alerts)}. "
-            "Keep sending webhook alerts and try again."
+        # Build display string for LB results
+        lb_str = " | ".join(
+            f"lag{lag}: Q={q:.2f} p={p:.3f}{'*' if p < LJUNG_BOX_ALPHA else ''}"
+            for lag, (q, p) in lb_results.items()
         )
 
-    trades, tv_flags = _tv_pair_alerts(alerts)
+        if has_autocorr:
+            passed = False
+            if abs(ar1) >= AUTOCORR_AR1_FAIL:
+                score = 0
+            else:
+                score = 30
+            value = (
+                f"AR(1)={ar1:.3f} | {lb_str} | "
+                f"NW-SE={nw_se:.3f} vs IID-SE={iid_se:.3f} "
+                f"(SE inflated ×{se_inflation:.2f})"
+            )
+            insight = (
+                f"Significant serial correlation detected (AR(1)={ar1:.3f}). "
+                f"All IID-assuming tests (DSR, CI, Bootstrap) are unreliable. "
+                f"Newey-West corrects SE(SR) upward by ×{se_inflation:.2f}x — "
+                f"true statistical significance is lower than reported."
+            )
+            fix = (
+                "Use Newey-West robust SE for inference. "
+                "Check for look-ahead bias or return smoothing artefacts. "
+                "AR(1) > 0.3 often signals data snooping or bid/ask bounce."
+            )
+        elif abs(ar1) >= AUTOCORR_AR1_WARN:
+            passed = True
+            score  = 60
+            value  = (
+                f"AR(1)={ar1:.3f} (marginal) | {lb_str} | "
+                f"NW-SE={nw_se:.3f} vs IID-SE={iid_se:.3f}"
+            )
+            insight = (
+                f"Mild serial correlation (AR(1)={ar1:.3f}). "
+                f"Ljung-Box tests pass but NW-SE is ×{se_inflation:.2f}x larger than IID. "
+                f"Statistical significance slightly overstated."
+            )
+            fix = "Monitor AR(1); consider Newey-West robust standard errors."
+        else:
+            passed = True
+            score  = 100
+            value  = f"AR(1)={ar1:.3f} | {lb_str} | NW-SE={nw_se:.3f} ≈ IID-SE={iid_se:.3f}"
+            insight = "No significant serial correlation. IID assumption holds."
+            fix     = ""
 
-    if len(trades) < 5:
-        raise HTTPException(
-            400,
-            f"Only paired {len(trades)} completed trade(s) from {len(alerts)} alert(s). "
-            "Need at least 5 completed round-trips (BUY + SELL pairs). "
-            "Keep sending alerts and validate again when you have more trades."
+        return CheckResult(
+            "Autocorrelation (Ljung-Box)", passed, round(score, 1),
+            value, insight, fix, "Overfitting"
         )
 
-    df = pd.DataFrame(trades)
+    def check_max_drawdown(self) -> CheckResult:
+        dd_pct = calculate_max_drawdown(self.returns) * 100
+        score  = max(0, 100 - dd_pct * 3)
+        return CheckResult("Max Drawdown", dd_pct < 20, round(score, 1),
+            f"Max drawdown: {dd_pct:.1f}%", "Funds reject >20% drawdown.", "Add circuit breaker.", "Risk")
 
-    # Auto-assign regime
-    regime_note = ""
-    if "date" in df.columns and df["date"].notna().any():
-        df, regime_note = assign_regimes(df)
+    def check_calmar_ratio(self) -> CheckResult:
+        calmar = calculate_calmar(self.returns, self.trades_per_year)
+        score  = max(0, min(100, calmar * 40))   # clamp — calmar can be deeply negative
+        return CheckResult("Calmar Ratio", calmar > 1.5, round(score, 1),
+            f"Calmar (CAGR/MaxDD): {calmar:.2f}", "Prop firms want >1.5.", "Improve position sizing.", "Risk")
 
-    try:
-        # FIX TV6: catch ValueError (too few trades etc.) as 400 not 500
-        validator = QuantProofValidator(df)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
+    def check_var(self) -> CheckResult:
+        r      = self.returns
+        var_99 = float(np.percentile(r, 1))
+        vol    = float(np.std(r, ddof=1))
+        # INSTITUTIONAL FIX: VaR should be measured relative to strategy vol, not mean.
+        # For a normal distribution VaR_99 ≈ -2.33σ, so ratio ≈ 2.33.
+        # Threshold of 4.0σ is generous (fat tails / skew allowed).
+        # Previous mean-based denominator incorrectly penalised high-vol strategies.
+        ratio  = abs(var_99) / (vol + EPSILON)  # ~2.3 for normal; >4 signals extreme fat tails
+        passed = ratio < 4.0
+        score  = max(0, 100 - max(0, ratio - 2.33) * 30)  # full marks at normal-dist VaR
+        return CheckResult("Value at Risk (VaR)", passed, round(score, 1),
+            f"VaR 99%: {var_99:.4f} | VaR/σ ratio: {ratio:.2f} (threshold: 4.0σ)",
+            "VaR relative to strategy volatility. Normal distribution ≈ 2.33σ. "
+            "Ratios above 4.0σ indicate extreme fat tails beyond what vol-targeting can manage.",
+            "Reduce leverage or apply volatility-scaled position sizing.", "Risk")
 
-    try:
-        report = validator.run()
-    except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
+    def check_cvar(self) -> CheckResult:
+        r       = self.returns
+        cvar_95 = calculate_cvar(r, 0.95, seed=self.seed)
+        cvar_99 = calculate_cvar(r, 0.99, seed=self.seed)
+        mean    = float(np.mean(r))
+        if abs(mean) < 0.001:
+            passed = abs(cvar_95) < 0.08
+            score  = max(0, 100 - abs(cvar_95) * 1250)
+        else:
+            ratio  = abs(cvar_95) / (abs(mean) + EPSILON)
+            passed = ratio < 15
+            score  = max(0, 100 - ratio * 4)
+        return CheckResult("CVaR / Expected Shortfall", passed, round(score, 1),
+            f"CVaR 95%: {cvar_95:.4f}", "Average loss in worst 5%.", "Reduce tail exposure.", "Risk")
 
-    # FIX TV1/TV2: top_issues/top_strengths as List[str], all fields present
-    scored        = [c for c in report.checks if c.category != "Plausibility"]
-    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
-    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
-    visible_checks = [c for c in report.checks if c.category != "Plausibility"]
+    def check_sortino(self) -> CheckResult:
+        sortino = calculate_sortino(self.returns, self.trades_per_year)
+        if sortino > 2.0:    score, passed = 100, True
+        elif sortino >= 1.0: score, passed = 75, True
+        elif sortino >= 0.5: score, passed = 45, False
+        else:                score, passed = 15, False
+        return CheckResult("Sortino Ratio", passed, round(score, 1),
+            f"Sortino: {sortino:.2f}", "Penalises only downside vol.", "ATR-based sizing.", "Risk")
 
-    date_range = "No date data"
-    if "date" in df.columns and df["date"].notna().any():
-        try:
-            dates = pd.to_datetime(df["date"]).dropna()
-            date_range = f"{dates.min().date()} to {dates.max().date()}"
-        except Exception:
-            pass
+    def check_consecutive_losses(self) -> CheckResult:
+        r          = self.returns
+        max_streak = current = 0
+        for trade in r:
+            if trade < 0:
+                current    += 1
+                max_streak  = max(max_streak, current)
+            else:
+                current = 0
 
-    audit_note = (
-        f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
-        + (f" | {regime_note}" if regime_note else "")
-    )
-    # Merge tv_flags into audit_flags for full transparency
-    extra_tv_flags = [f for f in tv_flags if f not in audit_note]
+        # FIX BUG-V4-3: zero losing streak over 20+ trades is implausible,
+        # not a perfect score — rewards lookahead bias / synthetic data
+        if max_streak == 0 and len(r) >= 20:
+            return CheckResult(
+                "Max Losing Streak", False, 30,
+                f"Zero losing streak over {len(r)} trades — implausible",
+                "A real strategy almost never has zero consecutive losses over 20+ trades. "
+                "This is a strong indicator of lookahead bias, synthetic data, or a rounding artefact.",
+                "Verify data integrity. Check for bid/ask spread or commission suppression.", "Risk"
+            )
 
-    return ValidationResponse(
-        fundable_score=report.score,
-        grade=report.grade,
-        summary=(
-            f"QuantProof analyzed {report.total_trades} TradingView-constructed trades across "
-            f"{len(scored)} institutional checks + 5 crash simulations. "
-            f"Source: TradingView webhook alerts — paired into trades. "
-            f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
-        ),
-        checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],  # FIX TV2
-        total_trades=report.total_trades,
-        profitable_trades=report.profitable_trades,   # FIX TV2
-        date_range=date_range,
-        sharpe=round(report.sharpe, 2),
-        max_drawdown=round(report.max_drawdown, 4),
-        win_rate=round(report.win_rate, 1),
-        top_issues=top_issues,       # FIX TV1: List[str]
-        top_strengths=top_strengths, # FIX TV1: List[str]
-        validation_hash=report.validation_hash + "-TV",
-        validation_date=report.validation_date,
-        engine_version=report.engine_version,
-        audit_flags=report.audit_flags + [audit_note] + extra_tv_flags,
-        plausibility_summary=report.plausibility_summary,   # FIX TV2
-        scale_warning=getattr(report, '_scale_warning', False),  # FIX TV2
-        currency="USD",   # FIX TV2
-        assumptions=report.assumptions + [  # FIX TV2
-            "Trade data sourced from TradingView webhook alerts — self-reported",
-            "Trades constructed by pairing BUY/SELL alerts in chronological order",
-            "Not broker-verified — cannot be used for prop firm compliance submissions",
-        ],
-        dashboard=None,
-        ai_plan=None,
-    )
+        score = max(0, 100 - max_streak * 10)
+        return CheckResult("Max Losing Streak", max_streak < 8, round(score, 1),
+            f"Longest losing streak: {max_streak}", "Prop firms reject 8+ consecutive losses.", "Pause after streak >5.", "Risk")
 
+    def check_recovery_factor(self) -> CheckResult:
+        r        = self.returns
+        recovery = float(np.sum(r[r > 0])) / (float(abs(np.sum(r[r < 0]))) + EPSILON)
+        score    = min(100, recovery * 40)
+        return CheckResult("Recovery Factor", recovery > 1.5, round(score, 1),
+            f"Recovery factor: {recovery:.2f}", "Below 1.5 means wins barely cover drawdowns.", "Asymmetric R:R.", "Risk")
 
-@app.post("/webhook/tradingview/{session_id}/reset")
-def reset_tv_session(session_id: str):
-    """Clear all alerts in a session, keeping the session active."""
-    _tv_cleanup()
-    if session_id not in TV_SESSIONS:
-        raise HTTPException(404, "Session not found or expired")
-    TV_SESSIONS[session_id]["alerts"] = []
-    return {"status": "reset", "message": "Alerts cleared, session remains active"}
+    def check_absolute_sharpe(self) -> CheckResult:
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe > 1.5:    score, passed = 100, True
+        elif sharpe >= 1.0: score, passed = 75, True
+        elif sharpe >= 0.5: score, passed = 45, False
+        else:               score, passed = 15, False
+        return CheckResult("Absolute Sharpe Ratio", passed, round(score, 1),
+            f"Annualized Sharpe: {sharpe:.2f}", "Institutional minimum Sharpe > 1.0.", "Better entry timing.", "Risk")
+
+    def check_ruin_probability(self) -> CheckResult:
+        r        = self.returns
+        wr       = calculate_win_rate(r) / 100.0
+        winners  = r[r > 0]
+        losers   = r[r < 0]
+        avg_win  = float(np.mean(winners))  if len(winners) > 0 else 0.0
+        avg_loss = float(abs(np.mean(losers))) if len(losers) > 0 else 0.0
+        # INSTITUTIONAL FIX: use N=50 capital units (2% risk per trade = 50 units).
+        # Previous N=10 (10% risk) massively inflated ruin probability for profitable strategies.
+        # At N=50, a strategy with WR=55% has ruin prob <0.01% — correctly near-zero.
+        # The check now measures genuine ruin risk at institutional position sizing.
+        p, q = max(wr, EPSILON), max(1 - wr, EPSILON)
+        rr_ratio = avg_win / (avg_loss + EPSILON)  # reward-to-risk ratio
+        if p > q:  # profitable edge exists
+            # Generalised gambler's ruin: P(ruin) = ((q/p) / rr_ratio)^N
+            adjusted_ratio = (q / p) / (rr_ratio + EPSILON)
+            ruin_prob = min(1.0, adjusted_ratio ** 50) if adjusted_ratio < 1 else 1.0
+        else:
+            ruin_prob = 1.0
+        ruin_pct  = ruin_prob * 100
+        score     = max(0, 100 - ruin_pct * 10)  # 10% ruin → score 0
+        return CheckResult("Probability of Ruin", ruin_pct < 5.0, round(score, 1),
+            f"Ruin probability: {ruin_pct:.2f}% | WR: {wr:.1%} | R:R: {rr_ratio:.2f} | N=50 units",
+            "Gambler's ruin at institutional position sizing (2% risk per trade, N=50 units). "
+            "Measures probability of losing entire account before doubling it.",
+            "Improve win rate or reward-to-risk ratio.", "Risk")
+
+    def check_drawdown_duration(self) -> CheckResult:
+        r      = self.returns
+        dd_info = calculate_drawdown_duration(r, self.has_dates, self.df['date'] if self.has_dates else None)
+        max_dur = dd_info['max_dd_duration']
+        ever    = dd_info['ever_recovered']
+        if dd_info.get('dd_duration_days') is not None:
+            dur_days = dd_info['dd_duration_days']
+            dur_display = f"{dur_days} calendar days"
+            # INSTITUTIONAL FIX: scale threshold by backtest length.
+            # 180-day flat threshold was calibrated for 30-day prop firm challenges.
+            # A 7-year institutional backtest can legitimately have a 12-month drawdown.
+            # Threshold = 180 days minimum, scaling up with backtest length, capped at 730 days (2 years).
+            if self.has_dates:
+                bt_days = (self.df['date'].max() - self.df['date'].min()).days
+                bt_months = max(1, bt_days / 30.44)
+                threshold_days = int(min(730, max(180, 180 + bt_months * 8)))
+            else:
+                threshold_days = 180
+            threshold_met = dur_days < threshold_days
+            threshold_display = f"{threshold_days}d threshold (scaled to {bt_months:.0f}mo backtest)" if self.has_dates else "180d threshold"
+        else:
+            threshold_met = max_dur < len(r) * 0.25  # raised from 0.20
+            dur_display   = f"{max_dur} trade periods"
+            threshold_display = "25% of backtest"
+        if threshold_met and ever:
+            passed, score = True, 90
+        elif threshold_met and not ever:
+            passed, score = False, 50
+        else:
+            passed, score = False, 20
+        return CheckResult("Drawdown Duration & Recovery", passed, round(score, 1),
+            f"Max DD duration: {dur_display} | {threshold_display}",
+            "Time underwater in longest drawdown, scaled to backtest length. "
+            "Prop firm standard: 180 days. Institutional: up to 24 months.",
+            "Add re-entry rules or circuit breakers after extended drawdown periods.", "Risk")
+
+    def check_ulcer_index(self) -> CheckResult:
+        r       = self.returns
+        ui      = calculate_ulcer_index(r)
+        sharpe  = calculate_sharpe(r, self.trades_per_year)
+        martin  = sharpe / (ui + EPSILON)
+        if ui < 2.0:    passed, score = True, 100
+        elif ui < ULCER_INDEX_THRESHOLD: passed, score = True, 65
+        elif ui < 10.0: passed, score = False, 30
+        else:           passed, score = False, 5
+        return CheckResult("Ulcer Index", passed, round(score, 1),
+            f"Ulcer Index: {ui:.2f} | Martin Ratio: {martin:.2f}", "Combines depth+duration of drawdowns.", "Reduce position sizing.", "Risk")
+
+    def check_bull_performance(self) -> CheckResult:
+        regime_labels = self._classify_market_regime_by_date()
+        r = self.returns
+        if regime_labels is not None:
+            indices = [i for i, idx in enumerate(self.df.index) if regime_labels.get(idx) == 'BULL']
+            bull   = r[indices] if indices else np.array([])
+            source = "actual market bull periods"
+        else:
+            window = max(5, len(r) // 10)
+            rm     = np.array([np.mean(r[max(0, i-window):i+1]) for i in range(len(r))])
+            bull   = r[rm > np.percentile(rm, 60)]
+            source = "rolling return proxy (no dates)"
+        if len(bull) < 3:
+            return CheckResult("Bull Market Performance", False, 20, f"Insufficient trades in bull ({len(bull)}) — {source}", "Not tested in bull.", "Extend backtest.", "Regime")
+        sharpe = calculate_sharpe(bull, self.trades_per_year)
+        wr     = calculate_win_rate(bull)
+        return CheckResult("Bull Market Performance", sharpe > 0 and wr > 45,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | WR: {wr:.1f}% ({len(bull)} trades) | {source}",
+            "Bull market behavior.", "Check momentum signal calibration.", "Regime")
+
+    def check_bear_performance(self) -> CheckResult:
+        regime_labels = self._classify_market_regime_by_date()
+        r = self.returns
+        if regime_labels is not None:
+            indices = [i for i, idx in enumerate(self.df.index) if regime_labels.get(idx) == 'BEAR']
+            bear   = r[indices] if indices else np.array([])
+            source = "actual market bear periods"
+        else:
+            window = max(5, len(r) // 10)
+            rm     = np.array([np.mean(r[max(0, i-window):i+1]) for i in range(len(r))])
+            bear   = r[rm < np.percentile(rm, 40)]
+            source = "rolling return proxy (no dates)"
+        if len(bear) < 3:
+            return CheckResult("Bear Market Performance", False, 20, f"Insufficient trades in bear ({len(bear)}) — {source}", "Not tested in bear.", "Extend backtest.", "Regime")
+        sharpe = calculate_sharpe(bear, self.trades_per_year)
+        wr     = calculate_win_rate(bear)
+        return CheckResult("Bear Market Performance", sharpe > -1.0,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | WR: {wr:.1f}% ({len(bear)} trades) | {source}",
+            "Bear market behavior.", "Add regime detection.", "Regime")
+
+    def check_consolidation_performance(self) -> CheckResult:
+        regime_labels = self._classify_market_regime_by_date()
+        r = self.returns
+        if regime_labels is not None:
+            indices = [i for i, idx in enumerate(self.df.index) if regime_labels.get(idx) == 'CONSOL']
+            consol = r[indices] if indices else np.array([])
+            source = "actual consolidation periods"
+        else:
+            window = max(5, len(r) // 10)
+            rm     = np.array([np.mean(r[max(0, i-window):i+1]) for i in range(len(r))])
+            lo, hi = np.percentile(rm, 40), np.percentile(rm, 60)
+            consol = r[(rm >= lo) & (rm <= hi)]
+            source = "rolling return proxy (no dates)"
+        if len(consol) < 3:
+            return CheckResult("Consolidation Performance", False, 40, f"Insufficient trades in consol ({len(consol)}) — {source}", "Not tested in sideways.", "Extend backtest.", "Regime")
+        sharpe = calculate_sharpe(consol, self.trades_per_year)
+        wr     = calculate_win_rate(consol)
+        return CheckResult("Consolidation Performance", sharpe > 0,
+            round(min(100, max(0, 50 + sharpe * 20)), 1),
+            f"Sharpe: {sharpe:.2f} | WR: {wr:.1f}% ({len(consol)} trades) | {source}",
+            "Sideways market behavior.", "Add choppiness filter.", "Regime")
+
+    def check_volatility_stress(self) -> CheckResult:
+        r          = self.returns
+        orig_sharpe = calculate_sharpe(r, self.trades_per_year)
+        vol        = float(np.std(r, ddof=1))
+        mean_r     = float(np.mean(r))
+        # FIX BUG-V4-4: seed from strategy returns hash, not fixed string
+        # Prevents same stressed sequence rewarding/punishing all strategies identically
+        rng = np.random.default_rng(
+            int(abs(hash(self.returns.tobytes() + b"vol_stress_v4")) % (2**32))
+        )
+        autocorr = 0.30
+        innov    = rng.standard_t(3, 60) * vol * 3.0 / np.sqrt(3)
+        stressed = np.zeros(60)
+        stressed[0] = innov[0]
+        for i in range(1, 60):
+            stressed[i] = (autocorr * stressed[i-1] + np.sqrt(1 - autocorr**2) * innov[i])
+        vol_target_scale = 1.0 / 3.0
+        stressed += mean_r * vol_target_scale
+        stressed_sharpe = calculate_sharpe(stressed, self.trades_per_year)
+        stressed_dd     = calculate_max_drawdown(stressed) * 100
+        # INSTITUTIONAL FIX: measure relative Sharpe degradation, not absolute Sharpe sign.
+        # Previous check failed any strategy where stressed Sharpe < 0, which happens for ALL
+        # strategies with vol > ~0.8%/trade when a 3x vol spike overwhelms mean drift.
+        # Institutional standard: strategy survives if it retains >30% of its Sharpe under stress.
+        # Pass: degradation < 70% (retains 30%+ of edge) AND stress DD < 40%
+        degradation     = (orig_sharpe - stressed_sharpe) / (abs(orig_sharpe) + EPSILON) * 100
+        sharpe_retained = max(0.0, 100.0 - degradation)
+        passed          = degradation < 70 and stressed_dd < 40
+        score           = max(0, min(100, sharpe_retained * 0.7 + max(0, 40 - stressed_dd) * 0.75))
+        return CheckResult("Volatility Spike Stress Test", passed,
+            round(score, 1),
+            f"Vol spike (3x, t(3)): Sharpe {orig_sharpe:.2f}→{stressed_sharpe:.2f} "
+            f"({100-degradation:.0f}% retained) | Stress DD: {stressed_dd:.1f}%",
+            "Fat-tail 3x vol spike with AR(1) autocorrelation. "
+            "Pass = retains ≥30% of Sharpe and stress drawdown < 40%. "
+            "Institutional standard: strategy must survive a Black Monday-scale event.",
+            "Use ATR-based position sizing to reduce vol-of-vol exposure.", "Regime")
+
+    def check_frequency_consistency(self) -> CheckResult:
+        r      = self.returns
+        window = max(5, len(r) // 10)
+        pct    = float(np.mean(np.array([np.mean(r[i:i+window]) for i in range(0, len(r) - window)]) > 0) * 100)
+        return CheckResult("Performance Consistency", pct > 60, round(pct, 1),
+            f"Profitable in {pct:.1f}% of rolling windows", "Consistent strategies generate returns steadily.", "Define edge conditions explicitly.", "Regime")
+
+    def check_regime_coverage(self) -> CheckResult:
+        if 'regime' not in self.df.columns:
+            return CheckResult("Regime Coverage", False, 40, "No regime column", "Regime detection improves survival.", "Add BULL/BEAR/CONSOL labels.", "Regime")
+        regimes  = self.df['regime'].value_counts(normalize=True)
+        coverage = len(regimes) / 4 * 100
+        return CheckResult("Regime Coverage", coverage > 75, round(coverage, 1),
+            f"Regimes covered: {list(regimes.index.astype(str))} ({len(regimes)}/3)", "Full coverage = all market conditions tested.", "Add more history to cover BULL, BEAR and CONSOL.", "Regime")
+
+    def check_slippage_01(self) -> CheckResult:
+        r         = self.returns
+        tpy       = self.trades_per_year
+        base_slip = 0.001
+        freq_mult = max(1.0, np.sqrt(tpy / 252))
+        eff_slip  = base_slip * freq_mult
+
+        # Primary check: does strategy remain profitable after slippage?
+        net_after_slip = float(np.mean(r)) - eff_slip
+        gross          = float(np.sum(np.abs(r))) + EPSILON
+        slip_cost      = float(np.sum(np.abs(r) * eff_slip))
+        impact_pct     = slip_cost / gross * 100
+
+        # Fail if: net return goes negative OR slippage > 20% of gross
+        passed = net_after_slip > 0 and impact_pct < 20
+        # Score: 100 if comfortable positive, scales down as edge erodes
+        edge_ratio = net_after_slip / (abs(float(np.mean(r))) + EPSILON)
+        score = round(max(0, min(100, edge_ratio * 100 if net_after_slip > 0 else 0)), 1)
+        return CheckResult("Slippage Impact (0.1% base)", passed, score,
+            f"Net after 0.1% slip: {net_after_slip*100:.3f}%/trade | {impact_pct:.1f}% of gross",
+            "Strategy must remain profitable after realistic execution costs.",
+            "Edge is too thin for 0.1% slippage — increase return per trade or reduce frequency.",
+            "Execution")
+
+    def check_slippage_03(self) -> CheckResult:
+        r         = self.returns
+        tpy       = self.trades_per_year
+        base_slip = 0.003
+        freq_mult = max(1.0, np.sqrt(tpy / 252))
+        eff_slip  = base_slip * freq_mult
+
+        # Primary check: does strategy remain profitable after slippage?
+        net_after_slip = float(np.mean(r)) - eff_slip
+        gross          = float(np.sum(np.abs(r))) + EPSILON
+        slip_cost      = float(np.sum(np.abs(r) * eff_slip))
+        impact_pct     = slip_cost / gross * 100
+
+        passed = net_after_slip > 0 and impact_pct < 40
+        edge_ratio = net_after_slip / (abs(float(np.mean(r))) + EPSILON)
+        score = round(max(0, min(100, edge_ratio * 100 if net_after_slip > 0 else 0)), 1)
+        return CheckResult("Slippage Impact (0.3% base)", passed, score,
+            f"Net after 0.3% slip: {net_after_slip*100:.3f}%/trade | {impact_pct:.1f}% of gross",
+            "Small caps and illiquid stocks have 0.3%+ slippage — strategy must survive this.",
+            "Edge disappears under realistic small-cap execution — use limit orders or larger targets.",
+            "Execution")
+
+    def check_commission_drag(self) -> CheckResult:
+        r   = self.returns
+        tpy = self.trades_per_year
+        if tpy <= 252:
+            rate, tier = COMMISSION_INSTITUTIONAL, "institutional (2bps)"
+        elif tpy <= 2520:
+            rate, tier = COMMISSION_RETAIL_EQUITY, "retail equity (10bps)"
+        else:
+            rate, tier = COMMISSION_RETAIL_SPREAD, "HFT/spread (20bps)"
+        total_comm      = len(r) * rate
+        gross_turnover  = float(np.sum(np.abs(r))) + EPSILON
+        drag            = total_comm / gross_turnover * 100
+        annual_cost_pct = tpy * rate * 100
+        passed          = drag < 20
+        return CheckResult("Commission Drag", passed, round(max(0, 100 - drag * 4), 1),
+            f"{len(r)} trades × {rate*10000:.0f}bps ({tier}) → {drag:.1f}% of gross",
+            "Commission eats into returns.", "Reduce frequency if >20% of gross.", "Execution")
+
+    def check_partial_fills(self) -> CheckResult:
+        fill_rate = 0.80 + 0.20 * 0.70
+        impact    = abs(1.0 - fill_rate) * 100
+        return CheckResult("Partial Fill Simulation", impact < 10, round(max(0, 100 - impact * 5), 1),
+            f"80% fill rate → {impact:.1f}% return reduction", "Fast markets: incomplete fills.", "Use limit orders.", "Execution")
+
+    def check_live_vs_backtest_gap(self) -> CheckResult:
+        bt_sharpe   = calculate_sharpe(self.returns, self.trades_per_year)
+        live_sharpe = bt_sharpe * 0.6
+        score       = min(100, max(0, live_sharpe * 50))
+        return CheckResult("Live Trading Gap Estimate", live_sharpe > 0.5, round(score, 1),
+            f"Backtest Sharpe: {bt_sharpe:.2f} → Estimated Live: {live_sharpe:.2f}",
+            "40% Sharpe decay from backtest to live.", "Reduce sizing, tighten risk management.", "Execution")
+
+    def check_impact_adjusted_capacity(self) -> CheckResult:
+        r      = self.returns
+        mean_r = float(np.mean(r))
+        std_r  = float(np.std(r, ddof=1))
+        n      = len(r)
+        if std_r < EPSILON or n == 0 or mean_r <= 0:
+            return CheckResult("Impact-Adjusted Capacity", mean_r > 0, 50 if mean_r > 0 else 0,
+                "Cannot compute capacity on unprofitable strategy", "", "", "Execution")
+        sigma_mkt = std_r
+        def sharpe_at_aum(aum):
+            participation = (aum / max(n, 1)) / ADV_DEFAULT
+            impact        = IMPACT_ETA * sigma_mkt * np.sqrt(max(participation, 0))
+            return (mean_r - impact) / std_r * np.sqrt(self.trades_per_year)
+        s_100k = sharpe_at_aum(100_000)
+        s_1m   = sharpe_at_aum(1_000_000)
+        s_10m  = sharpe_at_aum(10_000_000)
+        s_100m = sharpe_at_aum(100_000_000)
+        decay = (s_100k - s_10m) / (abs(s_100k) + EPSILON)
+        if decay > 0.40:
+            passed, score = False, max(0, int((1 - decay) * 100))
+        elif decay > 0.20:
+            passed, score = True, 65
+        else:
+            passed, score = True, 100
+        return CheckResult("Impact-Adjusted Capacity", passed, score,
+            f"Sharpe: $100k={s_100k:.2f} | $1M={s_1m:.2f} | $10M={s_10m:.2f} | $100M={s_100m:.2f}",
+            "Almgren-Chriss capacity model.", "If capacity <$5M, retail-only.", "Execution")
+
+    def check_compliance_pass(self) -> CheckResult:
+        gates = [
+            self.returns.mean() > 0,
+            calculate_sharpe(self.returns, self.trades_per_year) > 1.0,
+            calculate_max_drawdown(self.returns) < 0.20,
+            calculate_win_rate(self.returns) > 45,
+            len(self.returns) > 50
+        ]
+        passed = all(gates) if self.strict_mode else sum(gates) >= 4
+        return CheckResult("Prop Firm Compliance", passed, 100 if passed else 0,
+            "✅ PASSES" if passed else f"❌ NEEDS FIXES ({sum(gates)}/5 gates)",
+            "FTMO/Topstep reject 90% of strategies.", "Fix top 3 failing checks.", "Compliance")
+
+    def check_prop_firm_compliance(self) -> CheckResult:
+        r            = self.returns
+        max_dd       = calculate_max_drawdown(r)
+        total_return = float(np.prod(1 + r) - 1)
+        sharpe       = calculate_sharpe(r, self.trades_per_year)
+        firms = {
+            "FTMO":    {"max_dd": 0.10, "profit_target": 0.10},
+            "Topstep": {"max_dd": 0.10, "profit_target": 0.06},
+            "The5ers": {"max_dd": 0.10, "profit_target": 0.08},
+        }
+        eligible   = []
+        violations = []
+        for name, rules in firms.items():
+            dd_ok     = max_dd       <= rules["max_dd"]
+            profit_ok = total_return >= rules["profit_target"]
+            sharpe_ok = sharpe       >= 1.0
+            if dd_ok and profit_ok and sharpe_ok:
+                eligible.append(name)
+            else:
+                v = []
+                if not dd_ok:     v.append(f"DD {max_dd:.1%}>{rules['max_dd']:.0%}")
+                if not profit_ok: v.append(f"Return {total_return:.1%}<{rules['profit_target']:.0%}")
+                if not sharpe_ok: v.append(f"Sharpe {sharpe:.2f}<1.0")
+                violations.append(f"{name}: {', '.join(v)}")
+        passed = len(eligible) >= 1
+
+        if eligible:
+            value_str   = f"Eligible: {', '.join(eligible)}"
+            insight_str = f"Meets {len(eligible)}/3 prop firms."
+            fix_str     = "Consider submitting to eligible firms."
+        else:
+            value_str   = "Not eligible"
+            insight_str = f"Violations: {' | '.join(violations[:2])}"
+            fix_str     = "Reduce DD, hit targets."
+
+        score = len(eligible) / 3 * 100
+        return CheckResult("Prop Firm Compliance (FTMO/Topstep/The5ers)", passed, round(score, 1),
+            value_str, insight_str, fix_str, "Compliance")
+
+    def check_institutional_compliance(self) -> CheckResult:
+        """
+        INSTITUTIONAL FIX: separate institutional compliance from prop firm compliance.
+        Prop firms test a 30-day challenge window with 10% DD limits — calibrated for
+        retail traders, not institutional strategies.
+        Institutional standard (CTA/fund): Sharpe>1.0, DD<25%, Calmar>1.0.
+        This check replaces the compliance hard-cap that was incorrectly failing
+        legitimate strategies with realistic drawdowns.
+        """
+        r      = self.returns
+        max_dd = calculate_max_drawdown(r)
+        sharpe = calculate_sharpe(r, self.trades_per_year)
+        n_years = max(len(r) / max(self.trades_per_year, 1), 0.1)
+        cagr    = float(np.prod(1 + r) ** (1.0 / n_years) - 1)
+        calmar  = cagr / (max_dd + EPSILON)
+
+        criteria = {
+            "Sharpe ≥ 1.0": sharpe >= 1.0,
+            "MaxDD < 25%":  max_dd < 0.25,
+            "Calmar ≥ 1.0": calmar >= 1.0,
+        }
+        met   = [k for k, v in criteria.items() if v]
+        unmet = [k for k, v in criteria.items() if not v]
+        score  = len(met) / len(criteria) * 100
+        passed = len(unmet) == 0
+        detail = f"Sharpe={sharpe:.2f} | MaxDD={max_dd:.1%} | Calmar={calmar:.2f}"
+        return CheckResult(
+            "Institutional Compliance (CTA/Fund Standard)", passed, round(score, 1),
+            f"{'✅ Meets institutional standard' if passed else f'⚠ Unmet: {unmet}'} | {detail}",
+            "CTA/fund institutional standards: Sharpe≥1.0, MaxDD<25%, Calmar≥1.0. "
+            "More appropriate than prop firm rules for multi-year backtests.",
+            "For prop firm eligibility see the Prop Firm Compliance check.", "Compliance"
+        )
+
+    # ── F1: Market-Neutral Benchmark Checks ──────────────────────────────────
+
+    def check_information_ratio(self) -> CheckResult:
+        """
+        F1 — Information Ratio vs benchmark.
+
+        Computes beta, Jensen's alpha, tracking error, and IR.
+        When no benchmark is provided: informational placeholder (score=50).
+        When benchmark provided:
+          - IR > 0.5  → genuine alpha, PASS
+          - IR > 0.3  → marginal alpha, PASS at reduced score
+          - IR < 0.3  → likely beta-capture, FAIL
+          - alpha < 0 → negative alpha vs benchmark, FAIL
+        """
+        if self.benchmark_returns is None:
+            return CheckResult(
+                "Information Ratio (vs Benchmark)", True, 50,
+                "No benchmark supplied — informational only",
+                "Pass benchmark_returns= to QuantProofValidator to test "
+                "whether strategy has alpha vs a passive index.",
+                "Recommended: supply SPY/index daily returns matching backtest period.",
+                "Overfitting"
+            )
+
+        r  = self.returns
+        bm = self.benchmark_returns
+        n  = len(r)
+
+        # OLS beta
+        bm_std = float(np.std(bm, ddof=1))
+        if bm_std < EPSILON:
+            beta = 0.0
+        else:
+            beta = float(np.cov(r, bm, ddof=1)[0, 1] / (bm_std ** 2))
+
+        # Jensen's alpha (annualised)
+        mean_r  = float(np.mean(r))
+        mean_bm = float(np.mean(bm))
+        alpha_per_trade = mean_r - beta * mean_bm
+        alpha_ann       = alpha_per_trade * self.trades_per_year
+
+        # Tracking error & IR
+        active_returns = r - beta * bm
+        te             = float(np.std(active_returns, ddof=1)) * np.sqrt(self.trades_per_year)
+        ir             = alpha_ann / (te + EPSILON)
+
+        # Correlation to benchmark
+        corr = float(np.corrcoef(r, bm)[0, 1]) if bm_std > EPSILON else 0.0
+
+        if alpha_ann < 0:
+            passed, score = False, 0
+            status = "⚠ Negative alpha — strategy underperforms benchmark on risk-adjusted basis"
+        elif ir >= 0.5:
+            passed, score = True, 100
+            status = "✅ Strong alpha — IR ≥ 0.5"
+        elif ir >= 0.3:
+            passed, score = True, 65
+            status = "⚠ Marginal alpha — IR 0.3–0.5"
+        else:
+            passed, score = False, 20
+            status = "⚠ Weak alpha — likely beta-capture, not genuine edge"
+
+        return CheckResult(
+            "Information Ratio (vs Benchmark)", passed, round(score, 1),
+            f"IR={ir:.2f} | α={alpha_ann*100:.2f}%/yr | β={beta:.2f} | "
+            f"TE={te*100:.2f}%/yr | corr={corr:.2f} — {status}",
+            "Information Ratio = Jensen's alpha / tracking error. "
+            "IR < 0.3 means the strategy's excess return is insufficient "
+            "to justify active risk vs a passive benchmark.",
+            "If IR < 0.3, the strategy is capturing market beta not alpha. "
+            "Test whether simply holding the benchmark delivers similar returns.",
+            "Overfitting"
+        )
+
+    def check_beta_exposure(self) -> CheckResult:
+        """
+        F1 — Beta to benchmark.
+
+        High beta (> 0.6) means returns are largely explained by market
+        direction. A backtest in a bull market will always look good for
+        high-beta strategies. Informational only when no benchmark supplied.
+        """
+        if self.benchmark_returns is None:
+            return CheckResult(
+                "Beta Exposure (vs Benchmark)", True, 50,
+                "No benchmark supplied — informational only",
+                "Pass benchmark_returns= to test market-neutrality.",
+                "Recommended: supply index returns matching backtest period.",
+                "Overfitting"
+            )
+
+        r  = self.returns
+        bm = self.benchmark_returns
+        bm_std = float(np.std(bm, ddof=1))
+        if bm_std < EPSILON:
+            beta = 0.0
+        else:
+            beta = float(np.cov(r, bm, ddof=1)[0, 1] / (bm_std ** 2))
+
+        r_sq = float(np.corrcoef(r, bm)[0, 1] ** 2) if bm_std > EPSILON else 0.0
+
+        if beta > 0.8:
+            passed, score = False, 0
+            status = "⚠ Manual Audit Required — very high market beta, strategy is essentially leveraged index exposure"
+        elif beta > 0.6:
+            passed, score = False, 30
+            status = "⚠ High beta — most returns explained by market direction"
+        elif beta > 0.4:
+            passed, score = True, 65
+            status = "Moderate beta — some market exposure"
+        else:
+            passed, score = True, 100
+            status = "✅ Low beta — strategy is largely market-neutral"
+
+        return CheckResult(
+            "Beta Exposure (vs Benchmark)", passed, round(score, 1),
+            f"β={beta:.2f} | R²={r_sq:.2f} — {status}",
+            f"Beta > 0.6 means over 60% of return variance is explained by "
+            f"the benchmark. A backtest during a bull market with high beta "
+            f"does not demonstrate genuine alpha.",
+            "Reduce market exposure via hedging or use market-neutral strategy design.",
+            "Overfitting"
+        )
+
+    def check_sharpe_plausibility(self) -> CheckResult:
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe > 10:
+            status  = "⚠ Manual Audit Required"
+        elif sharpe > 5:
+            status  = "⚠ Review Recommended"
+        else:
+            status  = "✅ Plausible"
+        return CheckResult("Sharpe Plausibility", sharpe <= 10, 100,
+            f"Sharpe: {sharpe:.2f} → {status}", "Sharpe > 10 exceeds documented institutional performance.",
+            "Verify data integrity.", "Plausibility")
+
+    def check_frequency_return_plausibility(self) -> CheckResult:
+        mean_r      = float(np.mean(self.returns))
+        annual_ret  = mean_r * self.trades_per_year
+        implausible = self.trades_per_year > 20_000 and annual_ret > 500
+        return CheckResult("Frequency-Return Plausibility", not implausible, 100,
+            f"{self.trades_per_year:.0f} trades/yr → {annual_ret:.0f}% annual {'⚠ Manual Audit Required' if implausible else '✅ Plausible'}",
+            "HFT + extreme returns requires massive liquidity edge." if implausible else "Within bounds.",
+            "Verify liquidity assumptions.", "Plausibility")
+
+    def check_equity_smoothness_plausibility(self) -> CheckResult:
+        r              = self.returns
+        smoothness_r   = np.std(r, ddof=1) / (abs(np.mean(r)) + EPSILON)
+        max_dd         = calculate_max_drawdown(r)
+        if smoothness_r < 0.5 and np.mean(r) > 0 and max_dd < 0.05:
+            status = "⚠ Manual Audit Required"
+        elif smoothness_r < 1.0 and max_dd < 0.02:
+            status = "⚠ Review Recommended"
+        else:
+            status = "✅ Plausible"
+        return CheckResult("Equity Curve Plausibility", smoothness_r >= 0.5 or max_dd >= 0.05, 100,
+            f"Smoothness ratio: {smoothness_r:.2f} → {status}",
+            "Suspiciously smooth = lookahead bias.", "Check data integrity.", "Plausibility")
+
+    def check_kelly_plausibility(self) -> CheckResult:
+        r       = self.returns
+        winners = r[r > 0]
+        losers  = r[r < 0]
+        if len(winners) == 0 or len(losers) == 0:
+            return CheckResult("Kelly Plausibility", True, 100, "Kelly: N/A → ✅ Plausible", "Cannot compute Kelly.", "", "Plausibility")
+        wr      = len(winners) / len(r)
+        avg_win = float(np.mean(winners))
+        avg_loss = float(abs(np.mean(losers)))
+        b       = avg_win / max(avg_loss, EPSILON)
+        kelly   = (b * wr - (1 - wr)) / b
+        if kelly > 1.0:
+            passed = False; status = "⚠ Manual Audit Required"
+        elif kelly > 0.5:
+            passed = True; status = "⚠ Review Recommended"
+        else:
+            passed = True; status = "✅ Plausible"
+        return CheckResult("Kelly Plausibility", passed, 100 if passed else 0,
+            f"Kelly: {kelly:.2f} → {status}", f"Kelly {kelly:.2f} fraction.", "Verify OOS stability.", "Plausibility")
+
+    def simulate_crash(self, crash_key: str) -> CrashSimResult:
+        profile     = CRASH_PROFILES[crash_key]
+        r           = self.returns
+        crisis_days = 60
+        mean_r      = float(np.mean(r))
+        vol         = float(np.std(r, ddof=1))
+        market_drop = profile["market_drop"] / 100
+        trimmed_mean = float(np.mean(np.clip(r, np.percentile(r, 2), np.percentile(r, 98))))
+        trimmed_vol = float(np.std(np.clip(r, np.percentile(r, 2), np.percentile(r, 98)), ddof=1))
+
+        # ── F3: Hardened exposure model ───────────────────────────────────────
+        # Base exposure from vol ratio — same formula as before
+        base_exposure = vol / 0.012
+
+        # Hard minimum: no strategy can show near-zero crash sensitivity
+        # via low vol alone. Floor depends on whether dates are present.
+        if self.has_dates:
+            min_exposure = CRASH_EXPOSURE_MIN           # 0.25
+        else:
+            min_exposure = CRASH_EXPOSURE_MIN_NODATE    # 0.40 — more conservative without dates
+
+        exposure = float(np.clip(base_exposure, min_exposure, 0.8))
+
+        # AR(1) autocorrelation adjustment: momentum-reversal in crises
+        # Autocorrelated strategies experience harder unwind when trend breaks
+        ar1 = float(np.corrcoef(r[:-1], r[1:])[0, 1]) if len(r) > 2 else 0.0
+        if abs(ar1) >= CRASH_AUTOCORR_THRESHOLD:
+            exposure = min(0.8, exposure * CRASH_AUTOCORR_MULT)
+
+        # Calibration flag: crash results on undated data are not market-calibrated
+        calibrated = self.has_dates
+        # ─────────────────────────────────────────────────────────────────────
+
+        crash_seed = int((abs(hash(crash_key)) ^ int.from_bytes(self.returns.tobytes()[:8], 'little')) % (2**31))
+        rng = np.random.default_rng(crash_seed)
+        vol_mult   = min(profile["vol_multiplier"], 4.0)
+        df_t       = profile.get("fat_tail_df", 4)
+        autocorr   = profile.get("autocorr", 0.30)
+        df_t_safe  = max(df_t, 2.01)
+        scale_t    = trimmed_vol * vol_mult / np.sqrt(df_t_safe / (df_t_safe - 2))
+        innov      = rng.standard_t(df_t, crisis_days) * scale_t
+        stressed   = np.zeros(crisis_days)
+        stressed[0] = innov[0]
+        for i in range(1, crisis_days):
+            stressed[i] = (autocorr * stressed[i-1] + np.sqrt(1 - autocorr**2) * innov[i])
+        market_drag = market_drop * exposure * profile["liquidity_factor"]
+        stressed   += market_drag / crisis_days
+        bottom_10  = stressed < np.percentile(stressed, 10)
+        stressed[bottom_10] -= np.abs(stressed[bottom_10]) * profile["gap_risk"]
+        stressed   = np.clip(stressed, -0.99, 0.99)
+        cumulative = float(np.prod(1 + stressed) - 1)
+        if cumulative > CRASH_MAX_GAIN:
+            cumulative = CRASH_MAX_GAIN
+        if trimmed_mean < -0.001 and cumulative > 0.05:
+            cumulative *= CRASH_NEG_EDGE_CAP
+        if market_drop < -0.15 and cumulative > 0.08:
+            cumulative *= 0.25
+        dd       = calculate_max_drawdown(stressed)
+        survived = dd < (0.25 if self.strict_mode else 0.30)
+
+        # F3: prefix verdicts with [UNCALIBRATED] when no dates supplied
+        calib_tag = "" if calibrated else "[UNCALIBRATED] "
+        if survived and cumulative > -0.05:
+            verdict = f"{calib_tag}🟢 YOUR STRATEGY SURVIVED."
+        elif survived and cumulative > -0.20:
+            verdict = f"{calib_tag}🟡 DAMAGED BUT SURVIVED."
+        elif survived:
+            verdict = f"{calib_tag}🟠 BARELY SURVIVED."
+        else:
+            verdict = f"{calib_tag}🔴 YOUR STRATEGY WOULD HAVE BLOWN UP."
+
+        return CrashSimResult(
+            crash_name=profile["name"], year=profile["year"],
+            description=profile["description"], market_drop=profile["market_drop"],
+            strategy_drop=round(cumulative, 4), survived=survived, emotional_verdict=verdict)
+
+    def _detect_single_regime(self) -> Optional[str]:
+        """
+        FIX BUG-V4-2: Detect backtests where >85% of dated trades fall in one
+        market regime. These strategies are untested in bear/consolidation
+        conditions and should not receive high scores.
+
+        Returns the dominant regime name if single-regime, else None.
+        """
+        if not self.has_dates:
+            return None
+        regime_labels = self._classify_market_regime_by_date()
+        if regime_labels is None:
+            return None
+        counts = {}
+        for label in regime_labels.values():
+            if label != 'UNKNOWN':
+                counts[label] = counts.get(label, 0) + 1
+        total = sum(counts.values())
+        if total < 10:
+            return None
+        for regime, count in counts.items():
+            if count / total > 0.85:
+                return regime
+        return None
+
+    def _calculate_score(self, checks: List[CheckResult]) -> Tuple[float, str]:
+        weights = {"Overfitting": 0.22, "Risk": 0.38, "Regime": 0.14, "Execution": 0.11, "Compliance": 0.15}
+        category_scores = {}
+        for cat in weights:
+            cat_checks = [c for c in checks if c.category == cat]
+            category_scores[cat] = (float(np.mean([c.score for c in cat_checks])) if cat_checks
+                                    else (0.0 if cat in ("Risk", "Overfitting", "Compliance") else 20.0))
+        final = sum(category_scores[cat] * w for cat, w in weights.items())
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        if sharpe < 0:     final = min(final, 20)
+        elif sharpe < 0.3: final = min(final, 35)
+        elif sharpe < 0.5: final = min(final, 50)
+        elif sharpe > 10:  final = min(final, 30)
+        if self._low_sample_warning:
+            final = min(final, 60)
+        dsr_check = next((c for c in checks if c.name == "Deflated Sharpe Ratio"), None)
+        if dsr_check:
+            if dsr_check.score <= 10:   final = min(final, 30)
+            elif dsr_check.score <= 50: final = min(final, 55)
+        ci_check = next((c for c in checks if c.name == "Sharpe CI Enforcement"), None)
+        if ci_check:
+            if ci_check.score <= 10:   final = min(final, 35)
+            elif ci_check.score <= 35: final = min(final, 55)
+        plausibility = [c for c in checks if c.category == "Plausibility"]
+        if any(not c.passed and "Manual Audit Required" in c.value for c in plausibility):
+            final = min(final, 35)
+        conc_check = next((c for c in checks if "Concentration" in c.name), None)
+        if conc_check and not conc_check.passed and conc_check.score == 0:
+            final = min(final, 38)
+        cpcv_check = next((c for c in checks if c.name == "CPCV Path Stability"), None)
+        if cpcv_check and cpcv_check.score == 0:
+            final = min(final, 42)
+        if not self.has_dates:
+            final = min(final, 60)   # FIX BUG-V4-1: was 75; without timestamps,
+            # regime/timeframe/data-snooping checks are impossible — F grade ceiling
+
+        # ── P1: Extra cap for no-date + high Sharpe (unverifiable single-regime candidate) ──
+        # A strategy with Sharpe > 5 and no timestamps cannot be regime-checked and is
+        # statistically suspicious — cap at 50 to prevent misleadingly high scores.
+        if not self.has_dates and sharpe > 5:
+            final = min(final, 50)
+
+        # FIX BUG-V4-2: single-regime backtest hard cap
+        # If >85% of dated trades are in one regime, the strategy is untested
+        # in other market conditions — cap at 55 regardless of in-regime performance
+        dominant_regime = self._detect_single_regime()
+        if dominant_regime is not None:
+            final = min(final, 55)
+        low_cats = sum(1 for s in category_scores.values() if s < 30)
+        if low_cats >= 2:   final = min(final, 45)
+        elif low_cats >= 1: final = min(final, 60)
+        # INSTITUTIONAL FIX: separate cap logic for prop firm vs institutional compliance.
+        # Prop firm failure (DD>10%) no longer caps multi-year institutional backtests.
+        # Only institutional compliance failure (Sharpe<1, DD>25%, Calmar<1) triggers cap.
+        inst_compliance = [c for c in checks if c.name == "Institutional Compliance (CTA/Fund Standard)"]
+        if inst_compliance and not all(c.passed for c in inst_compliance):
+            final = min(final, 60)
+        prop_compliance = [c for c in checks if c.name == "Prop Firm Compliance (FTMO/Topstep/The5ers)"]
+        if prop_compliance and not all(c.passed for c in prop_compliance):
+            final = min(final, 75)  # soft cap only — prop firm rules ≠ institutional viability
+        if 'Short backtest' in self.timeframe_info:
+            final = min(final, 75)
+        if final >= 90:   grade = "A — Institutionally Viable"
+        elif final >= 80: grade = "B+ — Prop Firm Ready"
+        elif final >= 70: grade = "B — Live Tradeable"
+        elif final >= 60: grade = "C — Needs Work Before Live"
+        elif final >= 50: grade = "D — Major Issues"
+        else:             grade = "F — Do Not Deploy"
+        return round(final, 1), grade
+
+    def run(self) -> ValidationReport:
+        checks = [
+            self.check_sharpe_decay(), self.check_monte_carlo(), self.check_outlier_dependency(),
+            self.check_walk_forward(), self.check_bootstrap_stability(), self.check_deflated_sharpe(),
+            self.check_sharpe_ci_enforcement(), self.check_min_backtest_length(),
+            self.check_max_drawdown(), self.check_calmar_ratio(), self.check_var(), self.check_cvar(),
+            self.check_sortino(), self.check_consecutive_losses(), self.check_recovery_factor(),
+            self.check_absolute_sharpe(), self.check_ruin_probability(), self.check_drawdown_duration(),
+            self.check_ulcer_index(),
+            self.check_bull_performance(), self.check_bear_performance(), self.check_consolidation_performance(),
+            self.check_volatility_stress(), self.check_frequency_consistency(), self.check_regime_coverage(),
+            self.check_slippage_01(), self.check_slippage_03(), self.check_commission_drag(),
+            self.check_partial_fills(), self.check_live_vs_backtest_gap(), self.check_impact_adjusted_capacity(),
+            # ── P2: Autocorrelation check inserted before compliance checks ──
+            self.check_autocorrelation(),
+            # ── F1: Market-neutral benchmark checks ──
+            self.check_information_ratio(), self.check_beta_exposure(),
+            self.check_prop_firm_compliance(), self.check_institutional_compliance(),
+            self.check_sharpe_plausibility(), self.check_frequency_return_plausibility(),
+            self.check_equity_smoothness_plausibility(), self.check_kelly_plausibility(),
+        ]
+        self.checks = checks
+
+        # ── P3: Suppress "Prop Firm Eligible" if any Manual Audit Required flag is active ──
+        # Runs after all checks (incl. plausibility) are in self.checks.
+        has_manual_audit = any(
+            not c.passed and "Manual Audit Required" in c.value
+            for c in checks
+            if c.category == "Plausibility"
+        )
+        if has_manual_audit:
+            for i, c in enumerate(checks):
+                if c.name == "Prop Firm Compliance (FTMO/Topstep/The5ers)" and c.passed:
+                    eligible_str = c.value.replace("Eligible: ", "")
+                    checks[i] = CheckResult(
+                        name=c.name,
+                        passed=False,
+                        score=0,
+                        value=(
+                            f"⚠ Numerically eligible ({eligible_str}) but blocked: "
+                            f"Manual Audit Required flag(s) must be resolved before prop firm submission"
+                        ),
+                        insight=(
+                            "Strategy meets prop firm numerical thresholds but has unresolved "
+                            "plausibility flags. Submitting with active Manual Audit Required "
+                            "warnings risks account termination upon review."
+                        ),
+                        fix="Resolve all Manual Audit Required flags, then re-run validation.",
+                        category="Compliance"
+                    )
+
+        crash_sims = [self.simulate_crash(k) for k in CRASH_PROFILES.keys()]
+        score, grade = self._calculate_score(checks)
+
+        # FIX BUG-V4-2: inject single-regime check result into checks list
+        # so it appears in the report with a clear explanation
+        dominant_regime = self._detect_single_regime()
+        if dominant_regime is not None:
+            checks.append(CheckResult(
+                name="Single-Regime Backtest Warning",
+                passed=False,
+                score=0,
+                value=f"⚠ Manual Audit Required — >85% of trades in {dominant_regime} regime only",
+                insight=(
+                    f"All or nearly all trades occurred during a {dominant_regime} market period. "
+                    f"The strategy has never been tested in bear, consolidation, or other "
+                    f"regime conditions. Performance may be entirely explained by market tailwind "
+                    f"rather than a genuine edge. Score hard-capped at 55."
+                ),
+                fix=(
+                    "Extend backtest to cover at least one full market cycle (bull + bear + consolidation). "
+                    "Minimum: include 2022 bear or 2020 crash data."
+                ),
+                category="Regime"
+            ))
+        r      = self.returns
+        sharpe = calculate_sharpe(r, self.trades_per_year)
+        dd     = calculate_max_drawdown(r)
+        wr     = calculate_win_rate(r)
+        if self.strict_mode:
+            if sharpe < 1.2:
+                grade = "F — Strict Mode: Sharpe below 1.2"; score = min(score, 40)
+            compliance = [c for c in checks if c.category == "Compliance"]
+            if compliance and not all(c.passed for c in compliance):
+                grade = "F — Strict Mode: Compliance failed"; score = min(score, 30)
+            if sum(1 for s in crash_sims if s.survived) < 2:
+                grade = "F — Strict Mode: Failed crash"; score = min(score, 35)
+        timestamps   = self.df['date'] if self.has_dates else None
+        alpha_decay  = _analyze_alpha_decay(r, timestamps)
+        overfit_prof = _OverfitDetector(r, timestamps).detect()
+
+        # Alpha decay: compare H1 vs H2 Sharpe — persistent strategies hold up
+        if len(r) >= 30:
+            mid_a        = len(r) // 2
+            sh1          = calculate_sharpe(r[:mid_a], self.trades_per_year)
+            sh2          = calculate_sharpe(r[mid_a:], self.trades_per_year)
+            decay_pct    = (sh1 - sh2) / (abs(sh1) + EPSILON) * 100 if sh1 > 0 else 0
+            alpha_passed = decay_pct < 60 and sh2 > -0.5   # fails if H2 Sharpe drops >60% or goes very negative
+            alpha_score  = round(max(0, min(100, 100 - max(0, decay_pct - 10))), 1)
+            alpha_val    = f"H1 Sharpe: {sh1:.2f} → H2: {sh2:.2f} ({decay_pct:.0f}% decay)"
+            alpha_fix    = "Performance deteriorating over time — strategy may be losing edge. Walk-forward test."
+            alpha_insight= "Strong strategies maintain Sharpe across both halves of the backtest period."
+        else:
+            alpha_passed, alpha_score = False, 20
+            alpha_val    = "Insufficient data for decay analysis"
+            alpha_fix    = "Extend backtest to 30+ trades."
+            alpha_insight= "Too few trades to assess alpha persistence."
+        checks.append(CheckResult(
+            name="Alpha Decay (Half-Life)", passed=alpha_passed,
+            score=alpha_score, value=alpha_val,
+            insight=alpha_insight, fix=alpha_fix, category="Operational"))
+        checks.append(CheckResult(
+            name="Symbolic Overfit Detection", passed=not overfit_prof.is_overfit,
+            score=overfit_prof.score,
+            value=f"Score {overfit_prof.score:.0f}/100 | p={overfit_prof.p_value:.3f}",
+            insight=f"{'Overfit' if overfit_prof.is_overfit else 'Not overfit'}. AdjSharpe={overfit_prof.adjusted_sharpe:.2f}",
+            fix="Simplify rules." if overfit_prof.is_overfit else "No overfit detected.", category="Operational"))
+        return ValidationReport(
+            score=score, grade=grade, sharpe=sharpe, max_drawdown=dd,
+            win_rate=wr, total_trades=len(r), profitable_trades=int(np.sum(r > 0)),
+            checks=checks, crash_sims=crash_sims,
+            assumptions=self._get_assumptions(),
+            validation_hash=self._generate_validation_hash(),
+            validation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            audit_flags=self._generate_audit_flags(),
+            plausibility_summary=self._generate_plausibility_summary(),
+            alpha_decay=alpha_decay, overfit_profile=overfit_prof,
+            engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE)
