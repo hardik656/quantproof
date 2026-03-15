@@ -171,9 +171,18 @@ def _clean_text(raw: str) -> str:
     v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:").replace("📈", "")
     # Greek letters used in IR / Beta check output (v6.2 SPY benchmark)
     v = v.replace("α", "alpha").replace("β", "beta").replace("Δ", "delta")
-    # Math symbols used in validator value strings
+    # Math/statistical symbols used in validator value strings
     v = v.replace("≥", ">=").replace("≤", "<=").replace("→", "->").replace("←", "<-")
     v = v.replace("×", "x").replace("÷", "/").replace("±", "+/-")
+    # Greek letters — σ appears in VaR check value/insight
+    v = v.replace("σ", "sigma")
+    # Em dash and other typographic characters not in latin-1
+    v = v.replace("—", " - ").replace("–", "-").replace("‒", "-")
+    v = v.replace("‘", "'").replace("’", "'")
+    v = v.replace("“", '"').replace("”", '"')
+    # Collapse any double spaces introduced by replacements
+    while "  " in v:
+        v = v.replace("  ", " ")
     # Catch-all: strip any remaining non-Latin-1 characters
     v = v.encode("latin-1", errors="replace").decode("latin-1")
     return v.strip()
@@ -427,7 +436,7 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ PAGE 2: DETAILED CHECKS ════════════════════════════════════════════════
     story.append(PageBreak())
-    story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 44 CHECKS", S["h_section"]))
+    story.append(Paragraph("DETAILED CHECK BREAKDOWN — 40 SCORED CHECKS", S["h_section"]))
     story.append(Paragraph(
         "Every check below was run against your specific strategy data. "
         "Red rows are institutional failures. Orange rows are warnings that won't disqualify "
@@ -630,7 +639,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     rid = abs(hash(str(score) + grade + str(n))) % 100000
     story.append(Paragraph(
         f"Report ID: QP-{rid:05d}  ·  "
-        f"Engine: v6.2  ·  44 checks  ·  "
+        f"Engine: v6.2  ·  40 scored checks  ·  "
         f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
         S["footer"]))
     story.append(Spacer(1, 2))
