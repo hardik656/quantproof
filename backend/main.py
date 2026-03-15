@@ -4,7 +4,7 @@ Synced to validator v6.2
 
 CHANGES FROM v1.3:
   - Version bumped to 2.6.0
-  - Root endpoint: 38 → 40 checks
+  - Root endpoint: 38 → 44 checks
   - All summary strings: '3 crash simulations' → '5 crash simulations'
   - smart_parse_csv(): auto-assigns regime via yfinance SPY SMA when dates
     present but no regime column (fallback: SPY monthly lookup table)
@@ -12,8 +12,9 @@ CHANGES FROM v1.3:
     stack pairing with position-state tracker (sort by filled_at, FIFO lots,
     orphan sell detection)
   - All Alpaca + IBKR paths now auto-assign regime after trade pairing
-  - benchmark_returns not supplied anywhere — IR + Beta checks return
-    score=50 informational (correct, fully backward-compatible)
+  - benchmark_returns now inferred from SPY when date column present.
+    IR + Beta checks are scored (not informational) for dated strategies.
+    Falls back to None silently — always backward-compatible.
 
 PARSER FIXES (v1.4.1):
   - Added Kite Orders CSV support (_is_kite_orders_csv, _parse_kite_orders_csv)
@@ -211,6 +212,39 @@ SPY_REGIME_LOOKUP: Dict[str, str] = {
     "2026-01": "BULL",  "2026-02": "BEAR",  "2026-03": "BEAR",
 }
 
+# Simple SPY data cache — avoids double yfinance call when assign_regimes
+# and get_spy_benchmark both need SPY for the same date range
+_SPY_CACHE: dict = {}
+_SPY_CACHE_MAX = 10  # keep last 10 date ranges in memory
+
+def _get_spy_cached(start, end) -> pd.Series | None:
+    """Fetch SPY Close with caching. Returns None on any failure."""
+    key = (str(start.date()), str(end.date()))
+    if key in _SPY_CACHE:
+        return _SPY_CACHE[key]
+    try:
+        import yfinance as yf, threading
+        result_holder = [None]
+        def _fetch():
+            try:
+                raw = yf.download("SPY", start=start, end=end,
+                                  progress=False, timeout=6)["Close"]
+                result_holder[0] = raw.squeeze()
+            except Exception:
+                pass
+        t = threading.Thread(target=_fetch, daemon=True)
+        t.start()
+        t.join(timeout=8)
+        spy = result_holder[0]
+        if spy is not None and len(spy) >= 5:
+            if len(_SPY_CACHE) >= _SPY_CACHE_MAX:
+                _SPY_CACHE.pop(next(iter(_SPY_CACHE)))
+            _SPY_CACHE[key] = spy
+            return spy
+    except Exception:
+        pass
+    return None
+
 
 def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     """
@@ -220,11 +254,11 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     Only called when df has dates but no regime column.
     """
     try:
-        import yfinance as yf
         start = df["date"].min() - pd.Timedelta(days=30)  # extra buffer for SMA warmup
         end   = df["date"].max() + pd.Timedelta(days=1)
-        spy   = yf.download("SPY", start=start, end=end, progress=False)["Close"]
-        spy   = spy.squeeze()  # handle MultiIndex columns from newer yfinance
+        spy   = _get_spy_cached(start, end)
+        if spy is None:
+            raise ValueError("SPY data unavailable")
         sma20 = spy.rolling(20).mean()
 
         def _regime(d):
@@ -258,6 +292,86 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
         df["regime"] = df["date"].apply(_regime_fallback)
         dist = df["regime"].value_counts().to_dict()
         return df, f"⚠ Regime from monthly SPY approximation (live data unavailable) — {dist}"
+
+
+
+# =========================================================
+# SPY BENCHMARK HELPER
+# Called after regime assignment when df has dates.
+# Returns aligned SPY daily returns for IR + Beta checks.
+# Falls back to None silently — validator stays informational.
+# =========================================================
+
+def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
+    """
+    Align SPY daily returns to strategy trade dates for IR + Beta scoring.
+    Returns (benchmark_array, audit_note) or (None, "") on any failure.
+
+    Accepts an optional spy_series (already fetched by assign_regimes) to
+    avoid a second yfinance call. If not provided, fetches with an 8-second
+    timeout via threading — times out gracefully rather than blocking.
+
+    Quality gates:
+      - Requires date column with at least some non-null dates
+      - >50% of trade dates must match a SPY return
+      - Result must have non-trivial std (not all zeros)
+      - Any single return > 20% is treated as bad data and zeroed
+
+    Falls back to (None, "") silently on timeout, network error, or any
+    other failure — validator stays informational, nothing breaks.
+    """
+    if "date" not in df.columns or df["date"].isna().all():
+        return None, ""
+
+    try:
+        # ── Fetch SPY if not already provided ────────────────────────────────
+        if spy_series is None:
+            import threading
+            start = df["date"].min() - pd.Timedelta(days=10)
+            end   = df["date"].max() + pd.Timedelta(days=2)
+            spy_raw = _get_spy_cached(start, end)
+            if spy_raw is None:
+                return None, ""
+        else:
+            spy_raw = spy_series
+
+        if spy_raw is None or len(spy_raw) < 5:
+            return None, ""
+
+        # ── Compute daily returns ─────────────────────────────────────────────
+        spy_ret = spy_raw.pct_change().dropna()
+        spy_ret.index = pd.to_datetime(spy_ret.index).tz_localize(None)
+
+        # ── Align to strategy trade dates ─────────────────────────────────────
+        aligned = []
+        for d in df["date"]:
+            try:
+                d_ts = pd.Timestamp(d).tz_localize(None)
+                val  = float(spy_ret.asof(d_ts))
+                # Zero out missing or implausible values (>20% daily move)
+                aligned.append(0.0 if (np.isnan(val) or abs(val) > 0.20) else val)
+            except Exception:
+                aligned.append(0.0)
+
+        benchmark = np.array(aligned, dtype=float)
+
+        # ── Quality gates ──────────────────────────────────────────────────────
+        if np.std(benchmark) < 1e-6:
+            return None, ""  # all zeros — no usable signal
+
+        match_pct = float(np.sum(benchmark != 0.0)) / len(benchmark) * 100
+        if match_pct < 50:
+            return None, ""  # too many missing dates — not reliable
+
+        note = (
+            f"📈 SPY inferred as benchmark ({match_pct:.0f}% of trade dates matched) — "
+            f"IR + Beta checks are now scored. Only meaningful for equity strategies."
+        )
+        return benchmark, note
+
+    except Exception:
+        # Catch-all — never let benchmark inference break a validation
+        return None, ""
 
 
 # =========================================================
@@ -1264,7 +1378,7 @@ def root():
     return {
         "status": "QuantProof API is live",
         "version": "2.7.0",
-        "checks": "40 institutional checks + 5 crash simulations",
+        "checks": "44 institutional checks + 5 crash simulations",
         "new_in_v1.4": [
             "Information Ratio (vs Benchmark) — detects beta-capture disguised as alpha",
             "Beta Exposure (vs Benchmark) — flags high market correlation",
@@ -1306,8 +1420,9 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
     try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report = validator.run()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
@@ -1350,7 +1465,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     # Only add regime_note as extra flag if it isn't already embedded in
     # the Kite/Alpaca parser audit note (those parsers append it to their note string)
     existing_flags_text = " ".join(r.audit_flags)
-    extra_flags = [regime_note] if (regime_note and regime_note not in existing_flags_text) else []
+    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else [])
 
     _vr_cache = {
         "fundable_score": r.score,
@@ -1568,8 +1683,9 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
 
         # ── Run validation ────────────────────────────────────────────────────
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report    = validator.run()
 
         r = report
@@ -1627,7 +1743,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             top_issues=top_issues, top_strengths=top_strengths,
             validation_hash=r.validation_hash, validation_date=r.validation_date,
             engine_version=r.engine_version + "-VERIFIED",
-            audit_flags=r.audit_flags + parse_flags + [
+            audit_flags=r.audit_flags + parse_flags + ([_spy_note] if _spy_note else []) + [
                 f"✓ Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
                 "✓ Trades independently verified — not user-uploaded",
                 "✓ Credential handling: keys discarded after fetch, never logged",
@@ -1723,8 +1839,9 @@ async def generate_report_endpoint(
         raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
 
     try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -2045,8 +2162,9 @@ async def generate_broker_report(
         raise HTTPException(500, f"Alpaca fetch failed: {str(e)[:200]}")
 
     try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -2266,8 +2384,9 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         regime_note = ""
 
     try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -2291,6 +2410,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     )
 
     extra_flags = ([regime_note] if regime_note else []) + \
+                  ([_spy_note] if _spy_note else []) + \
                   ["SOURCE: Interactive Brokers Flex API — trade data verified",
                    "VERIFIED: Flex Web Service — read-only, credentials never stored"]
 
@@ -2488,8 +2608,9 @@ async def validate_kite(
         kite_note += " | " + regime_note
 
     try:
-        # NOTE: benchmark_returns not supplied — IR + Beta checks return score=50 informational
-        validator = QuantProofValidator(df)
+        # Infer SPY benchmark when dates present — makes IR + Beta scored not informational
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -2867,7 +2988,8 @@ def validate_tv_alerts(session_id: str):
         df, regime_note = assign_regimes(df)
 
     try:
-        validator = QuantProofValidator(df)
+        _spy_bm, _spy_note = get_spy_benchmark(df)
+        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
