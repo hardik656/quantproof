@@ -1646,11 +1646,12 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     # Only add regime_note as extra flag if it isn't already embedded in
     # the Kite/Alpaca parser audit note (those parsers append it to their note string)
     existing_flags_text = " ".join(r.audit_flags)
-    # Extract options-specific audit flags from parse note
+    # Extract options-specific audit flags from regime_note
+    # (smart_parse_csv embeds them as OPTIONS_FLAGS:flag1||flag2 in the note string)
     _options_flags = []
-    if "OPTIONS_FLAGS:" in parse_note:
-        _parts = parse_note.split("OPTIONS_FLAGS:", 1)
-        parse_note = _parts[0].rstrip(" |")
+    if "OPTIONS_FLAGS:" in regime_note:
+        _parts = regime_note.split("OPTIONS_FLAGS:", 1)
+        regime_note = _parts[0].rstrip(" |")
         _options_flags = _parts[1].split("||") if len(_parts) > 1 else []
 
     extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else []) + _options_flags
