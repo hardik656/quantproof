@@ -1606,7 +1606,7 @@ class QuantProofValidator:
             return CheckResult("Regime Coverage", False, 40, "No regime column", "Regime detection improves survival.", "Add BULL/BEAR/CONSOL labels.", "Regime")
         regimes  = self.df['regime'].value_counts(normalize=True)
         coverage = len(regimes) / 4 * 100
-        return CheckResult("Regime Coverage", coverage > 75, round(coverage, 1),
+        return CheckResult("Regime Coverage", coverage >= 75, round(coverage, 1),
             f"Regimes covered: {list(regimes.index.astype(str))} ({len(regimes)}/3)", "Full coverage = all market conditions tested.", "Add more history to cover BULL, BEAR and CONSOL.", "Regime")
 
     def check_slippage_01(self) -> CheckResult:
