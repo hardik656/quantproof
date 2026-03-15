@@ -1424,6 +1424,15 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
+                # Detect Kite options trades by instrument name (e.g. NIFTY24DEC20000CE)
+                if "ticker" in _df.columns:
+                    _opt_mask = _df["ticker"].astype(str).str.contains(
+                        r'(CE|PE)$', regex=True, na=False)
+                    if _opt_mask.any():
+                        _opt_count = int(_opt_mask.sum())
+                        _note += (f" | KITE OPTIONS: {_opt_count} options trades detected "
+                                  f"(CE/PE). P&L used as-is from Kite — premium normalisation "
+                                  f"not applied. Crash sims assume linear payoffs.")
                 return _df, _note
         except Exception:
             pass
