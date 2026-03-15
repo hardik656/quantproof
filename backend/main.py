@@ -2099,6 +2099,8 @@ async def generate_report_endpoint(
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
         "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
         "regime_note":   regime_note,
+        "audit_flags":   report.audit_flags + ([_spy_note] if _spy_note else []) + (
+                         [regime_note] if regime_note else []),
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
