@@ -113,7 +113,7 @@
     <span class="page-tag">// Validation Methodology</span>
     <h1>How QuantProof<br>scores your strategy</h1>
     <p>Every check, every category, and the research behind it. We show you exactly what we measure and why — because a score you can't explain is a score you can't trust.</p>
-    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-13 &nbsp;·&nbsp; 41 checks (base) + 2 operational + 1 conditional + 5 crash simulations</div>
+    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-13 &nbsp;·&nbsp; 40 scored checks + 2 operational diagnostics + 1 conditional + 5 crash simulations</div>
   </div>
 
   <!-- Score Breakdown -->
@@ -145,7 +145,7 @@
       <div class="breakdown-pct" style="color:#c084fc">11%</div>
     </div>
     <div class="breakdown-note" style="margin-top:16px;">
-      Information Ratio and Beta Exposure checks are in the Overfitting category (22% weight) but return score=50 informational when no benchmark is supplied — they neither help nor hurt the score without benchmark data. Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
+      The 40 scored checks feed into the five weighted categories below. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%) but return score=50 informational without a benchmark. Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
       Plausibility checks (4) flag data integrity issues and can trigger a Manual Audit Required — they do not contribute to the weighted score directly.
     </div>
   </div>
@@ -156,7 +156,7 @@
       <div class="cat-number">01</div>
       <div>
         <div class="cat-title">Overfitting Detection</div>
-        <div class="cat-weight">22% of Fundable Score · 11 checks</div>
+        <div class="cat-weight">22% of Fundable Score · 11 checks (9 scored + 2 informational when no benchmark supplied)</div>
         <div class="cat-desc">The most common failure mode in backtesting. A strategy that was optimised on historical data will always look good — the question is whether it has real predictive power or just memorised the past. These checks test whether the edge survives scrutiny.</div>
       </div>
     </div>
@@ -480,7 +480,7 @@
       <div class="cat-number">07</div>
       <div>
         <div class="cat-title">Operational Checks</div>
-        <div class="cat-weight">Not included in weighted score — appended to every report</div>
+        <div class="cat-weight">Not included in weighted score — always appended, always visible in results</div>
         <div class="cat-desc">Two checks appended at the end of every validation. These appear in the full results but do not contribute to the Fundable Score category weights. They provide additional diagnostic information about strategy persistence and structural overfit.</div>
       </div>
     </div>
