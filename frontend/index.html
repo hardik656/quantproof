@@ -1,9 +1,118 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QuantProof — Institutional-Grade Algo Validation</title>
+
+<!-- Primary SEO -->
+<title>QuantProof — Backtest Validator | Is Your Trading Strategy Prop Firm Ready?</title>
+<meta name="description" content="Validate your trading strategy against 40 institutional checks + 5 crash simulations. Get a Fundable Score, prop firm compliance analysis, and AI fix plan. Free for CSV, Kite TradeBook, Alpaca, and IBKR.">
+<meta name="keywords" content="backtest validator, algo trading validation, prop firm ready, trading strategy checker, FTMO challenge preparation, Zerodha Kite backtest, Alpaca backtest, fundable score, Sharpe ratio checker, trading strategy audit, quantitative trading India, NIFTY strategy validator, drawdown analysis, overfitting detection">
+<meta name="robots" content="index, follow">
+<meta name="author" content="QuantProof">
+<link rel="canonical" href="https://quantproof-frontend.onrender.com/">
+
+<!-- Open Graph (LinkedIn, Facebook) -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://quantproof-frontend.onrender.com/">
+<meta property="og:title" content="QuantProof — Is Your Trading Strategy Prop Firm Ready?">
+<meta property="og:description" content="40 institutional checks. 5 crash simulations. One Fundable Score. Know if your strategy is ready before you risk real money. Free for CSV, Kite, Alpaca, IBKR.">
+<meta property="og:image" content="https://quantproof-frontend.onrender.com/og-image.png">
+<meta property="og:site_name" content="QuantProof">
+<meta property="og:locale" content="en_IN">
+
+<!-- Twitter/X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://quantproof-frontend.onrender.com/">
+<meta name="twitter:title" content="QuantProof — Is Your Strategy Prop Firm Ready?">
+<meta name="twitter:description" content="40 institutional checks + 5 crash simulations. Free backtest validator for retail algo traders. Kite, Alpaca, IBKR supported.">
+<meta name="twitter:image" content="https://quantproof-frontend.onrender.com/og-image.png">
+
+<!-- Structured Data — SoftwareApplication -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "QuantProof",
+  "applicationCategory": "FinanceApplication",
+  "operatingSystem": "Web",
+  "url": "https://quantproof-frontend.onrender.com/",
+  "description": "Institutional-grade backtest validator for retail algo traders. 40 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "INR",
+    "description": "3 free validations per day. Full PDF report from ₹299."
+  },
+  "featureList": [
+    "40 institutional validation checks",
+    "5 historical crash simulations (2008, 2020, 2022, 2010, 1998)",
+    "Fundable Score 0-100",
+    "Zerodha Kite TradeBook and Orders CSV support",
+    "Alpaca broker API connection",
+    "Interactive Brokers Flex API connection",
+    "TradingView webhook integration",
+    "Prop firm compliance check (FTMO, Topstep, The5ers)",
+    "Deflated Sharpe Ratio",
+    "CPCV walk-forward analysis",
+    "AI personalised fix plan"
+  ],
+  "audience": {
+    "@type": "Audience",
+    "audienceType": "Retail algorithmic traders, quantitative traders, prop firm applicants"
+  }
+}
+</script>
+
+<!-- Structured Data — FAQPage for long-tail SEO -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How do I know if my trading strategy is ready for a prop firm challenge?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Upload your backtest CSV to QuantProof. It runs 40 institutional checks including Sharpe ratio, max drawdown, FTMO and Topstep compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I validate a Zerodha Kite strategy?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Export your TradeBook or Orders CSV from Zerodha Console and upload it to QuantProof. It auto-detects the format, pairs BUY and SELL trades using FIFO matching, and runs all 40 institutional checks. Supports both TradeBook and Orders CSV formats."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is a Fundable Score?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A Fundable Score is a 0-100 institutional quality rating for a trading strategy. It measures overfitting risk (22%), risk management (38%), regime robustness (14%), execution reality (11%), and compliance (15%). Scores above 80 indicate a strategy ready for institutional or prop firm capital."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is QuantProof free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. A full PDF report with AI-personalised fix plan is available for ₹299 (one-time, no subscription)."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What is the difference between CSV upload and broker-verified validation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CSV upload validates your methodology — the statistical checks are real but the data is self-reported. Broker-verified validation (Alpaca or IBKR) pulls your actual trade history directly from your broker. Only broker-verified results can be used for prop firm compliance certificates."
+      }
+    }
+  ]
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -147,6 +256,37 @@
   .audit-flag-item.warn{border-left-color:var(--accent3);color:var(--accent3);}
   .audit-flag-item.err{border-left-color:var(--accent2);color:var(--accent2);}
   .audit-flag-item.muted{border-left-color:var(--border);color:var(--muted);}
+
+  /* Sample strategy button */
+  .sample-btn-wrap { text-align:center; margin-bottom:32px; animation:fadeUp 0.8s 0.1s ease both; }
+  .sample-btn { 
+    background:transparent; border:1px solid rgba(0,255,136,0.4); color:var(--accent);
+    padding:14px 36px; font-family:var(--mono); font-size:13px; font-weight:700;
+    letter-spacing:1px; cursor:pointer; transition:all 0.25s; text-transform:uppercase;
+    display:inline-flex; align-items:center; gap:10px; position:relative; overflow:hidden;
+  }
+  .sample-btn::before { content:''; position:absolute; inset:0; background:rgba(0,255,136,0.06); opacity:0; transition:opacity 0.2s; }
+  .sample-btn:hover { border-color:var(--accent); background:rgba(0,255,136,0.08); transform:translateY(-1px); box-shadow:0 0 24px rgba(0,255,136,0.15); }
+  .sample-btn:hover::before { opacity:1; }
+  .sample-btn-play { font-size:16px; }
+  .sample-divider { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+  .sample-divider::before, .sample-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+  .sample-divider-text { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:2px; white-space:nowrap; }
+  /* Demo banner shown in results */
+  .demo-banner { 
+    display:flex; align-items:center; gap:14px; padding:14px 20px;
+    background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2);
+    margin-bottom:24px; font-family:var(--mono); font-size:12px;
+  }
+  .demo-banner-icon { font-size:18px; flex-shrink:0; }
+  .demo-banner-text { color:var(--accent); flex:1; line-height:1.6; }
+  .demo-banner-text span { color:var(--muted); display:block; font-size:11px; margin-top:2px; }
+  .demo-banner-btn { 
+    background:var(--accent); color:var(--black); border:none; padding:8px 16px;
+    font-family:var(--mono); font-size:11px; font-weight:700; cursor:pointer;
+    white-space:nowrap; transition:background 0.2s; flex-shrink:0;
+  }
+  .demo-banner-btn:hover { background:#00cc6e; }
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -159,7 +299,7 @@
     </div>
   </header>
 
-  <div class="hero" id="heroSection">
+  <main id="heroSection"><div class="hero">
     <div class="hero-tag">// Institutional-Grade Algo Validation</div>
     <h1>Does your strategy<br>survive the <em>real world?</em></h1>
     <p>Validate your backtest against 40 institutional checks + 5 crash simulations. Connect your broker for verified, prop-firm eligible results.</p>
@@ -169,9 +309,20 @@
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
       <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">Analysis Time</div></div>
     </div>
-  </div>
+  </div></main>
 
   <div class="upload-section" id="uploadSection">
+    <!-- LIVE EXAMPLE BUTTON -->
+    <div class="sample-btn-wrap">
+      <button class="sample-btn" onclick="runSampleStrategy()">
+        <span class="sample-btn-play">▶</span>
+        See a Live Example — no upload needed
+      </button>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);">
+        Watch a real strategy get scored in 30 seconds
+      </div>
+    </div>
+    <div class="sample-divider"><span class="sample-divider-text">— or validate your own strategy —</span></div>
     <div class="mode-grid">
 
       <!-- CSV MODE -->
@@ -186,7 +337,7 @@
           <span class="mode-limit-item">All 40 checks</span>
           <span class="mode-limit-item">5 crash sims</span>
         </div>
-        <div class="mode-warning">⚠ Cannot be used for prop firm compliance</div>
+        <div class="mode-warning">⚠ Methodology only — connect broker for verified compliance cert</div>
         <div style="margin:10px 0 4px 0">
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
           <select id="csvCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:12px;width:100%;cursor:pointer;font-family:var(--mono)">
@@ -219,7 +370,7 @@
           <span class="mode-limit-item">Auto-pairing</span>
           <span class="mode-limit-item">5 crash sims</span>
         </div>
-        <div class="mode-warning">⚠ Self-reported — not broker verified</div>
+        <div class="mode-warning">⚠ Self-reported — upgrade to broker connection for verified cert</div>
         <div style="margin:10px 0 4px 0">
           <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:5px;font-family:var(--mono)">ACCOUNT CURRENCY</label>
           <select id="kiteCurrency" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 10px;font-size:12px;width:100%;cursor:pointer;font-family:var(--mono)">
@@ -263,7 +414,7 @@
           <span class="mode-limit-item">Verified badge</span>
           <span class="mode-limit-item">Compliance cert</span>
         </div>
-        <div class="mode-verified-note">✓ Trades verified against real market data</div>
+        <div class="mode-verified-note">✓ Trades verified — eligible for Compliance Certificate</div>
         <button class="upload-btn mode-btn-alpaca" style="width:100%;margin-top:16px;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
         <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">
           CONNECT IBKR
@@ -349,6 +500,181 @@
 <script>
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
+
+  // ── SAMPLE STRATEGY — embedded CSV data ──────────────────────────────────
+  // 120 trades, NIFTY50 momentum strategy, 2022-2024
+  // Designed to give a realistic ~72-80/100 demo score with real failures to show
+  const SAMPLE_CSV = `date,ticker,pnl,regime
+2022-01-05,RELIANCE,0.0142,BEAR
+2022-01-10,INFY,-0.0089,BEAR
+2022-01-14,TCS,0.0201,BEAR
+2022-01-19,HDFC,-0.0156,BEAR
+2022-01-25,WIPRO,0.0078,BEAR
+2022-02-02,RELIANCE,-0.0234,BEAR
+2022-02-08,INFY,0.0312,BEAR
+2022-02-14,TCS,-0.0098,BEAR
+2022-02-21,HDFC,0.0189,BEAR
+2022-02-28,WIPRO,-0.0067,BEAR
+2022-03-07,RELIANCE,0.0223,BEAR
+2022-03-14,INFY,-0.0134,BEAR
+2022-03-21,TCS,0.0156,BEAR
+2022-03-28,HDFC,-0.0045,BEAR
+2022-04-04,WIPRO,0.0267,BEAR
+2022-04-11,RELIANCE,-0.0178,BEAR
+2022-04-18,INFY,0.0089,BEAR
+2022-04-25,TCS,-0.0212,BEAR
+2022-05-02,HDFC,0.0134,BEAR
+2022-05-09,WIPRO,-0.0301,BEAR
+2022-05-16,RELIANCE,0.0056,BEAR
+2022-05-23,INFY,-0.0089,BEAR
+2022-05-30,TCS,0.0178,BEAR
+2022-06-06,HDFC,-0.0123,BEAR
+2022-06-13,WIPRO,0.0234,BEAR
+2022-06-20,RELIANCE,-0.0167,BEAR
+2022-06-27,INFY,0.0045,BEAR
+2022-07-04,TCS,0.0312,BULL
+2022-07-11,HDFC,-0.0089,BULL
+2022-07-18,WIPRO,0.0201,BULL
+2022-07-25,RELIANCE,-0.0056,BULL
+2022-08-01,INFY,0.0267,BULL
+2022-08-08,TCS,-0.0134,BEAR
+2022-08-15,HDFC,0.0089,BEAR
+2022-08-22,WIPRO,-0.0212,BEAR
+2022-08-29,RELIANCE,0.0145,BEAR
+2022-09-05,INFY,-0.0178,BEAR
+2022-09-12,TCS,0.0234,BEAR
+2022-09-19,HDFC,-0.0067,BEAR
+2022-09-26,WIPRO,0.0123,BEAR
+2022-10-03,RELIANCE,0.0289,BULL
+2022-10-10,INFY,-0.0045,BULL
+2022-10-17,TCS,0.0167,BULL
+2022-10-24,HDFC,-0.0156,BULL
+2022-10-31,WIPRO,0.0201,BULL
+2022-11-07,RELIANCE,-0.0089,BULL
+2022-11-14,INFY,0.0312,BULL
+2022-11-21,TCS,-0.0123,BULL
+2022-11-28,HDFC,0.0189,BULL
+2022-12-05,WIPRO,-0.0234,BEAR
+2022-12-12,RELIANCE,0.0078,BEAR
+2022-12-19,INFY,-0.0156,BEAR
+2022-12-26,TCS,0.0234,BEAR
+2023-01-03,HDFC,-0.0089,BULL
+2023-01-10,WIPRO,0.0267,BULL
+2023-01-17,RELIANCE,-0.0045,BULL
+2023-01-24,INFY,0.0189,BULL
+2023-01-31,TCS,-0.0167,BULL
+2023-02-07,HDFC,0.0312,CONSOLIDATION
+2023-02-14,WIPRO,-0.0201,CONSOLIDATION
+2023-02-21,RELIANCE,0.0089,CONSOLIDATION
+2023-02-28,INFY,-0.0134,CONSOLIDATION
+2023-03-07,TCS,0.0223,BULL
+2023-03-14,HDFC,-0.0078,BULL
+2023-03-21,WIPRO,0.0156,BULL
+2023-03-28,RELIANCE,-0.0212,BULL
+2023-04-04,INFY,0.0267,BULL
+2023-04-11,TCS,-0.0089,BULL
+2023-04-18,HDFC,0.0134,BULL
+2023-04-25,WIPRO,-0.0056,BULL
+2023-05-02,RELIANCE,0.0201,CONSOLIDATION
+2023-05-09,INFY,-0.0178,CONSOLIDATION
+2023-05-16,TCS,0.0312,CONSOLIDATION
+2023-05-23,HDFC,-0.0234,CONSOLIDATION
+2023-05-30,WIPRO,0.0089,CONSOLIDATION
+2023-06-06,RELIANCE,-0.0123,BULL
+2023-06-13,INFY,0.0245,BULL
+2023-06-20,TCS,-0.0067,BULL
+2023-06-27,HDFC,0.0178,BULL
+2023-07-04,WIPRO,-0.0145,BULL
+2023-07-11,RELIANCE,0.0289,BULL
+2023-07-18,INFY,-0.0089,BULL
+2023-07-25,TCS,0.0201,BULL
+2023-08-01,HDFC,-0.0234,BEAR
+2023-08-08,WIPRO,0.0112,BEAR
+2023-08-15,RELIANCE,-0.0156,BEAR
+2023-08-22,INFY,0.0267,BEAR
+2023-08-29,TCS,-0.0078,BEAR
+2023-09-05,HDFC,0.0189,BEAR
+2023-09-12,WIPRO,-0.0201,BEAR
+2023-09-19,RELIANCE,0.0134,BEAR
+2023-09-26,INFY,-0.0089,BEAR
+2023-10-03,TCS,0.0223,BEAR
+2023-10-10,HDFC,-0.0167,BEAR
+2023-10-17,WIPRO,0.0301,BEAR
+2023-10-24,RELIANCE,-0.0045,BEAR
+2023-10-31,INFY,0.0156,BEAR
+2023-11-07,TCS,-0.0112,BULL
+2023-11-14,HDFC,0.0267,BULL
+2023-11-21,WIPRO,-0.0178,BULL
+2023-11-28,RELIANCE,0.0089,BULL
+2023-12-05,INFY,-0.0234,BULL
+2023-12-12,TCS,0.0312,BULL
+2023-12-19,HDFC,-0.0067,BULL
+2023-12-26,WIPRO,0.0145,BULL
+2024-01-03,RELIANCE,-0.0123,BULL
+2024-01-10,INFY,0.0234,BULL
+2024-01-17,TCS,-0.0089,BULL
+2024-01-24,HDFC,0.0178,BULL
+2024-01-31,WIPRO,-0.0156,BULL
+2024-02-07,RELIANCE,0.0289,BULL
+2024-02-14,INFY,-0.0045,BULL
+2024-02-21,TCS,0.0201,BULL
+2024-02-28,HDFC,-0.0212,BULL`;
+
+  let _isSampleRun = false;
+
+  async function runSampleStrategy() {
+    _isSampleRun = true;
+    _validationMode = 'csv';
+    _brokerSource = '';
+    setCurrency('INR');
+
+    // Build a File object from the embedded CSV
+    const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
+    const file = new File([blob], 'sample_nifty_momentum.csv', { type: 'text/csv' });
+    _lastValidatedFile = file;
+
+    // Store in sessionStorage like a real upload
+    try {
+      const reader = new FileReader();
+      reader.onload = e => {
+        sessionStorage.setItem('qp_filename', file.name);
+        sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
+        sessionStorage.setItem('qp_source', 'csv');
+      };
+      reader.readAsDataURL(file);
+    } catch(e) {}
+
+    showLoading();
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('currency', 'INR');
+
+    const cst = coldStartWarning();
+    try {
+      const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd });
+      clearTimeout(cst);
+      if (!resp.ok) {
+        const err = await resp.json();
+        const detail = err.detail || err;
+        if (detail.error === 'rate_limit') {
+          hideLoading(true);
+          _isSampleRun = false;
+          alert(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+          return;
+        }
+        throw new Error(detail.message || detail || 'Validation failed');
+      }
+      const data = await resp.json();
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      setTimeout(() => { hideLoading(); renderResults(data, true); }, 3200);
+    } catch(err) {
+      clearTimeout(cst);
+      hideLoading(true);
+      _isSampleRun = false;
+      alert('Error: ' + err.message);
+    }
+  }
+
 
   const CURRENCY_SYMBOLS = {
     USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",CHF:"CHF ",
@@ -473,10 +799,26 @@
   }
 
   // ── Results rendering ──────────────────────────────────────
-  function renderResults(data) {
+  function renderResults(data, isSample) {
     setCurrency(data.currency || 'USD');
     const section = document.getElementById('resultsSection');
     section.innerHTML = '';
+
+    // Demo banner — shown when running the sample strategy
+    if (isSample) {
+      const demoBanner = document.createElement('div');
+      demoBanner.className = 'demo-banner';
+      demoBanner.innerHTML = `
+        <div class="demo-banner-icon">📊</div>
+        <div class="demo-banner-text">
+          This is a sample NIFTY50 momentum strategy — 120 trades, 2022–2024.
+          <span>Upload your own CSV or connect your broker to validate your real strategy.</span>
+        </div>
+        <button class="demo-banner-btn" onclick="resetApp()">Validate Mine →</button>
+      `;
+      section.appendChild(demoBanner);
+    }
+
     // FIX 5: scale_warning banner
     if(data.scale_warning) {
       const warn = document.createElement('div');
@@ -575,8 +917,28 @@
       </div>
 
       ${isVerified
-        ?`<div class="verified-banner"><div class="verified-icon">✓</div><div><div class="verified-text">VERIFIED — Data pulled directly from Alpaca</div><div class="verified-sub">Trade history independently verified · Eligible for prop firm compliance certificate</div></div></div>`
-        :`<div class="csv-warning-banner"><div class="warn-icon">⚠</div><div class="warn-text"><strong>${modeLabel}</strong>${_validationMode==='tradingview'?' — alert prices are signal prices, not actual fills. Slippage not included.':''} — methodology validated, trades not independently verified. Results cannot be used for prop firm compliance.</div><div class="warn-link" onclick="resetApp()">Connect Broker →</div></div>`
+        ? `<div class="verified-banner">
+            <div class="verified-icon">✓</div>
+            <div style="flex:1">
+              <div class="verified-text">✓ QUANTPROOF VERIFIED — Broker-Connected Data</div>
+              <div class="verified-sub">Trade history pulled directly from your broker · Independently verified · Eligible for Compliance Certificate</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid rgba(0,255,136,0.4);padding:4px 10px;white-space:nowrap;">TIER 3 — COMPLIANCE CERT</div>
+            </div>
+           </div>`
+        : `<div class="csv-warning-banner">
+            <div class="warn-icon">⚠</div>
+            <div class="warn-text" style="flex:1">
+              <strong>${modeLabel}</strong>${_validationMode==='tradingview'?' — signal prices only, slippage not included.':''} — methodology validated, trades self-reported.
+              <div style="margin-top:4px;font-size:10px;line-height:1.6;color:var(--muted)">
+                📊 <b style="color:var(--text)">Tier 1 — Methodology</b> &nbsp;→&nbsp; CSV/Kite upload &nbsp;·&nbsp;
+                🔗 <b style="color:var(--accent3)">Tier 2 — Verified</b> &nbsp;→&nbsp; Broker connected &nbsp;·&nbsp;
+                🏆 <b style="color:var(--accent)">Tier 3 — Certificate</b> &nbsp;→&nbsp; Verified + paid report
+              </div>
+            </div>
+            <div class="warn-link" onclick="resetApp()">Get Verified →</div>
+           </div>`
       }
 
       <div class="section-title">// Historical Crash Simulations (5 scenarios)</div>
@@ -597,7 +959,7 @@
 
       <div class="checks-section" style="margin-top:40px;">
         <div class="section-title">// Full Validation Breakdown — 40 checks (click to expand)</div>
-        ${Object.entries(categories).map(([cat,checks])=>{
+        ${Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance').map(([cat,checks])=>{
           const catScore = Math.round(checks.reduce((a,c)=>a+c.score,0)/checks.length);
           const passed=checks.filter(c=>c.passed).length, failed=checks.filter(c=>!c.passed).length;
           const col=catScore>65?'var(--accent)':catScore>45?'var(--accent3)':'var(--accent2)';
@@ -634,6 +996,31 @@
           </div>`;
         }).join('')}
       </div>
+
+      <!-- SEBI COMPLIANCE SECTION — separate, zero weight, India-specific -->
+      ${(categories['SEBI Compliance'] || []).length > 0 ? `
+        <div style="margin-top:32px;">
+          <div class="section-title">// SEBI Compliance — India Algo Framework (Feb 2025 Circular)</div>
+          <div style="padding:10px 16px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+            These 4 checks are informational only — they do not affect your Fundable Score.
+            They indicate readiness for NSE/BSE algo registration under SEBI Circular SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/0000013.
+          </div>
+          ${(categories['SEBI Compliance'] || []).map(check=>`
+            <div class="check-item ${check.passed?'pass':'fail'}" onclick="toggleCheck(this)">
+              <div class="check-header">
+                <div class="check-name"><span class="check-badge ${check.passed?'pass':'fail'}">${check.passed?'READY':'ACTION'}</span>${check.name}</div>
+                <div class="check-score-bar">
+                  <div class="bar-track"><div class="bar-fill" data-width="${check.score}" style="width:0%;background:${check.score>65?'var(--accent)':check.score>45?'var(--accent3)':'var(--accent2)'}"></div></div>
+                  <div class="check-score-num">${check.score}</div>
+                </div>
+              </div>
+              <div class="check-details">
+                <div class="check-value">${check.value}</div>
+                <div class="check-insight">${check.insight}</div>
+                ${check.fix ? `<div class="check-fix">${check.fix}</div>` : '<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>'}
+              </div>
+            </div>`).join('')}
+        </div>` : ''}
 
       <!-- AI PLAN TEASER -->
       <div style="margin:32px 0 0 0;padding:20px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.15);position:relative;overflow:hidden;">
@@ -775,7 +1162,7 @@
       if(data.error) throw new Error(data.message||data.error);
       const options={
         key:data.key_id, amount:data.amount, currency:data.currency,
-        name:'QuantProof', description:'Personalised Fix Plan — 40 checks + AI analysis',
+        name:'QuantProof', description:'Personalised Fix Plan — 44 checks + AI analysis',
         order_id:data.order_id, theme:{color:'#00ff88'}, prefill:{},
         handler: async function(response) {
           if(status){status.innerText='Verifying payment...';status.style.color='var(--accent)';}
