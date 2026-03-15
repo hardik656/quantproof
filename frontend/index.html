@@ -500,7 +500,7 @@
     </div>
   </div>
 
-  <div class="results" id="resultsSection"></div>
+  <div class="results" id="resultsSection" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;"></div>
 </div>
 
 <footer>
@@ -831,6 +831,7 @@
   function renderResults(data, isSample) {
     setCurrency(data.currency || 'USD');
     const section = document.getElementById('resultsSection');
+    section.classList.add('active');
     section.innerHTML = '';
 
     // Demo banner — shown when running the sample strategy
@@ -1437,5 +1438,75 @@
     } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 </script>
+
+<script>
+  // ── Copy protection on validation results ──────────────────────────────
+  document.addEventListener('copy', function(e) {
+    const resultsSection = document.getElementById('resultsSection');
+    if (!resultsSection || !resultsSection.classList.contains('active')) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    let node = range.commonAncestorContainer;
+    if (node.nodeType === 3) node = node.parentNode;
+
+    let inside = false;
+    let cur = node;
+    while (cur) {
+      if (cur === resultsSection) { inside = true; break; }
+      cur = cur.parentNode;
+    }
+    if (!inside) return;
+
+    const selectedText = selection.toString().trim();
+    if (selectedText.length < 10) return;
+
+    const scoreEl = document.querySelector('.score-big') || document.querySelector('[class*="score"]');
+    const score = scoreEl ? scoreEl.textContent.trim().split('\n')[0] : '—';
+
+    const watermark = [
+      '[ QuantProof Validation Result — quantproof-frontend.onrender.com ]',
+      '',
+      'Score: ' + score + '/100',
+      '',
+      'Full 40-check breakdown, AI fix plan and PDF report available at:',
+      'quantproof-frontend.onrender.com',
+      'PDF report: Rs.299 / $4 USD',
+      '',
+      '[ To share results, download the PDF report ]',
+    ].join('\n');
+
+    e.clipboardData.setData('text/plain', watermark);
+    e.preventDefault();
+  });
+
+  // Disable right-click on results, show upsell toast instead
+  document.addEventListener('contextmenu', function(e) {
+    const resultsSection = document.getElementById('resultsSection');
+    if (!resultsSection || !resultsSection.classList.contains('active')) return;
+    let node = e.target;
+    while (node) {
+      if (node === resultsSection) {
+        e.preventDefault();
+        let toast = document.getElementById('qp-toast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'qp-toast';
+          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1C1C1E;color:#00C896;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,200,150,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s;';
+          document.body.appendChild(toast);
+        }
+        toast.textContent = 'Get the full PDF report for Rs.299 →';
+        toast.style.opacity = '1';
+        clearTimeout(window._toastTimer);
+        window._toastTimer = setTimeout(function() { toast.style.opacity = '0'; }, 2500);
+        return;
+      }
+      node = node.parentNode;
+    }
+  });
+</script>
+
 </body>
 </html>
