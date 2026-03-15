@@ -1221,6 +1221,160 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
 #   5. Flexible fallback  (numeric column heuristic)
 # =========================================================
 
+# ══════════════════════════════════════════════════════════════════════════════
+# OPTIONS CSV PARSER
+# Detects options trade exports and normalises them to a fractional return
+# series compatible with QuantProofValidator.
+#
+# Supported:
+#   - Single-leg directional trades (calls/puts bought and closed)
+#   - Any CSV with strike / expiry / option_type / call_put / premium columns
+#
+# Not supported (rejected with clear error):
+#   - Multi-leg concurrent positions (spreads, iron condors, straddles)
+#   - Positions still open at time of export
+#
+# The validator itself is unchanged — options data is normalised to the same
+# fractional return format as equity trades before validation runs.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _is_options_csv(df: pd.DataFrame) -> bool:
+    """Detect options trade data from column names."""
+    cols = [c.lower().strip().replace(" ", "_") for c in df.columns]
+    options_signals = ["strike", "expiry", "expiration", "option_type",
+                       "call_put", "put_call", "premium", "underlying",
+                       "contract", "iv", "delta", "gamma", "theta"]
+    return sum(1 for s in options_signals if any(s in c for c in cols)) >= 2
+
+
+def _has_overlapping_positions(df: pd.DataFrame) -> bool:
+    """
+    Check if any positions overlap in time (i.e. concurrent open trades).
+    Returns True if overlapping positions detected.
+    Only runs when date/open_date/close_date columns are present.
+    """
+    df_cols = [c.lower().strip() for c in df.columns]
+    open_col  = next((c for c in df.columns if any(x in c.lower()
+                      for x in ["open_date", "entry_date", "open_time", "entry"])), None)
+    close_col = next((c for c in df.columns if any(x in c.lower()
+                      for x in ["close_date", "exit_date", "close_time", "exit"])), None)
+
+    if not open_col or not close_col:
+        return False  # can't determine — assume non-overlapping
+
+    try:
+        opens  = pd.to_datetime(df[open_col],  errors="coerce").dropna()
+        closes = pd.to_datetime(df[close_col], errors="coerce").dropna()
+        if len(opens) < 2 or len(closes) < 2:
+            return False
+        # Check if any open date falls between another trade's open and close
+        for i in range(len(opens)):
+            for j in range(len(opens)):
+                if i == j:
+                    continue
+                if opens.iloc[i] < closes.iloc[j] and opens.iloc[j] < closes.iloc[i]:
+                    return True
+        return False
+    except Exception:
+        return False
+
+
+def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """
+    Parse options trade CSV into a normalised returns DataFrame.
+
+    Returns (df_with_pnl_and_date, note, audit_flags).
+
+    Return calculation:
+      - If premium/entry_price column present: return = P&L / entry_premium
+      - Otherwise: treat pnl column as fractional return (same as generic CSV)
+
+    Audit flags added to every options validation:
+      - Notes that crash simulations assume linear payoffs
+      - Notes that options convexity is not modelled
+    """
+    import io as _io
+
+    sample = raw[:2048]
+    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
+    delim  = max(counts, key=counts.get)
+
+    df = pd.read_csv(_io.StringIO(raw), sep=delim)
+    df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+
+    # ── Check for concurrent positions ────────────────────────────────────
+    if _has_overlapping_positions(df):
+        raise ValueError(
+            "Multi-leg or concurrent options positions detected. "
+            "QuantProof supports single-leg directional options trades only "
+            "(calls or puts bought and fully closed before the next trade). "
+            "For spreads, iron condors, or straddles: calculate your daily "
+            "P&L as a percentage of capital deployed and upload as a generic CSV."
+        )
+
+    # ── Find P&L column ───────────────────────────────────────────────────
+    pnl_col = next((c for c in df.columns if any(x in c for x in
+                    ["pnl", "profit", "return", "gain", "pl", "net"])), None)
+    if pnl_col is None:
+        raise ValueError(
+            "Could not find a P&L column in your options CSV. "
+            "Expected a column named pnl, profit, return, gain, or pl."
+        )
+
+    pnl_vals = pd.to_numeric(df[pnl_col].astype(str).str.replace("%","",regex=False),
+                              errors="coerce")
+
+    # ── Normalise to fractional returns ───────────────────────────────────
+    # Look for premium / entry price to compute return = P&L / premium
+    premium_col = next((c for c in df.columns if any(x in c for x in
+                        ["premium", "entry_price", "open_price", "cost"])), None)
+    if premium_col is not None:
+        premium_vals = pd.to_numeric(df[premium_col].astype(str).str.replace("%","",regex=False),
+                                      errors="coerce")
+        # Return = P&L / premium paid (per contract basis)
+        valid_mask = (premium_vals.notna()) & (premium_vals.abs() > 1e-9) & (pnl_vals.notna())
+        returns = (pnl_vals[valid_mask] / premium_vals[valid_mask]).clip(-0.99, 0.99)
+        norm_method = f"P&L / {premium_col} (per contract return)"
+    else:
+        # Fall back: treat pnl as fractional return directly
+        valid_mask = pnl_vals.notna()
+        returns = pnl_vals[valid_mask]
+        if returns.abs().mean() > 1.0:
+            returns = returns / 100.0  # was percentage, convert to decimal
+        returns = returns.clip(-0.99, 0.99)
+        norm_method = "pnl column treated as fractional return"
+
+    result = pd.DataFrame({"pnl": returns.values})
+
+    # ── Date column ───────────────────────────────────────────────────────
+    date_col = next((c for c in df.columns if any(x in c for x in
+                     ["date", "close_date", "exit_date", "time", "dt"])), None)
+    if date_col:
+        result["date"] = pd.to_datetime(
+            df[date_col].values[:len(returns)], errors="coerce")
+
+    # ── Ticker column ─────────────────────────────────────────────────────
+    ticker_col = next((c for c in df.columns if any(x in c for x in
+                       ["ticker", "symbol", "underlying", "instrument"])), None)
+    if ticker_col:
+        result["ticker"] = df[ticker_col].values[:len(returns)]
+
+    note = (
+        f"OPTIONS: {len(result)} single-leg trades parsed. "
+        f"Returns normalised as {norm_method}."
+    )
+    audit_flags = [
+        "OPTIONS DATA: Crash simulations assume linear payoffs — "
+        "options convexity and delta/gamma effects are not modelled. "
+        "Results are directionally indicative only.",
+        "OPTIONS DATA: Validation assumes sequential non-overlapping trades. "
+        "Multi-leg strategies (spreads, condors) are not supported — "
+        "use daily portfolio P&L as percentage of capital instead.",
+    ]
+
+    return result, note, audit_flags
+
+
 def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     """
     Parses CSV/TSV into a trades DataFrame for QuantProofValidator.
@@ -1241,6 +1395,24 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         _probe = pd.read_csv(io.StringIO(raw), sep=delim, nrows=5, dtype=str)
     except Exception:
         _probe = pd.DataFrame()
+
+    # ── 0. Options CSV ───────────────────────────────────────────────────
+    if not _probe.empty and _is_options_csv(_probe):
+        try:
+            _df, _note, _flags = _parse_options_csv(raw)
+            if len(_df) > 0:
+                if "date" in _df.columns and _df["date"].notna().any():
+                    _df, _regime_note = assign_regimes(_df)
+                    _note += (" | " + _regime_note if _regime_note else "")
+                # Always surface options audit flags
+                if _flags:
+                    _note += " | OPTIONS_FLAGS:" + "||".join(_flags)
+                return _df, _note
+        except ValueError as e:
+            # Surface clear options-specific errors to the user
+            raise HTTPException(400, str(e))
+        except Exception:
+            pass  # fall through to generic parser
 
     # ── 1. Kite TradeBook ─────────────────────────────────────────────────
     if not _probe.empty and _is_kite_csv(_probe):
@@ -1465,7 +1637,14 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     # Only add regime_note as extra flag if it isn't already embedded in
     # the Kite/Alpaca parser audit note (those parsers append it to their note string)
     existing_flags_text = " ".join(r.audit_flags)
-    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else [])
+    # Extract options-specific audit flags from parse note
+    _options_flags = []
+    if "OPTIONS_FLAGS:" in parse_note:
+        _parts = parse_note.split("OPTIONS_FLAGS:", 1)
+        parse_note = _parts[0].rstrip(" |")
+        _options_flags = _parts[1].split("||") if len(_parts) > 1 else []
+
+    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else []) + _options_flags
 
     _vr_cache = {
         "fundable_score": r.score,
