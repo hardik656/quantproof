@@ -31,7 +31,7 @@ A weighted average across five categories:
 | Category | Weight | What it measures |
 |---|---|---|
 | Risk Management | 38% | Drawdown, tail risk, ruin probability, recovery |
-| Overfitting Detection | 22% | Statistical significance, path stability, data snooping |
+| Overfitting Detection | 22% | Statistical significance, path stability, data snooping. IR + Beta informational (score=50) without benchmark |
 | Compliance | 15% | Prop firm and institutional eligibility |
 | Regime Robustness | 14% | Performance across bull, bear, consolidation |
 | Execution Reality | 11% | Slippage, commissions, market impact, capacity |
@@ -45,7 +45,7 @@ A weighted average across five categories:
 
 ---
 
-## Category 1 — Overfitting Detection (22%)
+## Category 1 — Overfitting Detection (22%) — 11 checks (9 scored + 2 informational without benchmark)
 
 The most common failure mode in backtesting. A strategy optimised on historical data will always look good in-sample. These checks test whether the edge is real or memorised.
 
@@ -61,7 +61,7 @@ Three-component test: bootstrap mean stability (300 resamples), sequence indepen
 What percentage of total profit comes from the top 1% of trades? What happens to Sharpe when those trades are removed? Also checks loss concentration. A strategy depending on 2–3 outlier trades is not a strategy — it is luck.
 
 **CPCV Path Stability**
-Combinatorial Purged Cross-Validation with 6 splits, 2 test folds, and embargo gaps to prevent data leakage at fold boundaries. Generates multiple walk-forward paths and measures Sharpe standard deviation across paths.
+Combinatorial Purged Cross-Validation with 6 splits, 2 test folds, and embargo gaps to prevent data leakage at fold boundaries. Generates multiple walk-forward paths and measures Sharpe standard deviation across paths. Thresholds: path_std < 1.5 = robust, < 2.5 = acceptable, ≥ 2.5 = fails. Calibrated empirically (p95 of random-walk ≈ 2.05 at n=300).
 
 > Reference: López de Prado, *Advances in Financial Machine Learning* (2018), Ch.12
 
@@ -80,6 +80,12 @@ Corrects Sharpe for non-normality (skewness and excess kurtosis), finite sample 
 
 **Minimum Backtest Length**
 Harvey-Liu-Zhu minimum observations for statistical significance at the strategy's Sharpe level. A Sharpe of 2.0 on 30 trades is not credible. This check tells you exactly how many trades you need.
+
+**Information Ratio (vs Benchmark)**
+When benchmark returns are supplied, computes OLS beta, Jensen's alpha, tracking error, and Information Ratio. IR > 0.5 = strong alpha, 0.3–0.5 = marginal, < 0.3 = likely beta-capture. Returns score=50 informational when no benchmark provided — fully backward-compatible.
+
+**Beta Exposure (vs Benchmark)**
+When benchmark returns are supplied, measures market beta and R². Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Score=50 informational without benchmark.
 
 **Autocorrelation (Ljung-Box + Newey-West)**
 Ljung-Box Q-statistic at lags 1, 5, and 10 tests for serial correlation in returns. If significant autocorrelation is detected, Newey-West HAC standard error replaces the IID formula and the inflation factor is reported. Serial correlation invalidates DSR, CI, and Bootstrap tests.
@@ -167,9 +173,31 @@ Backtests assume perfect fills at the exact price. Reality does not.
 
 Two separate standards for different use cases.
 
+**Prop Firm Compliance Gate (5-gate quick check)**
+Fast binary gate: positive mean return, Sharpe ≥ 1.0, max drawdown < 20%, win rate > 45%, trades > 50. Requires 4/5 in standard mode, all 5 in strict mode. Quick pre-filter before the detailed per-firm check.
+
 **Prop Firm Compliance (FTMO / Topstep / The5ers)** — Challenge rules: max drawdown ≤10%, profit target ≥6-10%, Sharpe ≥1.0. Reports which firms the strategy is eligible for. Note: only broker-verified validations can be used for actual prop firm compliance submissions.
 
 **Institutional Compliance (CTA / Fund Standard)** — Sharpe ≥1.0, max drawdown <25%, Calmar ≥1.0. More appropriate than prop firm rules for multi-year backtests.
+
+---
+
+## Operational Checks (2 checks — appended to every report, not in weighted score)
+
+Two checks appended at the end of every validation. Appear in results but do not contribute to the five weighted categories.
+
+**Alpha Decay (Half-Life)**
+Compares first-half vs second-half Sharpe. Fits exponential decay to autocorrelation function to estimate alpha half-life. Fails if second-half Sharpe decays >60% or goes very negative.
+
+**Symbolic Overfit Detection**
+Compares equity curve characteristics (smoothness, entropy, kurtosis) against 50 noise baselines. Polynomial regression detects pathological predictability. Reports overfit score 0–100 and complexity-penalised adjusted Sharpe.
+
+---
+
+## Conditional Check
+
+**Single-Regime Backtest Warning** (Regime category — injected only when detected)
+Triggered when >85% of dated trades fall within one market regime. Triggers Manual Audit Required and caps score at 55. Requires date column to run.
 
 ---
 
