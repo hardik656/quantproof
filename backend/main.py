@@ -1254,10 +1254,18 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
     Only runs when date/open_date/close_date columns are present.
     """
     df_cols = [c.lower().strip() for c in df.columns]
-    open_col  = next((c for c in df.columns if any(x in c.lower()
-                      for x in ["open_date", "entry_date", "open_time", "entry"])), None)
+    # Strict date column detection — must contain "date" or "time" keyword
+    # to avoid matching price columns like "entry_price" or "exit_price"
+    def _is_open_date_col(c):
+        cl = c.lower()
+        return (cl in ["date", "trade_date", "open_date", "entry_date"] or
+                any(cl.endswith(x) for x in ["_date", "_time", "date"]) and
+                not any(x in cl for x in ["close","exit","expir","end"]))
+
+    open_col  = next((c for c in df.columns if _is_open_date_col(c)), None)
     close_col = next((c for c in df.columns if any(x in c.lower()
-                      for x in ["close_date", "exit_date", "close_time", "exit"])), None)
+                      for x in ["close_date", "exit_date", "close_time",
+                                 "end_date", "expiry", "expiration"])), None)
 
     if not open_col or not close_col:
         return False  # can't determine — assume non-overlapping
@@ -1266,6 +1274,10 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
         opens  = pd.to_datetime(df[open_col],  errors="coerce").dropna()
         closes = pd.to_datetime(df[close_col], errors="coerce").dropna()
         if len(opens) < 2 or len(closes) < 2:
+            return False
+        # Sanity check: dates should be after year 2000
+        # This catches price values that parse as 1970-epoch timestamps
+        if opens.min().year < 2000 or closes.min().year < 2000:
             return False
         # Check if any open date falls between another trade's open and close
         for i in range(len(opens)):
