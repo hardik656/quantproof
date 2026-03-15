@@ -113,7 +113,7 @@
     <span class="page-tag">// Validation Methodology</span>
     <h1>How QuantProof<br>scores your strategy</h1>
     <p>Every check, every category, and the research behind it. We show you exactly what we measure and why — because a score you can't explain is a score you can't trust.</p>
-    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-13 &nbsp;·&nbsp; 40 checks + 5 crash simulations</div>
+    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-13 &nbsp;·&nbsp; 41 checks (base) + 2 operational + 1 conditional + 5 crash simulations</div>
   </div>
 
   <!-- Score Breakdown -->
@@ -145,7 +145,7 @@
       <div class="breakdown-pct" style="color:#c084fc">11%</div>
     </div>
     <div class="breakdown-note" style="margin-top:16px;">
-      Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
+      Information Ratio and Beta Exposure checks are in the Overfitting category (22% weight) but return score=50 informational when no benchmark is supplied — they neither help nor hurt the score without benchmark data. Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
       Plausibility checks (4) flag data integrity issues and can trigger a Manual Audit Required — they do not contribute to the weighted score directly.
     </div>
   </div>
@@ -156,7 +156,7 @@
       <div class="cat-number">01</div>
       <div>
         <div class="cat-title">Overfitting Detection</div>
-        <div class="cat-weight">22% of Fundable Score · 9 checks</div>
+        <div class="cat-weight">22% of Fundable Score · 11 checks</div>
         <div class="cat-desc">The most common failure mode in backtesting. A strategy that was optimised on historical data will always look good — the question is whether it has real predictive power or just memorised the past. These checks test whether the edge survives scrutiny.</div>
       </div>
     </div>
@@ -179,7 +179,7 @@
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>CPCV Path Stability</div>
-        <div class="check-row-desc">Combinatorial Purged Cross-Validation with 6 splits and 2 test folds. Applies embargo gaps to prevent data leakage. Generates multiple walk-forward paths and measures path Sharpe standard deviation.</div>
+        <div class="check-row-desc">Combinatorial Purged Cross-Validation with 6 splits and 2 test folds. Applies embargo gaps to prevent data leakage. Generates multiple walk-forward paths and measures path Sharpe standard deviation. Thresholds: path_std &lt; 1.5 = robust, &lt; 2.5 = acceptable, ≥ 2.5 = fails. Calibrated empirically against random-walk baseline (p95 ≈ 2.05 at n=300).</div>
         <div class="check-row-why">Standard train/test splits leak information at the boundary. CPCV with purging and embargo prevents this and gives a realistic distribution of out-of-sample performance.</div>
         <div class="reference-block">
           <div class="reference-label">Academic Reference</div>
@@ -215,6 +215,16 @@
         <div class="check-row-name"><span class="check-tag">CORE</span>Minimum Backtest Length</div>
         <div class="check-row-desc">Computes the Harvey-Liu-Zhu minimum observations required for statistical significance at the strategy's Sharpe level, adjusted for the number of strategies tested.</div>
         <div class="check-row-why">Short backtests always overfit. This check quantifies exactly how many trades you need before the results are credible.</div>
+      </div>
+      <div class="check-row">
+        <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Information Ratio (vs Benchmark)</div>
+        <div class="check-row-desc">When benchmark returns are supplied, computes OLS beta, Jensen's alpha, tracking error, and Information Ratio vs the benchmark. IR &gt; 0.5 = strong alpha, IR 0.3–0.5 = marginal, IR &lt; 0.3 = likely beta-capture. When no benchmark is provided, returns score=50 informational — existing usage is fully backward-compatible.</div>
+        <div class="check-row-why">A strategy backtested during a bull market with high market beta looks good not because of alpha, but because the market went up. IR exposes this. Without a benchmark, this check is advisory only.</div>
+      </div>
+      <div class="check-row">
+        <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Beta Exposure (vs Benchmark)</div>
+        <div class="check-row-desc">When benchmark returns are supplied, computes market beta and R². Beta &gt; 0.8 triggers Manual Audit Required. Beta &gt; 0.6 = high market exposure. Beta &lt; 0.4 = largely market-neutral. Informational only (score=50) when no benchmark provided.</div>
+        <div class="check-row-why">High beta means returns are explained by market direction, not strategy skill. A beta of 0.8 means 80% of return variance comes from the benchmark — the strategy is essentially a leveraged index fund.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Autocorrelation (Ljung-Box + Newey-West)</div>
@@ -335,6 +345,11 @@
         <div class="check-row-why">A strategy that is profitable on average but has extended unprofitable periods is difficult to trade live — the drawdown periods test psychological resilience and capital availability.</div>
       </div>
       <div class="check-row">
+        <div class="check-row-name"><span class="check-tag">CONDITIONAL</span>Single-Regime Backtest Warning</div>
+        <div class="check-row-desc">Injected into the report only when detected: if &gt;85% of dated trades fall within a single market regime (BULL, BEAR, or CONSOLIDATION), this check appears with a Manual Audit Required flag and triggers a score cap at 55. Requires date column.</div>
+        <div class="check-row-why">A strategy backtested entirely during one regime type has never been tested in other conditions. Performance may be entirely explained by market tailwind rather than genuine edge. The score cap prevents these strategies from appearing fundable.</div>
+      </div>
+      <div class="check-row">
         <div class="check-row-name">Regime Coverage</div>
         <div class="check-row-desc">Checks whether the backtest data includes a regime column covering multiple market conditions (BULL, BEAR, CONSOLIDATION, TRANSITION).</div>
         <div class="check-row-why">Explicit regime labelling enables regime-conditional position sizing in live trading — a critical tool for managing drawdown across market cycles.</div>
@@ -399,6 +414,11 @@
     </div>
     <div class="check-list">
       <div class="check-row">
+        <div class="check-row-name">Prop Firm Compliance Gate (5-gate quick check)</div>
+        <div class="check-row-desc">Fast binary gate: positive mean return, Sharpe ≥ 1.0, max drawdown &lt; 20%, win rate &gt; 45%, trades &gt; 50. Requires 4/5 gates in standard mode, all 5 in strict mode. Gives a quick pass/fail before the detailed per-firm check runs.</div>
+        <div class="check-row-why">A quick pre-filter that immediately identifies strategies that are far from prop firm eligible, before running the more detailed per-firm analysis.</div>
+      </div>
+      <div class="check-row">
         <div class="check-row-name">Prop Firm Compliance (FTMO / Topstep / The5ers)</div>
         <div class="check-row-desc">Checks compliance with all three major prop firm challenge rules: max drawdown ≤10%, profit target ≥6-10% depending on firm, Sharpe ≥1.0. Reports which firms the strategy is eligible for.</div>
         <div class="check-row-why">Each prop firm has slightly different rules. Knowing which you qualify for — and which violations you need to fix — saves time before paying for a challenge.</div>
@@ -454,10 +474,34 @@
     </div>
   </div>
 
-  <!-- Plausibility -->
+  <!-- Operational -->
   <div class="category-section">
     <div class="cat-header">
       <div class="cat-number">07</div>
+      <div>
+        <div class="cat-title">Operational Checks</div>
+        <div class="cat-weight">Not included in weighted score — appended to every report</div>
+        <div class="cat-desc">Two checks appended at the end of every validation. These appear in the full results but do not contribute to the Fundable Score category weights. They provide additional diagnostic information about strategy persistence and structural overfit.</div>
+      </div>
+    </div>
+    <div class="check-list">
+      <div class="check-row" style="border-left-color:#7dd3fc;">
+        <div class="check-row-name">Alpha Decay (Half-Life)</div>
+        <div class="check-row-desc">Compares first-half vs second-half Sharpe ratio. Fits an exponential decay curve to the autocorrelation function to estimate the half-life of the strategy's alpha signal. Fails if second-half Sharpe decays by more than 60% or goes very negative.</div>
+        <div class="check-row-why">A strategy where performance deteriorates significantly in the second half of the backtest may be losing its edge over time — either because the market adapted or because the strategy was overfitted to the first period.</div>
+      </div>
+      <div class="check-row" style="border-left-color:#7dd3fc;">
+        <div class="check-row-name">Symbolic Overfit Detection</div>
+        <div class="check-row-desc">Compares the strategy's equity curve characteristics (smoothness, entropy, kurtosis) against 50 noise baselines with the same volatility. Also fits a polynomial regression to detect pathological predictability. Reports an overfit score 0–100 and adjusted Sharpe penalised for model complexity.</div>
+        <div class="check-row-why">Complements the statistical overfit checks (CPCV, DSR) with a pattern-based detector. A strategy that looks suspiciously different from plausible noise baselines — too smooth, too predictable, too regular — may be structurally overfitted even if statistical tests pass.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plausibility -->
+  <div class="category-section">
+    <div class="cat-header">
+      <div class="cat-number">08</div>
       <div>
         <div class="cat-title">Plausibility Checks</div>
         <div class="cat-weight">4 checks — flag data integrity issues, can trigger Manual Audit Required</div>
