@@ -552,5 +552,49 @@
     </div>
   </div>
 </footer>
+
+<script>
+  // ── Copy protection ────────────────────────────────────────────────────
+  document.addEventListener('copy', function(e) {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    const selectedText = selection.toString().trim();
+    if (selectedText.length < 20) return; // allow copying short snippets
+
+    const watermark = [
+      '[ QuantProof Methodology — quantproof-frontend.onrender.com ]',
+      '',
+      'This methodology was written by QuantProof.',
+      'Engine v6.2 | 40 scored checks | Methodology date: 2026-03-13',
+      '',
+      'Full validation tool available at:',
+      'quantproof-frontend.onrender.com',
+      '',
+      'Validate your strategy: free for CSV, Rs.299 for full PDF report.',
+      '',
+      '[ To share this methodology, link to: quantproof-frontend.onrender.com/methodology ]',
+    ].join('\n');
+
+    e.clipboardData.setData('text/plain', watermark);
+    e.preventDefault();
+  });
+
+  // Right-click toast
+  document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    let toast = document.getElementById('qp-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'qp-toast';
+      toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d1117;color:#00ff88;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,255,136,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s;';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = 'Link to this page: quantproof-frontend.onrender.com/methodology';
+    toast.style.opacity = '1';
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(function() { toast.style.opacity = '0'; }, 3000);
+  });
+</script>
+
 </body>
 </html>
