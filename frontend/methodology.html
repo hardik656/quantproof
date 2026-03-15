@@ -145,7 +145,7 @@
       <div class="breakdown-pct" style="color:#c084fc">11%</div>
     </div>
     <div class="breakdown-note" style="margin-top:16px;">
-      The 40 scored checks feed into the five weighted categories below. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%) but return score=50 informational without a benchmark. Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
+      The 40 scored checks feed into the five weighted categories below. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%). When your data includes dates, SPY is automatically inferred as the benchmark — both checks are fully scored. Without dates, they return score=50 informational. Score caps apply: strategies with no date column cap at 60 · single-regime backtests cap at 55 · institutional compliance failure caps at 60 · Sharpe >10 caps at 30.
       Plausibility checks (4) flag data integrity issues and can trigger a Manual Audit Required — they do not contribute to the weighted score directly.
     </div>
   </div>
@@ -156,7 +156,7 @@
       <div class="cat-number">01</div>
       <div>
         <div class="cat-title">Overfitting Detection</div>
-        <div class="cat-weight">22% of Fundable Score · 11 checks (9 scored + 2 informational when no benchmark supplied)</div>
+        <div class="cat-weight">22% of Fundable Score · 11 checks (9 scored + 2 auto-scored via SPY when dates present, informational without dates)</div>
         <div class="cat-desc">The most common failure mode in backtesting. A strategy that was optimised on historical data will always look good — the question is whether it has real predictive power or just memorised the past. These checks test whether the edge survives scrutiny.</div>
       </div>
     </div>
@@ -218,12 +218,12 @@
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Information Ratio (vs Benchmark)</div>
-        <div class="check-row-desc">When benchmark returns are supplied, computes OLS beta, Jensen's alpha, tracking error, and Information Ratio vs the benchmark. IR &gt; 0.5 = strong alpha, IR 0.3–0.5 = marginal, IR &lt; 0.3 = likely beta-capture. When no benchmark is provided, returns score=50 informational — existing usage is fully backward-compatible.</div>
-        <div class="check-row-why">A strategy backtested during a bull market with high market beta looks good not because of alpha, but because the market went up. IR exposes this. Without a benchmark, this check is advisory only.</div>
+        <div class="check-row-desc">When your trade data includes dates, SPY is automatically fetched and aligned to your trade dates — no manual input required. Computes OLS beta, Jensen's alpha (annualised), tracking error, and Information Ratio. IR &gt; 0.5 = strong alpha. IR 0.3–0.5 = marginal. IR &lt; 0.3 = likely beta-capture. Without dates, returns score=50 informational. SPY fetch uses an 8-second timeout and module-level cache — falls back silently if unavailable.</div>
+        <div class="check-row-why">A strategy backtested during a bull market with high beta looks good because the market went up, not because of skill. IR exposes this automatically — no manual benchmark setup needed. For equity strategies trading US or global stocks, SPY is a reasonable benchmark proxy.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Beta Exposure (vs Benchmark)</div>
-        <div class="check-row-desc">When benchmark returns are supplied, computes market beta and R². Beta &gt; 0.8 triggers Manual Audit Required. Beta &gt; 0.6 = high market exposure. Beta &lt; 0.4 = largely market-neutral. Informational only (score=50) when no benchmark provided.</div>
+        <div class="check-row-desc">SPY is automatically inferred as benchmark when dates are present. Computes market beta and R². Beta &gt; 0.8 triggers Manual Audit Required — essentially leveraged index exposure. Beta &gt; 0.6 = high market exposure. Beta 0.4–0.6 = moderate. Beta &lt; 0.4 = largely market-neutral. Informational only (score=50) without dates.</div>
         <div class="check-row-why">High beta means returns are explained by market direction, not strategy skill. A beta of 0.8 means 80% of return variance comes from the benchmark — the strategy is essentially a leveraged index fund.</div>
       </div>
       <div class="check-row">
