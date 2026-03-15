@@ -31,7 +31,7 @@ A weighted average across five categories:
 | Category | Weight | What it measures |
 |---|---|---|
 | Risk Management | 38% | Drawdown, tail risk, ruin probability, recovery |
-| Overfitting Detection | 22% | Statistical significance, path stability, data snooping. IR + Beta informational (score=50) without benchmark |
+| Overfitting Detection | 22% | Statistical significance, path stability, benchmark alpha. IR + Beta auto-scored via SPY when dates present |
 | Compliance | 15% | Prop firm and institutional eligibility |
 | Regime Robustness | 14% | Performance across bull, bear, consolidation |
 | Execution Reality | 11% | Slippage, commissions, market impact, capacity |
@@ -45,7 +45,7 @@ A weighted average across five categories:
 
 ---
 
-## Category 1 — Overfitting Detection (22%) — 11 checks (9 scored + 2 informational without benchmark)
+## Category 1 — Overfitting Detection (22%) — 11 checks (9 scored + 2 auto-scored via SPY when dates present)
 
 The most common failure mode in backtesting. A strategy optimised on historical data will always look good in-sample. These checks test whether the edge is real or memorised.
 
@@ -81,11 +81,11 @@ Corrects Sharpe for non-normality (skewness and excess kurtosis), finite sample 
 **Minimum Backtest Length**
 Harvey-Liu-Zhu minimum observations for statistical significance at the strategy's Sharpe level. A Sharpe of 2.0 on 30 trades is not credible. This check tells you exactly how many trades you need.
 
-**Information Ratio (vs Benchmark)**
-When benchmark returns are supplied, computes OLS beta, Jensen's alpha, tracking error, and Information Ratio. IR > 0.5 = strong alpha, 0.3–0.5 = marginal, < 0.3 = likely beta-capture. Returns score=50 informational when no benchmark provided — fully backward-compatible.
+**Information Ratio (vs SPY Benchmark)**
+When your trade data includes dates, SPY is automatically fetched and aligned to your trade dates. Computes OLS beta, Jensen's alpha (annualised), tracking error, and IR. IR > 0.5 = strong alpha, 0.3-0.5 = marginal, < 0.3 = likely beta-capture. Falls back to score=50 informational if no dates or SPY unavailable.
 
-**Beta Exposure (vs Benchmark)**
-When benchmark returns are supplied, measures market beta and R². Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Score=50 informational without benchmark.
+**Beta Exposure (vs SPY Benchmark)**
+SPY is automatically inferred as benchmark when dates are present. Computes market beta and R². Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Beta < 0.4 = largely market-neutral. Score=50 informational without dates.
 
 **Autocorrelation (Ljung-Box + Newey-West)**
 Ljung-Box Q-statistic at lags 1, 5, and 10 tests for serial correlation in returns. If significant autocorrelation is detected, Newey-West HAC standard error replaces the IID formula and the inflation factor is reported. Serial correlation invalidates DSR, CI, and Bootstrap tests.
