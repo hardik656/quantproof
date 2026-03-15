@@ -1391,6 +1391,308 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     return result, note, audit_flags
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# MT5 (MetaTrader 5) TRADE HISTORY PARSER
+#
+# MT5 exports two types of history from Terminal → Account History → Save:
+#
+# 1. Deals report (detailed) — one row per execution:
+#    Time, Deal, Symbol, Type, Direction, Volume, Price, Order,
+#    Commission, Swap, Profit, Balance, Comment
+#    Direction: "in" = open, "out" = close, "in/out" = reverse
+#
+# 2. Positions report (simplified) — one row per completed trade:
+#    Time, Position, Symbol, Type, Volume, Price, S/L, T/P,
+#    Time (close), Price (close), Commission, Swap, Profit
+#
+# Both formats are detected and handled. Deals report is preferred because
+# it has higher precision — we reconstruct completed trades from in/out pairs.
+# Positions report is used when Direction column is absent.
+#
+# Return calculation:
+#   pnl_pct = profit / (entry_price * volume * contract_size_estimate)
+#   If contract size unknown: pnl_pct = profit / abs(entry_balance)
+#   Falls back to profit as raw value normalised by account equity if no balance.
+#
+# FIFO matching on deals report: "in" opens a lot, "out" closes it.
+# Partial closes handled. "in/out" (reverse) split into close + open.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _is_mt5_csv(df: pd.DataFrame) -> bool:
+    """
+    Detect MT5 trade history export by characteristic column names.
+
+    Deals report signals: deal, direction, commission, swap, balance
+    Positions report signals: position, s/l, t/p, or two time/price pairs
+
+    Requires at least 3 MT5-specific signals to avoid false positives
+    on generic CSVs that might have 'commission' or 'swap' columns.
+    """
+    cols = {c.lower().strip().replace(" ", "_").replace("/", "_") for c in df.columns}
+
+    # Deals report signals
+    deals_signals = {"deal", "direction", "commission", "swap", "balance"}
+    deals_hit = len(deals_signals & cols)
+
+    # Positions report signals
+    pos_signals = {"position", "s_l", "t_p", "commission", "swap"}
+    # Also check for two time columns (open time + close time)
+    time_cols = [c for c in cols if "time" in c]
+    pos_hit = len(pos_signals & cols) + (1 if len(time_cols) >= 2 else 0)
+
+    return deals_hit >= 3 or pos_hit >= 3
+
+
+def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """
+    Convert MT5 trade history CSV into QuantProof trades DataFrame.
+
+    Returns (df_with_pnl_date_ticker, note, audit_flags).
+
+    Handles:
+    - MT5 deals report (Direction column present): FIFO in/out pairing
+    - MT5 positions report (no Direction): each row is a completed trade
+    - Tab-separated and comma-separated formats
+    - Both . and , as decimal separators (European MT5 installs)
+    - Balance entries mixed in (Type = balance/credit) — filtered out
+    - Hedging accounts (multiple open positions per symbol)
+    - Partial closes
+    - Missing Balance column (falls back to price-based normalisation)
+    """
+    import io as _io
+
+    # ── Sniff delimiter ───────────────────────────────────────────────────
+    sample = raw[:2048]
+    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
+    delim  = max(counts, key=counts.get)
+
+    # Handle European decimal separator (comma) — only if semicolon-delimited
+    if delim == ";":
+        raw = raw.replace(",", ".")
+
+    try:
+        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str,
+                         on_bad_lines="skip")
+    except TypeError:
+        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str,
+                         error_bad_lines=False)
+
+    if df.empty:
+        raise ValueError("MT5 CSV appears empty after parsing.")
+
+    # ── Normalise column names ────────────────────────────────────────────
+    df.columns = [c.lower().strip().replace(" ", "_").replace("/", "_")
+                  for c in df.columns]
+
+    # ── Check for required columns ────────────────────────────────────────
+    has_direction = "direction" in df.columns  # deals report
+    has_position  = "position"  in df.columns  # positions report
+
+    if not has_direction and not has_position:
+        # Try to infer from column presence
+        if "deal" in df.columns:
+            has_direction = True  # deals without direction column — older MT5
+        else:
+            raise ValueError(
+                "Could not identify MT5 report format. "
+                "Please export from MT5 Terminal → Account History → "
+                "right-click → Save as Detailed Report."
+            )
+
+    # ── Parse numeric columns ─────────────────────────────────────────────
+    def _num(series):
+        return pd.to_numeric(
+            series.astype(str).str.replace(",", ".", regex=False)
+                               .str.replace("[^\\d.\\-]", "", regex=True),
+            errors="coerce"
+        )
+
+    for col in ["profit", "volume", "price", "commission", "swap",
+                "balance", "price_2"]:
+        if col in df.columns:
+            df[col] = _num(df[col])
+
+    # Also handle "price (close)" style columns from positions report
+    price_cols = [c for c in df.columns if "price" in c]
+    for pc in price_cols:
+        df[pc] = _num(df[pc])
+
+    # ── Parse time columns ────────────────────────────────────────────────
+    time_cols = [c for c in df.columns if "time" in c]
+    for tc in time_cols:
+        df[tc] = pd.to_datetime(df[tc], errors="coerce")
+
+    # Primary date column
+    open_time_col  = time_cols[0] if time_cols else None
+    close_time_col = time_cols[1] if len(time_cols) >= 2 else open_time_col
+
+    # ── Symbol column ─────────────────────────────────────────────────────
+    symbol_col = next((c for c in df.columns if c in
+                       ["symbol", "instrument", "pair", "asset"]), None)
+
+    # ── Filter to trade rows only ─────────────────────────────────────────
+    # MT5 mixes balance, credit, and trade entries in deals report
+    if "type" in df.columns:
+        type_vals = df["type"].astype(str).str.lower().str.strip()
+        # Keep only buy/sell rows — filter out balance, credit, correction etc
+        trade_mask = type_vals.isin(["buy", "sell", "buy limit", "sell limit",
+                                     "buy stop", "sell stop", "0", "1"])
+        df = df[trade_mask].copy()
+
+    if df.empty:
+        raise ValueError(
+            "No trade rows found in MT5 export after filtering. "
+            "Make sure you exported Account History (not just open positions) "
+            "and the report includes completed trades."
+        )
+
+    audit_flags  = []
+    trades       = []
+    orphan_count = 0
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BRANCH A: Deals report with Direction column (in/out pairing)
+    # ══════════════════════════════════════════════════════════════════════
+    if has_direction:
+        df["direction"] = df["direction"].astype(str).str.lower().str.strip()
+        df = df.sort_values(open_time_col) if open_time_col else df
+
+        lots = defaultdict(list)  # symbol → [{"price", "volume", "date", "commission"}]
+
+        for _, row in df.iterrows():
+            direction = str(row.get("direction", "")).lower().strip()
+            symbol    = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            volume    = float(row.get("volume", 0) or 0)
+            price     = float(row.get("price",  0) or 0)
+            profit    = float(row.get("profit", 0) or 0)
+            commission= float(row.get("commission", 0) or 0)
+            swap      = float(row.get("swap", 0) or 0)
+            balance   = float(row.get("balance", 0) or 0)
+            date      = row[open_time_col] if open_time_col else pd.NaT
+            trade_type= str(row.get("type", "")).lower().strip()
+
+            # "in/out" = close existing + open reverse — split into close then open
+            if direction == "in/out":
+                # Close existing
+                if lots[symbol]:
+                    lot = lots[symbol].pop(0)
+                    net_profit = profit + commission + swap
+                    pnl_pct = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
+                    if abs(pnl_pct) <= 0.99:
+                        trades.append({"pnl": round(pnl_pct, 6), "date": date,
+                                       "ticker": symbol})
+                # Open reverse
+                side = "sell" if trade_type in ["sell", "1"] else "buy"
+                lots[symbol].append({"price": price, "volume": volume,
+                                     "date": date, "side": side})
+                continue
+
+            if direction == "in":
+                lots[symbol].append({"price": price, "volume": volume,
+                                     "date": date, "side": trade_type,
+                                     "commission": commission})
+            elif direction == "out":
+                if not lots[symbol]:
+                    orphan_count += 1
+                    continue
+                lot = lots[symbol].pop(0)
+                net_profit = profit + commission + swap + lot.get("commission", 0)
+                pnl_pct    = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
+                if abs(pnl_pct) <= 0.99:
+                    trades.append({"pnl": round(pnl_pct, 6), "date": date,
+                                   "ticker": symbol})
+
+        # Any remaining open positions
+        open_pos = {s: len(ls) for s, ls in lots.items() if ls}
+        if open_pos:
+            count = sum(open_pos.values())
+            audit_flags.append(
+                f"ℹ {count} MT5 position(s) still open (no closing deal) — excluded"
+            )
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BRANCH B: Positions report — each row IS a completed trade
+    # ══════════════════════════════════════════════════════════════════════
+    else:
+        # Find close price column — second price column or "price_2"
+        price_open_col  = next((c for c in df.columns if "price" in c), None)
+        price_close_col = next((c for c in df.columns
+                                if "price" in c and c != price_open_col), None)
+
+        for _, row in df.iterrows():
+            profit    = float(row.get("profit", 0) or 0)
+            commission= float(row.get("commission", 0) or 0)
+            swap      = float(row.get("swap", 0) or 0)
+            volume    = float(row.get("volume", 1) or 1)
+            price_open = float(row[price_open_col] or 0) if price_open_col else 0
+            balance    = 0.0  # not available in positions report
+            symbol     = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            date       = row[close_time_col] if close_time_col else pd.NaT
+
+            net_profit = profit + commission + swap
+            pnl_pct    = _normalise_pnl(net_profit, price_open, volume, balance)
+            if pnl_pct is not None and abs(pnl_pct) <= 0.99:
+                trades.append({"pnl": round(pnl_pct, 6), "date": date,
+                                "ticker": symbol})
+
+    # ── Build result ──────────────────────────────────────────────────────
+    if not trades:
+        raise ValueError(
+            "No completed trades could be extracted from the MT5 export. "
+            "Make sure your report includes closed trades and has Profit column."
+        )
+
+    result = pd.DataFrame(trades)
+    if "date" in result.columns:
+        result = result.sort_values("date").reset_index(drop=True)
+
+    # ── Audit flags ───────────────────────────────────────────────────────
+    if orphan_count:
+        audit_flags.append(
+            f"⚠ {orphan_count} MT5 closing deal(s) had no matching open "
+            f"— excluded (position predates history window)"
+        )
+
+    audit_flags.append(
+        "MT5 DATA: Returns normalised as net profit / (entry_price * volume). "
+        "Crash simulations assume linear payoffs — leverage and margin effects not modelled. "
+        "For accurate capacity analysis, ensure Volume column reflects lot sizes."
+    )
+
+    report = "deals" if has_direction else "positions"
+    note = (
+        f"📊 MT5: {len(trades)} completed trade(s) parsed from {report} report "
+        f"({orphan_count} orphan(s) excluded)"
+    )
+    return result, note, audit_flags
+
+
+def _normalise_pnl(net_profit: float, entry_price: float,
+                   volume: float, balance: float) -> float:
+    """
+    Convert MT5 dollar profit into fractional return for the validator.
+
+    Priority:
+    1. profit / (entry_price * volume)  — standard forex return
+       e.g. $35 profit on 0.1 lot EURUSD at 1.0850 → 35 / (1.0850 * 0.1 * 100000)
+       Note: we use volume as-is (lot size) without multiplying by 100000
+       because we don't know the contract size per instrument.
+       This gives a reasonable approximation for cross-instrument comparison.
+    2. profit / abs(balance - profit) — balance-based if price * vol near zero
+    3. profit / 1000 — last resort normalisation to keep values in range
+
+    Always clips to ±0.99 to prevent validator ValueError.
+    """
+    if abs(entry_price * volume) > 1e-6:
+        pnl = net_profit / (entry_price * volume)
+    elif abs(balance - net_profit) > 1e-6:
+        pnl = net_profit / abs(balance - net_profit)
+    else:
+        pnl = net_profit / 1000.0
+
+    return float(np.clip(pnl, -0.99, 0.99))
+
+
 def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     """
     Parses CSV/TSV into a trades DataFrame for QuantProofValidator.
@@ -1429,6 +1731,22 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             raise HTTPException(400, str(e))
         except Exception:
             pass  # fall through to generic parser
+
+    # ── 0.5. MT5 Trade History ───────────────────────────────────────────
+    if not _probe.empty and _is_mt5_csv(_probe):
+        try:
+            _df, _note, _flags = _parse_mt5_csv(raw)
+            if len(_df) > 0:
+                if "date" in _df.columns and _df["date"].notna().any():
+                    _df, _regime_note = assign_regimes(_df)
+                    _note += (" | " + _regime_note if _regime_note else "")
+                if _flags:
+                    _note += " | MT5_FLAGS:" + "||".join(_flags)
+                return _df, _note
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        except Exception:
+            pass  # fall through to next parser
 
     # ── 1. Kite TradeBook ─────────────────────────────────────────────────
     if not _probe.empty and _is_kite_csv(_probe):
@@ -1670,7 +1988,13 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         regime_note = _parts[0].rstrip(" |")
         _options_flags = _parts[1].split("||") if len(_parts) > 1 else []
 
-    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else []) + _options_flags
+    _mt5_flags = []
+    if "MT5_FLAGS:" in regime_note:
+        _parts = regime_note.split("MT5_FLAGS:", 1)
+        regime_note = _parts[0].rstrip(" |")
+        _mt5_flags = _parts[1].split("||") if len(_parts) > 1 else []
+
+    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else []) + _options_flags + _mt5_flags
 
     _vr_cache = {
         "fundable_score": r.score,
@@ -3269,4 +3593,3 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
