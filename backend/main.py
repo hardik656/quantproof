@@ -1382,6 +1382,10 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         "OPTIONS DATA: Validation assumes sequential non-overlapping trades. "
         "Multi-leg strategies (spreads, condors) are not supported — "
         "use daily portfolio P&L as percentage of capital instead.",
+        "OPTIONS DATA: Crash simulations scale stress from strategy volatility. "
+        "High-volatility strategies (options, leveraged) will show elevated crash "
+        "exposure — all 5 crises blowing up is expected behaviour for options "
+        "strategies and does not indicate a validator error.",
     ]
 
     return result, note, audit_flags
@@ -3265,3 +3269,4 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
