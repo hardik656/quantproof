@@ -394,7 +394,8 @@
         <!-- FIX 1: hint text updated to cover both TradeBook and Orders CSV columns -->
         <div class="format-hint" style="margin-top:8px;">
           TradeBook: trade_date · trade_type · quantity · price<br>
-          Orders CSV: transaction_type · order_execution_time · filled_quantity · average_price
+          Orders CSV: transaction_type · order_execution_time · filled_quantity · average_price<br>
+          <span style="color:#00ff88;">options:</span> NIFTY/BANKNIFTY CE/PE trades supported · P&amp;L used as-is from Kite
         </div>
       </div>
 
@@ -419,7 +420,7 @@
         <div class="mode-tag" style="color:var(--accent)">// VERIFIED VALIDATION</div>
         <div class="mode-icon">🔗</div>
         <div class="mode-title">Connect Broker <span style="font-size:11px;color:var(--accent);font-family:var(--mono);font-weight:400;margin-left:4px;">VERIFIED</span></div>
-        <div class="mode-desc">Pull real trade history from your broker. Results are independently verified and eligible for prop firm compliance.</div>
+        <div class="mode-desc">Pull real trade history from your broker. Results are independently verified and eligible for prop firm compliance. IBKR Flex supports options trades natively.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Verified badge</span>
@@ -1079,7 +1080,14 @@
       <!-- FIX 10: audit trail now includes audit_flags from backend -->
       <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono);margin-bottom:8px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.8;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
+        <span style="color:var(--accent);">which path for options?</span> &nbsp;·&nbsp;
+        Raw options CSV (any broker) → <b>Upload CSV</b> &nbsp;·&nbsp;
+        Kite CE/PE trades → <b>Kite TradeBook</b> &nbsp;·&nbsp;
+        IBKR options → <b>Broker Connect</b> &nbsp;·&nbsp;
+        Multi-leg spreads → sum daily P&amp;L % and use <b>Upload CSV</b>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono);margin-bottom:8px;">
           <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
           <div><span style="color:var(--muted)">Engine:</span> <span style="color:var(--text)">${data.engine_version}</span></div>
         </div>
