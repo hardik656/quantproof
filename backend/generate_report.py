@@ -144,25 +144,37 @@ def cat_color(s):
 
 def _clean_text(raw: str) -> str:
     """
-    Strip all emoji and special Unicode symbols that reportlab cannot render.
+    Strip / replace all characters that reportlab Helvetica cannot render.
+
     Covers:
       - Crash verdict prefixes: [UNCALIBRATED]
-      - Status emoji: 🟢 🟡 🟠 🔴
-      - Checkmark/cross emoji used in validator value strings: ✓ ✅ ✗ ❌
-      - Info/data emoji: ℹ 📊 ⚠ → replaced with text equivalents
-      - Bullet emoji sometimes returned by AI plan
+      - Coloured circle emoji (crash verdicts): 🟢 🟡 🟠 🔴
+      - Status/check emoji: ✓ ✅ ✗ ❌
+      - Info/data emoji: ℹ 📊 ⚠ 📈
+      - Greek letters used in validator output: α β
+      - Math/comparison symbols: ≥ ≤ → ×
+      - Any remaining non-Latin-1 characters (catch-all via encode/replace)
+
+    v6.2 additions: α and β appear in IR/Beta check values,
+    ≥ appears in insights, → appears in many value strings.
+    All must be replaced before passing to reportlab Helvetica.
     """
     v = raw or ""
-    # Strip [UNCALIBRATED] prefix (v6.2 undated crash label)
+    # Strip [UNCALIBRATED] prefix
     v = v.replace("[UNCALIBRATED] ", "").replace("[UNCALIBRATED]", "")
     # Coloured circle emoji (crash verdicts)
     for e in ("🟢", "🟡", "🟠", "🔴"):
         v = v.replace(e, "")
-    # Status/check emoji in validator value strings
+    # Status/check emoji
     v = v.replace("✅", "PASS").replace("✓", "OK").replace("✗", "FAIL").replace("❌", "FAIL")
-    # Info/data emoji → text
-    v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:")
-    # Strip any remaining non-Latin-1 characters that reportlab Helvetica can't render
+    # Info/data/benchmark emoji
+    v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:").replace("📈", "")
+    # Greek letters used in IR / Beta check output (v6.2 SPY benchmark)
+    v = v.replace("α", "alpha").replace("β", "beta").replace("Δ", "delta")
+    # Math symbols used in validator value strings
+    v = v.replace("≥", ">=").replace("≤", "<=").replace("→", "->").replace("←", "<-")
+    v = v.replace("×", "x").replace("÷", "/").replace("±", "+/-")
+    # Catch-all: strip any remaining non-Latin-1 characters
     v = v.encode("latin-1", errors="replace").decode("latin-1")
     return v.strip()
 
@@ -315,6 +327,35 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(summ_row)
             story.append(Spacer(1, 6*mm))
 
+    # ══ AUDIT TRAIL (regime note, SPY benchmark, verification flags) ══════════
+    audit_flags = vr.get("audit_flags", [])
+    # Filter to meaningful flags only — skip empty strings and very long internal notes
+    display_flags = [
+        f for f in audit_flags
+        if f and f.strip() and len(f.strip()) > 5
+        and not f.strip().startswith("   └")   # skip orphan sell sub-items
+    ][:8]  # cap at 8 to avoid bloat
+
+    if display_flags:
+        story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph("DATA & VALIDATION NOTES", S["h_section"]))
+        flag_rows = []
+        for flag in display_flags:
+            clean_flag = _clean_text(flag)[:160]
+            flag_rows.append([Paragraph(clean_flag, S["body_sm"])])
+        flag_tbl = Table(flag_rows, colWidths=[INNER_W])
+        flag_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0),(-1,-1), C_PAPER),
+            ("TOPPADDING",    (0,0),(-1,-1), 5),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+            ("LEFTPADDING",   (0,0),(-1,-1), 10),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+            ("LINEBELOW",     (0,0),(-1,-2), 0.3, C_PAPER2),
+        ]))
+        story.append(flag_tbl)
+        story.append(Spacer(1, 4*mm))
+
     # ══ CRASH SIMS ════════════════════════════════════════════════════════════
     if crashes:
         story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
@@ -386,7 +427,7 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ PAGE 2: DETAILED CHECKS ════════════════════════════════════════════════
     story.append(PageBreak())
-    story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 40 CHECKS", S["h_section"]))
+    story.append(Paragraph("DETAILED CHECK BREAKDOWN — ALL 44 CHECKS", S["h_section"]))
     story.append(Paragraph(
         "Every check below was run against your specific strategy data. "
         "Red rows are institutional failures. Orange rows are warnings that won't disqualify "
@@ -396,15 +437,16 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(Spacer(1, 4*mm))
 
     cat_order  = ["Overfitting", "Risk", "Regime", "Execution", "Compliance",
-                  "Plausibility", "Operational"]
+                  "Plausibility", "Operational", "SEBI Compliance"]
     cat_labels = {
-        "Overfitting":  "OVERFITTING DETECTION",
-        "Risk":         "RISK MANAGEMENT",
-        "Regime":       "REGIME ANALYSIS",
-        "Execution":    "EXECUTION & CAPACITY",
-        "Compliance":   "COMPLIANCE",
-        "Plausibility": "PLAUSIBILITY AUDIT",
-        "Operational":  "OPERATIONAL METRICS",
+        "Overfitting":      "OVERFITTING DETECTION",
+        "Risk":             "RISK MANAGEMENT",
+        "Regime":           "REGIME ANALYSIS",
+        "Execution":        "EXECUTION & CAPACITY",
+        "Compliance":       "COMPLIANCE",
+        "Plausibility":     "PLAUSIBILITY AUDIT",
+        "Operational":      "OPERATIONAL METRICS",
+        "SEBI Compliance":  "SEBI COMPLIANCE (India — Feb 2025 Circular)",
     }
 
     by_cat = {}
@@ -588,7 +630,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     rid = abs(hash(str(score) + grade + str(n))) % 100000
     story.append(Paragraph(
         f"Report ID: QP-{rid:05d}  ·  "
-        f"Engine: v6.2  ·  40 checks  ·  "
+        f"Engine: v6.2  ·  44 checks  ·  "
         f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
         S["footer"]))
     story.append(Spacer(1, 2))
