@@ -172,7 +172,7 @@ def _clean_text(raw: str) -> str:
     # Greek letters used in IR / Beta check output (v6.2 SPY benchmark)
     v = v.replace("α", "alpha").replace("β", "beta").replace("Δ", "delta")
     # Math/statistical symbols used in validator value strings
-    v = v.replace("≥", ">=").replace("≤", "<=").replace("→", "->").replace("←", "<-")
+    v = v.replace("≥", ">=").replace("≤", "<=").replace("≈", "~").replace("→", "->").replace("←", "<-")
     v = v.replace("×", "x").replace("÷", "/").replace("±", "+/-")
     # Greek letters — σ appears in VaR check value/insight
     v = v.replace("σ", "sigma")
@@ -509,7 +509,7 @@ def generate_pdf_report(vr: dict) -> bytes:
                 Paragraph(f"<b>{name}</b>", _s("ckn", fontName="Helvetica-Bold",
                     fontSize=9, textColor=C_BLACK, leading=12)),
                 [score_bar(cscore, width=38, height=5),
-                 Paragraph(f"{cscore:.0f}", _s("ckscore", fontName="Helvetica-Bold",
+                 Paragraph(f" {cscore:.0f}", _s("ckscore", fontName="Helvetica-Bold",
                     fontSize=8, textColor=cat_color(cscore), alignment=TA_CENTER))],
                 Paragraph(ico_txt, _s("ckico", fontName="Helvetica-Bold",
                     fontSize=9, textColor=ico_col, alignment=TA_CENTER, leading=12)),
