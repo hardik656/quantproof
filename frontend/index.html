@@ -6,7 +6,7 @@
 
 <!-- Primary SEO -->
 <title>QuantProof — Backtest Validator | Is Your Trading Strategy Prop Firm Ready?</title>
-<meta name="description" content="Validate your trading strategy against 40 institutional checks + 5 crash simulations. Get a Fundable Score, prop firm compliance analysis, and AI fix plan. Free for CSV, Kite TradeBook, Alpaca, and IBKR.">
+<meta name="description" content="Validate your trading strategy against 40 institutional checks + 5 crash simulations. Get a Fundable Score, prop firm compliance analysis, and AI fix plan. Free for CSV, options trades, Kite, Alpaca, and IBKR.">
 <meta name="keywords" content="backtest validator, algo trading validation, prop firm ready, trading strategy checker, FTMO challenge preparation, Zerodha Kite backtest, Alpaca backtest, fundable score, Sharpe ratio checker, trading strategy audit, quantitative trading India, NIFTY strategy validator, drawdown analysis, overfitting detection">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
@@ -334,7 +334,7 @@
         <div class="mode-icon">📊</div>
         <div class="mode-title">Upload CSV</div>
         <!-- FIX 4/11: updated description to mention Alpaca export auto-detection -->
-        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Also auto-detects Alpaca order exports and Kite Orders CSV — just upload and it figures out the format.</div>
+        <div class="mode-desc">Run all 40 institutional checks on your backtest data. Auto-detects Alpaca exports, Kite Orders CSV, and options trade exports — just upload and it figures out the format.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">All 40 checks</span>
@@ -354,10 +354,18 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
+        <!-- Options support notice -->
+        <div id="optionsNotice" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.25);font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.7;">
+          <b>OPTIONS DETECTED</b><br>
+          Single-leg trades: supported ✓<br>
+          Multi-leg spreads / condors: not supported<br>
+          Crash sims assume linear payoffs — convexity not modelled
+        </div>
         <!-- FIX 4: format hint updated with all accepted formats -->
         <div class="format-hint" style="margin-top:8px;">
           pnl column must be decimal (0.0145 = 1.45%) not percent (1.45) · date/ticker optional<br>
-          also accepts: Alpaca dashboard export · Kite Orders CSV · semicolon-delimited files
+          also accepts: Alpaca dashboard export · Kite Orders CSV · semicolon-delimited files<br>
+          <span style="color:#ffaa00;">options:</span> single-leg directional trades · returns normalised as P&amp;L / premium · multi-leg spreads not supported
         </div>
       </div>
 
@@ -703,7 +711,19 @@
   // ── File drag/drop handlers ────────────────────────────────
   const csvCard  = document.getElementById('csvCard');
   const kiteCard = document.getElementById('kiteCard');
-  document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+  document.getElementById('fileInput').addEventListener('change', e => {
+    if(!e.target.files[0]) return;
+    // Peek at first line to detect options CSV and show notice
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const firstLine = (ev.target.result || '').split('\n')[0].toLowerCase();
+      const optionsCols = ['strike','expiry','expiration','option_type','call_put','premium','underlying','delta','gamma','theta'];
+      const isOptions = optionsCols.filter(c => firstLine.includes(c)).length >= 2;
+      document.getElementById('optionsNotice').style.display = isOptions ? 'block' : 'none';
+    };
+    reader.readAsText(e.target.files[0].slice(0, 512));
+    handleFile(e.target.files[0]);
+  });
   document.getElementById('kiteFileInput').addEventListener('change', e => { if(e.target.files[0]) handleKiteFile(e.target.files[0]); });
   if(csvCard) {
     csvCard.addEventListener('dragover', e=>{e.preventDefault();csvCard.style.borderColor='var(--accent)'});
