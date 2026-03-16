@@ -1258,18 +1258,35 @@
     if(box) { box.style.display = box.style.display === 'none' ? 'block' : 'none'; }
   }
 
-  function submitIntlWaitlist() {
+  async function submitIntlWaitlist() {
     const email = (document.getElementById('intlEmail')||{}).value||'';
     const status = document.getElementById('intlWaitlistStatus');
+    const btn = document.getElementById('intlWaitlistBox') ? document.getElementById('intlWaitlistBox').querySelector('button') : null;
     if(!email || !email.includes('@')) {
       if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
       return;
     }
-    // Store locally — backend endpoint not available yet
-    try { sessionStorage.setItem('qp_intl_waitlist', email); } catch(e){}
-    if(status){ status.innerText='\u2713 You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
-    const btn = document.getElementById('intlWaitlistBox').querySelector('button');
-    if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
+    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
+    if(status){ status.innerText=''; }
+    try {
+      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'QuantProof International Waitlist' })
+      });
+      const data = await resp.json();
+      if(resp.ok) {
+        if(status){ status.innerText='\u2713 You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
+        if(btn){ btn.disabled=true; btn.innerText='\u2713 Done'; }
+        const input = document.getElementById('intlEmail');
+        if(input){ input.disabled=true; }
+      } else {
+        throw new Error(data.error || 'Submission failed');
+      }
+    } catch(e) {
+      if(status){ status.innerText='Error — please email quantproof@gmail.com to join the list.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='Notify Me'; }
+    }
   }
 
   // FIX 3: generatePdfBlob Alpaca branch — removed undefined sb/bc references.
