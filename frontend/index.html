@@ -944,6 +944,7 @@
             <div class="meta-item"><div class="meta-label">Sharpe Ratio</div><div class="meta-value" style="color:${data.sharpe>1?'var(--accent)':data.sharpe>0?'var(--accent3)':'var(--accent2)'}">${data.sharpe}</div></div>
             <div class="meta-item"><div class="meta-label">Win Rate</div><div class="meta-value" style="color:${data.win_rate>50?'var(--accent)':'var(--accent3)'}">${data.win_rate}%</div></div>
             <div class="meta-item"><div class="meta-label">Total Trades</div><div class="meta-value">${data.total_trades}</div></div>
+            <div class="meta-item"><div class="meta-label">Profitable</div><div class="meta-value" style="color:${data.profitable_trades/data.total_trades>0.5?'var(--accent)':'var(--accent3)'}">${data.profitable_trades} / ${data.total_trades}</div></div>
             <div class="meta-item"><div class="meta-label">Max Drawdown</div><div class="meta-value" style="color:${data.max_drawdown<0.1?'var(--accent)':data.max_drawdown<0.2?'var(--accent3)':'var(--accent2)'}">${(data.max_drawdown*100).toFixed(1)}%</div></div>
           </div>
           ${data.date_range!=='No date data'
