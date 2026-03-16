@@ -6,7 +6,7 @@
 
 <!-- Primary SEO -->
 <title>QuantProof — Backtest Validator | Is Your Trading Strategy Prop Firm Ready?</title>
-<meta name="description" content="Validate your trading strategy against 40 institutional checks + 5 crash simulations. Get a Fundable Score, prop firm compliance analysis, and AI fix plan. Free for CSV, options trades, Kite, Alpaca, and IBKR.">
+<meta name="description" content="Validate your trading strategy against 40 institutional checks — overfitting detection, drawdown analysis, Sharpe ratio scoring, and 5 crash simulations. Get an AI-powered fix plan and Fundable Score. Free for CSV, Kite, Alpaca, and IBKR.">
 <meta name="keywords" content="backtest validator, algo trading validation, prop firm ready, trading strategy checker, FTMO challenge preparation, Zerodha Kite backtest, Alpaca backtest, fundable score, Sharpe ratio checker, trading strategy audit, quantitative trading India, NIFTY strategy validator, drawdown analysis, overfitting detection">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
@@ -298,7 +298,7 @@
   <main id="heroSection"><div class="hero">
     <div class="hero-tag">// Institutional-Grade Algo Validation</div>
     <h1>Does your strategy<br>survive the <em>real world?</em></h1>
-    <p>Validate your backtest against 40 institutional checks + 5 crash simulations. Get an AI-personalised fix plan. Connect your broker for verified, prop-firm eligible results.</p>
+    <p>Validate your trading strategy against 40 institutional checks — overfitting detection, drawdown analysis, Sharpe ratio scoring, and 5 historical crash simulations. Get an AI-powered fix plan. Connect Alpaca or IBKR for verified, prop-firm eligible results.</p>
     <div style="margin-top:12px;margin-bottom:0;">
       <a href="/methodology" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;transition:all 0.2s;opacity:0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See exactly what we check and why →</a>
     </div>
@@ -313,6 +313,56 @@
       ✓ 3 free full validations per day &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; Results in &lt;30s
     </div>
   </div></main>
+
+  <!-- FUNDABLE SCORE EXPLAINER — collapsible, sits between hero and upload -->
+  <div style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.15s ease both;">
+    <button onclick="toggleFundableExplainer()" id="fundableToggleBtn"
+      style="width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);
+             padding:11px 20px;font-family:var(--mono);font-size:11px;cursor:pointer;
+             display:flex;align-items:center;justify-content:space-between;
+             transition:border-color 0.2s,color 0.2s;"
+      onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+      <span>// What is a Fundable Score?</span>
+      <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;">&#9660;</span>
+    </button>
+    <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;
+         background:var(--deep);padding:20px 24px;">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9;margin-bottom:14px;">
+        A <span style="color:var(--accent);font-weight:700;">Fundable Score</span> is a 0–100 rating of whether your trading strategy has
+        institutional-grade statistical foundations — the same criteria prop firms and fund managers
+        use to evaluate strategies before deploying capital.
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;">
+        <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--accent2);">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent2);margin-bottom:3px;">OVERFITTING RISK — 22%</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Is the edge statistically real or just curve-fitted to past data?</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--accent2);">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent2);margin-bottom:3px;">RISK MANAGEMENT — 38%</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Drawdown, Sharpe, Kelly sizing, ruin probability — largest weight.</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--accent3);">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent3);margin-bottom:3px;">REGIME ROBUSTNESS — 14%</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Does the strategy hold up across bull, bear, and sideways markets?</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--accent3);">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent3);margin-bottom:3px;">EXECUTION REALITY — 11%</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Slippage, market impact, and capacity — does the edge survive real costs?</div>
+        </div>
+        <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--muted);grid-column:1/-1;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:3px;">COMPLIANCE — 15%</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Prop firm rules (FTMO, Topstep, The5ers) and institutional fund standards.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="font-family:var(--mono);font-size:10px;padding:5px 12px;border:1px solid rgba(0,255,136,0.3);color:var(--accent);">80–100 &nbsp;Prop firm ready</div>
+        <div style="font-family:var(--mono);font-size:10px;padding:5px 12px;border:1px solid rgba(0,204,110,0.3);color:#00cc6e;">65–79 &nbsp;Strong — refine execution</div>
+        <div style="font-family:var(--mono);font-size:10px;padding:5px 12px;border:1px solid rgba(255,170,0,0.3);color:var(--accent3);">50–64 &nbsp;Promising — needs work</div>
+        <div style="font-family:var(--mono);font-size:10px;padding:5px 12px;border:1px solid rgba(255,68,68,0.3);color:var(--accent2);">0–49 &nbsp;&nbsp;Not deployable yet</div>
+      </div>
+    </div>
+  </div>
 
   <div class="upload-section" id="uploadSection">
     <div class="sample-btn-wrap">
@@ -1182,6 +1232,15 @@
     else if (worstName === 'Execution')   s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
     else                                  s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
     return s1 + ` The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
+  }
+
+  function toggleFundableExplainer() {
+    const box = document.getElementById('fundableExplainer');
+    const chevron = document.getElementById('fundableChevron');
+    if (!box) return;
+    const isOpen = box.style.display !== 'none';
+    box.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
   }
 
   function showIntlWaitlist() {
