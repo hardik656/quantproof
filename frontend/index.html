@@ -249,15 +249,12 @@
   .verified-banner .verified-sub{color:var(--muted);font-size:11px;margin-top:2px}
   .cat-pass-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(0,255,136,0.12);color:var(--accent);font-weight:700}
   .cat-fail-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;background:rgba(255,68,68,0.12);color:var(--accent2);font-weight:700}
-  /* FIX 6/10: audit flags strip */
   .audit-flags-strip{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
   .audit-flag-item{font-family:var(--mono);font-size:10px;padding:4px 8px;background:var(--deep);border-left:2px solid;}
   .audit-flag-item.info{border-left-color:var(--accent);color:var(--accent);}
   .audit-flag-item.warn{border-left-color:var(--accent3);color:var(--accent3);}
   .audit-flag-item.err{border-left-color:var(--accent2);color:var(--accent2);}
   .audit-flag-item.muted{border-left-color:var(--border);color:var(--muted);}
-
-  /* Sample strategy button */
   .sample-btn-wrap { text-align:center; margin-bottom:32px; animation:fadeUp 0.8s 0.1s ease both; }
   .sample-btn { 
     background:transparent; border:1px solid rgba(0,255,136,0.4); color:var(--accent);
@@ -272,7 +269,6 @@
   .sample-divider { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
   .sample-divider::before, .sample-divider::after { content:''; flex:1; height:1px; background:var(--border); }
   .sample-divider-text { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:2px; white-space:nowrap; }
-  /* Demo banner shown in results */
   .demo-banner { 
     display:flex; align-items:center; gap:14px; padding:14px 20px;
     background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2);
@@ -307,6 +303,7 @@
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;border-bottom:1px solid rgba(90,122,138,0.4);padding-bottom:1px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">See exactly what we check and why →</a>
     </div>
     <div class="stats-row">
+      <!-- FIX 1: 44 → 40 (correct check count) -->
       <div class="stat"><div class="stat-num">40</div><div class="stat-label">Checks Run</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
@@ -315,7 +312,6 @@
   </div></main>
 
   <div class="upload-section" id="uploadSection">
-    <!-- LIVE EXAMPLE BUTTON -->
     <div class="sample-btn-wrap">
       <button class="sample-btn" onclick="runSampleStrategy()">
         <span class="sample-btn-play">▶</span>
@@ -333,7 +329,6 @@
         <div class="mode-tag">// METHODOLOGY CHECK</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Upload CSV</div>
-        <!-- FIX 4/11: updated description to mention Alpaca export auto-detection -->
         <div class="mode-desc">Run all 40 institutional checks on your backtest data. Auto-detects Alpaca exports, Kite Orders CSV, and options trade exports — just upload and it figures out the format.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
@@ -354,14 +349,12 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
-        <!-- Options support notice -->
         <div id="optionsNotice" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.25);font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.7;">
           <b>OPTIONS DETECTED</b><br>
           Single-leg trades: supported ✓<br>
           Multi-leg spreads / condors: not supported<br>
           Crash sims assume linear payoffs — convexity not modelled
         </div>
-        <!-- FIX 4: format hint updated with all accepted formats -->
         <div class="format-hint" style="margin-top:8px;">
           pnl column must be decimal (0.0145 = 1.45%) not percent (1.45) · date/ticker optional<br>
           also accepts: Alpaca dashboard export · Kite Orders CSV · semicolon-delimited files<br>
@@ -373,7 +366,6 @@
       <div class="mode-card" id="kiteCard">
         <div class="mode-tag">// ZERODHA KITE</div>
         <div class="mode-icon">🪁</div>
-        <!-- FIX 1: title updated to reflect both TradeBook and Orders CSV support -->
         <div class="mode-title">Kite TradeBook / Orders</div>
         <div class="mode-desc">Upload your Zerodha Kite TradeBook or Orders CSV. Auto-detects both formats and pairs BUY/SELL trades using FIFO matching before validation.</div>
         <div class="mode-limits">
@@ -391,7 +383,6 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:10px;" onclick="document.getElementById('kiteFileInput').click()">SELECT KITE CSV</button>
         <input type="file" id="kiteFileInput" accept=".csv">
-        <!-- FIX 1: hint text updated to cover both TradeBook and Orders CSV columns -->
         <div class="format-hint" style="margin-top:8px;">
           TradeBook: trade_date · trade_type · quantity · price<br>
           Orders CSV: transaction_type · order_execution_time · filled_quantity · average_price<br>
@@ -452,7 +443,6 @@
             <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;">SECRET KEY</div>
             <input id="alpacaSecret" type="password" placeholder="••••••••••••••••••••••••••••••••••••" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px 14px;font-family:var(--mono);font-size:13px;outline:none;">
           </div>
-          <!-- FIX 8: clearer paper vs live explanation -->
           <div style="margin-bottom:16px;">
             <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">ACCOUNT TYPE</div>
             <div style="display:flex;gap:8px;">
@@ -465,7 +455,6 @@
                 <span style="font-family:var(--mono);font-size:12px;">Live</span>
               </label>
             </div>
-            <!-- FIX 8: paper vs live guidance -->
             <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.6;">
               Paper = practice account with simulated money. Live = real money account with real trades.<br>
               Pick whichever matches the keys you entered above.
@@ -492,11 +481,11 @@
       <div class="terminal-line">→ Computing risk metrics (8 checks)...</div>
       <div class="terminal-line">→ Testing regime robustness (8 checks)...</div>
       <div class="terminal-line">→ Simulating execution reality (8 checks)...</div>
-      <div class="terminal-line">→ Running 2000 dot-com crash simulation...</div>
-      <div class="terminal-line">→ Running 2008 GFC crash simulation...</div>
-      <div class="terminal-line">→ Running 2020 COVID crash simulation...</div>
-      <div class="terminal-line">→ Running 2022 bear market simulation...</div>
-      <div class="terminal-line">→ Running 2018 Q4 selloff simulation...</div>
+      <div class="terminal-line">→ Running 2000 tech bubble crash simulation...</div>
+      <div class="terminal-line">→ Running 2008 financial crisis simulation...</div>
+      <div class="terminal-line">→ Running 2020 pandemic crash simulation...</div>
+      <div class="terminal-line">→ Running 2022 rate hike cycle simulation...</div>
+      <div class="terminal-line">→ Running 2018 volatility spike simulation...</div>
     </div>
   </div>
 
@@ -518,9 +507,6 @@
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
-  // ── SAMPLE STRATEGY — embedded CSV data ──────────────────────────────────
-  // 120 trades, NIFTY50 momentum strategy, 2022-2024
-  // Designed to give a realistic ~72-80/100 demo score with real failures to show
   const SAMPLE_CSV = `date,ticker,pnl,regime
 2022-01-05,RELIANCE,0.0142,BEAR
 2022-01-10,INFY,-0.0089,BEAR
@@ -644,13 +630,9 @@
     _validationMode = 'csv';
     _brokerSource = '';
     setCurrency('INR');
-
-    // Build a File object from the embedded CSV
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
     const file = new File([blob], 'sample_nifty_momentum.csv', { type: 'text/csv' });
     _lastValidatedFile = file;
-
-    // Store in sessionStorage like a real upload
     try {
       const reader = new FileReader();
       reader.onload = e => {
@@ -660,16 +642,14 @@
       };
       reader.readAsDataURL(file);
     } catch(e) {}
-
     showLoading();
     const fd = new FormData();
     fd.append('file', file);
     fd.append('currency', 'INR');
-
-    const cst = coldStartWarning();
+    let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd });
-      clearTimeout(cst);
+      if (cst) clearTimeout(cst);
       if (!resp.ok) {
         const err = await resp.json();
         const detail = err.detail || err;
@@ -685,13 +665,12 @@
       if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data, true); }, 3200);
     } catch(err) {
-      clearTimeout(cst);
+      if (cst) clearTimeout(cst);
       hideLoading(true);
       _isSampleRun = false;
       alert('Error: ' + err.message);
     }
   }
-
 
   const CURRENCY_SYMBOLS = {
     USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",CHF:"CHF ",
@@ -709,12 +688,10 @@
   let _validationMode    = 'csv';
   let _brokerSource      = '';
 
-  // ── File drag/drop handlers ────────────────────────────────
   const csvCard  = document.getElementById('csvCard');
   const kiteCard = document.getElementById('kiteCard');
   document.getElementById('fileInput').addEventListener('change', e => {
     if(!e.target.files[0]) return;
-    // Peek at first line to detect options CSV and show notice
     const reader = new FileReader();
     reader.onload = function(ev) {
       const firstLine = (ev.target.result || '').split('\n')[0].toLowerCase();
@@ -750,7 +727,6 @@
     }
   }
 
-  // ── Cold start warning helper ──────────────────────────────
   function coldStartWarning() {
     return setTimeout(() => {
       const loadLine = document.querySelector('.terminal-line:last-child');
@@ -764,7 +740,6 @@
     }, 8000);
   }
 
-  // ── CSV handler ────────────────────────────────────────────
   async function handleFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
@@ -778,23 +753,21 @@
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'USD');
-    const cst = coldStartWarning();
+    let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
-      clearTimeout(cst);
+      if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        // FIX 5: surface dollar PnL warning from backend message if present
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
-    } catch(err) { clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
+    } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
   }
 
-  // ── Kite handler ───────────────────────────────────────────
   async function handleKiteFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'kite'; _brokerSource = '';
@@ -808,14 +781,13 @@
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
     setCurrency(selCur ? selCur.value : 'INR');
-    const cst = coldStartWarning();
+    let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
-      clearTimeout(cst);
+      if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
         if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
-        // FIX 2: uses detail.trades_needed dynamically (backend now returns 10)
         if(detail.error === 'insufficient_trades') throw new Error(
           `Only ${detail.trades_found} completed trade(s) found — need ${detail.trades_needed}.\n\n${detail.message || 'A round-trip = one BUY + one SELL of the same stock. Export a longer date range from Zerodha Console.'}`
         );
@@ -824,7 +796,7 @@
       const data = await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
-    } catch(err) { clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
+    } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
 
   // ── Results rendering ──────────────────────────────────────
@@ -834,7 +806,6 @@
     section.classList.add('active');
     section.innerHTML = '';
 
-    // Demo banner — shown when running the sample strategy
     if (isSample) {
       const demoBanner = document.createElement('div');
       demoBanner.className = 'demo-banner';
@@ -849,15 +820,22 @@
       section.appendChild(demoBanner);
     }
 
-    // FIX 5: scale_warning banner
     if(data.scale_warning) {
       const warn = document.createElement('div');
       warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
       warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns are at the maximum boundary. Submit decimals (0.025) not percentages (2.5) or dollar amounts.';
       section.appendChild(warn);
     }
-    try { section.innerHTML += buildResultsHTML(data); }
-    catch(e) { section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`; }
+
+    // FIX 2: corrected createElement — was: document.createElement(" div\) which is a JS SyntaxError
+    try {
+      const resultsDiv = document.createElement('div');
+      resultsDiv.innerHTML = buildResultsHTML(data);
+      section.appendChild(resultsDiv);
+    } catch(e) {
+      section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`;
+    }
+
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
@@ -866,7 +844,6 @@
   function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
   function getCrashClass(sim) { return !sim.survived?'failed':sim.strategy_drop>-0.05?'survived':'warning'; }
 
-  // Strip [UNCALIBRATED] before emoji check
   function getCrashVerdictColor(verdict) {
     const v = verdict.replace('[UNCALIBRATED] ','').replace('[UNCALIBRATED]','').trim();
     if(v.startsWith('🟢')) return 'var(--accent)';
@@ -887,10 +864,8 @@
     const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.round(cur); if(cur>=score)clearInterval(t); }, 25);
   }
 
-  // FIX 6/10: classify and render audit flags
   function buildAuditFlagsHTML(flags) {
     if (!flags || flags.length === 0) return '';
-    // Filter out empty strings
     const relevant = flags.filter(f => f && f.trim());
     if (relevant.length === 0) return '';
     return `<div class="audit-flags-strip">
@@ -1027,7 +1002,6 @@
         }).join('')}
       </div>
 
-      <!-- SEBI COMPLIANCE SECTION — separate, zero weight, India-specific -->
       ${(categories['SEBI Compliance'] || []).length > 0 ? `
         <div style="margin-top:32px;">
           <div class="section-title">// SEBI Compliance — India Algo Framework (Feb 2025 Circular)</div>
@@ -1052,7 +1026,6 @@
             </div>`).join('')}
         </div>` : ''}
 
-      <!-- AI PLAN TEASER -->
       <div style="margin:32px 0 0 0;padding:20px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.15);position:relative;overflow:hidden;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:10px;">// AI ANALYSIS PREVIEW</div>
         <div id="aiTeaserText" style="font-size:13px;color:var(--muted);line-height:1.8;position:relative;">
@@ -1078,7 +1051,6 @@
 
       <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
 
-      <!-- FIX 10: audit trail now includes audit_flags from backend -->
       <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL</div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.8;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
@@ -1110,7 +1082,6 @@
     document.getElementById('alpacaPanel').style.display   = 'none';
     document.getElementById('tradingviewStatus').innerHTML = '';
     _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
-    // FIX MED: clear session so stale broker creds don't bleed into next validation
     try {
       sessionStorage.removeItem('qp_source');
       sessionStorage.removeItem('qp_broker');
@@ -1144,22 +1115,25 @@
     return s1 + ` The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
   }
 
-  // ── PDF purchase ───────────────────────────────────────────
   function showIntlComingSoon() {
     const s = document.getElementById('pdfBtnStatus');
     if(s){s.innerText='🌍 International payments launching soon.';s.style.color='var(--muted)';}
   }
 
+  // FIX 3: generatePdfBlob Alpaca branch — removed undefined sb/bc references.
+  // Now sends only validation_hash to /report/generate-broker (backend cache path).
+  // Credentials are never re-sent after the initial validation — they were discarded.
   async function generatePdfBlob(token) {
     const src = sessionStorage.getItem('qp_source')||_brokerSource||'csv';
     let res;
     if(src==='alpaca') {
-      const sb = sessionStorage.getItem('qp_broker');
-      if(!sb) throw new Error('Alpaca credentials not found — please reconnect');
-      let bc; try{bc=JSON.parse(sb);}catch(e){throw new Error('Credentials corrupted');}
-      const apiKey=bc.api_key||bc.key||'', secretKey=bc.secret_key||bc.secret||'', mode=bc.mode||'paper';
-      if(!apiKey||!secretKey) throw new Error('Alpaca credentials incomplete');
-      res = await fetch(`${API_URL_REPORT}/report/generate-broker`,{method:'POST',headers:{'Content-Type':'application/json','x-report-token':token},body:JSON.stringify({api_key:apiKey,secret_key:secretKey,mode,validation_hash:sessionStorage.getItem('qp_validation_hash')||''})});
+      const validationHash = sessionStorage.getItem('qp_validation_hash') || '';
+      if(!validationHash) throw new Error('Validation result not found — please re-run the Alpaca validation before downloading the report.');
+      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'x-report-token': token},
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash})
+      });
     } else {
       if(!_lastValidatedFile) {
         const sn=sessionStorage.getItem('qp_filename'), sd=sessionStorage.getItem('qp_filedata');
@@ -1178,7 +1152,7 @@
     if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
     if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
     try {
-      const blob=await generatePdfBlob(token), url=URL.createObjectURL(blob);
+      let blob=null; for(let i=0;i<3;i++){ try{ blob=await generatePdfBlob(token); break; }catch(e){ if(i<2) await new Promise(r=>setTimeout(r,2000)); else throw e; } } const url=URL.createObjectURL(blob);
       const a=document.createElement('a'); a.href=url; a.download='QuantProof_Report.pdf';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       if(btn){btn.innerText='✓ Report Downloaded';btn.style.background='var(--accent)';btn.style.color='#000';}
@@ -1199,7 +1173,7 @@
       if(data.error) throw new Error(data.message||data.error);
       const options={
         key:data.key_id, amount:data.amount, currency:data.currency,
-        name:'QuantProof', description:'Personalised Fix Plan — 44 checks + AI analysis',
+        name:'QuantProof', description:'Personalised Fix Plan — 40 checks + AI analysis',
         order_id:data.order_id, theme:{color:'#00ff88'}, prefill:{},
         handler: async function(response) {
           if(status){status.innerText='Verifying payment...';status.style.color='var(--accent)';}
@@ -1220,7 +1194,6 @@
     } catch(err){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
 
-  // ── LS return handler ──────────────────────────────────────
   async function handleLSReturn() {
     const params=new URLSearchParams(window.location.search);
     if(params.get('payment')!=='success'||params.get('provider')!=='ls') return;
@@ -1256,7 +1229,6 @@
   }
   window.addEventListener('load', handleLSReturn);
 
-  // ── Alpaca ─────────────────────────────────────────────────
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
   function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
 
@@ -1312,7 +1284,6 @@
     if (!accountId || !queryId || !token) { status.innerText='Please fill in all three fields.'; status.style.color='#ff4444'; return; }
     status.innerText='Connecting to IBKR Flex...'; status.style.color='var(--accent3)';
     _validationMode='broker'; _brokerSource='ibkr';
-    // FIX HIGH-4: set qp_source so generatePdfBlob routes to broker PDF endpoint
     try { sessionStorage.setItem('qp_source','ibkr'); } catch(e) {}
     showLoading();
     try {
@@ -1339,12 +1310,11 @@
     if(!key.startsWith('PK')&&!key.startsWith('AK')){status.innerText='Key format looks wrong — Alpaca keys start with PK or AK.';status.style.color='#ffaa00';}
     status.innerText='Connecting to Alpaca...';status.style.color='var(--accent3)';
     _validationMode='broker'; _brokerSource='alpaca';
-    try{sessionStorage.setItem('qp_broker',JSON.stringify({api_key:key,secret_key:secret,mode}));sessionStorage.setItem('qp_source','alpaca');}catch(e){}
     showLoading();
-    const cst = coldStartWarning();
+    let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
-      clearTimeout(cst);
+      if (cst) clearTimeout(cst);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -1353,7 +1323,6 @@
           status.innerHTML=`<span style="color:#ffaa00">⚠ Daily limit reached — resets in ~${detail.hours_left}h.</span>`;
           return;
         }
-        // FIX 3: surface backend's full explanation message for insufficient_trades
         if(detail&&detail.error==='insufficient_trades'){
           status.innerHTML=`<span style="color:#ffaa00">
             ⚠ Only <b>${detail.trades_found}</b> completed round-trip(s) found — need <b>${detail.trades_needed}</b>.<br>
@@ -1367,10 +1336,9 @@
       const data=await resp.json();
       if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
-    } catch(err){clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
+    } catch(err){if (cst) clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
 
-  // ── TradingView ────────────────────────────────────────────
   async function createTradingViewSession() {
     const status=document.getElementById('tradingviewStatus');
     status.innerText='Creating webhook session...';status.style.color='var(--accent3)';
@@ -1414,7 +1382,6 @@
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
-        // FIX 9: structured error handling for TV insufficient alerts/trades
         if(typeof detail === 'string' && (detail.includes('Need at least') || detail.includes('Only paired'))) {
           alert(`TradingView: ${detail}`);
         } else {
@@ -1440,18 +1407,14 @@
 </script>
 
 <script>
-  // ── Copy protection on validation results ──────────────────────────────
   document.addEventListener('copy', function(e) {
     const resultsSection = document.getElementById('resultsSection');
     if (!resultsSection || !resultsSection.classList.contains('active')) return;
-
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
-
     const range = selection.getRangeAt(0);
     let node = range.commonAncestorContainer;
     if (node.nodeType === 3) node = node.parentNode;
-
     let inside = false;
     let cur = node;
     while (cur) {
@@ -1459,13 +1422,10 @@
       cur = cur.parentNode;
     }
     if (!inside) return;
-
     const selectedText = selection.toString().trim();
     if (selectedText.length < 10) return;
-
-    const scoreEl = document.querySelector('.score-big') || document.querySelector('[class*="score"]');
+    const scoreEl = document.querySelector('.score-val') || document.querySelector('[class*="score"]');
     const score = scoreEl ? scoreEl.textContent.trim().split('\n')[0] : '—';
-
     const watermark = [
       '[ QuantProof Validation Result — quantproof-frontend.onrender.com ]',
       '',
@@ -1477,12 +1437,10 @@
       '',
       '[ To share results, download the PDF report ]',
     ].join('\n');
-
     e.clipboardData.setData('text/plain', watermark);
     e.preventDefault();
   });
 
-  // Disable right-click on results, show upsell toast instead
   document.addEventListener('contextmenu', function(e) {
     const resultsSection = document.getElementById('resultsSection');
     if (!resultsSection || !resultsSection.classList.contains('active')) return;
