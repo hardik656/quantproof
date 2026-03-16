@@ -591,7 +591,7 @@
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;">How it works &#8594;</a>
       <span style="color:var(--border);">|</span>
-      <a href="mailto:quantproof@gmail.com" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;">quantproof@gmail.com</a>
+      <a href="/cdn-cgi/l/email-protection#b2c3c7d3dcc6c2c0ddddd4f2d5dfd3dbde9cd1dddf" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;"><span class="__cf_email__" data-cfemail="621317030c1612100d0d0422050f030b0e4c010d0f">[email&#160;protected]</span></a>
       <span style="color:var(--border);">|</span>
       <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;299 full report</span>
     </div>
@@ -604,7 +604,7 @@
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
@@ -1104,9 +1104,15 @@
                   <div class="check-insight">${check.insight}</div>
                   ${check.passed
                     ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
-                    :`<div style="margin-top:10px;padding:12px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">🔒 Fix instructions + AI analysis locked</div>
-                        <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Fix this — ₹299</button>
+                    :`<div style="margin-top:10px;">
+                        <div style="padding:10px 12px;background:rgba(255,170,0,0.03);border:1px solid rgba(255,170,0,0.12);margin-bottom:6px;position:relative;overflow:hidden;">
+                          <div style="font-size:12px;color:var(--muted);line-height:1.6;filter:blur(3px);user-select:none;pointer-events:none;">${check.fix.split(' ').slice(0,10).join(' ')}... adjust position sizing and re-run walk-forward validation to confirm edge stability.</div>
+                          <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(13,17,23,0.96));"></div>
+                        </div>
+                        <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix + AI analysis unlocked in report</div>
+                          <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">See full fix — ₹299</button>
+                        </div>
                       </div>`
                   }
                 </div>
@@ -1156,6 +1162,10 @@
           <div style="font-size:12px;color:var(--muted);line-height:1.6;">Every fix ranked by impact &nbsp;·&nbsp; AI personalised action plan &nbsp;·&nbsp; Crash sim analysis &nbsp;·&nbsp; Instant PDF</div>
         </div>
         <div style="text-align:center;flex-shrink:0;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-bottom:8px;line-height:1.7;">
+            FTMO / Topstep challenges cost <span style="color:var(--accent2);">$150–$500</span> to enter.<br>
+            Know if you're ready <span style="color:var(--text);font-weight:700;">before</span> you pay.
+          </div>
           <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)</button>
           <button onclick="showIntlWaitlist()" style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;width:100%;margin-top:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">🌍 International (USD/GBP/EUR) — Join Waitlist</button>
           <div id="intlWaitlistBox" style="display:none;margin-top:8px;">
@@ -1605,8 +1615,4 @@
         if (!toast) {
           toast = document.createElement('div');
           toast.id = 'qp-toast';
-          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1C1C1E;color:#00C896;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,200,150,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s;';
-          document.body.appendChild(toast);
-        }
-        toast.textContent = 'Get the full PDF report for Rs.299 →';
-        toast.s
+          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1C1C1E;color:#00C896;font-family:monospace;font-size:12px;padding:1
