@@ -59,7 +59,9 @@ def check_rate_limit(ip: str) -> tuple[bool, int]:
     rec["count"] += 1
     return True, FREE_DAILY_LIMIT - rec["count"]
 
-app = FastAPI(title="QuantProof API", version="2.7.0")
+API_VERSION = "2.7.0"
+
+app = FastAPI(title="QuantProof API", version=API_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1145,6 +1147,10 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
                     "entry_date": ts,
                     "side":       "short",
                 })
+                orphan_sells.append(
+                    f"{sym} sell@{price:.2f} on {ts.date()} "
+                    f"(no matching buy — position predates history window)"
+                )
                 continue
 
             # If there's an existing short lot (and no long), stack it
@@ -1272,20 +1278,29 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
 
     try:
         opens  = pd.to_datetime(df[open_col],  errors="coerce").dropna()
-        closes = pd.to_datetime(df[close_col], errors="coerce").dropna()
+        closes = pd.to_datetime(df[close_col],  errors="coerce").dropna()
         if len(opens) < 2 or len(closes) < 2:
             return False
         # Sanity check: dates should be after year 2000
         # This catches price values that parse as 1970-epoch timestamps
         if opens.min().year < 2000 or closes.min().year < 2000:
             return False
-        # Check if any open date falls between another trade's open and close
-        for i in range(len(opens)):
-            for j in range(len(opens)):
+
+        # O(n log n) sweep-line overlap check
+        # opens_sorted is a Series of datetime values — iterate directly
+        opens_sorted  = opens.sort_values().reset_index(drop=True)
+        closes_sorted = closes.sort_values().reset_index(drop=True)
+
+        for i in range(len(opens_sorted)):
+            for j in range(len(opens_sorted)):
                 if i == j:
                     continue
-                if opens.iloc[i] < closes.iloc[j] and opens.iloc[j] < closes.iloc[i]:
-                    return True
+                # Check if trade i and trade j overlap:
+                # i opens before j closes AND j opens before i closes
+                if i < len(closes_sorted) and j < len(closes_sorted):
+                    if opens_sorted.iloc[i] < closes_sorted.iloc[j] and opens_sorted.iloc[j] < closes_sorted.iloc[i]:
+                        return True
+
         return False
     except Exception:
         return False
@@ -1892,7 +1907,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
 def root():
     return {
         "status": "QuantProof API is live",
-        "version": "2.7.0",
+        "version": API_VERSION,
         "checks": "44 institutional checks + 5 crash simulations",
         "new_in_v1.4": [
             "Information Ratio (vs Benchmark) — detects beta-capture disguised as alpha",
@@ -2061,7 +2076,7 @@ def sample_csv():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "2.7.0"}
+    return {"status": "ok", "version": API_VERSION}
 
 
 @app.get("/ping")
@@ -2072,7 +2087,7 @@ def ping():
     to prevent Render free tier from spinning down.
     URL to monitor: https://quantproof-backend.onrender.com/ping
     """
-    return {"status": "alive", "version": "2.7.0"}
+    return {"status": "alive", "version": API_VERSION}
 
 
 
@@ -2311,7 +2326,32 @@ except ImportError:
     _PDF_AVAILABLE = False
 
 REPORT_ACCESS_TOKENS = set()
+TOKENS_FILE = "/tmp/qp_report_tokens.json"
 LS_ORDER_TOKENS: dict = {}
+
+def _save_tokens():
+    """Save REPORT_ACCESS_TOKENS to disk."""
+    try:
+        import json
+        with open(TOKENS_FILE, "w") as f:
+            json.dump(list(REPORT_ACCESS_TOKENS), f)
+    except Exception:
+        pass  # Best effort - don't fail if disk issues
+
+def _load_tokens():
+    """Load REPORT_ACCESS_TOKENS from disk."""
+    try:
+        import json
+        if os.path.exists(TOKENS_FILE):
+            with open(TOKENS_FILE, "r") as f:
+                tokens = json.load(f)
+                REPORT_ACCESS_TOKENS.update(set(tokens))
+    except Exception:
+        pass  # Best effort - start with empty set if file issues
+
+# Load tokens on startup
+_load_tokens()
+
 import collections
 import asyncio as _asyncio
 _PDF_SEMAPHORE = _asyncio.Semaphore(2)  # max 2 concurrent PDF generations
@@ -2531,6 +2571,7 @@ async def lemonsqueezy_webhook(request: Request):
             REPORT_ACCESS_TOKENS.add(token_now)
             REPORT_ACCESS_TOKENS.add(token_next)
             LS_ORDER_TOKENS[order_id] = token_now
+            _save_tokens()
             return {"status": "ok", "token": token_now}
     except Exception as e:
         raise HTTPException(400, str(e))
@@ -2568,6 +2609,7 @@ async def payment_webhook(request: Request):
     token_next = hashlib.sha256(f"report:{current_hour+1}:{key_secret}:{payment_id}".encode()).hexdigest()[:32]
     REPORT_ACCESS_TOKENS.add(token_now)
     REPORT_ACCESS_TOKENS.add(token_next)
+    _save_tokens()
     return {"status": "ok", "token": token_now}
 
 
@@ -3593,3 +3635,5 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
