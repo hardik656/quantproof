@@ -12,7 +12,7 @@
 <meta name="author" content="QuantProof">
 <link rel="canonical" href="https://quantproof-frontend.onrender.com/">
 
-<!-- Open Graph (LinkedIn, Facebook) -->
+<!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://quantproof-frontend.onrender.com/">
 <meta property="og:title" content="QuantProof — Is Your Trading Strategy Prop Firm Ready?">
@@ -64,7 +64,7 @@
 }
 </script>
 
-<!-- Structured Data — FAQPage for long-tail SEO -->
+<!-- Structured Data — FAQPage -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -99,7 +99,7 @@
       "name": "Is QuantProof free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. A full PDF report with AI-personalised fix plan is available for ₹299 (one-time, no subscription)."
+        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. Unlock all fix details for ₹99, or get a full PDF report with AI-personalised fix plan for ₹299 (one-time, no subscription)."
       }
     },
     {
@@ -113,6 +113,7 @@
   ]
 }
 </script>
+
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -141,7 +142,7 @@
   .hero-tag { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; margin-bottom:20px; display:inline-block; }
   .hero h1 { font-size:clamp(36px,6vw,72px); font-weight:800; line-height:1.0; letter-spacing:-2px; margin-bottom:20px; }
   .hero h1 em { font-style:normal; color:var(--accent); }
-  .hero p { font-size:18px; color:var(--muted); max-width:540px; margin:0 auto 40px; line-height:1.6; }
+  .hero p { font-size:18px; color:var(--muted); max-width:560px; margin:0 auto 40px; line-height:1.6; }
   .stats-row { display:flex; justify-content:center; gap:48px; margin-top:40px; }
   .stat { text-align:center; }
   .stat-num { font-family:var(--mono); font-size:28px; color:var(--accent); font-weight:700; }
@@ -256,7 +257,7 @@
   .audit-flag-item.err{border-left-color:var(--accent2);color:var(--accent2);}
   .audit-flag-item.muted{border-left-color:var(--border);color:var(--muted);}
   .sample-btn-wrap { text-align:center; margin-bottom:32px; animation:fadeUp 0.8s 0.1s ease both; }
-  .sample-btn { 
+  .sample-btn {
     background:transparent; border:1px solid rgba(0,255,136,0.4); color:var(--accent);
     padding:14px 36px; font-family:var(--mono); font-size:13px; font-weight:700;
     letter-spacing:1px; cursor:pointer; transition:all 0.25s; text-transform:uppercase;
@@ -269,7 +270,7 @@
   .sample-divider { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
   .sample-divider::before, .sample-divider::after { content:''; flex:1; height:1px; background:var(--border); }
   .sample-divider-text { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:2px; white-space:nowrap; }
-  .demo-banner { 
+  .demo-banner {
     display:flex; align-items:center; gap:14px; padding:14px 20px;
     background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2);
     margin-bottom:24px; font-family:var(--mono); font-size:12px;
@@ -277,12 +278,47 @@
   .demo-banner-icon { font-size:18px; flex-shrink:0; }
   .demo-banner-text { color:var(--accent); flex:1; line-height:1.6; }
   .demo-banner-text span { color:var(--muted); display:block; font-size:11px; margin-top:2px; }
-  .demo-banner-btn { 
+  .demo-banner-btn {
     background:var(--accent); color:var(--black); border:none; padding:8px 16px;
     font-family:var(--mono); font-size:11px; font-weight:700; cursor:pointer;
     white-space:nowrap; transition:background 0.2s; flex-shrink:0;
   }
   .demo-banner-btn:hover { background:#00cc6e; }
+
+  /* FIX #1 — Urgency gate strip */
+  .urgency-gate {
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    gap:16px; padding:20px 24px; margin-bottom:32px;
+    background:rgba(255,68,68,0.04); border:1px solid rgba(255,68,68,0.25);
+    animation:fadeUp 0.4s ease both;
+  }
+  .urgency-gate-text {}
+  .urgency-gate-label { font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.1em; margin-bottom:6px; }
+  .urgency-gate-headline { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
+  .urgency-gate-sub { font-size:12px; color:var(--muted); }
+  .urgency-gate-btn {
+    background:var(--accent2); color:#fff; border:none; padding:13px 24px;
+    font-family:var(--mono); font-size:12px; font-weight:700; cursor:pointer;
+    white-space:nowrap; flex-shrink:0; transition:background 0.2s;
+  }
+  .urgency-gate-btn:hover { background:#cc3333; }
+
+  /* FIX #2 — Sample strategy gate wall */
+  .sample-gate-wall {
+    padding:40px 32px; text-align:center;
+    border:1px solid rgba(0,255,136,0.2); background:rgba(0,255,136,0.02);
+    margin-bottom:16px;
+  }
+  .sample-gate-wall-tag { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.12em; margin-bottom:12px; }
+  .sample-gate-wall-headline { font-size:16px; font-weight:700; color:var(--text); margin-bottom:8px; }
+  .sample-gate-wall-sub { font-size:13px; color:var(--muted); margin-bottom:24px; line-height:1.6; }
+  .sample-gate-wall-btn {
+    background:var(--accent); color:var(--black); border:none; padding:14px 32px;
+    font-family:var(--mono); font-size:13px; font-weight:700; cursor:pointer;
+    display:inline-block; transition:background 0.2s;
+  }
+  .sample-gate-wall-btn:hover { background:#00cc6e; }
+  .sample-ghost-category { opacity:0.15; filter:blur(3px); pointer-events:none; user-select:none; margin-bottom:16px; }
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -295,15 +331,15 @@
     </div>
   </header>
 
+  <!-- FIX #4 — Hero paragraph rewritten: FTMO hook in sentence one, money at risk in sentence one -->
   <main id="heroSection"><div class="hero">
     <div class="hero-tag">// Most strategies fail in real markets. Does yours?</div>
     <h1>Most strategies fail.<br><em>Is yours one of them?</em></h1>
-    <p>Upload your backtest and find out in 30 seconds. QuantProof runs 40 institutional checks — overfitting detection, drawdown analysis, Sharpe ratio scoring, and 5 historical crash simulations — then tells you exactly what to fix before you risk real capital or a prop firm challenge fee.</p>
+    <p>Upload your backtest. Find out exactly why you'd fail the FTMO challenge — before you pay the $300 entry fee. 40 institutional checks, 5 crash simulations, one Fundable Score. Results in 30 seconds.</p>
     <div style="margin-top:12px;margin-bottom:0;">
       <a href="/methodology" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;transition:all 0.2s;opacity:0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See exactly what we check and why →</a>
     </div>
     <div class="stats-row">
-      <!-- FIX 1: 44 → 40 (correct check count) -->
       <div class="stat"><div class="stat-num">40</div><div class="stat-label">Failure Points</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
@@ -314,7 +350,7 @@
     </div>
   </div></main>
 
-  <!-- FUNDABLE SCORE EXPLAINER — collapsible, sits between hero and upload -->
+  <!-- Fundable Score explainer -->
   <div style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.15s ease both;">
     <button onclick="toggleFundableExplainer()" id="fundableToggleBtn"
       style="width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);
@@ -326,8 +362,7 @@
       <span>// What does your Fundable Score mean for prop firm readiness?</span>
       <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;">&#9660;</span>
     </button>
-    <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;
-         background:var(--deep);padding:20px 24px;">
+    <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;background:var(--deep);padding:20px 24px;">
       <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9;margin-bottom:14px;">
         A <span style="color:var(--accent);font-weight:700;">Fundable Score</span> is a 0–100 rating of whether your trading strategy has
         institutional-grade statistical foundations — the same criteria prop firms and fund managers
@@ -377,7 +412,7 @@
     </div>
     <div class="sample-divider"><span class="sample-divider-text">— or find out if yours survives —</span></div>
 
-    <!-- AI FIX PLAN PROMO STRIP -->
+    <!-- AI Fix Plan Promo -->
     <div style="display:flex;align-items:center;gap:20px;padding:16px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);margin-bottom:24px;flex-wrap:wrap;">
       <div style="font-size:22px;flex-shrink:0;">🤖</div>
       <div style="flex:1;min-width:200px;">
@@ -395,7 +430,6 @@
     </div>
 
     <div class="mode-grid">
-
       <!-- CSV MODE -->
       <div class="mode-card" id="csvCard">
         <div class="mode-tag">// METHODOLOGY CHECK</div>
@@ -491,11 +525,8 @@
         </div>
         <div class="mode-verified-note">✓ Trades verified — eligible for Compliance Certificate</div>
         <button class="upload-btn mode-btn-alpaca" style="width:100%;margin-top:16px;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
-        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">
-          CONNECT IBKR
-        </button>
+        <button class="upload-btn" style="width:100%;margin-top:8px;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">CONNECT IBKR</button>
       </div>
-
     </div>
 
     <!-- ALPACA CONNECT PANEL -->
@@ -541,7 +572,7 @@
         </div>
       </div>
     </div>
-    <!-- IBKR panel injected dynamically by showIBKRConnect() -->
+    <!-- IBKR panel injected dynamically -->
   </div>
 
   <div class="loading" id="loadingSection">
@@ -566,8 +597,6 @@
 
 <footer>
   <div class="container">
-
-    <!-- Trust + privacy strip -->
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;padding:24px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">🔒</span>
@@ -586,25 +615,21 @@
         <span>AI fix plan powered by Anthropic Claude</span>
       </div>
     </div>
-
-    <!-- Links row -->
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;">How it works &#8594;</a>
       <span style="color:var(--border);">|</span>
       <a href="/cdn-cgi/l/email-protection#b2c3c7d3dcc6c2c0ddddd4f2d5dfd3dbde9cd1dddf" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;"><span class="__cf_email__" data-cfemail="621317030c1612100d0d0422050f030b0e4c010d0f">[email&#160;protected]</span></a>
       <span style="color:var(--border);">|</span>
-      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;299 full report</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;99 unlock &nbsp;&middot;&nbsp; &#8377;299 full report</span>
     </div>
-
-    <!-- Bottom line -->
     <div class="footer-text">
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
-
   </div>
 </footer>
 
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+<script>
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
@@ -791,6 +816,7 @@
 
   const csvCard  = document.getElementById('csvCard');
   const kiteCard = document.getElementById('kiteCard');
+
   document.getElementById('fileInput').addEventListener('change', e => {
     if(!e.target.files[0]) return;
     const reader = new FileReader();
@@ -804,6 +830,7 @@
     handleFile(e.target.files[0]);
   });
   document.getElementById('kiteFileInput').addEventListener('change', e => { if(e.target.files[0]) handleKiteFile(e.target.files[0]); });
+
   if(csvCard) {
     csvCard.addEventListener('dragover', e=>{e.preventDefault();csvCard.style.borderColor='var(--accent)'});
     csvCard.addEventListener('dragleave', ()=>csvCard.style.borderColor='');
@@ -828,6 +855,7 @@
     }
   }
 
+  // FIX #6 — Cold start copy no longer reveals free tier hosting
   function coldStartWarning() {
     return setTimeout(() => {
       const loadLine = document.querySelector('.terminal-line:last-child');
@@ -835,7 +863,7 @@
         const msg = document.createElement('div');
         msg.className = 'terminal-line';
         msg.style.cssText = 'opacity:1;color:#ffaa00;animation:none;';
-        msg.textContent = '→ Server warming up — free tier cold start, ~30s more...';
+        msg.textContent = '→ Deep analysis in progress — running all 5 crash scenarios...';
         loadLine.parentNode.appendChild(msg);
       }
     }, 8000);
@@ -844,6 +872,7 @@
   async function handleFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
+    _isSampleRun = false;
     try {
       const r = new FileReader();
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','csv'); };
@@ -872,6 +901,7 @@
   async function handleKiteFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'kite'; _brokerSource = '';
+    _isSampleRun = false;
     try {
       const r = new FileReader();
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','kite'); };
@@ -928,10 +958,9 @@
       section.appendChild(warn);
     }
 
-    // FIX 2: corrected createElement — was: document.createElement(" div\) which is a JS SyntaxError
     try {
       const resultsDiv = document.createElement('div');
-      resultsDiv.innerHTML = buildResultsHTML(data);
+      resultsDiv.innerHTML = buildResultsHTML(data, isSample);
       section.appendChild(resultsDiv);
     } catch(e) {
       section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`;
@@ -981,8 +1010,8 @@
     </div>`;
   }
 
-  function buildResultsHTML(data) {
-    const scoreColor = getScoreColor(data.fundable_score);
+  function buildResultsHTML(data, isSample) {
+    const scoreColor  = getScoreColor(data.fundable_score);
     const gradeLetter = data.grade.split('—')[0].trim();
     const gradeDesc   = data.grade.split('—')[1]?.trim()||'';
     const categories  = {};
@@ -990,6 +1019,60 @@
 
     const isVerified = _validationMode==='broker'||_validationMode==='alpaca';
     const modeLabel  = _validationMode==='kite'?'Kite CSV':_validationMode==='tradingview'?'TradingView Webhook':'CSV Upload';
+
+    // FIX #1 — Urgency gate strip: shown immediately after score, before crash grid
+    const failedChecks = (data.checks||[]).filter(c=>!c.passed);
+    const failedCount  = failedChecks.length;
+    const urgencyGateHTML = failedCount > 0 ? `
+      <div class="urgency-gate">
+        <div class="urgency-gate-text">
+          <div class="urgency-gate-label">// ${failedCount} CRITICAL FAILURE${failedCount>1?'S':''} DETECTED</div>
+          <div class="urgency-gate-headline">Your strategy fails ${failedCount} of 40 institutional checks.</div>
+          <div class="urgency-gate-sub">Each failure has a specific fix. See all of them — ₹99, instant unlock.</div>
+        </div>
+        <button class="urgency-gate-btn" onclick="buyLiteUnlock()">⚡ See All Fixes — ₹99</button>
+      </div>` : '';
+
+    // FIX #2 — Sample strategy gate wall: only first category shown, rest gated
+    const categoryEntries = Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance');
+    let checksHTML = '';
+    if (isSample) {
+      // Show first category fully, then gate
+      const firstCat = categoryEntries[0];
+      const remainingCats = categoryEntries.slice(1);
+      if (firstCat) {
+        checksHTML += buildCategoryHTML(firstCat[0], firstCat[1], false);
+      }
+      // Ghost of remaining categories behind gate wall
+      const ghostHTML = remainingCats.map(([cat, checks]) => `
+        <div class="sample-ghost-category">
+          <div class="category-header">
+            <div class="category-name">${cat}</div>
+            <div class="category-score">??/100</div>
+          </div>
+          ${checks.slice(0,3).map(()=>`
+            <div class="check-item fail" style="pointer-events:none;">
+              <div class="check-header">
+                <div class="check-name"><span class="check-badge fail">FAIL</span>████████████████</div>
+                <div class="check-score-bar"><div class="bar-track"><div class="bar-fill" style="width:30%;background:var(--accent2)"></div></div><div class="check-score-num">??</div></div>
+              </div>
+            </div>`).join('')}
+        </div>`).join('');
+
+      checksHTML += ghostHTML;
+      checksHTML += `
+        <div class="sample-gate-wall">
+          <div class="sample-gate-wall-tag">// THIS IS A DEMO STRATEGY</div>
+          <div class="sample-gate-wall-headline">Your strategy's failures will be different.</div>
+          <div class="sample-gate-wall-sub">
+            This sample shows one of the four check categories.<br>
+            Upload your own strategy to see your full breakdown — free, results in 30 seconds.
+          </div>
+          <button class="sample-gate-wall-btn" onclick="resetApp()">Validate My Strategy — Free →</button>
+        </div>`;
+    } else {
+      checksHTML = categoryEntries.map(([cat, checks]) => buildCategoryHTML(cat, checks, false)).join('');
+    }
 
     return `
       <div class="score-hero">
@@ -1005,16 +1088,10 @@
             </div>
           </div>
           <div class="score-grade" style="color:${scoreColor};border-color:${scoreColor}40">${gradeLetter} — ${gradeDesc}</div>
+          <!-- FIX #5 — Grade legend appears exactly once -->
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;line-height:1.9;margin-top:6px;">
             <span style="color:#00ff88;">A</span> 80–100 &nbsp;·&nbsp; <span style="color:#00cc6e;">B</span> 65–79<br>
             <span style="color:#ffaa00;">C</span> 50–64 &nbsp;·&nbsp; <span style="color:#ff6600;">D</span> 35–49 &nbsp;·&nbsp; <span style="color:#ff4444;">F</span> 0–34
-          </div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.8;">
-            <span style="color:#00ff88;">A</span> 80–100 &nbsp;·&nbsp;
-            <span style="color:#00cc6e;">B</span> 65–79 &nbsp;·&nbsp;
-            <span style="color:#ffaa00;">C</span> 50–64<br>
-            <span style="color:#ff6600;">D</span> 35–49 &nbsp;·&nbsp;
-            <span style="color:#ff4444;">F</span> 0–34
           </div>
         </div>
         <div class="score-meta">
@@ -1033,6 +1110,8 @@
           ${data.plausibility_summary?`<div style="font-size:12px;margin-top:8px;padding:8px 12px;background:${data.plausibility_summary.startsWith('✅')?'rgba(0,255,136,0.05)':'rgba(255,170,0,0.08)'};border:1px solid ${data.plausibility_summary.startsWith('✅')?'rgba(0,255,136,0.15)':'rgba(255,170,0,0.2)'};font-family:var(--mono)">${data.plausibility_summary}</div>`:''}
         </div>
       </div>
+
+      ${urgencyGateHTML}
 
       ${isVerified
         ? `<div class="verified-banner">
@@ -1077,54 +1156,10 @@
 
       <div class="checks-section" style="margin-top:40px;">
         <div class="section-title">// Full Validation Breakdown — 40 checks (click to expand)</div>
-        ${Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance').map(([cat,checks])=>{
-          const catScore = Math.round(checks.reduce((a,c)=>a+c.score,0)/checks.length);
-          const passed=checks.filter(c=>c.passed).length, failed=checks.filter(c=>!c.passed).length;
-          const col=catScore>65?'var(--accent)':catScore>45?'var(--accent3)':'var(--accent2)';
-          return `<div class="category-block">
-            <div class="category-header">
-              <div class="category-name" style="color:${col}">${cat}</div>
-              <div style="display:flex;align-items:center;gap:10px;">
-                ${passed>0?`<span class="cat-pass-badge">${passed} PASS</span>`:''}
-                ${failed>0?`<span class="cat-fail-badge">${failed} FAIL</span>`:''}
-                <div class="category-score" style="color:${col}">${catScore}/100</div>
-              </div>
-            </div>
-            ${checks.map(check=>`
-              <div class="check-item ${check.passed?'pass':'fail'}" onclick="toggleCheck(this)">
-                <div class="check-header">
-                  <div class="check-name"><span class="check-badge ${check.passed?'pass':'fail'}">${check.passed?'PASS':'FAIL'}</span>${check.name}</div>
-                  <div class="check-score-bar">
-                    <div class="bar-track"><div class="bar-fill" data-width="${check.score}" style="width:0%;background:${check.score>65?'var(--accent)':check.score>45?'var(--accent3)':'var(--accent2)'}"></div></div>
-                    <div class="check-score-num">${check.score}</div>
-                  </div>
-                </div>
-                <div class="check-details">
-                  <div class="check-value">${check.value}</div>
-                  <div class="check-insight">${check.insight}</div>
-                  ${check.passed
-                    ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
-                    :`<div style="margin-top:10px;">
-                        <div style="padding:10px 12px;background:rgba(255,170,0,0.03);border:1px solid rgba(255,170,0,0.12);margin-bottom:6px;position:relative;overflow:hidden;">
-                          <div style="font-size:12px;color:var(--muted);line-height:1.6;filter:blur(3px);user-select:none;pointer-events:none;">${check.fix.split(' ').slice(0,10).join(' ')}... adjust position sizing and re-run walk-forward validation to confirm edge stability.</div>
-                          <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(13,17,23,0.96));"></div>
-                        </div>
-                        <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix + AI analysis unlocked in report</div>
-                          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button onclick="event.stopPropagation();buyQuickUnlock()" style="background:transparent;border:1px solid rgba(255,170,0,0.5);color:var(--accent3);padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,170,0,0.08)'" onmouseout="this.style.background='transparent'">⚡ Unlock all — ₹99</button>
-                            <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Full report — ₹299</button>
-                          </div>
-                        </div>
-                      </div>`
-                  }
-                </div>
-              </div>`).join('')}
-          </div>`;
-        }).join('')}
+        ${checksHTML}
       </div>
 
-      ${(categories['SEBI Compliance'] || []).length > 0 ? `
+      ${!isSample && (categories['SEBI Compliance'] || []).length > 0 ? `
         <div style="margin-top:32px;">
           <div class="section-title">// SEBI Compliance — India Algo Framework (Feb 2025 Circular)</div>
           <div style="padding:10px 16px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:16px;line-height:1.7;">
@@ -1158,38 +1193,58 @@
           Full ranked fix plan with specific numbers → unlocked in report
         </div>
       </div>
+
+      <!-- FIX #3 — Consolidated CTA: single ₹99 path (buyLiteUnlock), ₹299 secondary, no duplicate buttons -->
       <div style="margin:12px 0 32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
         <div>
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// FULL ANALYSIS REPORT</div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">${(data.checks||[]).filter(c=>!c.passed).length > 0 ? (data.checks||[]).filter(c=>!c.passed).length + ' fixes waiting — get the complete action plan' : 'Get your full analysis report + AI recommendations'}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px;">${failedCount > 0 ? failedCount + ' fixes waiting — get the complete action plan' : 'Get your full analysis report + AI recommendations'}</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.6;">Every fix ranked by impact &nbsp;·&nbsp; AI personalised action plan &nbsp;·&nbsp; Crash sim analysis &nbsp;·&nbsp; Instant PDF</div>
         </div>
-        <div style="text-align:center;flex-shrink:0;">
+        <div style="text-align:center;flex-shrink:0;min-width:260px;">
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-bottom:8px;line-height:1.7;">
             FTMO / Topstep challenges cost <span style="color:var(--accent2);">$150–$500</span> to enter.<br>
             Know if you're ready <span style="color:var(--text);font-weight:700;">before</span> you pay.
           </div>
-          <button id="unlockBtn" onclick="buyQuickUnlock()" style="background:var(--surface);color:var(--accent);border:1.5px solid rgba(0,255,136,0.5);padding:13px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;margin-bottom:8px;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='var(--surface)'">🔓 Unlock Full Breakdown — ₹99</button>
-          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Get Full PDF + AI Plan — ₹299</button>
-          <button id="liteBtn" onclick="buyLiteUnlock()" style="background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.15);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;margin-top:6px;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.15)';this.style.color='var(--text)'">🔓 Unlock Full Analysis Only — ₹99</button>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:4px;margin-bottom:2px;">₹99 unlocks all check fixes &nbsp;&middot;&nbsp; ₹299 includes PDF + AI fix plan</div>
-          <button onclick="showIntlWaitlist()" style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;width:100%;margin-top:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">🌍 International (USD/GBP/EUR) — Join Waitlist</button>
+
+          <!-- PRIMARY CTA: ₹99 unlock -->
+          <button id="unlockBtn" onclick="buyLiteUnlock()"
+            style="background:var(--accent);color:var(--black);border:none;padding:14px 28px;
+            font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;
+            white-space:nowrap;width:100%;margin-bottom:8px;transition:background 0.2s;"
+            onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">
+            ⚡ Unlock All Fixes — ₹99
+          </button>
+
+          <!-- SECONDARY CTA: ₹299 PDF -->
+          <button id="pdfBtn" onclick="buyPdfReport()"
+            style="background:transparent;color:var(--accent);border:1.5px solid rgba(0,255,136,0.4);
+            padding:12px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;
+            white-space:nowrap;width:100%;margin-bottom:4px;transition:all 0.2s;"
+            onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='transparent'">
+            📄 Full PDF + AI Plan — ₹299
+          </button>
+
+          <!-- Micro copy -->
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px;">
+            ₹99 — see all fixes in browser &nbsp;·&nbsp; ₹299 — PDF download + AI action plan
+          </div>
+
+          <!-- International waitlist -->
+          <button onclick="showIntlWaitlist()"
+            style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);
+            padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;
+            white-space:nowrap;width:100%;margin-top:4px;transition:border-color 0.2s;"
+            onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">
+            🌍 International (USD/GBP/EUR) — Join Waitlist
+          </button>
           <div id="intlWaitlistBox" style="display:none;margin-top:8px;">
             <div style="display:flex;gap:6px;">
               <input id="intlEmail" type="email" placeholder="your@email.com" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--mono);font-size:11px;outline:none;">
               <button onclick="submitIntlWaitlist()" style="background:var(--accent);color:var(--black);border:none;padding:8px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">Notify Me</button>
             </div>
             <div id="intlWaitlistStatus" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;min-height:14px;"></div>
-          </div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:8px;line-height:1.9;border-top:1px solid var(--border);padding-top:8px;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-              <span style="color:var(--accent);">₹99 Unlock</span>
-              <span>Full check breakdown · All fixes visible · No PDF</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;">
-              <span style="color:var(--accent);">₹299 Full Report</span>
-              <span>PDF download · AI fix plan · Crash analysis · Audit cert</span>
-            </div>
           </div>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time · No account needed · No subscription</div>
         </div>
@@ -1200,13 +1255,13 @@
       <div id="auditTrailSection" style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);background:var(--surface)">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL <span style="font-size:9px;opacity:0.6;">(copy enabled)</span></div>
         <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:12px;line-height:1.8;padding:10px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);">
-        <span style="color:var(--accent);">which path for options?</span> &nbsp;·&nbsp;
-        Raw options CSV (any broker) → <b>Upload CSV</b> &nbsp;·&nbsp;
-        Kite CE/PE trades → <b>Kite TradeBook</b> &nbsp;·&nbsp;
-        IBKR options → <b>Broker Connect</b> &nbsp;·&nbsp;
-        Multi-leg spreads → sum daily P&amp;L % and use <b>Upload CSV</b>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono);margin-bottom:8px;">
+          <span style="color:var(--accent);">which path for options?</span> &nbsp;·&nbsp;
+          Raw options CSV (any broker) → <b>Upload CSV</b> &nbsp;·&nbsp;
+          Kite CE/PE trades → <b>Kite TradeBook</b> &nbsp;·&nbsp;
+          IBKR options → <b>Broker Connect</b> &nbsp;·&nbsp;
+          Multi-leg spreads → sum daily P&amp;L % and use <b>Upload CSV</b>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;font-family:var(--mono);margin-bottom:8px;">
           <div><span style="color:var(--muted)">Hash:</span> <span style="color:var(--accent)">${data.validation_hash}</span></div>
           <div><span style="color:var(--muted)">Engine:</span> <span style="color:var(--text)">${data.engine_version}</span></div>
         </div>
@@ -1216,9 +1271,55 @@
     `;
   }
 
+  // Helper: build one category block (used by both full and sample render paths)
+  function buildCategoryHTML(cat, checks, forceShowFixes) {
+    const catScore = Math.round(checks.reduce((a,c)=>a+c.score,0)/checks.length);
+    const passed   = checks.filter(c=>c.passed).length;
+    const failed   = checks.filter(c=>!c.passed).length;
+    const col = catScore>65?'var(--accent)':catScore>45?'var(--accent3)':'var(--accent2)';
+    return `<div class="category-block">
+      <div class="category-header">
+        <div class="category-name" style="color:${col}">${cat}</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${passed>0?`<span class="cat-pass-badge">${passed} PASS</span>`:''}
+          ${failed>0?`<span class="cat-fail-badge">${failed} FAIL</span>`:''}
+          <div class="category-score" style="color:${col}">${catScore}/100</div>
+        </div>
+      </div>
+      ${checks.map(check=>`
+        <div class="check-item ${check.passed?'pass':'fail'}" onclick="toggleCheck(this)">
+          <div class="check-header">
+            <div class="check-name"><span class="check-badge ${check.passed?'pass':'fail'}">${check.passed?'PASS':'FAIL'}</span>${check.name}</div>
+            <div class="check-score-bar">
+              <div class="bar-track"><div class="bar-fill" data-width="${check.score}" style="width:0%;background:${check.score>65?'var(--accent)':check.score>45?'var(--accent3)':'var(--accent2)'}"></div></div>
+              <div class="check-score-num">${check.score}</div>
+            </div>
+          </div>
+          <div class="check-details">
+            <div class="check-value">${check.value}</div>
+            <div class="check-insight">${check.insight}</div>
+            ${check.passed
+              ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
+              :`<div style="margin-top:10px;">
+                  <div style="padding:10px 12px;background:rgba(255,170,0,0.03);border:1px solid rgba(255,170,0,0.12);margin-bottom:6px;position:relative;overflow:hidden;">
+                    <div style="font-size:12px;color:var(--muted);line-height:1.6;filter:blur(3px);user-select:none;pointer-events:none;">${check.fix.split(' ').slice(0,10).join(' ')}... adjust position sizing and re-run walk-forward validation to confirm edge stability.</div>
+                    <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(13,17,23,0.96));"></div>
+                  </div>
+                  <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix + AI analysis unlocked in report</div>
+                    <button onclick="event.stopPropagation();buyLiteUnlock()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">⚡ Unlock — ₹99</button>
+                  </div>
+                </div>`
+            }
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }
+
   function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
 
   function resetApp() {
+    _isSampleRun = false;
     document.getElementById('resultsSection').classList.remove('active');
     document.getElementById('resultsSection').innerHTML = '';
     document.getElementById('uploadSection').style.display = 'block';
@@ -1261,7 +1362,7 @@
   }
 
   function toggleFundableExplainer() {
-    const box = document.getElementById('fundableExplainer');
+    const box     = document.getElementById('fundableExplainer');
     const chevron = document.getElementById('fundableChevron');
     if (!box) return;
     const isOpen = box.style.display !== 'none';
@@ -1275,9 +1376,9 @@
   }
 
   async function submitIntlWaitlist() {
-    const email = (document.getElementById('intlEmail')||{}).value||'';
+    const email  = (document.getElementById('intlEmail')||{}).value||'';
     const status = document.getElementById('intlWaitlistStatus');
-    const btn = document.getElementById('intlWaitlistBox') ? document.getElementById('intlWaitlistBox').querySelector('button') : null;
+    const btn    = document.getElementById('intlWaitlistBox') ? document.getElementById('intlWaitlistBox').querySelector('button') : null;
     if(!email || !email.includes('@')) {
       if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
       return;
@@ -1292,8 +1393,8 @@
       });
       const data = await resp.json();
       if(resp.ok) {
-        if(status){ status.innerText='\u2713 You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
-        if(btn){ btn.disabled=true; btn.innerText='\u2713 Done'; }
+        if(status){ status.innerText='✓ You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
+        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
         const input = document.getElementById('intlEmail');
         if(input){ input.disabled=true; }
       } else {
@@ -1305,9 +1406,6 @@
     }
   }
 
-  // FIX 3: generatePdfBlob Alpaca branch — removed undefined sb/bc references.
-  // Now sends only validation_hash to /report/generate-broker (backend cache path).
-  // Credentials are never re-sent after the initial validation — they were discarded.
   async function generatePdfBlob(token) {
     const src = sessionStorage.getItem('qp_source')||_brokerSource||'csv';
     let res;
@@ -1337,22 +1435,27 @@
     if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
     if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
     try {
-      let blob=null; for(let i=0;i<3;i++){ try{ blob=await generatePdfBlob(token); break; }catch(e){ if(i<2) await new Promise(r=>setTimeout(r,2000)); else throw e; } } const url=URL.createObjectURL(blob);
+      let blob=null;
+      for(let i=0;i<3;i++){ try{ blob=await generatePdfBlob(token); break; }catch(e){ if(i<2) await new Promise(r=>setTimeout(r,2000)); else throw e; } }
+      const url=URL.createObjectURL(blob);
       const a=document.createElement('a'); a.href=url; a.download='QuantProof_Report.pdf';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       if(btn){btn.innerText='✓ Report Downloaded';btn.style.background='var(--accent)';btn.style.color='#000';}
       if(status){status.innerText='Your full report has been downloaded.';status.style.color='var(--accent)';}
     } catch(err) {
-      if(btn){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';}
+      if(btn){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';}
       if(status){status.innerText='Download failed: '+err.message;status.style.color='#ff4444';}
     }
   }
 
+  // FIX #3 — Single ₹99 unlock function (buyLiteUnlock). buyQuickUnlock removed.
   async function buyLiteUnlock() {
-    const btn = document.getElementById('liteBtn');
+    const btn    = document.getElementById('unlockBtn');
     const status = document.getElementById('pdfBtnStatus');
-    if(!btn) return;
-    btn.disabled = true; btn.innerText = 'Opening payment...';
+    // Also disable urgency gate button if present
+    const ugBtn = document.querySelector('.urgency-gate-btn');
+    if(btn) { btn.disabled = true; btn.innerText = 'Opening payment...'; }
+    if(ugBtn) { ugBtn.disabled = true; ugBtn.innerText = 'Opening...'; }
     try {
       const res = await fetch(`${API_URL_REPORT}/report/create-checkout-lite`, {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})
@@ -1370,43 +1473,43 @@
               method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({
                 razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_signature:  response.razorpay_signature
               })
             });
             const vd = await vr.json();
             if(!vd.token) throw new Error('Payment verification failed');
-            // Unlock all blurred check fixes in the UI
             applyLiteUnlock(vd.token);
           } catch(ve) {
-            btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+            if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+            if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
             if(status){ status.innerText = 'Payment error: ' + ve.message; status.style.color = '#ff4444'; }
           }
         },
         modal: { ondismiss: function() {
-          btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+          if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+          if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
           if(status) status.innerText = '';
         }}
       };
       if(typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
       const rzp = new Razorpay(options);
       rzp.on('payment.failed', function(r) {
-        btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+        if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+        if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
         if(status){ status.innerText = 'Payment failed: ' + (r.error.description || 'Declined'); status.style.color = '#ff4444'; }
       });
       rzp.open();
     } catch(err) {
-      btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+      if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+      if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
       if(status){ status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
 
   function applyLiteUnlock(token) {
-    // Store token for this session
     try { sessionStorage.setItem('qp_lite_token', token); } catch(e) {}
-    // Remove all blur overlays on failed check fix previews
     document.querySelectorAll('.check-item.fail .check-details').forEach(details => {
-      // Find the blurred preview div and gradient overlay
       const blurDiv = details.querySelector('[style*="blur"]');
       const gradDiv = details.querySelector('[style*="gradient"]');
       const lockDiv = details.querySelector('[style*="rgba(255,170,0,0.04)"]');
@@ -1414,11 +1517,14 @@
       if(gradDiv) gradDiv.style.display = 'none';
       if(lockDiv) lockDiv.style.display = 'none';
     });
-    // Update button states
-    const liteBtn = document.getElementById('liteBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    if(liteBtn){ liteBtn.innerText = '\u2713 Analysis Unlocked'; liteBtn.disabled = true; liteBtn.style.borderColor = 'rgba(0,255,136,0.4)'; liteBtn.style.color = 'var(--accent)'; }
-    if(status){ status.innerText = '\u2713 Full analysis unlocked — upgrade to \u20B9299 for PDF + AI fix plan'; status.style.color = 'var(--accent)'; }
+    const unlockBtn  = document.getElementById('unlockBtn');
+    const ugBtn      = document.querySelector('.urgency-gate-btn');
+    const urgencyGate= document.querySelector('.urgency-gate');
+    const status     = document.getElementById('pdfBtnStatus');
+    if(unlockBtn){ unlockBtn.innerText = '✓ Analysis Unlocked'; unlockBtn.disabled = true; unlockBtn.style.background = '#00cc6e'; }
+    if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
+    if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
+    if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for PDF + AI fix plan'; status.style.color = 'var(--accent)'; }
   }
 
   async function buyPdfReport() {
@@ -1441,15 +1547,15 @@
             if(!vd.token) throw new Error('Payment verification failed');
             if(btn) btn.innerText='Generating PDF...';
             await generatePdfWithToken(vd.token);
-          } catch(ve){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
+          } catch(ve){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
         },
-        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status)status.innerText='';}}
+        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status)status.innerText='';}}
       };
       if(typeof Razorpay==='undefined') throw new Error('Payment system failed to load. Please refresh.');
       const rzp=new Razorpay(options);
-      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
+      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
       rzp.open();
-    } catch(err){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
+    } catch(err){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
 
   async function handleLSReturn() {
@@ -1528,8 +1634,7 @@
       <div id="ibkrStatus" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:16px;"></div>
       <div style="margin-top:14px;padding:10px 14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.1);font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
         🔒 Flex Token is used read-only and never stored. Cannot place orders.
-      </div>
-    `;
+      </div>`;
     document.getElementById('brokerCard').after(panel);
     panel.scrollIntoView({behavior:'smooth', block:'center'});
   }
@@ -1633,7 +1738,7 @@
   }
 
   async function validateTVSession(sessionId) {
-    _validationMode='tradingview'; _brokerSource='';
+    _validationMode='tradingview'; _brokerSource=''; _isSampleRun=false;
     showLoading();
     try {
       const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST'});
@@ -1680,17 +1785,14 @@
       cur = cur.parentNode;
     }
     if (!inside) return;
-
-    // Exempt audit trail — user needs to copy their validation hash
     const auditTrail = document.getElementById('auditTrailSection');
     if (auditTrail) {
       let checkNode = node;
       while (checkNode) {
-        if (checkNode === auditTrail) return; // allow copy from audit trail
+        if (checkNode === auditTrail) return;
         checkNode = checkNode.parentNode;
       }
     }
-
     const selectedText = selection.toString().trim();
     if (selectedText.length < 10) return;
     const scoreEl = document.querySelector('.score-val') || document.querySelector('[class*="score"]');
@@ -1721,4 +1823,16 @@
         if (!toast) {
           toast = document.createElement('div');
           toast.id = 'qp-toast';
-          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1C1C1E;color:#00C896;font-family:monospace;font-size:12px;padding:1
+          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1C1C1E;color:#00C896;font-family:monospace;font-size:12px;padding:12px 20px;border:1px solid rgba(0,255,136,0.3);z-index:9999;animation:fadeUp 0.3s ease;';
+          toast.textContent = 'Results are protected — download the PDF report to save and share.';
+          document.body.appendChild(toast);
+          setTimeout(() => toast && toast.remove(), 3000);
+        }
+        return;
+      }
+      node = node.parentNode;
+    }
+  });
+</script>
+</body>
+</html>
