@@ -296,21 +296,21 @@
   </header>
 
   <main id="heroSection"><div class="hero">
-    <div class="hero-tag">// Institutional-Grade Algo Validation</div>
-    <h1>Does your strategy<br>survive the <em>real world?</em></h1>
-    <p>Validate your trading strategy against 40 institutional checks — overfitting detection, drawdown analysis, Sharpe ratio scoring, and 5 historical crash simulations. Get an AI-powered fix plan. Connect Alpaca or IBKR for verified, prop-firm eligible results.</p>
+    <div class="hero-tag">// Most strategies fail in real markets. Does yours?</div>
+    <h1>Most strategies fail.<br><em>Is yours one of them?</em></h1>
+    <p>Upload your backtest and find out in 30 seconds. QuantProof runs 40 institutional checks — overfitting detection, drawdown analysis, Sharpe ratio scoring, and 5 historical crash simulations — then tells you exactly what to fix before you risk real capital or a prop firm challenge fee.</p>
     <div style="margin-top:12px;margin-bottom:0;">
       <a href="/methodology" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;transition:all 0.2s;opacity:0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See exactly what we check and why →</a>
     </div>
     <div class="stats-row">
       <!-- FIX 1: 44 → 40 (correct check count) -->
-      <div class="stat"><div class="stat-num">40</div><div class="stat-label">Checks Run</div></div>
+      <div class="stat"><div class="stat-num">40</div><div class="stat-label">Failure Points</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
-      <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">Analysis Time</div></div>
+      <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">To Know</div></div>
     </div>
     <div style="margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--accent);opacity:0.85;letter-spacing:0.05em;">
-      ✓ 3 free full validations per day &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; Results in &lt;30s
+      ✓ Free to find out &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; 3 validations/day &nbsp;·&nbsp; Results in &lt;30s
     </div>
   </div></main>
 
@@ -323,7 +323,7 @@
              transition:border-color 0.2s,color 0.2s;"
       onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'"
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-      <span>// What is a Fundable Score?</span>
+      <span>// What does your Fundable Score mean for prop firm readiness?</span>
       <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;">&#9660;</span>
     </button>
     <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;
@@ -368,14 +368,14 @@
     <div class="sample-btn-wrap">
       <button class="sample-btn" onclick="runSampleStrategy()">
         <span class="sample-btn-play">▶</span>
-        See a Live Example — no upload needed
+        See a Real Strategy Get Scored — free, no upload needed
       </button>
       <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);">
         Watch a real strategy get scored in 30 seconds &nbsp;·&nbsp;
         <span style="color:var(--accent);">3 free validations/day — no account needed</span>
       </div>
     </div>
-    <div class="sample-divider"><span class="sample-divider-text">— or validate your own strategy —</span></div>
+    <div class="sample-divider"><span class="sample-divider-text">— or find out if yours survives —</span></div>
 
     <!-- AI FIX PLAN PROMO STRIP -->
     <div style="display:flex;align-items:center;gap:20px;padding:16px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);margin-bottom:24px;flex-wrap:wrap;">
@@ -1111,7 +1111,10 @@
                         </div>
                         <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                           <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix + AI analysis unlocked in report</div>
-                          <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">See full fix — ₹299</button>
+                          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button onclick="event.stopPropagation();buyQuickUnlock()" style="background:transparent;border:1px solid rgba(255,170,0,0.5);color:var(--accent3);padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,170,0,0.08)'" onmouseout="this.style.background='transparent'">⚡ Unlock all — ₹99</button>
+                            <button onclick="event.stopPropagation();buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">Full report — ₹299</button>
+                          </div>
                         </div>
                       </div>`
                   }
@@ -1166,7 +1169,10 @@
             FTMO / Topstep challenges cost <span style="color:var(--accent2);">$150–$500</span> to enter.<br>
             Know if you're ready <span style="color:var(--text);font-weight:700;">before</span> you pay.
           </div>
-          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)</button>
+          <button id="unlockBtn" onclick="buyQuickUnlock()" style="background:var(--surface);color:var(--accent);border:1.5px solid rgba(0,255,136,0.5);padding:13px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;margin-bottom:8px;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='var(--surface)'">🔓 Unlock Full Breakdown — ₹99</button>
+          <button id="pdfBtn" onclick="buyPdfReport()" style="background:var(--accent);color:var(--black);border:none;padding:13px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">🇮🇳 Get Full PDF + AI Plan — ₹299</button>
+          <button id="liteBtn" onclick="buyLiteUnlock()" style="background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.15);padding:11px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;width:100%;margin-top:6px;transition:all 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.15)';this.style.color='var(--text)'">🔓 Unlock Full Analysis Only — ₹99</button>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:4px;margin-bottom:2px;">₹99 unlocks all check fixes &nbsp;&middot;&nbsp; ₹299 includes PDF + AI fix plan</div>
           <button onclick="showIntlWaitlist()" style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;white-space:nowrap;width:100%;margin-top:8px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">🌍 International (USD/GBP/EUR) — Join Waitlist</button>
           <div id="intlWaitlistBox" style="display:none;margin-top:8px;">
             <div style="display:flex;gap:6px;">
@@ -1175,7 +1181,17 @@
             </div>
             <div id="intlWaitlistStatus" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;min-height:14px;"></div>
           </div>
-          <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">Instant PDF download · No account needed · One-time · No subscription</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:8px;line-height:1.9;border-top:1px solid var(--border);padding-top:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <span style="color:var(--accent);">₹99 Unlock</span>
+              <span>Full check breakdown · All fixes visible · No PDF</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span style="color:var(--accent);">₹299 Full Report</span>
+              <span>PDF download · AI fix plan · Crash analysis · Audit cert</span>
+            </div>
+          </div>
+          <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time · No account needed · No subscription</div>
         </div>
       </div>
 
@@ -1330,6 +1346,79 @@
       if(btn){btn.disabled=false;btn.innerText='🇮🇳 Get Fix Plan — ₹299 (UPI / Cards)';}
       if(status){status.innerText='Download failed: '+err.message;status.style.color='#ff4444';}
     }
+  }
+
+  async function buyLiteUnlock() {
+    const btn = document.getElementById('liteBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    if(!btn) return;
+    btn.disabled = true; btn.innerText = 'Opening payment...';
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-lite`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Full Analysis Unlock — all check fixes revealed',
+        order_id: data.order_id, theme: {color: '#00ff88'}, prefill: {},
+        handler: async function(response) {
+          if(status){ status.innerText = 'Verifying payment...'; status.style.color = 'var(--accent)'; }
+          try {
+            const vr = await fetch(`${API_URL_REPORT}/report/webhook-lite`, {
+              method: 'POST', headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            const vd = await vr.json();
+            if(!vd.token) throw new Error('Payment verification failed');
+            // Unlock all blurred check fixes in the UI
+            applyLiteUnlock(vd.token);
+          } catch(ve) {
+            btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+            if(status){ status.innerText = 'Payment error: ' + ve.message; status.style.color = '#ff4444'; }
+          }
+        },
+        modal: { ondismiss: function() {
+          btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+          if(status) status.innerText = '';
+        }}
+      };
+      if(typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function(r) {
+        btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+        if(status){ status.innerText = 'Payment failed: ' + (r.error.description || 'Declined'); status.style.color = '#ff4444'; }
+      });
+      rzp.open();
+    } catch(err) {
+      btn.disabled = false; btn.innerText = '\uD83D\uDD13 Unlock Full Analysis Only — \u20B999';
+      if(status){ status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  function applyLiteUnlock(token) {
+    // Store token for this session
+    try { sessionStorage.setItem('qp_lite_token', token); } catch(e) {}
+    // Remove all blur overlays on failed check fix previews
+    document.querySelectorAll('.check-item.fail .check-details').forEach(details => {
+      // Find the blurred preview div and gradient overlay
+      const blurDiv = details.querySelector('[style*="blur"]');
+      const gradDiv = details.querySelector('[style*="gradient"]');
+      const lockDiv = details.querySelector('[style*="rgba(255,170,0,0.04)"]');
+      if(blurDiv) { blurDiv.style.filter = 'none'; blurDiv.style.userSelect = 'text'; blurDiv.style.pointerEvents = 'auto'; }
+      if(gradDiv) gradDiv.style.display = 'none';
+      if(lockDiv) lockDiv.style.display = 'none';
+    });
+    // Update button states
+    const liteBtn = document.getElementById('liteBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    if(liteBtn){ liteBtn.innerText = '\u2713 Analysis Unlocked'; liteBtn.disabled = true; liteBtn.style.borderColor = 'rgba(0,255,136,0.4)'; liteBtn.style.color = 'var(--accent)'; }
+    if(status){ status.innerText = '\u2713 Full analysis unlocked — upgrade to \u20B9299 for PDF + AI fix plan'; status.style.color = 'var(--accent)'; }
   }
 
   async function buyPdfReport() {
