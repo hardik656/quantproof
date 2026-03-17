@@ -2613,6 +2613,92 @@ async def payment_webhook(request: Request):
     return {"status": "ok", "token": token_now}
 
 
+@app.post("/report/create-checkout-lite")
+async def create_checkout_lite(payload: dict):
+    import hmac, hashlib
+    try:
+        import razorpay
+    except ImportError:
+        raise HTTPException(503, {"error": "razorpay_not_installed",
+            "message": "razorpay package not installed. Run: pip install razorpay"})
+    key_id     = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(503, {"error": "razorpay_not_configured",
+            "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        order  = client.order.create({
+            "amount": 9900, "currency": "INR", "payment_capture": 1,
+            "notes": {"product": "QuantProof Lite Unlock"}
+        })
+        return {"order_id": order["id"], "amount": order["amount"],
+                "currency": order["currency"], "key_id": key_id, "checkout_url": None}
+    except Exception as e:
+        raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
+
+
+@app.post("/report/webhook-lite")
+async def payment_webhook_lite(request: Request):
+    import hashlib, hmac, time, json, uuid
+    body = await request.body()
+    try:
+        data = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    payment_id = data.get("razorpay_payment_id", "")
+    order_id   = data.get("razorpay_order_id", "")
+    signature  = data.get("razorpay_signature", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    if not payment_id or not order_id or not signature:
+        raise HTTPException(400, "Missing payment fields")
+    expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid payment signature")
+    current_hour = int(time.time() // 3600)
+    token_now  = f"LITE-{hashlib.sha256(f'lite:{current_hour}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
+    token_next = f"LITE-{hashlib.sha256(f'lite:{current_hour+1}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
+    REPORT_ACCESS_TOKENS.add(token_now)
+    REPORT_ACCESS_TOKENS.add(token_next)
+    LS_ORDER_TOKENS[order_id] = token_now
+    _save_tokens()
+    return {"status": "ok", "token": token_now}
+
+
+@app.post("/report/generate-lite")
+async def generate_lite_report_endpoint(
+    file: UploadFile = File(...),
+    x_report_token: str = Header(default=""),
+    x_report_source: str = Header(default="csv")
+):
+    def _verify_lite_token(token: str) -> bool:
+        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+        if _test_tok and token == _test_tok: return True
+        if token.startswith("LITE-") and token in REPORT_ACCESS_TOKENS: return True
+        return False
+
+    if not _verify_lite_token(x_report_token):
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "invalid_token",
+                    "message": "Valid lite token required to unlock full analysis."}
+        )
+
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Please upload a CSV file")
+
+    contents = await file.read()
+    try:
+        df, regime_note = smart_parse_csv(contents)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    if len(df) < 10:
+        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
+
+    return {"status": "unlocked", "message": "Full analysis unlocked"}
+
+
 # =========================================================
 # BROKER PDF REPORT
 # =========================================================
@@ -3635,5 +3721,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
