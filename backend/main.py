@@ -2773,7 +2773,8 @@ async def generate_broker_report(
             if not _PDF_AVAILABLE:
                 raise HTTPException(503, "PDF module not available.")
             try:
-                pdf_bytes = _generate_pdf_report(cached_vr)
+                async with _PDF_SEMAPHORE:
+                    pdf_bytes = _generate_pdf_report(cached_vr)
             except Exception as e:
                 raise HTTPException(500, f"PDF generation failed: {str(e)}")
             score     = int(cached_vr["fundable_score"])
@@ -2884,7 +2885,8 @@ async def generate_broker_report(
     if not _PDF_AVAILABLE:
         raise HTTPException(503, "PDF module not available on this server.")
     try:
-        pdf_bytes = _generate_pdf_report(vr)
+        async with _PDF_SEMAPHORE:
+            pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
 
