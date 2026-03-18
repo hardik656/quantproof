@@ -375,9 +375,13 @@ def generate_pdf_report(vr: dict) -> bytes:
             desc    = crash.get("description", "")[:100]
             verdict = _clean_verdict(crash.get("emotional_verdict", ""))
 
-            bg_row  = colors.HexColor("#EDF9F3") if surv else colors.HexColor("#FDF0EF")
-            tag_col = C_OK if surv else C_DANGER
-            tag_txt = "SURVIVED" if surv else "BLOWN UP"
+            dd_breach = not surv and drop > 0   # hit drawdown limit but ended positive
+
+            bg_row  = (colors.HexColor("#EDF9F3") if surv else
+                       colors.HexColor("#FFF8EC") if dd_breach else
+                       colors.HexColor("#FDF0EF"))
+            tag_col = C_OK if surv else (C_WARN if dd_breach else C_DANGER)
+            tag_txt = "SURVIVED" if surv else ("DD BREACH" if dd_breach else "BLOWN UP")
 
             c_tbl = Table([
                 [
