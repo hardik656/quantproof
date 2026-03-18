@@ -1609,6 +1609,8 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
                 "All forex PnL values are approximately 1000x overstated and will clip to ±0.99. "
                 "To fix: pre-calculate per-trade % return and upload as a generic CSV instead."
             )
+            # Embed sentinel so smart_parse_csv can set scale_warning for frontend banner
+            note = "MT5_FOREX_SCALE_WARN||" + (note if "note" in dir() else "")
 
     report = "deals" if has_direction else "positions"
     note = (
@@ -1673,11 +1675,18 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         try:
             _df, _note, _flags = _parse_mt5_csv(raw)
             if len(_df) > 0:
+                # Detect MT5 forex scale warning sentinel — promote to scale_warning
+                _mt5_forex_scale = False
+                if _note.startswith("MT5_FOREX_SCALE_WARN||"):
+                    _note = _note[len("MT5_FOREX_SCALE_WARN||"):]
+                    _mt5_forex_scale = True
                 if "date" in _df.columns and _df["date"].notna().any():
                     _df, _regime_note = assign_regimes(_df)
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | MT5_FLAGS:" + "||".join(_flags)
+                if _mt5_forex_scale:
+                    _note += " | MT5_SCALE_WARNING"
                 return _df, _note
         except ValueError as e:
             raise HTTPException(400, str(e))
@@ -1750,6 +1759,16 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     # FIX: clip to ±0.99 to match validator guard (was ±0.50)
                     vals = vals.clip(-0.99, 0.99)
                     _dollar_pnl_warning = _clipped_pct > 0.50
+                    # HARD REJECT: if >80% of values hit the ±0.99 ceiling after
+                    # divide-by-100 correction, the dataset is overwhelmingly dollar
+                    # amounts or already-broken data — reject to prevent silent wrong score
+                    if _clipped_pct > 0.80:
+                        raise ValueError(
+                            f"PnL values appear to be dollar amounts or raw prices, not decimal returns. "
+                            f"{int(_clipped_pct*100)}% of values exceed ±50% per trade after normalisation. "
+                            "Upload decimal returns (e.g. 0.015 = 1.5%, not 1.5 or $15). "
+                            "Check your PnL column and re-upload."
+                        )
                     result = pd.DataFrame({"pnl": vals.values})
 
                     date_cols = [c for c in df.columns
@@ -1846,7 +1865,9 @@ def root():
 @app.post("/validate", response_model=ValidationResponse)
 async def validate(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
     if request:
-        ip = request.client.host if request.client else "unknown"
+        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "")) or "unknown"
         allowed, remaining = check_rate_limit(ip)
         if not allowed:
             hours_left = remaining // 3600
@@ -1920,12 +1941,19 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         _options_flags = _parts[1].split("||") if len(_parts) > 1 else []
 
     _mt5_flags = []
+    _mt5_scale_warn = False
     if "MT5_FLAGS:" in regime_note:
         _parts = regime_note.split("MT5_FLAGS:", 1)
         regime_note = _parts[0].rstrip(" |")
         _mt5_flags = _parts[1].split("||") if len(_parts) > 1 else []
+    if "MT5_SCALE_WARNING" in regime_note:
+        regime_note = regime_note.replace(" | MT5_SCALE_WARNING", "").replace("MT5_SCALE_WARNING", "").strip(" |")
+        _mt5_scale_warn = True
 
-    extra_flags = ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + ([_spy_note] if _spy_note else []) + _options_flags + _mt5_flags
+    # Put SPY failure note FIRST so it appears at top of audit trail, not buried
+    _spy_flags_first = [_spy_note] if (_spy_note and "unavailable" in _spy_note) else []
+    _spy_flags_rest  = [_spy_note] if (_spy_note and "unavailable" not in _spy_note) else []
+    extra_flags = _spy_flags_first + ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + _spy_flags_rest + _options_flags + _mt5_flags
 
     _vr_cache = {
         "fundable_score": r.score,
@@ -1940,7 +1968,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in r.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
+                        "description":s.description,"market_drop":round(s.market_drop*100,1),
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
         "top_issues":    top_issues,
@@ -1949,7 +1977,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     _cache_validation(r.validation_hash, _vr_cache)
 
     return ValidationResponse(
-        fundable_score=r.score,
+        fundable_score=min(100.0, round(r.score, 1)),
         grade=r.grade,
         summary=summary,
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
@@ -1967,7 +1995,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         engine_version=r.engine_version,
         audit_flags=r.audit_flags + extra_flags,
         plausibility_summary=r.plausibility_summary,
-        scale_warning=getattr(r, '_scale_warning', False),
+        scale_warning=getattr(r, '_scale_warning', False) or _mt5_scale_warn,
         currency=detected_currency,
         assumptions=r.assumptions,
         dashboard=dashboard_data,
@@ -2007,7 +2035,9 @@ def _scrub_keys(d: dict) -> dict:
 async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None):
     BROKER_DAILY_LIMIT = 3
     if request:
-        ip = request.client.host if request.client else "unknown"
+        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "")) or "unknown"
         key_hash = "broker:" + hashlib.sha256(f"broker:{ip}".encode()).hexdigest()[:16]
         rec = _validation_counts[key_hash]
         now = time.time()
@@ -2175,7 +2205,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                         "value":c.value,"insight":c.insight,"fix":c.fix,
                         "category":c.category} for c in r.checks],
             "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                            "description":s.description,"market_drop":s.market_drop,
+                            "description":s.description,"market_drop":round(s.market_drop*100,1),
                             "strategy_drop":s.strategy_drop,"survived":s.survived,
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
             "top_issues": top_issues, "top_strengths": top_strengths,
@@ -2183,7 +2213,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         _cache_validation(r.validation_hash, _vr_cache)
 
         return ValidationResponse(
-            fundable_score=r.score, grade=r.grade, summary=summary,
+            fundable_score=min(100.0, round(r.score, 1)), grade=r.grade, summary=summary,
             checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
             crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
             total_trades=r.total_trades, profitable_trades=r.profitable_trades,
@@ -2365,7 +2395,7 @@ async def generate_report_endpoint(
         ],
         "crash_sims": [
             {"crash_name": s.crash_name, "year": s.year, "description": s.description,
-             "market_drop": s.market_drop, "strategy_drop": s.strategy_drop,
+             "market_drop": round(s.market_drop*100,1), "strategy_drop": s.strategy_drop,
              "survived": s.survived, "emotional_verdict": s.emotional_verdict}
             for s in report.crash_sims
         ],
@@ -2740,7 +2770,7 @@ async def generate_broker_report(
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in report.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
+                        "description":s.description,"market_drop":round(s.market_drop*100,1),
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
@@ -2787,7 +2817,9 @@ class IBKRConnectResponse(BaseModel):
 @app.post("/connect/ibkr", response_model=IBKRConnectResponse)
 async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     if request:
-        ip = request.client.host if request.client else "unknown"
+        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "")) or "unknown"
         allowed, _ = check_rate_limit(ip)
         if not allowed:
             raise HTTPException(429, f"Daily limit of {FREE_DAILY_LIMIT} validations reached.")
@@ -2977,7 +3009,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in report.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":s.market_drop,
+                        "description":s.description,"market_drop":round(s.market_drop*100,1),
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    top_issues,
@@ -3029,7 +3061,9 @@ async def validate_kite(
     Also accepts Kite Orders CSV — smart_parse_csv() handles routing.
     """
     if request:
-        ip = request.client.host if request.client else "unknown"
+        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "")) or "unknown"
         allowed, remaining = check_rate_limit(ip)
         if not allowed:
             hours_left = remaining // 3600
@@ -3552,4 +3586,5 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
