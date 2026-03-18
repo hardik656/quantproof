@@ -972,7 +972,7 @@
   }
 
   function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
-  function getCrashClass(sim) { return !sim.survived?'failed':sim.strategy_drop>-0.05?'survived':'warning'; }
+  function getCrashClass(sim) { return !sim.survived?(sim.strategy_drop>0?'warning':'failed'):sim.strategy_drop>-0.05?'survived':'warning'; }
 
   function getCrashVerdictColor(verdict) {
     const v = verdict.replace('[UNCALIBRATED] ','').replace('[UNCALIBRATED]','').trim();
