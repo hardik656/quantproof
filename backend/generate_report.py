@@ -368,7 +368,7 @@ def generate_pdf_report(vr: dict) -> bytes:
 
         for crash in crashes:
             surv    = crash.get("survived", False)
-            drop    = crash.get("strategy_drop", 0)
+            drop    = crash.get("strategy_drop", 0) * 100
             name    = crash.get("crash_name", "")
             year    = crash.get("year", "")
             mkt_d   = crash.get("market_drop", 0)
