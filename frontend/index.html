@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
 <meta charset="UTF-8">
@@ -1148,7 +1148,7 @@
             <div class="crash-desc">${sim.description}</div>
             <div class="crash-stats">
               <div class="crash-stat"><div class="crash-stat-label">Market Drop</div><div class="crash-stat-val" style="color:var(--accent2)">${sim.market_drop}%</div></div>
-              <div class="crash-stat"><div class="crash-stat-label">Your Strategy</div><div class="crash-stat-val" style="color:${sim.strategy_drop>0?'var(--accent)':'var(--accent2)'}">${sim.strategy_drop>0?'+':''}${(sim.strategy_drop_).toFixed(1)}%</div></div>
+              <div class="crash-stat"><div class="crash-stat-label">Your Strategy</div><div class="crash-stat-val" style="color:${sim.strategy_drop>0?'var(--accent)':'var(--accent2)'}">${sim.strategy_drop>0?'+':''}${(sim.strategy_drop*100).toFixed(1)}%</div></div>
             </div>
             <div class="crash-verdict" style="color:${getCrashVerdictColor(sim.emotional_verdict)}">${sim.emotional_verdict}</div>
           </div>
