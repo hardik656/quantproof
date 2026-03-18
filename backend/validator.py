@@ -2026,7 +2026,7 @@ class QuantProofValidator:
         stressed[0] = innov[0]
         for i in range(1, crisis_days):
             stressed[i] = (autocorr * stressed[i-1] + np.sqrt(1 - autocorr**2) * innov[i])
-        market_drag = market_drop * exposure * profile["liquidity_factor"]
+        market_drag = (market_drop / 100) * exposure * profile["liquidity_factor"]
         stressed   += market_drag / crisis_days
         bottom_10  = stressed < np.percentile(stressed, 10)
         stressed[bottom_10] -= np.abs(stressed[bottom_10]) * profile["gap_risk"]
@@ -2036,7 +2036,7 @@ class QuantProofValidator:
             cumulative = CRASH_MAX_GAIN
         if trimmed_mean < -0.001 and cumulative > 0.05:
             cumulative *= CRASH_NEG_EDGE_CAP
-        if market_drop < -0.15 and cumulative > 0.08:
+        if market_drop < -15.0 and cumulative > 0.08:
             cumulative *= 0.25
         dd       = calculate_max_drawdown(stressed)
         survived = dd < (0.25 if self.strict_mode else 0.30)
