@@ -2051,7 +2051,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in r.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":round(s.market_drop,1),
+                        "description":s.description,"market_drop":s.market_drop,
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
         "top_issues":    top_issues,
@@ -2067,7 +2067,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         crash_sims=[CrashSimResponse(
             crash_name=s.crash_name, year=s.year,
             description=s.description,
-            market_drop=round(s.market_drop, 1),
+            market_drop=s.market_drop,
             strategy_drop=s.strategy_drop,
             survived=s.survived,
             emotional_verdict=s.emotional_verdict
@@ -2295,7 +2295,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                         "value":c.value,"insight":c.insight,"fix":c.fix,
                         "category":c.category} for c in r.checks],
             "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                            "description":s.description,"market_drop":round(s.market_drop,1),
+                            "description":s.description,"market_drop":s.market_drop,
                             "strategy_drop":s.strategy_drop,"survived":s.survived,
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
             "top_issues": top_issues, "top_strengths": top_strengths,
@@ -2308,7 +2308,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             crash_sims=[CrashSimResponse(
             crash_name=s.crash_name, year=s.year,
             description=s.description,
-            market_drop=round(s.market_drop, 1),
+            market_drop=s.market_drop,
             strategy_drop=s.strategy_drop,
             survived=s.survived,
             emotional_verdict=s.emotional_verdict
@@ -2492,7 +2492,7 @@ async def generate_report_endpoint(
         ],
         "crash_sims": [
             {"crash_name": s.crash_name, "year": s.year, "description": s.description,
-             "market_drop": round(s.market_drop,1), "strategy_drop": s.strategy_drop,
+             "market_drop":s.market_drop, "strategy_drop": s.strategy_drop,
              "survived": s.survived, "emotional_verdict": s.emotional_verdict}
             for s in report.crash_sims
         ],
@@ -2867,7 +2867,7 @@ async def generate_broker_report(
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in report.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":round(s.market_drop,1),
+                        "description":s.description,"market_drop":s.market_drop,
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
@@ -3106,7 +3106,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in report.checks],
         "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
-                        "description":s.description,"market_drop":round(s.market_drop,1),
+                        "description":s.description,"market_drop":s.market_drop,
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    top_issues,
@@ -3304,7 +3304,7 @@ async def validate_kite(
         crash_sims=[CrashSimResponse(
             crash_name=s.crash_name, year=s.year,
             description=s.description,
-            market_drop=round(s.market_drop, 1),
+            market_drop=s.market_drop,
             strategy_drop=s.strategy_drop,
             survived=s.survived,
             emotional_verdict=s.emotional_verdict
@@ -3683,7 +3683,7 @@ def validate_tv_alerts(session_id: str):
         crash_sims=[CrashSimResponse(
             crash_name=s.crash_name, year=s.year,
             description=s.description,
-            market_drop=round(s.market_drop, 1),
+            market_drop=s.market_drop,
             strategy_drop=s.strategy_drop,
             survived=s.survived,
             emotional_verdict=s.emotional_verdict
@@ -3720,5 +3720,4 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
