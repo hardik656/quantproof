@@ -3683,7 +3683,7 @@ def validate_tv_alerts(session_id: str):
         crash_sims=[CrashSimResponse(
             crash_name=s.crash_name, year=s.year,
             description=s.description,
-            market_drop=round(s.market_drop*100, 1),
+            market_drop=round(s.market_drop, 1),
             strategy_drop=s.strategy_drop,
             survived=s.survived,
             emotional_verdict=s.emotional_verdict
