@@ -2049,6 +2049,8 @@ class QuantProofValidator:
             verdict = f"{calib_tag}🟡 DAMAGED BUT SURVIVED."
         elif survived:
             verdict = f"{calib_tag}🟠 BARELY SURVIVED."
+        elif cumulative > 0:
+            verdict = f"{calib_tag}🟡 HIT DRAWDOWN LIMIT — but recovered to {cumulative*100:+.1f}%."
         else:
             verdict = f"{calib_tag}🔴 YOUR STRATEGY WOULD HAVE BLOWN UP."
 
