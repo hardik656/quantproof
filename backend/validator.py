@@ -1386,15 +1386,16 @@ class QuantProofValidator:
             else:
                 current = 0
 
-        # FIX BUG-V4-3: zero losing streak over 20+ trades is implausible,
+        # FIX BUG-V4-3: zero losing trades over 30+ trades is statistically implausible,
         # not a perfect score — rewards lookahead bias / synthetic data
-        if max_streak == 0 and len(r) >= 20:
+        min_expected_losses = max(1, int(len(r) * 0.05))  # expect at least 5% losing trades
+        if max_streak == 0 and len(r) >= 30 and int(np.sum(self.returns < 0)) == 0:
             return CheckResult(
                 "Max Losing Streak", False, 30,
-                f"Zero losing streak over {len(r)} trades — implausible",
-                "A real strategy almost never has zero consecutive losses over 20+ trades. "
-                "This is a strong indicator of lookahead bias, synthetic data, or a rounding artefact.",
-                "Verify data integrity. Check for bid/ask spread or commission suppression.", "Risk"
+                f"Zero losing trades in {len(r)} trades — statistically implausible "
+                f"(expected ~{min_expected_losses} losses at 5% loss rate)",
+                "A real strategy should have some losing trades. Zero losses suggests "
+                "lookahead bias, synthetic data, or data processing errors.", "Risk"
             )
 
         score = max(0, 100 - max_streak * 10)
@@ -2279,3 +2280,4 @@ class QuantProofValidator:
             plausibility_summary=self._generate_plausibility_summary(),
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE)
+
