@@ -64,7 +64,7 @@ class CheckResultResponse(BaseModel):
 
 class CrashSimResponse(BaseModel):
     crash_name: str
-    year: int
+    year: str
     description: str
     market_drop: float
     strategy_drop: float
