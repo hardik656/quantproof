@@ -1987,7 +1987,7 @@ class QuantProofValidator:
         crisis_days = 60
         mean_r      = float(np.mean(r))
         vol         = float(np.std(r, ddof=1))
-        market_drop = profile["market_drop"] / 100
+        market_drop = profile["market_drop"]
         trimmed_mean = float(np.mean(np.clip(r, np.percentile(r, 2), np.percentile(r, 98))))
         trimmed_vol = float(np.std(np.clip(r, np.percentile(r, 2), np.percentile(r, 98)), ddof=1))
 
