@@ -50,6 +50,60 @@ import asyncio
 from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
+# ================= RESPONSE MODELS =================
+
+class CheckResultResponse(BaseModel):
+    name: str
+    passed: bool
+    score: float
+    value: Any
+    insight: str
+    fix: str
+    category: str
+
+
+class CrashSimResponse(BaseModel):
+    crash_name: str
+    year: int
+    description: str
+    market_drop: float
+    strategy_drop: float
+    survived: bool
+    emotional_verdict: str
+
+
+class ValidationResponse(BaseModel):
+    fundable_score: float
+    grade: str
+    summary: str
+
+    checks: List[CheckResultResponse]
+    crash_sims: List[CrashSimResponse]
+
+    total_trades: int
+    profitable_trades: int
+    date_range: str
+
+    sharpe: float
+    max_drawdown: float
+    win_rate: float
+
+    top_issues: List[str]
+    top_strengths: List[str]
+
+    validation_hash: str
+    validation_date: Any
+    engine_version: str
+
+    audit_flags: List[str]
+    plausibility_summary: Optional[str]
+
+    scale_warning: bool
+    currency: str
+
+    assumptions: List[str]
+    dashboard: Optional[Dict[str, Any]]
+    ai_plan: Optional[Dict[str, Any]]
 
 # ── Rate limiting (3 free validations / IP / day) ────────────────────────────
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
@@ -1406,6 +1460,16 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     return result, note, audit_flags
 
 
+
+# ── MT5 PnL Normalisation Helper ───────────────────────────
+def _normalise_pnl(net_profit, entry_price, volume, balance):
+    try:
+        denom = entry_price * volume
+        if denom is not None and abs(denom) > 1e-9:
+            return net_profit / denom
+        return None
+    except Exception:
+        return None
 # =========================================================
 # MT5 TRADE HISTORY PARSER
 # =========================================================
@@ -3019,8 +3083,31 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
 
     validation_resp = ValidationResponse(
         fundable_score=report.score, grade=report.grade, summary=summary,
-        checks=[CheckResultResponse(**vars(c)) for c in scored],
-        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
+        checks=[
+    CheckResultResponse(
+        name=getattr(c, "name", ""),
+        passed=getattr(c, "passed", False),
+        score=getattr(c, "score", 0),
+        value=getattr(c, "value", None),
+        insight=getattr(c, "insight", ""),
+        fix=getattr(c, "fix", ""),
+        category=getattr(c, "category", "")
+    )
+    for c in visible_checks
+],
+
+crash_sims=[
+    CrashSimResponse(
+        crash_name=getattr(s, "crash_name", ""),
+        year=getattr(s, "year", 0),
+        description=getattr(s, "description", ""),
+        market_drop=getattr(s, "market_drop", 0),
+        strategy_drop=getattr(s, "strategy_drop", 0),
+        survived=getattr(s, "survived", False),
+        emotional_verdict=getattr(s, "emotional_verdict", "")
+    )
+    for s in r.crash_sims
+],
         total_trades=report.total_trades, profitable_trades=report.profitable_trades,
         date_range=date_range, sharpe=round(report.sharpe, 2),
         max_drawdown=round(report.max_drawdown, 4), win_rate=round(report.win_rate, 1),
@@ -3586,5 +3673,4 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
