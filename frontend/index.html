@@ -991,7 +991,8 @@
     circle.style.strokeDashoffset = circ - (score/100)*circ;
     circle.style.stroke = getScoreColor(score);
     let cur = 0; const inc = score/60;
-    const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.round(cur); if(cur>=score)clearInterval(t); }, 25);
+    // FIX H3: clamp displayed integer to never exceed actual score (prevents 99.6 showing as 100)
+    const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.min(Math.round(cur),Math.round(score)); if(cur>=score)clearInterval(t); }, 25);
   }
 
   function buildAuditFlagsHTML(flags) {
