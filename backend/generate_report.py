@@ -145,50 +145,27 @@ def cat_color(s):
 def _clean_text(raw: str) -> str:
     """
     Strip / replace all characters that reportlab Helvetica cannot render.
-
-    Covers:
-      - Crash verdict prefixes: [UNCALIBRATED]
-      - Coloured circle emoji (crash verdicts): 🟢 🟡 🟠 🔴
-      - Status/check emoji: ✓ ✅ ✗ ❌
-      - Info/data emoji: ℹ 📊 ⚠ 📈
-      - Greek letters used in validator output: α β
-      - Math/comparison symbols: ≥ ≤ → ×
-      - Any remaining non-Latin-1 characters (catch-all via encode/replace)
-
-    v6.2 additions: α and β appear in IR/Beta check values,
-    ≥ appears in insights, → appears in many value strings.
-    All must be replaced before passing to reportlab Helvetica.
+    Covers emoji, Greek letters, math symbols, and typographic punctuation.
     """
     v = raw or ""
-    # Strip [UNCALIBRATED] prefix
     v = v.replace("[UNCALIBRATED] ", "").replace("[UNCALIBRATED]", "")
-    # Coloured circle emoji (crash verdicts)
     for e in ("🟢", "🟡", "🟠", "🔴"):
         v = v.replace(e, "")
-    # Status/check emoji
     v = v.replace("✅", "PASS").replace("✓", "OK").replace("✗", "FAIL").replace("❌", "FAIL")
-    # Info/data/benchmark emoji
     v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:").replace("📈", "")
-    # Greek letters used in IR / Beta check output (v6.2 SPY benchmark)
     v = v.replace("α", "alpha").replace("β", "beta").replace("Δ", "delta")
-    # Math/statistical symbols used in validator value strings
     v = v.replace("≥", ">=").replace("≤", "<=").replace("≈", "~").replace("→", "->").replace("←", "<-")
     v = v.replace("×", "x").replace("÷", "/").replace("±", "+/-")
-    # Greek letters — σ appears in VaR check value/insight
     v = v.replace("σ", "sigma")
-    # Em dash and other typographic characters not in latin-1
     v = v.replace("—", " - ").replace("–", "-").replace("‒", "-")
-    v = v.replace("‘", "'").replace("’", "'")
-    v = v.replace("“", '"').replace("”", '"')
-    # Collapse any double spaces introduced by replacements
+    v = v.replace("\u2018", "'").replace("\u2019", "'")
+    v = v.replace("\u201c", '"').replace("\u201d", '"')
     while "  " in v:
         v = v.replace("  ", " ")
-    # Catch-all: strip any remaining non-Latin-1 characters
     v = v.encode("latin-1", errors="replace").decode("latin-1")
     return v.strip()
 
 
-# Keep backward-compat alias used in crash section
 def _clean_verdict(raw: str) -> str:
     return _clean_text(raw)
 
@@ -336,14 +313,13 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(summ_row)
             story.append(Spacer(1, 6*mm))
 
-    # ══ AUDIT TRAIL (regime note, SPY benchmark, verification flags) ══════════
+    # ══ AUDIT TRAIL ═══════════════════════════════════════════════════════════
     audit_flags = vr.get("audit_flags", [])
-    # Filter to meaningful flags only — skip empty strings and very long internal notes
     display_flags = [
         f for f in audit_flags
         if f and f.strip() and len(f.strip()) > 5
-        and not f.strip().startswith("   └")   # skip orphan sell sub-items
-    ][:8]  # cap at 8 to avoid bloat
+        and not f.strip().startswith("   └")
+    ][:8]
 
     if display_flags:
         story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
@@ -391,12 +367,12 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(Spacer(1, 4))
 
         for crash in crashes:
-            surv  = crash.get("survived", False)
-            drop  = crash.get("strategy_drop", 0) * 100
-            name  = crash.get("crash_name", "")
-            year  = crash.get("year", "")
-            mkt_d = crash.get("market_drop", 0)
-            desc  = crash.get("description", "")[:100]
+            surv    = crash.get("survived", False)
+            drop    = crash.get("strategy_drop", 0) * 100
+            name    = crash.get("crash_name", "")
+            year    = crash.get("year", "")
+            mkt_d   = crash.get("market_drop", 0)
+            desc    = crash.get("description", "")[:100]
             verdict = _clean_verdict(crash.get("emotional_verdict", ""))
 
             bg_row  = colors.HexColor("#EDF9F3") if surv else colors.HexColor("#FDF0EF")
@@ -441,7 +417,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         "Every check below was run against your specific strategy data. "
         "Red rows are institutional failures. Orange rows are warnings that won't disqualify "
         "you from retail trading but will at prop firm level. "
-        "The 'Score' column shows each check's individual contribution (0–100).",
+        "The 'Score' column shows each check's individual contribution (0-100).",
         S["body"]))
     story.append(Spacer(1, 4*mm))
 
@@ -460,14 +436,21 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     by_cat = {}
     for c in checks:
-        by_cat.setdefault(c.get("category", "Other"), []).append(c)
+        cat = c.get("category", "Other") if isinstance(c, dict) else getattr(c, "category", "Other")
+        by_cat.setdefault(cat, []).append(c)
+
+    def _get(obj, key, default=""):
+        """Get from dict or object attribute."""
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
 
     for cat in cat_order:
         cat_checks = by_cat.get(cat, [])
         if not cat_checks:
             continue
 
-        avg = sum(c.get("score", 0) for c in cat_checks) / len(cat_checks)
+        avg = sum(_get(c, "score", 0) for c in cat_checks) / len(cat_checks)
 
         cat_hdr = Table([[
             Paragraph(cat_labels.get(cat, cat.upper()),
@@ -490,14 +473,12 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(Spacer(1, 1))
 
         for chk in cat_checks:
-            passed  = chk.get("passed", False)
-            cscore  = float(chk.get("score", 0))
-            name    = chk.get("name", "")
-            # FIX MED: use _clean_text to strip ALL emoji variants, not just 6
-            # FIX LOW: increase truncation from 120 to 180 chars
-            value   = _clean_text(chk.get("value", ""))[:180]
-            insight = _clean_text(chk.get("insight", ""))
-            fix     = _clean_text(chk.get("fix", ""))
+            passed  = _get(chk, "passed", False)
+            cscore  = float(_get(chk, "score", 0))
+            name    = _get(chk, "name", "")
+            value   = _clean_text(str(_get(chk, "value", "")))[:180]
+            insight = _clean_text(str(_get(chk, "insight", "")))
+            fix     = _clean_text(str(_get(chk, "fix", "")))
 
             row_bg  = (colors.HexColor("#F0FBF5") if passed else
                        colors.HexColor("#FFF8EC") if cscore > 20 else
@@ -542,9 +523,8 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ AI PERSONALISED ANALYSIS ══════════════════════════════════════════════
     ai_plan = vr.get("ai_plan")
-    # FIX HIGH: ai_plan must be a dict — guard against string fallback from cached path
+    # Guard: ai_plan must be a dict — handle string fallback from older cache entries
     if ai_plan and not isinstance(ai_plan, dict):
-        # Plain string fallback — wrap it so downstream .get() calls don't crash
         ai_plan = {"summary": str(ai_plan), "fixes": [], "encouragement": ""}
 
     if ai_plan and isinstance(ai_plan, dict):
@@ -567,8 +547,8 @@ def generate_pdf_report(vr: dict) -> bytes:
                 check        = fix.get("check", "")
                 why          = fix.get("why_it_matters", "")
                 specific     = fix.get("specific_fix", "")
-                score_impact = fix.get("score_impact") or ""   # FIX LOW: guard None
-                effort       = fix.get("effort") or ""         # FIX LOW: guard None
+                score_impact = fix.get("score_impact") or ""
+                effort       = fix.get("effort") or ""
                 header       = f"#{rank} — {check}"
                 if score_impact: header += f"  |  {score_impact}"
                 if effort:       header += f"  |  Effort: {effort}"
@@ -584,37 +564,38 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(Spacer(1, 16))
 
     # ══ ACTION PLAN ═══════════════════════════════════════════════════════════
-    failed = [c for c in checks
-              if not c.get("passed", True) and c.get("category") != "Plausibility"]
-    if failed:
+    failed_checks = [c for c in checks
+                     if not _get(c, "passed", True) and _get(c, "category") != "Plausibility"]
+    if failed_checks:
         story.append(PageBreak())
         story.append(Paragraph("YOUR ACTION PLAN", S["h_section"]))
         story.append(Paragraph(
-            f"You have <b>{len(failed)} failed checks</b>. Below are the highest-priority fixes "
-            f"ranked by impact — fix the top items first.",
+            f"You have <b>{len(failed_checks)} failed checks</b>. Below are the highest-priority "
+            f"fixes ranked by impact — fix the top items first.",
             S["body"]))
         story.append(Spacer(1, 5*mm))
 
         priority = {"Overfitting": 1, "Compliance": 2, "Risk": 3,
                     "Execution": 4, "Regime": 5, "Plausibility": 9}
-        ranked = sorted(failed, key=lambda c: priority.get(c.get("category",""), 8))
+        ranked = sorted(failed_checks,
+                        key=lambda c: priority.get(_get(c, "category", ""), 8))
 
         for i, chk in enumerate(ranked[:10], 1):
-            cat       = chk.get("category", "")
-            badge_col = (C_DANGER if priority.get(cat,8) <= 2 else
-                         C_WARN   if priority.get(cat,8) <= 4 else C_LITE)
+            cat       = _get(chk, "category", "")
+            badge_col = (C_DANGER if priority.get(cat, 8) <= 2 else
+                         C_WARN   if priority.get(cat, 8) <= 4 else C_LITE)
             row = Table([[
                 Paragraph(str(i), _s("bnum", fontName="Helvetica-Bold",
                     fontSize=16, textColor=badge_col, alignment=TA_CENTER, leading=20)),
                 [
                     Paragraph(
-                        f"<b>{chk.get('name','')}</b>"
+                        f"<b>{_get(chk, 'name', '')}</b>"
                         f"<font color='#8E8E93' size=8>  {cat}</font>",
                         S["action_h"]),
                     Spacer(1, 4),
-                    Paragraph(_clean_text(chk.get("insight",""))[:220], S["action_b"]),
+                    Paragraph(_clean_text(str(_get(chk, "insight", "")))[:220], S["action_b"]),
                     Spacer(1, 4),
-                    Paragraph(f"<b>Fix:</b> {_clean_text(chk.get('fix',''))[:220]}",
+                    Paragraph(f"<b>Fix:</b> {_clean_text(str(_get(chk, 'fix', '')))[:220]}",
                         _s("act_fix", fontSize=9, leading=13,
                            textColor=C_ORANGE, fontName="Helvetica")),
                 ],
