@@ -64,7 +64,7 @@ class CheckResultResponse(BaseModel):
 
 class CrashSimResponse(BaseModel):
     crash_name: str
-    year: str
+   year: str
     description: str
     market_drop: float
     strategy_drop: float
@@ -104,7 +104,6 @@ class ValidationResponse(BaseModel):
     assumptions: List[str]
     dashboard: Optional[Dict[str, Any]]
     ai_plan: Optional[Dict[str, Any]]
-
 
 # ── Rate limiting (3 free validations / IP / day) ────────────────────────────
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
@@ -615,10 +614,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         )
 
     ticker_col = None
-    # NOTE: 'series' is excluded — it's a segment identifier (EQ/FO/CDS),
-    # not an instrument name. Using it as a ticker key buckets ALL equity
-    # trades under 'EQ' and ALL F&O trades under 'FO', breaking FIFO matching.
-    for candidate in ['tradingsymbol', 'symbol', 'instrument', 'scrip']:
+    for candidate in ['series', 'symbol', 'instrument', 'scrip', 'tradingsymbol']:
         if candidate in df.columns:
             ticker_col = candidate
             break
@@ -1464,6 +1460,16 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     return result, note, audit_flags
 
 
+
+# ── MT5 PnL Normalisation Helper ───────────────────────────
+def _normalise_pnl(net_profit, entry_price, volume, balance):
+    try:
+        denom = entry_price * volume
+        if denom is not None and abs(denom) > 1e-9:
+            return net_profit / denom
+        return None
+    except Exception:
+        return None
 # =========================================================
 # MT5 TRADE HISTORY PARSER
 # =========================================================
@@ -1810,20 +1816,17 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                 raw_vals = df[col].astype(str).str.replace("%", "", regex=False).str.strip()
                 vals = pd.to_numeric(raw_vals, errors="coerce").dropna()
                 if len(vals) >= 5:
-                    _was_divided = vals.abs().mean() > 1.0
-                    if _was_divided:
+                    if vals.abs().mean() > 1.0:
                         vals = vals / 100.0
                     # Detection threshold stays at 0.50 — dollar PnL detector
                     _clipped_pct = (vals.abs() > 0.50).mean()
                     # FIX: clip to ±0.99 to match validator guard (was ±0.50)
                     vals = vals.clip(-0.99, 0.99)
                     _dollar_pnl_warning = _clipped_pct > 0.50
-                    # HARD REJECT: only fires when values required /100 normalization
-                    # AND still have >80% clipping — meaning they were dollar amounts
-                    # (e.g. $450) not valid high-return decimals (e.g. 0.95 = 95% gain).
-                    # Without _was_divided gate: a valid 70-95% return strategy
-                    # (mean=0.85) would be incorrectly rejected as dollar amounts.
-                    if _was_divided and _clipped_pct > 0.80:
+                    # HARD REJECT: if >80% of values hit the ±0.99 ceiling after
+                    # divide-by-100 correction, the dataset is overwhelmingly dollar
+                    # amounts or already-broken data — reject to prevent silent wrong score
+                    if _clipped_pct > 0.80:
                         raise ValueError(
                             f"PnL values appear to be dollar amounts or raw prices, not decimal returns. "
                             f"{int(_clipped_pct*100)}% of values exceed ±50% per trade after normalisation. "
@@ -1860,8 +1863,6 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                         )
 
                     return result, regime_note
-    except ValueError:
-        raise
     except Exception:
         pass
 
@@ -1900,25 +1901,6 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         "No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column, "
         "or upload a Kite TradeBook, Kite Orders CSV, or Alpaca export."
     )
-
-
-def _dedup_trades(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Remove exact duplicate rows (same date + ticker + pnl) that arise when
-    a user uploads the same file twice or a broker export contains duplicate entries.
-    Only deduplicates on columns that are present — pnl is always checked.
-    """
-    if df.empty:
-        return df
-    key_cols = [c for c in ["date", "ticker", "pnl", "side"] if c in df.columns]
-    if not key_cols:
-        return df
-    before = len(df)
-    df = df.drop_duplicates(subset=key_cols).reset_index(drop=True)
-    removed = before - len(df)
-    if removed > 0:
-        print(f"[dedup] Removed {removed} duplicate trade row(s)")
-    return df
 
 
 # =========================================================
@@ -1970,7 +1952,6 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    df = _dedup_trades(df)
     if len(df) < 10:
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
@@ -2039,7 +2020,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     extra_flags = _spy_flags_first + ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + _spy_flags_rest + _options_flags + _mt5_flags
 
     _vr_cache = {
-        "fundable_score": min(100.0, round(r.score, 1)),
+        "fundable_score": r.score,
         "grade":          r.grade,
         "sharpe":         round(r.sharpe, 2),
         "max_drawdown":   round(r.max_drawdown, 4),
@@ -2064,14 +2045,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         grade=r.grade,
         summary=summary,
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=round(s.market_drop*100, 1),
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in r.crash_sims],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
         total_trades=r.total_trades,
         profitable_trades=r.profitable_trades,
         date_range=date_range,
@@ -2287,7 +2261,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             dashboard_data = None
 
         _vr_cache = {
-            "fundable_score": min(100.0, round(r.score, 1)), "grade": r.grade,
+            "fundable_score": r.score, "grade": r.grade,
             "sharpe": round(r.sharpe, 2), "max_drawdown": round(r.max_drawdown, 4),
             "win_rate": round(r.win_rate, 1), "total_trades": r.total_trades,
             "date_range": date_range, "is_verified": True,
@@ -2305,14 +2279,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         return ValidationResponse(
             fundable_score=min(100.0, round(r.score, 1)), grade=r.grade, summary=summary,
             checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-            crash_sims=[CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=round(s.market_drop*100, 1),
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in r.crash_sims],
+            crash_sims=[CrashSimResponse(**vars(s)) for s in r.crash_sims],
             total_trades=r.total_trades, profitable_trades=r.profitable_trades,
             date_range=date_range, sharpe=round(r.sharpe, 2),
             max_drawdown=round(r.max_drawdown, 4), win_rate=round(r.win_rate, 1),
@@ -2478,7 +2445,7 @@ async def generate_report_endpoint(
                 "category": c.category}
 
     vr = {
-        "fundable_score": min(100.0, round(report.score, 1)), "grade": report.grade,
+        "fundable_score": report.score, "grade": report.grade,
         "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
         "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
         "date_range": date_range,
@@ -2859,7 +2826,7 @@ async def generate_broker_report(
             pass
 
     vr = {
-        "fundable_score": min(100.0, round(report.score, 1)), "grade": report.grade,
+        "fundable_score": report.score, "grade": report.grade,
         "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
         "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
         "date_range": date_range, "is_verified": True,
@@ -3094,7 +3061,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                    "VERIFIED: Flex Web Service — read-only, credentials never stored"]
 
     _vr_cache = {
-        "fundable_score": min(100.0, round(report.score, 1)),
+        "fundable_score": report.score,
         "grade":          report.grade,
         "sharpe":         round(report.sharpe, 2),
         "max_drawdown":   round(report.max_drawdown, 4),
@@ -3126,9 +3093,10 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         fix=getattr(c, "fix", ""),
         category=getattr(c, "category", "")
     )
-    for c in scored
+    for c in visible_checks
 ],
-        crash_sims=[
+
+crash_sims=[
     CrashSimResponse(
         crash_name=getattr(s, "crash_name", ""),
         year=getattr(s, "year", 0),
@@ -3138,7 +3106,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         survived=getattr(s, "survived", False),
         emotional_verdict=getattr(s, "emotional_verdict", "")
     )
-    for s in report.crash_sims
+    for s in r.crash_sims
 ],
         total_trades=report.total_trades, profitable_trades=report.profitable_trades,
         date_range=date_range, sharpe=round(report.sharpe, 2),
@@ -3244,7 +3212,6 @@ async def validate_kite(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
-    df = _dedup_trades(df)
     if len(df) < 10:
         raise HTTPException(400, {
             "error": "insufficient_trades",
@@ -3301,14 +3268,7 @@ async def validate_kite(
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=round(s.market_drop*100, 1),
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in report.crash_sims],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
         total_trades=report.total_trades,
         profitable_trades=report.profitable_trades,
         date_range=date_range,
@@ -3680,14 +3640,7 @@ def validate_tv_alerts(session_id: str):
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=round(s.market_drop*100, 1),
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in report.crash_sims],
+        crash_sims=[CrashSimResponse(**vars(s)) for s in report.crash_sims],
         total_trades=report.total_trades,
         profitable_trades=report.profitable_trades,
         date_range=date_range,
