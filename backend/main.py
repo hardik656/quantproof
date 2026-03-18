@@ -2056,6 +2056,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
                         "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
         "top_issues":    top_issues,
         "top_strengths": top_strengths,
+        "audit_flags":   r.audit_flags + extra_flags,
     }
     _cache_validation(r.validation_hash, _vr_cache)
 
@@ -2299,6 +2300,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                             "strategy_drop":s.strategy_drop,"survived":s.survived,
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
             "top_issues": top_issues, "top_strengths": top_strengths,
+            "audit_flags": r.audit_flags + parse_flags + ([_spy_note] if _spy_note else []),
         }
         _cache_validation(r.validation_hash, _vr_cache)
 
@@ -2872,7 +2874,7 @@ async def generate_broker_report(
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
         "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
-        "parse_flags":   parse_flags,
+        "audit_flags":   report.audit_flags + parse_flags + ([_spy_note] if _spy_note else []),
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -3111,6 +3113,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
         "top_issues":    top_issues,
         "top_strengths": top_strengths,
+        "audit_flags":   report.audit_flags + extra_flags + audit_flags_ibkr,
     }
     _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
 
@@ -3720,4 +3723,3 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
