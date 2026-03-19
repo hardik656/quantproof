@@ -269,6 +269,7 @@ class ValidationReport:
     methodology_version: str = METHODOLOGY_DATE
     alpha_decay: Optional[AlphaDecayProfile] = None
     overfit_profile: Optional[OverfitProfile] = None
+    equity_curve: Optional[list] = None
 
 
 # Backward-compat stub
@@ -2205,6 +2206,7 @@ class QuantProofValidator:
                         category="Compliance"
                     )
 
+                
         crash_sims = [self.simulate_crash(k) for k in CRASH_PROFILES.keys()]
         score, grade = self._calculate_score(checks)
 
@@ -2230,6 +2232,12 @@ class QuantProofValidator:
                 category="Regime"
             ))
         r      = self.returns
+        # Build equity curve normalized to 100 — must be after r = self.returns
+        try:
+            _ec = np.cumprod(1 + r)
+            equity_curve_raw = [round(float(v), 4) for v in (_ec / _ec[0] * 100).tolist()]
+        except Exception:
+            equity_curve_raw = None
         sharpe = calculate_sharpe(r, self.trades_per_year)
         dd     = calculate_max_drawdown(r)
         wr     = calculate_win_rate(r)
@@ -2281,5 +2289,6 @@ class QuantProofValidator:
             audit_flags=self._generate_audit_flags(),
             plausibility_summary=self._generate_plausibility_summary(),
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
-            engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE)
+            engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
+            equity_curve=equity_curve_raw)
 
