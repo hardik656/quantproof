@@ -1,25 +1,28 @@
 /**
- * QuantProof Chart Layer v1.0
- * Drop this into index.html as a <script> tag after Chart.js CDN.
- * 
- * REQUIRES: Chart.js 4.x loaded before this script.
- * 
- * HOW TO INTEGRATE:
- *   1. Add to <head>:
- *      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
- *   2. Add this file as a <script src="quantproof-charts.js"></script> before closing </body>
- *   3. In renderResults(), call: QP_Charts.init(data) after section.classList.add('active')
- *   4. In resetApp(), call: QP_Charts.destroy()
- *   5. Add <div id="qp-chart-section"></div> in buildResultsHTML() where you want charts
- *      (recommended: between score-hero and result-tabs)
- * 
- * ZERO backend changes needed. All data derived from existing ValidationResponse.
+ * QuantProof Chart Layer v2.0
+ * Uses REAL equity_curve data from the validator.
+ *
+ * REQUIRED BACKEND CHANGES (add to validator.py + main.py):
+ *
+ * validator.py — In ValidationReport dataclass, add:
+ *   equity_curve: list = None
+ *
+ * validator.py — In QuantProofValidator.run(), before the return, add:
+ *   equity_curve_raw = [round(v, 4) for v in (np.cumprod(1 + r) / np.cumprod(1 + r)[0] * 100).tolist()]
+ *   ...and in ValidationReport(...): equity_curve=equity_curve_raw,
+ *
+ * main.py — In ValidationResponse Pydantic model, add:
+ *   equity_curve: Optional[List[float]] = None
+ *
+ * main.py — In every ValidationResponse(...) return, add:
+ *   equity_curve=report.equity_curve,
+ *
+ * index.html — 5 line changes (see bottom of this file for exact instructions)
  */
 
-const QP_Charts = (function() {
+const QP_Charts = (function () {
   'use strict';
 
-  // ── chart registry ──────────────────────────────────────────────────────
   const _charts = {};
 
   function _destroy(id) {
@@ -32,7 +35,6 @@ const QP_Charts = (function() {
     if (el) el.innerHTML = '';
   }
 
-  // ── color helpers ───────────────────────────────────────────────────────
   function scoreColor(s) {
     if (s >= 80) return '#00ff88';
     if (s >= 65) return '#00cc6e';
@@ -41,13 +43,9 @@ const QP_Charts = (function() {
     return '#ff4444';
   }
 
-  // ── synthetic equity curve from check scores + crash sims ──────────────
-  // We don't have raw trade returns, but we can build a plausible
-  // illustrative equity curve from the Sharpe + win_rate + drawdown
-  // the API returns, seeded to the validation_hash for reproducibility.
   function _seededRng(seed) {
     let s = seed;
-    return function() {
+    return function () {
       s = (s * 1664525 + 1013904223) & 0xffffffff;
       return (s >>> 0) / 0xffffffff;
     };
@@ -62,77 +60,75 @@ const QP_Charts = (function() {
     return Math.abs(h);
   }
 
+  // ── REAL equity curve from validator ─────────────────────────────────────
+  // Uses data.equity_curve (np.cumprod(1+r) normalized to 100, from validator.py)
+  // Falls back to synthetic only if backend not yet updated
   function buildEquityCurve(data) {
-    const n = Math.min(Math.max(data.total_trades, 40), 200);
+    if (data.equity_curve && data.equity_curve.length > 5) {
+      const equity = data.equity_curve;
+      let peak = equity[0];
+      const drawdown = equity.map(v => {
+        peak = Math.max(peak, v);
+        return +((v / peak - 1) * 100).toFixed(2);
+      });
+      return { equity, drawdown, n: equity.length, isReal: true };
+    }
+
+    // Fallback: synthetic
+    const n   = Math.min(Math.max(data.total_trades || 60, 40), 200);
     const rng = _seededRng(_hashToInt(data.validation_hash || 'qp'));
-
     const sharpe = data.sharpe || 1.0;
-    const wr = (data.win_rate || 55) / 100;
-    const maxDD = Math.abs(data.max_drawdown || 0.10);
-
-    // Calibrate synthetic returns to match reported metrics
-    const meanR = sharpe * 0.015 / Math.sqrt(252 / n);
-    const stdR  = meanR / (sharpe + 1e-9);
-
-    let equity = 100;
-    const equitySeries = [equity];
+    const meanR  = sharpe * 0.015 / Math.sqrt(252 / n);
+    const stdR   = meanR / (sharpe + 1e-9);
+    let equity   = 100;
+    const equitySeries   = [equity];
     const drawdownSeries = [0];
     let peak = equity;
-
     for (let i = 1; i < n; i++) {
       const u1 = Math.max(1e-10, rng());
       const u2 = Math.max(1e-10, rng());
-      // Box-Muller with slight positive skew for realistic equity curves
       let r = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-      r = r * stdR + meanR;
-      r = Math.max(-0.99, Math.min(0.99, r));
+      r = Math.max(-0.99, Math.min(0.99, r * stdR + meanR));
       equity *= (1 + r);
-      peak = Math.max(peak, equity);
-      const dd = (peak - equity) / peak * 100;
+      peak    = Math.max(peak, equity);
       equitySeries.push(+equity.toFixed(2));
-      drawdownSeries.push(-dd);
+      drawdownSeries.push(-((peak - equity) / peak * 100));
     }
-
-    return { equity: equitySeries, drawdown: drawdownSeries, n };
+    return { equity: equitySeries, drawdown: drawdownSeries, n, isReal: false };
   }
 
   function buildRollingSharpe(equitySeries, windowSize) {
-    const w = windowSize || Math.max(10, Math.floor(equitySeries.length / 8));
+    const w      = windowSize || Math.max(10, Math.floor(equitySeries.length / 8));
     const result = new Array(equitySeries.length).fill(null);
     for (let i = w; i < equitySeries.length; i++) {
-      const window = [];
+      const rets = [];
       for (let j = i - w; j < i; j++) {
-        window.push((equitySeries[j + 1] - equitySeries[j]) / equitySeries[j]);
+        rets.push((equitySeries[j + 1] - equitySeries[j]) / equitySeries[j]);
       }
-      const mean = window.reduce((a, b) => a + b, 0) / window.length;
-      const variance = window.reduce((a, b) => a + (b - mean) ** 2, 0) / (window.length - 1);
-      const std = Math.sqrt(variance);
-      result[i] = std < 1e-9 ? 0 : +(mean / std * Math.sqrt(252)).toFixed(3);
+      const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+      const std  = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / (rets.length - 1));
+      result[i]  = std < 1e-9 ? 0 : +(mean / std * Math.sqrt(252)).toFixed(3);
     }
     return result;
   }
 
   function buildMonteCarloPaths(equitySeries, nPaths, rng) {
-    const n = equitySeries.length;
+    const n       = equitySeries.length;
     const returns = [];
     for (let i = 1; i < n; i++) {
       returns.push((equitySeries[i] - equitySeries[i - 1]) / equitySeries[i - 1]);
     }
-    const paths = [];
-    for (let p = 0; p < nPaths; p++) {
-      let val = 100;
+    return Array.from({ length: nPaths }, () => {
+      let val    = 100;
       const path = [100];
       for (let i = 0; i < n - 1; i++) {
-        const idx = Math.floor(rng() * returns.length);
-        val *= (1 + returns[idx]);
+        val *= (1 + returns[Math.floor(rng() * returns.length)]);
         path.push(+val.toFixed(2));
       }
-      paths.push(path);
-    }
-    return paths;
+      return path;
+    });
   }
 
-  // ── chart defaults ──────────────────────────────────────────────────────
   const CHART_DEFAULTS = {
     responsive: true,
     maintainAspectRatio: false,
@@ -151,47 +147,37 @@ const QP_Charts = (function() {
     },
     scales: {
       x: {
-        grid:  { color: 'rgba(30,45,61,0.8)', drawTicks: false },
-        ticks: { font: { family: 'Space Mono, monospace', size: 9 }, color: '#2d4a5a', maxTicksLimit: 7, maxRotation: 0 },
-        border:{ color: '#1e2d3d' }
+        grid:   { color: 'rgba(30,45,61,0.8)', drawTicks: false },
+        ticks:  { font: { family: 'Space Mono, monospace', size: 9 }, color: '#2d4a5a', maxTicksLimit: 7, maxRotation: 0 },
+        border: { color: '#1e2d3d' }
       },
       y: {
-        grid:  { color: 'rgba(30,45,61,0.8)', drawTicks: false },
-        ticks: { font: { family: 'Space Mono, monospace', size: 9 }, color: '#2d4a5a' },
-        border:{ color: '#1e2d3d' }
+        grid:   { color: 'rgba(30,45,61,0.8)', drawTicks: false },
+        ticks:  { font: { family: 'Space Mono, monospace', size: 9 }, color: '#2d4a5a' },
+        border: { color: '#1e2d3d' }
       }
     }
   };
 
-  function _mergeDeep(target, source) {
-    const out = Object.assign({}, target);
-    for (const key of Object.keys(source)) {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        out[key] = _mergeDeep(target[key] || {}, source[key]);
-      } else {
-        out[key] = source[key];
-      }
+  function _merge(t, s) {
+    const o = Object.assign({}, t);
+    for (const k of Object.keys(s)) {
+      o[k] = (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k]))
+        ? _merge(t[k] || {}, s[k])
+        : s[k];
     }
-    return out;
+    return o;
   }
+  function chartOpts(ov) { return _merge(CHART_DEFAULTS, ov || {}); }
 
-  function chartOpts(overrides) {
-    return _mergeDeep(CHART_DEFAULTS, overrides || {});
-  }
-
-  // ── render equity chart ─────────────────────────────────────────────────
-  function renderEquityChart(canvasId, data, equitySeries) {
+  function renderEquityChart(canvasId, equitySeries) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    const n = equitySeries.length;
-    const labels = Array.from({ length: n }, (_, i) => `T${i + 1}`);
-
-    // gradient fill
+    const labels   = equitySeries.map((_, i) => `T${i + 1}`);
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, ctx.offsetHeight || 200);
     gradient.addColorStop(0, 'rgba(0,255,136,0.20)');
     gradient.addColorStop(1, 'rgba(0,255,136,0)');
-
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
@@ -212,30 +198,24 @@ const QP_Charts = (function() {
         plugins: {
           tooltip: {
             callbacks: {
-              title: (items) => `Trade ${items[0].label.replace('T', '')}`,
-              label: (item) => ` Equity: ${item.parsed.y.toFixed(1)}`
+              title: items => `Trade ${items[0].label.replace('T', '')}`,
+              label: item  => ` Equity: ${item.parsed.y.toFixed(2)}`
             }
           }
         },
-        scales: {
-          y: { ticks: { callback: (v) => v.toFixed(0) } }
-        }
+        scales: { y: { ticks: { callback: v => v.toFixed(0) } } }
       })
     });
   }
 
-  // ── render drawdown chart ───────────────────────────────────────────────
   function renderDrawdownChart(canvasId, drawdownSeries) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    const n = drawdownSeries.length;
-    const labels = Array.from({ length: n }, (_, i) => `T${i + 1}`);
-
+    const labels   = drawdownSeries.map((_, i) => `T${i + 1}`);
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, ctx.offsetHeight || 120);
     gradient.addColorStop(0, 'rgba(255,68,68,0)');
     gradient.addColorStop(1, 'rgba(255,68,68,0.20)');
-
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
@@ -251,144 +231,78 @@ const QP_Charts = (function() {
         }]
       },
       options: chartOpts({
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: (item) => ` DD: ${item.parsed.y.toFixed(1)}%`
-            }
-          }
-        },
-        scales: {
-          y: { ticks: { callback: (v) => `${v.toFixed(0)}%` }, reverse: false }
-        }
+        plugins: { tooltip: { callbacks: { label: item => ` DD: ${item.parsed.y.toFixed(2)}%` } } },
+        scales:  { y: { ticks: { callback: v => `${v.toFixed(0)}%` } } }
       })
     });
   }
 
-  // ── render rolling sharpe chart ─────────────────────────────────────────
   function renderRollingSharpeChart(canvasId, rollingSharpe, reportedSharpe) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    const n = rollingSharpe.length;
-    const labels = Array.from({ length: n }, (_, i) => `T${i + 1}`);
-
+    const n      = rollingSharpe.length;
+    const labels = rollingSharpe.map((_, i) => `T${i + 1}`);
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
         labels,
         datasets: [
-          {
-            data: rollingSharpe,
-            borderColor: '#ffaa00',
-            borderWidth: 1.5,
-            fill: false,
-            tension: 0.35,
-            pointRadius: 0,
-            spanGaps: true,
-          },
-          {
-            // Threshold line at 1.0
-            data: Array(n).fill(1.0),
-            borderColor: 'rgba(255,68,68,0.4)',
-            borderWidth: 1,
-            borderDash: [4, 4],
-            fill: false,
-            pointRadius: 0,
-            tension: 0,
-          },
-          {
-            // Reported Sharpe reference
-            data: Array(n).fill(reportedSharpe),
-            borderColor: 'rgba(0,255,136,0.3)',
-            borderWidth: 1,
-            borderDash: [2, 4],
-            fill: false,
-            pointRadius: 0,
-            tension: 0,
-          }
+          { data: rollingSharpe, borderColor: '#ffaa00', borderWidth: 1.5, fill: false, tension: 0.35, pointRadius: 0, spanGaps: true },
+          { data: Array(n).fill(1.0), borderColor: 'rgba(255,68,68,0.4)', borderWidth: 1, borderDash: [4, 4], fill: false, pointRadius: 0, tension: 0 },
+          { data: Array(n).fill(reportedSharpe), borderColor: 'rgba(0,255,136,0.3)', borderWidth: 1, borderDash: [2, 4], fill: false, pointRadius: 0, tension: 0 },
         ]
       },
       options: chartOpts({
         plugins: {
           tooltip: {
-            filter: (item) => item.datasetIndex === 0,
-            callbacks: {
-              label: (item) => item.parsed.y != null ? ` Rolling SR: ${item.parsed.y.toFixed(2)}` : ''
-            }
+            filter: item => item.datasetIndex === 0,
+            callbacks: { label: item => item.parsed.y != null ? ` Rolling SR: ${item.parsed.y.toFixed(2)}` : '' }
           }
         },
-        scales: {
-          y: { ticks: { callback: (v) => v.toFixed(1) } }
-        }
+        scales: { y: { ticks: { callback: v => v.toFixed(1) } } }
       })
     });
   }
 
-  // ── render monte carlo chart ────────────────────────────────────────────
   function renderMonteCarloChart(canvasId, actualPath, mcPaths) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    const n = actualPath.length;
-    const labels = Array.from({ length: n }, (_, i) => `T${i + 1}`);
-
-    const pathDatasets = mcPaths.map(path => ({
-      data: path,
-      borderColor: 'rgba(0,255,136,0.06)',
-      borderWidth: 1,
-      fill: false,
-      tension: 0.3,
-      pointRadius: 0,
-    }));
-
+    const labels = actualPath.map((_, i) => `T${i + 1}`);
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
         labels,
         datasets: [
-          ...pathDatasets,
-          {
-            data: actualPath,
-            borderColor: '#00ff88',
-            borderWidth: 2.5,
-            fill: false,
-            tension: 0.35,
-            pointRadius: 0,
-            label: 'Actual'
-          }
+          ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.06)', borderWidth: 1, fill: false, tension: 0.3, pointRadius: 0 })),
+          { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
         ]
       },
       options: chartOpts({
         plugins: {
           tooltip: {
-            filter: (item) => item.datasetIndex === mcPaths.length,
-            callbacks: {
-              label: (item) => ` Equity: ${item.parsed.y.toFixed(1)}`
-            }
+            filter: item => item.datasetIndex === mcPaths.length,
+            callbacks: { label: item => ` Equity: ${item.parsed.y.toFixed(2)}` }
           }
         }
       })
     });
   }
 
-  // ── render category radar ───────────────────────────────────────────────
   function renderCategoryRadar(canvasId, checks) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-
-    const categories = ['Overfitting', 'Risk', 'Regime', 'Execution', 'Compliance'];
-    const scores = categories.map(cat => {
-      const catChecks = checks.filter(c => c.category === cat);
-      if (!catChecks.length) return 0;
-      return Math.round(catChecks.reduce((a, c) => a + c.score, 0) / catChecks.length);
+    const cats   = ['Overfitting', 'Risk', 'Regime', 'Execution', 'Compliance'];
+    const scores = cats.map(cat => {
+      const cc = checks.filter(c => c.category === cat);
+      return cc.length ? Math.round(cc.reduce((a, c) => a + c.score, 0) / cc.length) : 0;
     });
-
     _charts[canvasId] = new Chart(ctx, {
       type: 'radar',
       data: {
-        labels: categories,
+        labels: cats,
         datasets: [{
           data: scores,
           borderColor: '#00ff88',
@@ -401,268 +315,98 @@ const QP_Charts = (function() {
         }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         animation: { duration: 800, easing: 'easeOutQuart' },
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#0d1117',
-            borderColor: '#1e2d3d',
-            borderWidth: 1,
-            bodyFont: { family: 'Space Mono, monospace', size: 10 },
-            bodyColor: '#e8edf2',
-            callbacks: {
-              label: (item) => ` ${item.label}: ${item.parsed.r}/100`
-            }
+            backgroundColor: '#0d1117', borderColor: '#1e2d3d', borderWidth: 1,
+            bodyFont: { family: 'Space Mono, monospace', size: 10 }, bodyColor: '#e8edf2',
+            callbacks: { label: item => ` ${item.label}: ${item.parsed.r}/100` }
           }
         },
         scales: {
           r: {
             min: 0, max: 100,
-            grid:      { color: 'rgba(30,45,61,0.8)' },
-            angleLines:{ color: 'rgba(30,45,61,0.6)' },
-            pointLabels: {
-              font:  { family: 'Space Mono, monospace', size: 10 },
-              color: '#5a7a8a',
-            },
-            ticks: {
-              display: false,
-              stepSize: 25,
-              backdropColor: 'transparent',
-            }
+            grid: { color: 'rgba(30,45,61,0.8)' }, angleLines: { color: 'rgba(30,45,61,0.6)' },
+            pointLabels: { font: { family: 'Space Mono, monospace', size: 10 }, color: '#5a7a8a' },
+            ticks: { display: false, stepSize: 25, backdropColor: 'transparent' }
           }
         }
       }
     });
   }
 
-  // ── render crash bar chart ──────────────────────────────────────────────
   function renderCrashBars(canvasId, crashSims) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-
-    const labels = crashSims.map(s => s.year.split('–')[0].split(' ').slice(-1)[0]);
-    const marketDrops  = crashSims.map(s => s.market_drop);
-    const stratDrops   = crashSims.map(s => +(s.strategy_drop * 100).toFixed(1));
-
+    const labels      = crashSims.map(s => s.year.split('–')[0].split(' ').slice(-1)[0]);
+    const marketDrops = crashSims.map(s => s.market_drop);
+    const stratDrops  = crashSims.map(s => +(s.strategy_drop * 100).toFixed(1));
     _charts[canvasId] = new Chart(ctx, {
       type: 'bar',
       data: {
         labels,
         datasets: [
-          {
-            label: 'Market',
-            data: marketDrops,
-            backgroundColor: 'rgba(255,68,68,0.5)',
-            borderColor: '#ff4444',
-            borderWidth: 1,
-            borderRadius: 2,
-          },
+          { label: 'Market', data: marketDrops, backgroundColor: 'rgba(255,68,68,0.5)', borderColor: '#ff4444', borderWidth: 1, borderRadius: 2 },
           {
             label: 'Your Strategy',
             data: stratDrops,
             backgroundColor: stratDrops.map(v => v >= 0 ? 'rgba(0,255,136,0.5)' : 'rgba(255,170,0,0.5)'),
-            borderColor: stratDrops.map(v => v >= 0 ? '#00ff88' : '#ffaa00'),
-            borderWidth: 1,
-            borderRadius: 2,
+            borderColor:     stratDrops.map(v => v >= 0 ? '#00ff88' : '#ffaa00'),
+            borderWidth: 1, borderRadius: 2
           }
         ]
       },
       options: chartOpts({
         plugins: {
-          legend: {
-            display: true,
-            labels: {
-              font: { family: 'Space Mono, monospace', size: 10 },
-              color: '#5a7a8a',
-              boxWidth: 12,
-              padding: 12,
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: (item) => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)}%`
-            }
-          }
+          legend: { display: true, labels: { font: { family: 'Space Mono, monospace', size: 10 }, color: '#5a7a8a', boxWidth: 12, padding: 12 } },
+          tooltip: { callbacks: { label: item => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)}%` } }
         },
-        scales: {
-          y: { ticks: { callback: (v) => `${v}%` } }
-        }
+        scales: { y: { ticks: { callback: v => `${v}%` } } }
       })
     });
   }
 
-  // ── build HTML skeleton ─────────────────────────────────────────────────
-  function buildHTML(data) {
-    const sc = scoreColor(data.fundable_score);
-    return `
-<div id="qp-chart-section" style="margin-bottom:32px;">
-
-  <!-- Chart Tabs -->
-  <div style="display:flex;gap:0;border-bottom:1px solid #1e2d3d;margin-bottom:24px;overflow-x:auto;">
-    ${[
-      ['equity',    '// Equity Curve'],
-      ['drawdown',  '// Drawdown'],
-      ['rolling',   '// Rolling Sharpe'],
-      ['montecarlo','// Monte Carlo'],
-      ['radar',     '// Category Radar'],
-      ['crash',     '// Crash vs Market'],
-    ].map(([id, label], i) => `
-      <button
-        class="qp-chart-tab${i === 0 ? ' qp-chart-tab-active' : ''}"
-        data-chart="${id}"
-        onclick="QP_Charts.switchTab('${id}')"
-        style="
-          font-family:Space Mono,monospace;font-size:10px;letter-spacing:0.08em;
-          padding:8px 16px;cursor:pointer;background:transparent;border:none;
-          border-bottom:2px solid ${i === 0 ? 'var(--accent,#00ff88)' : 'transparent'};
-          color:${i === 0 ? 'var(--accent,#00ff88)' : '#5a7a8a'};
-          white-space:nowrap;transition:all 0.15s;
-        "
-      >${label}</button>
-    `).join('')}
-  </div>
-
-  <!-- Chart Panels -->
-  <div style="background:#0d1117;border:1px solid #1e2d3d;padding:20px 24px;">
-
-    <div id="qp-panel-equity" style="position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
-          Equity Curve
-          <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// illustrative — derived from Sharpe ${data.sharpe}</span>
-        </div>
-        <div style="display:flex;gap:16px;">
-          <div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;">
-            Sharpe&nbsp;<span style="color:${sc};font-weight:700;">${data.sharpe}</span>
-          </div>
-          <div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;">
-            WR&nbsp;<span style="color:${sc};font-weight:700;">${data.win_rate}%</span>
-          </div>
-        </div>
-      </div>
-      <div style="height:220px;"><canvas id="qp-canvas-equity"></canvas></div>
-    </div>
-
-    <div id="qp-panel-drawdown" style="display:none;position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
-          Drawdown Profile
-          <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// max DD: ${(data.max_drawdown * 100).toFixed(1)}%</span>
-        </div>
-        <div style="font-family:Space Mono,monospace;font-size:10px;">
-          <span style="color:#ff4444;font-weight:700;">${(data.max_drawdown * 100).toFixed(1)}%</span>
-          <span style="color:#5a7a8a;"> max drawdown</span>
-        </div>
-      </div>
-      <div style="height:180px;"><canvas id="qp-canvas-drawdown"></canvas></div>
-    </div>
-
-    <div id="qp-panel-rolling" style="display:none;position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
-          Rolling Sharpe
-          <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// 90-period window</span>
-        </div>
-        <div style="display:flex;gap:12px;font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;">
-          <span style="color:#ffaa00;">— Rolling</span>
-          <span style="color:rgba(255,68,68,0.6);">— Threshold 1.0</span>
-          <span style="color:rgba(0,255,136,0.5);">— Reported</span>
-        </div>
-      </div>
-      <div style="height:180px;"><canvas id="qp-canvas-rolling"></canvas></div>
-    </div>
-
-    <div id="qp-panel-montecarlo" style="display:none;position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
-          Monte Carlo — 50 paths
-          <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// bootstrap resampling</span>
-        </div>
-        <div style="font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;">
-          <span style="color:#00ff88;">— Actual path</span>
-        </div>
-      </div>
-      <div style="height:220px;"><canvas id="qp-canvas-montecarlo"></canvas></div>
-    </div>
-
-    <div id="qp-panel-radar" style="display:none;position:relative;">
-      <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;margin-bottom:16px;">
-        Category Breakdown
-        <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// 5 weighted categories</span>
-      </div>
-      <div style="height:260px;max-width:340px;margin:0 auto;"><canvas id="qp-canvas-radar"></canvas></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;" id="qp-radar-legend"></div>
-    </div>
-
-    <div id="qp-panel-crash" style="display:none;position:relative;">
-      <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;margin-bottom:16px;">
-        Your Strategy vs Historical Crashes
-        <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// crash exposure comparison</span>
-      </div>
-      <div style="height:220px;"><canvas id="qp-canvas-crash"></canvas></div>
-    </div>
-
-  </div>
-
-</div>`;
-  }
-
-  // ── render radar legend ─────────────────────────────────────────────────
   function renderRadarLegend(checks) {
-    const categories = ['Overfitting', 'Risk', 'Regime', 'Execution', 'Compliance'];
-    const weights    = { Overfitting: 22, Risk: 38, Regime: 14, Execution: 11, Compliance: 15 };
     const el = document.getElementById('qp-radar-legend');
     if (!el) return;
-
-    el.innerHTML = categories.map(cat => {
-      const catChecks = checks.filter(c => c.category === cat);
-      const score = catChecks.length
-        ? Math.round(catChecks.reduce((a, c) => a + c.score, 0) / catChecks.length)
-        : 0;
-      const col = scoreColor(score);
-      const passed = catChecks.filter(c => c.passed).length;
-      const total  = catChecks.length;
+    const cats    = ['Overfitting', 'Risk', 'Regime', 'Execution', 'Compliance'];
+    const weights = { Overfitting: 22, Risk: 38, Regime: 14, Execution: 11, Compliance: 15 };
+    el.innerHTML = cats.map(cat => {
+      const cc     = checks.filter(c => c.category === cat);
+      const score  = cc.length ? Math.round(cc.reduce((a, c) => a + c.score, 0) / cc.length) : 0;
+      const passed = cc.filter(c => c.passed).length;
+      const col    = scoreColor(score);
       return `
         <div style="background:#131920;border:1px solid #1e2d3d;padding:10px 12px;">
-          <div style="font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;margin-bottom:4px;letter-spacing:0.06em;">
-            ${cat.toUpperCase()} · ${weights[cat]}%
-          </div>
+          <div style="font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;margin-bottom:4px;letter-spacing:0.06em;">${cat.toUpperCase()} · ${weights[cat]}%</div>
           <div style="font-family:Space Mono,monospace;font-size:18px;font-weight:700;color:${col};line-height:1;">${score}</div>
-          <div style="font-family:Space Mono,monospace;font-size:9px;color:#2d4a5a;margin-top:3px;">${passed}/${total} pass</div>
+          <div style="font-family:Space Mono,monospace;font-size:9px;color:#2d4a5a;margin-top:3px;">${passed}/${cc.length} pass</div>
         </div>`;
     }).join('');
   }
 
-  // ── switch tab ──────────────────────────────────────────────────────────
   function switchTab(id) {
-    const panels = ['equity','drawdown','rolling','montecarlo','radar','crash'];
-    panels.forEach(p => {
-      const panel = document.getElementById(`qp-panel-${p}`);
-      if (panel) panel.style.display = p === id ? '' : 'none';
+    ['equity', 'drawdown', 'rolling', 'montecarlo', 'radar', 'crash'].forEach(p => {
+      const el = document.getElementById(`qp-panel-${p}`);
+      if (el) el.style.display = p === id ? '' : 'none';
     });
-
     document.querySelectorAll('.qp-chart-tab').forEach(btn => {
-      const isActive = btn.dataset.chart === id;
-      btn.style.borderBottomColor = isActive ? 'var(--accent,#00ff88)' : 'transparent';
-      btn.style.color = isActive ? 'var(--accent,#00ff88)' : '#5a7a8a';
+      const active = btn.dataset.chart === id;
+      btn.style.borderBottomColor = active ? 'var(--accent,#00ff88)' : 'transparent';
+      btn.style.color = active ? 'var(--accent,#00ff88)' : '#5a7a8a';
     });
-
-    // Lazy render charts on first switch
-    if (!_charts[`qp-canvas-${id}`]) {
-      _lazyRender(id);
-    }
+    if (!_charts[`qp-canvas-${id}`]) _lazyRender(id);
   }
 
-  const _lazyData = {};
+  const _store = {};
 
   function _lazyRender(id) {
-    if (!_lazyData.equity) return;
-    const { equity, drawdown, rolling, mc, checks, crashSims, reportedSharpe, rng } = _lazyData;
-
-    if (id === 'equity')      renderEquityChart('qp-canvas-equity', {}, equity);
+    if (!_store.equity) return;
+    const { equity, drawdown, rolling, mc, checks, crashSims, reportedSharpe } = _store;
+    if (id === 'equity')      renderEquityChart('qp-canvas-equity', equity);
     if (id === 'drawdown')    renderDrawdownChart('qp-canvas-drawdown', drawdown);
     if (id === 'rolling')     renderRollingSharpeChart('qp-canvas-rolling', rolling, reportedSharpe);
     if (id === 'montecarlo')  renderMonteCarloChart('qp-canvas-montecarlo', equity, mc);
@@ -670,40 +414,138 @@ const QP_Charts = (function() {
     if (id === 'crash')       renderCrashBars('qp-canvas-crash', crashSims);
   }
 
-  // ── main init ───────────────────────────────────────────────────────────
-  function init(data) {
-    const target = document.getElementById('qp-chart-section');
-    if (!target) {
-      console.warn('[QP_Charts] #qp-chart-section not found in DOM. Did you add it to buildResultsHTML()?');
-      return;
-    }
+  function _buildHTML(data, isReal) {
+    const sc        = scoreColor(data.fundable_score);
+    const curveNote = isReal ? '// actual trade-by-trade equity curve' : `// illustrative — derived from Sharpe ${data.sharpe}`;
+    const mcNote    = isReal ? '// resampled from actual returns' : '// resampled from synthetic returns';
+    const tabs = [
+      ['equity', '// Equity Curve'], ['drawdown', '// Drawdown'],
+      ['rolling', '// Rolling Sharpe'], ['montecarlo', '// Monte Carlo'],
+      ['radar', '// Category Radar'], ['crash', '// Crash vs Market'],
+    ];
+    return `
+<div id="qp-chart-section" style="margin-bottom:32px;">
+  <div style="display:flex;gap:0;border-bottom:1px solid #1e2d3d;margin-bottom:24px;overflow-x:auto;">
+    ${tabs.map(([id, label], i) => `
+      <button class="qp-chart-tab" data-chart="${id}" onclick="QP_Charts.switchTab('${id}')"
+        style="font-family:Space Mono,monospace;font-size:10px;letter-spacing:0.08em;
+               padding:8px 16px;cursor:pointer;background:transparent;border:none;
+               border-bottom:2px solid ${i === 0 ? 'var(--accent,#00ff88)' : 'transparent'};
+               color:${i === 0 ? 'var(--accent,#00ff88)' : '#5a7a8a'};white-space:nowrap;transition:all 0.15s;">
+        ${label}</button>`).join('')}
+  </div>
+  <div style="background:#0d1117;border:1px solid #1e2d3d;padding:20px 24px;">
 
-    // Build synthetic curve
-    const { equity, drawdown, n } = buildEquityCurve(data);
-    const rolling = buildRollingSharpe(equity);
-    const rng = _seededRng(_hashToInt(data.validation_hash || 'mc') + 1);
-    const mc  = buildMonteCarloPaths(equity, 50, rng);
+    <div id="qp-panel-equity">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
+          Equity Curve <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">${curveNote}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;">
+          <span>Sharpe&nbsp;<b style="color:${sc}">${data.sharpe}</b></span>
+          <span>WR&nbsp;<b style="color:${sc}">${data.win_rate}%</b></span>
+          <span>Trades&nbsp;<b style="color:${sc}">${data.total_trades}</b></span>
+        </div>
+      </div>
+      <div style="height:220px;"><canvas id="qp-canvas-equity"></canvas></div>
+    </div>
 
-    // Store for lazy rendering
-    _lazyData.equity       = equity;
-    _lazyData.drawdown     = drawdown;
-    _lazyData.rolling      = rolling;
-    _lazyData.mc           = mc;
-    _lazyData.checks       = data.checks || [];
-    _lazyData.crashSims    = data.crash_sims || [];
-    _lazyData.reportedSharpe = data.sharpe || 1;
-    _lazyData.rng          = rng;
+    <div id="qp-panel-drawdown" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
+          Drawdown Profile <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// max DD: ${(data.max_drawdown * 100).toFixed(1)}%</span>
+        </div>
+        <span style="font-family:Space Mono,monospace;font-size:10px;color:#ff4444;font-weight:700;">${(data.max_drawdown * 100).toFixed(1)}% max drawdown</span>
+      </div>
+      <div style="height:180px;"><canvas id="qp-canvas-drawdown"></canvas></div>
+    </div>
 
-    // Inject HTML
-    target.innerHTML = buildHTML(data);
+    <div id="qp-panel-rolling" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
+          Rolling Sharpe <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// 90-trade window</span>
+        </div>
+        <div style="display:flex;gap:12px;font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;">
+          <span style="color:#ffaa00;">— Rolling</span>
+          <span style="color:rgba(255,68,68,0.6);">— Min 1.0</span>
+          <span style="color:rgba(0,255,136,0.5);">— Reported ${data.sharpe}</span>
+        </div>
+      </div>
+      <div style="height:180px;"><canvas id="qp-canvas-rolling"></canvas></div>
+    </div>
 
-    // Render initial tab (equity)
-    setTimeout(() => {
-      renderEquityChart('qp-canvas-equity', data, equity);
-    }, 100);
+    <div id="qp-panel-montecarlo" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
+          Monte Carlo — 50 bootstrap paths <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">${mcNote}</span>
+        </div>
+        <span style="font-family:Space Mono,monospace;font-size:9px;color:#00ff88;">— Actual path</span>
+      </div>
+      <div style="height:220px;"><canvas id="qp-canvas-montecarlo"></canvas></div>
+    </div>
+
+    <div id="qp-panel-radar" style="display:none;">
+      <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;margin-bottom:16px;">
+        Category Breakdown <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// scores directly from validator</span>
+      </div>
+      <div style="height:260px;max-width:340px;margin:0 auto;"><canvas id="qp-canvas-radar"></canvas></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;" id="qp-radar-legend"></div>
+    </div>
+
+    <div id="qp-panel-crash" style="display:none;">
+      <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;margin-bottom:16px;">
+        Your Strategy vs Historical Crashes <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// from validator crash simulations</span>
+      </div>
+      <div style="height:220px;"><canvas id="qp-canvas-crash"></canvas></div>
+    </div>
+
+  </div>
+</div>`;
   }
 
-  // ── public API ──────────────────────────────────────────────────────────
+  function init(data) {
+    const target = document.getElementById('qp-chart-section');
+    if (!target) return;
+
+    const { equity, drawdown, n, isReal } = buildEquityCurve(data);
+    const rolling = buildRollingSharpe(equity);
+    const rng     = _seededRng(_hashToInt(data.validation_hash || 'mc') + 1);
+    const mc      = buildMonteCarloPaths(equity, 50, rng);
+
+    _store.equity         = equity;
+    _store.drawdown       = drawdown;
+    _store.rolling        = rolling;
+    _store.mc             = mc;
+    _store.checks         = data.checks || [];
+    _store.crashSims      = data.crash_sims || [];
+    _store.reportedSharpe = data.sharpe || 1;
+
+    target.innerHTML = _buildHTML(data, isReal);
+    setTimeout(() => renderEquityChart('qp-canvas-equity', equity), 100);
+  }
+
   return { init, destroy, switchTab };
 
 })();
+
+/*
+ * ─────────────────────────────────────────────────────────────────
+ * index.html — 5 exact changes (Windsurf / manual)
+ * ─────────────────────────────────────────────────────────────────
+ *
+ * 1. In <head>, after the Google Fonts <link> tag:
+ *    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+ *
+ * 2. In buildResultsHTML(), directly before <div class="result-tabs">:
+ *    <div id="qp-chart-section"></div>
+ *
+ * 3. In renderResults(), after the second section.classList.add('active');:
+ *    setTimeout(() => { if(typeof QP_Charts !== 'undefined') QP_Charts.init(data); }, 50);
+ *
+ * 4. In resetApp(), after document.getElementById('resultsSection').innerHTML = '';:
+ *    if(typeof QP_Charts !== 'undefined') QP_Charts.destroy();
+ *
+ * 5. Just before </body>:
+ *    <script src="quantproof-charts.js"></script>
+ * ─────────────────────────────────────────────────────────────────
+ */
