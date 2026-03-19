@@ -10,6 +10,4 @@ reportlab
 httpx
 razorpay
 yfinance
-statsmodels
-hmmlearn
-yfinance
+
