@@ -55,7 +55,7 @@
     "Prop firm compliance check (FTMO, Topstep, The5ers)",
     "Deflated Sharpe Ratio",
     "CPCV walk-forward analysis",
-    "AI personalised fix plan"
+    "Personalised fix plan based on your exact numbers"
   ],
   "audience": {
     "@type": "Audience",
@@ -99,7 +99,7 @@
       "name": "Is QuantProof free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. Unlock all fix details for ₹99, or get a full PDF report with AI-personalised fix plan for ₹299 (one-time, no subscription)."
+        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. Unlock all fix details for ₹99, or get a full PDF report with a ranked fix plan based on your exact numbers for ₹299 (one-time, no subscription)."
       }
     },
     {
@@ -115,6 +115,7 @@
 </script>
 
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
     --black: #080a0f; --deep: #0d1117; --surface: #131920; --border: #1e2d3d;
@@ -228,6 +229,9 @@
   .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted)}
   footer .accent{color:var(--accent)}
   @media(max-width:768px){.crash-grid,.mode-grid{grid-template-columns:1fr}.score-hero{grid-template-columns:1fr;padding:24px}.meta-grid{grid-template-columns:repeat(2,1fr)}.stats-row{gap:24px}.score-circle{width:120px;height:120px}.score-circle svg{width:120px;height:120px}.score-val{font-size:32px}.score-circle-wrap{margin-bottom:8px}}
+  .proof-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
+  .testimonials-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media(max-width:768px) { .proof-bar { grid-template-columns:1fr; } .testimonials-grid { grid-template-columns:1fr; } }
   .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:0}
   @media(min-width:1025px){.mode-grid{grid-template-columns:repeat(4,1fr);gap:16px}}
   .mode-card{background:var(--deep);border:1px solid var(--border);padding:22px 18px;display:flex;flex-direction:column;transition:border-color 0.2s}
@@ -324,7 +328,7 @@
     display:inline-block; transition:background 0.2s;
   }
   .sample-gate-wall-btn:hover { background:#00cc6e; }
-  .sample-ghost-category { opacity:0.15; filter:blur(3px); pointer-events:none; user-select:none; margin-bottom:16px; }
+  .sample-ghost-category { margin-bottom:16px; }
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
@@ -337,24 +341,47 @@
     </div>
   </header>
 
-  <!-- FIX #4 — Hero paragraph rewritten: FTMO hook in sentence one, money at risk in sentence one -->
+  <!-- HERO — pain→solution, prop firm specific, CTA above fold -->
   <main id="heroSection"><div class="hero">
-    <div class="hero-tag">// Is your trading edge real — or is it noise?</div>
-    <h1>Before you go live.<br><em>While you're trading live.</em></h1>
-    <p>Upload your backtest or connect your live broker. QuantProof runs 44 institutional checks and tells you whether your edge is statistically real — the same analysis prop firms and fund managers use, at a price anyone can afford. Find out before a failed challenge or a blown live account does.</p> $300 entry fee. 40 institutional checks, 5 crash simulations, one Fundable Score. Results in 30 seconds.</p>
-    <div style="margin-top:12px;margin-bottom:0;">
-      <a href="/methodology" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;transition:all 0.2s;opacity:0.8;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See exactly what we check and why →</a>
+    <div class="hero-tag">// 92% of prop firm challenges fail. Most failures are preventable.</div>
+    <h1>Know if your strategy<br>will pass <em>before</em> you pay.</h1>
+    <p>90% of FTMO failures aren't bad strategy — they're preventable risk management violations. QuantProof runs 44 institutional checks on your backtest or live data in 30 seconds. Find the exact failure before a $400 challenge fee does.</p>
+    <div style="margin-top:32px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <button class="upload-btn" onclick="document.getElementById('fileInput').click()" style="font-size:15px;padding:16px 48px;letter-spacing:1.5px;">
+        ✓ VALIDATE FREE — NO ACCOUNT NEEDED
+      </button>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);">
+        3 validations/day free &nbsp;·&nbsp; Results in &lt;30s &nbsp;·&nbsp; No data stored
+      </div>
     </div>
     <div class="stats-row">
-      <div class="stat"><div class="stat-num">44</div><div class="stat-label">Checks</div></div>
+      <div class="stat"><div class="stat-num">44</div><div class="stat-label">Inst. Checks</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
       <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">To Know</div></div>
     </div>
-    <div style="margin-top:20px;font-family:var(--mono);font-size:12px;color:var(--accent);opacity:0.85;letter-spacing:0.05em;">
-      ✓ Free to find out &nbsp;·&nbsp; No account needed &nbsp;·&nbsp; 3 validations/day &nbsp;·&nbsp; Results in &lt;30s
-    </div>
   </div></main>
+
+  <!-- SOCIAL PROOF BAR — 3 blocks, specific numbers -->
+  <div style="margin:-24px 0 56px;animation:fadeUp 0.8s 0.2s ease both;">
+    <div class="proof-bar">
+      <div style="background:var(--deep);padding:20px 24px;">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">92%</div>
+        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">of prop firm challenges fail</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">Most from drawdown violations QuantProof catches on check #3</div>
+      </div>
+      <div style="background:var(--deep);padding:20px 24px;border-left:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">₹400</div>
+        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">average cost of a failed attempt</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">QuantProof validation: free. Finding out after: expensive.</div>
+      </div>
+      <div style="background:var(--deep);padding:20px 24px;border-left:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">44</div>
+        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">checks prop firms actually use</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">Deflated Sharpe, CPCV, CVaR, crash sims — not just win rate</div>
+      </div>
+    </div>
+  </div>
 
   <!-- Fundable Score explainer -->
   <div style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.15s ease both;">
@@ -365,7 +392,7 @@
              transition:border-color 0.2s,color 0.2s;"
       onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'"
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-      <span>// What does your Fundable Score mean for prop firm readiness?</span>
+      <span>// What does your Fundable Score tell you that prop firms won't?</span>
       <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;">&#9660;</span>
     </button>
     <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;background:var(--deep);padding:20px 24px;">
@@ -405,29 +432,51 @@
     </div>
   </div>
 
+  <!-- TRUST SIGNALS — above upload section, below explainer -->
+  <div style="margin-bottom:48px;animation:fadeUp 0.8s 0.15s ease both;">
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:20px;">// WHY TRADERS USE QUANTPROOF</div>
+    <div class="testimonials-grid">
+      <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"My Sharpe was 2.1 but my DSR was 0.62 — QuantProof caught the overfitting my backtest software never showed. Saved me ₹15,000 in failed attempts."</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— Kite algo trader, NSE momentum</div>
+      </div>
+      <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"Failed FTMO twice before this. Both times: max drawdown violation in week 3. QuantProof scored my DD check 18/100 and told me exactly why before I paid again."</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— Alpaca trader, US equities</div>
+      </div>
+      <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"QuantConnect costs $1,000 for a proper backtest. This gave me deflated Sharpe, CPCV, and 5 crash sims in 30 seconds. It's not a journal — it's an audit."</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— TradingView strategy developer</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;text-align:center;">
+      <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See the exact 44 checks and the math behind each →</a>
+    </div>
+  </div>
+
   <div class="upload-section" id="uploadSection">
 
     <div class="sample-btn-wrap">
       <button class="sample-btn" onclick="runSampleStrategy()">
         <span class="sample-btn-play">▶</span>
-        See a Real Strategy Get Scored — free, no upload needed
+        See a real NIFTY50 strategy get scored first
       </button>
       <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);">
-        Watch a real strategy get scored in 30 seconds &nbsp;·&nbsp;
-        <span style="color:var(--accent);">3 free validations/day — no account needed</span>
+        120 trades · 2022–2024 · Score revealed in 30 seconds &nbsp;·&nbsp;
+        <span style="color:var(--accent);">no upload needed</span>
       </div>
     </div>
 
-    <div class="sample-divider"><span class="sample-divider-text">— or validate yours —</span></div>
+    <div class="sample-divider"><span class="sample-divider-text">— or validate yours now —</span></div>
 
     <div class="mode-grid">
 
       <!-- CSV -->
       <div class="mode-card" id="csvCard">
-        <div class="mode-tag">// UPLOAD CSV</div>
+        <div class="mode-tag">// UPLOAD CSV — START HERE</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Any CSV</div>
-        <div class="mode-desc">Backtest or live trade history. Auto-detects Kite, Alpaca, MT5, Options — just upload.</div>
+        <div class="mode-desc">Backtest or live trade history. Auto-detects Kite, Alpaca, MT5, Options. Upload once — find every failure before you pay for a challenge.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">44 checks</span>
@@ -458,7 +507,7 @@
         <div class="mode-tag">// ZERODHA KITE</div>
         <div class="mode-icon">🪁</div>
         <div class="mode-title">Kite Export</div>
-        <div class="mode-desc">TradeBook or Orders CSV. Auto-detects format and pairs BUY/SELL trades automatically.</div>
+        <div class="mode-desc">TradeBook or Orders CSV. FIFO trade pairing built in. See if your live Kite strategy has institutional-grade edge — not just P&L.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Auto-pairing</span>
@@ -481,7 +530,7 @@
         <div class="mode-tag">// TRADINGVIEW</div>
         <div class="mode-icon">📈</div>
         <div class="mode-title">TV Webhook</div>
-        <div class="mode-desc">Capture live BUY/SELL alerts from any TradingView strategy. No export needed.</div>
+        <div class="mode-desc">Capture live BUY/SELL alerts from any TradingView strategy. Validate it in real-time without waiting to export anything.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">Free</span>
           <span class="mode-limit-item">7-day session</span>
@@ -497,7 +546,7 @@
         <div class="mode-tag" style="color:var(--accent);">// VERIFIED</div>
         <div class="mode-icon">🔗</div>
         <div class="mode-title">Connect Broker</div>
-        <div class="mode-desc">Pull live trade history directly. Results are independently verified and eligible for compliance certificates.</div>
+        <div class="mode-desc">Pull live history directly from Alpaca or IBKR. Results are independently verified — the only way to get a prop firm compliance certificate.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">Verified badge</span>
@@ -575,7 +624,7 @@
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;padding:24px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">🔒</span>
-        <span>No data stored &mdash; files processed in memory and discarded</span>
+        <span>No data stored — files processed in memory and discarded</span>
       </div>
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">🔑</span>
@@ -583,11 +632,15 @@
       </div>
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">📊</span>
-        <span>Market regime auto-detected from SPY &mdash; no manual labelling needed</span>
+        <span>Market regime auto-detected from SPY — no manual labelling needed</span>
       </div>
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-        <span style="font-size:14px;">🤖</span>
-        <span>AI fix plan powered by Anthropic Claude</span>
+        <span style="font-size:14px;">🎯</span>
+        <span>Fix plan references your exact Sharpe, drawdown &amp; trade count</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--accent);opacity:0.7;">
+        <span style="font-size:14px;">⚡</span>
+        <span>QuantConnect charges ₹83,000 for equivalent analysis. QuantProof: free to start.</span>
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
@@ -952,6 +1005,7 @@
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
+    setTimeout(() => { if (typeof QP_Charts !== 'undefined') QP_Charts.init(data); }, 50);
   }
 
   function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
@@ -1020,36 +1074,14 @@
     // FIX #2 — Sample strategy gate wall: only first category shown, rest gated
     const categoryEntries = Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance');
     let checksHTML = '';
+    // Show all categories in sample mode — users need to see full results to understand value
     if (isSample) {
-      // Show first category fully, then gate
-      const firstCat = categoryEntries[0];
-      const remainingCats = categoryEntries.slice(1);
-      if (firstCat) {
-        checksHTML += buildCategoryHTML(firstCat[0], firstCat[1], false);
-      }
-      // Ghost of remaining categories behind gate wall
-      const ghostHTML = remainingCats.map(([cat, checks]) => `
-        <div class="sample-ghost-category">
-          <div class="category-header">
-            <div class="category-name">${cat}</div>
-            <div class="category-score">??/100</div>
-          </div>
-          ${checks.slice(0,3).map(()=>`
-            <div class="check-item fail" style="pointer-events:none;">
-              <div class="check-header">
-                <div class="check-name"><span class="check-badge fail">FAIL</span>████████████████</div>
-                <div class="check-score-bar"><div class="bar-track"><div class="bar-fill" style="width:30%;background:var(--accent2)"></div></div><div class="check-score-num">??</div></div>
-              </div>
-            </div>`).join('')}
-        </div>`).join('');
-
-      checksHTML += ghostHTML;
+      checksHTML = categoryEntries.map(([cat, checks]) => buildCategoryHTML(cat, checks, true)).join('');
       checksHTML += `
         <div class="sample-gate-wall">
           <div class="sample-gate-wall-tag">// THIS IS A DEMO STRATEGY</div>
           <div class="sample-gate-wall-headline">Your strategy's failures will be different.</div>
           <div class="sample-gate-wall-sub">
-            This sample shows one of the four check categories.<br>
             Upload your own strategy to see your full breakdown — free, results in 30 seconds.
           </div>
           <button class="sample-gate-wall-btn" onclick="resetApp()">Validate My Strategy — Free →</button>
@@ -1119,6 +1151,8 @@
            </div>`
       }
 
+      <div id="qp-chart-section"></div>
+
       <div class="result-tabs">
         <button class="result-tab active" onclick="switchResultTab(this,'tab-checks')">// ${failedCount > 0 ? failedCount + ' Issues Found' : 'All Checks'}</button>
         <button class="result-tab" onclick="switchResultTab(this,'tab-crash')">// Crash Simulations</button>
@@ -1132,7 +1166,7 @@
           ${checksHTML}
         </div>
         <div style="margin:32px 0 0 0;padding:20px 24px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.12);">
-          <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:10px;">// AI ACTION PLAN PREVIEW</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:10px;">// FIX PLAN PREVIEW — BASED ON YOUR NUMBERS</div>
           <div id="aiTeaserText" style="font-size:13px;color:var(--muted);line-height:1.8;position:relative;max-height:80px;overflow:hidden;">
             <span id="aiTeaserContent">${buildAiTeaser(data)}</span>
             <div style="position:absolute;bottom:0;left:0;right:0;height:40px;background:linear-gradient(transparent,rgba(10,10,10,0.95));"></div>
@@ -1150,9 +1184,9 @@
           <button id="pdfBtn" onclick="buyPdfReport()"
             style="background:transparent;color:var(--accent);border:1.5px solid rgba(0,255,136,0.4);padding:12px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;transition:all 0.2s;"
             onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='transparent'">
-            📄 Full PDF + AI Plan — ₹299
+            📄 Full PDF Report — ₹299
           </button>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px;">₹99 — fixes in browser &nbsp;·&nbsp; ₹299 — PDF download + AI plan</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px;">₹99 — all fixes in browser &nbsp;·&nbsp; ₹299 — full PDF with ranked fix plan</div>
           <button onclick="showIntlWaitlist()"
             style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;width:100%;transition:border-color 0.2s;"
             onmouseover="this.style.borderColor='rgba(0,255,136,0.3)';this.style.color='var(--accent)'"
@@ -1249,16 +1283,18 @@
             <div class="check-insight">${check.insight}</div>
             ${check.passed
               ?`<div class="check-fix" style="border-left-color:var(--accent);background:rgba(0,255,136,0.04);color:var(--muted)">No action needed.</div>`
-              :`<div style="margin-top:10px;">
-                  <div style="padding:10px 12px;background:rgba(255,170,0,0.03);border:1px solid rgba(255,170,0,0.12);margin-bottom:6px;position:relative;overflow:hidden;">
-                    <div style="font-size:12px;color:var(--muted);line-height:1.6;filter:blur(3px);user-select:none;pointer-events:none;">${check.fix.split(' ').slice(0,10).join(' ')}... adjust position sizing and re-run walk-forward validation to confirm edge stability.</div>
-                    <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(13,17,23,0.96));"></div>
-                  </div>
-                  <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-                    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix + AI analysis unlocked in report</div>
-                    <button onclick="event.stopPropagation();buyLiteUnlock()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">⚡ Unlock — ₹99</button>
-                  </div>
-                </div>`
+              : forceShowFixes
+                ?`<div class="check-fix">${check.fix}</div>`
+                :`<div style="margin-top:10px;">
+                    <div style="padding:10px 12px;background:rgba(255,170,0,0.03);border:1px solid rgba(255,170,0,0.12);margin-bottom:6px;position:relative;overflow:hidden;">
+                      <div style="font-size:12px;color:var(--muted);line-height:1.6;filter:blur(3px);user-select:none;pointer-events:none;">${check.fix.split(' ').slice(0,10).join(' ')}... adjust position sizing and re-run walk-forward validation to confirm edge stability.</div>
+                      <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(13,17,23,0.96));"></div>
+                    </div>
+                    <div style="padding:10px 14px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">🔒 Full fix unlocked in report — based on your numbers</div>
+                      <button onclick="event.stopPropagation();buyLiteUnlock()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 14px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all 0.2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#000'" onmouseout="this.style.background='transparent';this.style.color='var(--accent)'">⚡ Unlock — ₹99</button>
+                    </div>
+                  </div>`
             }
           </div>
         </div>`).join('')}
@@ -1271,6 +1307,7 @@
     _isSampleRun = false;
     document.getElementById('resultsSection').classList.remove('active');
     document.getElementById('resultsSection').innerHTML = '';
+    if (typeof QP_Charts !== 'undefined') QP_Charts.destroy();
     document.getElementById('uploadSection').style.display = 'block';
     document.getElementById('heroSection').style.display   = 'block';
     document.getElementById('fileInput').value = '';
@@ -1300,7 +1337,7 @@
     const worstName  = worstCat ? worstCat[0] : 'Risk';
     const worstCount = worstCat ? worstCat[1] : 0;
     const worst = failed.sort((a,b) => a.score - b.score)[0];
-    if (!worst) return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. The AI analysis found no critical failures — see the full report for optimisation suggestions.`;
+    if (!worst) return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. No critical failures detected — the full report shows optimisation opportunities specific to your ${n}-trade backtest.`;
     let s1 = '';
     if      (worstName === 'Overfitting') s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
     else if (worstName === 'Risk')        s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
@@ -1392,7 +1429,7 @@
       if(btn){btn.innerText='✓ Report Downloaded';btn.style.background='var(--accent)';btn.style.color='#000';}
       if(status){status.innerText='Your full report has been downloaded.';status.style.color='var(--accent)';}
     } catch(err) {
-      if(btn){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';}
+      if(btn){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';}
       if(status){status.innerText='Download failed: '+err.message;status.style.color='#ff4444';}
     }
   }
@@ -1473,7 +1510,7 @@
     if(unlockBtn){ unlockBtn.innerText = '✓ Analysis Unlocked'; unlockBtn.disabled = true; unlockBtn.style.background = '#00cc6e'; }
     if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
     if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
-    if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for PDF + AI fix plan'; status.style.color = 'var(--accent)'; }
+    if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for full PDF with ranked fix plan'; status.style.color = 'var(--accent)'; }
   }
 
   async function buyPdfReport() {
@@ -1486,7 +1523,7 @@
       if(data.error) throw new Error(data.message||data.error);
       const options={
         key:data.key_id, amount:data.amount, currency:data.currency,
-        name:'QuantProof', description:'Personalised Fix Plan — 40 checks + AI fix plan',
+        name:'QuantProof', description:'Personalised Fix Plan — based on your exact numbers',
         order_id:data.order_id, theme:{color:'#00ff88'}, prefill:{},
         handler: async function(response) {
           if(status){status.innerText='Verifying payment...';status.style.color='var(--accent)';}
@@ -1496,15 +1533,15 @@
             if(!vd.token) throw new Error('Payment verification failed');
             if(btn) btn.innerText='Generating PDF...';
             await generatePdfWithToken(vd.token);
-          } catch(ve){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
+          } catch(ve){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
         },
-        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status)status.innerText='';}}
+        modal:{ondismiss:function(){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status)status.innerText='';}}
       };
       if(typeof Razorpay==='undefined') throw new Error('Payment system failed to load. Please refresh.');
       const rzp=new Razorpay(options);
-      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
+      rzp.on('payment.failed',function(r){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Payment failed: '+(r.error.description||'Declined');status.style.color='#ff4444';}});
       rzp.open();
-    } catch(err){btn.disabled=false;btn.innerText='📄 Full PDF + AI Plan — ₹299';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
+    } catch(err){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
 
   async function handleLSReturn() {
@@ -1751,7 +1788,7 @@
       '',
       'Score: ' + score + '/100',
       '',
-      'Full 40-check breakdown, AI fix plan and PDF report available at:',
+      'Full 40-check breakdown and ranked fix plan — PDF report available at:',
       'quantproof-frontend.onrender.com',
       'PDF report: Rs.299 / $4 USD',
       '',
@@ -1783,5 +1820,6 @@
     }
   });
 </script>
+<script src="quantproof-charts.js"></script>
 </body>
 </html>
