@@ -12,8 +12,11 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     HRFlowable, KeepTogether, PageBreak
 )
-from reportlab.graphics.shapes import Drawing, Rect, Line, String, Wedge
+from reportlab.graphics.shapes import Drawing, Rect, Line, String, Wedge, Polygon
 from reportlab.graphics import renderPDF
+from reportlab.graphics.charts.lineplots import LinePlot
+from reportlab.graphics.charts.barcharts import VerticalBarChart
+from reportlab.graphics.widgets.markers import makeMarker
 import io, datetime, math
 
 # ─── BRAND ────────────────────────────────────────────────────────────────────
@@ -113,6 +116,271 @@ def score_bar(score: float, width=50, height=7) -> Drawing:
     d.add(Rect(0, 0, width, height, fillColor=C_PAPER2, strokeColor=None))
     col = C_DANGER if score < 40 else C_WARN if score < 70 else C_OK if score < 88 else C_ACCENT
     d.add(Rect(0, 0, score / 100 * width, height, fillColor=col, strokeColor=None))
+    return d
+
+
+def equity_curve_chart(equity: list, width=None, height=110) -> Drawing:
+    """
+    Line chart of the equity curve normalized to 100.
+    Uses data.equity_curve from the validator (real trade-by-trade data).
+    """
+    w = width or INNER_W * 0.72
+    if not equity or len(equity) < 3:
+        d = Drawing(w, height)
+        d.add(String(w / 2, height / 2, "No equity curve data",
+                     fontName="Helvetica", fontSize=8,
+                     fillColor=C_LITE, textAnchor="middle"))
+        return d
+
+    d   = Drawing(w, height)
+    n   = len(equity)
+    pad = dict(l=8, r=6, t=10, b=18)
+    aw  = w - pad["l"] - pad["r"]
+    ah  = height - pad["t"] - pad["b"]
+
+    mn  = min(equity)
+    mx  = max(equity)
+    rng = mx - mn or 1.0
+
+    # Background
+    d.add(Rect(pad["l"], pad["b"], aw, ah,
+               fillColor=colors.HexColor("#F8F8FA"), strokeColor=C_PAPER2, strokeWidth=0.5))
+
+    # Zero/start line at equity=100
+    if mn <= 100 <= mx:
+        y100 = pad["b"] + (100 - mn) / rng * ah
+        ln = Line(pad["l"], y100, pad["l"] + aw, y100)
+        ln.strokeColor = C_PAPER2; ln.strokeWidth = 0.8; ln.strokeDashArray = [3, 3]
+        d.add(ln)
+
+    # Equity line — draw as connected segments, colour by gain/loss vs start
+    pts = [(pad["l"] + i / (n - 1) * aw,
+            pad["b"] + (equity[i] - mn) / rng * ah) for i in range(n)]
+
+    # Fill area under curve
+    fill_pts = [pad["l"], pad["b"]]
+    for px, py in pts:
+        fill_pts += [px, py]
+    fill_pts += [pad["l"] + aw, pad["b"]]
+    poly = Polygon(fill_pts)
+    end_col = C_OK if equity[-1] >= equity[0] else C_DANGER
+    poly.fillColor  = colors.Color(
+        end_col.red, end_col.green, end_col.blue, alpha=0.10)
+    poly.strokeColor = None
+    d.add(poly)
+
+    # Line segments
+    for i in range(n - 1):
+        seg = Line(pts[i][0], pts[i][1], pts[i+1][0], pts[i+1][1])
+        seg.strokeColor = end_col
+        seg.strokeWidth = 1.4
+        d.add(seg)
+
+    # Y axis labels: min, start (100), max
+    for val, label in [(mn, f"{mn:.0f}"), (100, "100"), (mx, f"{mx:.0f}")]:
+        if mn == mx:
+            break
+        yy = pad["b"] + (val - mn) / rng * ah
+        d.add(String(pad["l"] - 2, yy - 3, label,
+                     fontName="Helvetica", fontSize=6,
+                     fillColor=C_LITE, textAnchor="end"))
+
+    # X axis: trade count labels at start, mid, end
+    for idx, label in [(0, "T1"), (n // 2, f"T{n//2}"), (n - 1, f"T{n}")]:
+        xx = pad["l"] + idx / max(n - 1, 1) * aw
+        d.add(String(xx, pad["b"] - 10, label,
+                     fontName="Helvetica", fontSize=6,
+                     fillColor=C_LITE, textAnchor="middle"))
+
+    # Final value badge
+    final_x = pad["l"] + aw + 2
+    final_y = pts[-1][1] - 3
+    d.add(String(final_x, final_y, f"{equity[-1]:.1f}",
+                 fontName="Helvetica-Bold", fontSize=7,
+                 fillColor=end_col, textAnchor="start"))
+
+    return d
+
+
+def crash_bar_chart(crashes: list, width=None, height=110) -> Drawing:
+    """
+    Grouped vertical bar chart: market_drop vs strategy_drop*100 for each crash.
+    """
+    w = width or INNER_W
+    if not crashes:
+        return Drawing(w, height)
+
+    d   = Drawing(w, height)
+    n   = len(crashes)
+    pad = dict(l=32, r=10, t=8, b=28)
+    aw  = w - pad["l"] - pad["r"]
+    ah  = height - pad["t"] - pad["b"]
+    bw  = aw / n          # width per group
+    bw2 = bw * 0.32       # each bar width
+    gap = bw * 0.08
+
+    all_vals = [c.get("market_drop", 0) for c in crashes] + \
+               [c.get("strategy_drop", 0) * 100 for c in crashes]
+    mn = min(all_vals + [0])
+    mx = max(all_vals + [0])
+    rng = mx - mn or 1.0
+
+    def y_of(v):
+        return pad["b"] + (v - mn) / rng * ah
+
+    # Zero line
+    y0 = y_of(0)
+    zl = Line(pad["l"], y0, pad["l"] + aw, y0)
+    zl.strokeColor = C_MID; zl.strokeWidth = 0.6
+    d.add(zl)
+
+    # Y axis ticks
+    for tick_v in [mn, mn / 2, 0, mx / 2 if mx > 0 else 0]:
+        yt = y_of(tick_v)
+        tl = Line(pad["l"] - 3, yt, pad["l"], yt)
+        tl.strokeColor = C_LITE; tl.strokeWidth = 0.5
+        d.add(tl)
+        d.add(String(pad["l"] - 4, yt - 3, f"{tick_v:.0f}%",
+                     fontName="Helvetica", fontSize=6,
+                     fillColor=C_LITE, textAnchor="end"))
+
+    for i, crash in enumerate(crashes):
+        cx   = pad["l"] + i * bw + bw * 0.1
+        mktd = crash.get("market_drop", 0)
+        strd = crash.get("strategy_drop", 0) * 100
+        surv = crash.get("survived", False)
+
+        # Market bar (red)
+        mkt_y0 = y_of(min(mktd, 0))
+        mkt_h  = abs(y_of(mktd) - y0)
+        mr = Rect(cx, mkt_y0, bw2, mkt_h)
+        mr.fillColor  = colors.Color(C_DANGER.red, C_DANGER.green, C_DANGER.blue, alpha=0.7)
+        mr.strokeColor = None
+        d.add(mr)
+
+        # Strategy bar (green/amber)
+        str_col = C_OK if surv else C_WARN
+        str_y   = y_of(min(strd, 0))
+        str_h   = abs(y_of(strd) - y0)
+        sr = Rect(cx + bw2 + gap, str_y, bw2, max(str_h, 1))
+        sr.fillColor  = colors.Color(str_col.red, str_col.green, str_col.blue, alpha=0.75)
+        sr.strokeColor = None
+        d.add(sr)
+
+        # X label — short year
+        year_raw = crash.get("year", "")
+        label    = year_raw.split("–")[0].split(" ")[-1][:4]
+        d.add(String(cx + bw2 + gap / 2, pad["b"] - 14, label,
+                     fontName="Helvetica", fontSize=6.5,
+                     fillColor=C_DARK, textAnchor="middle"))
+
+        # Strategy value label above bar
+        lbl_y = y_of(strd) + (3 if strd >= 0 else -10)
+        d.add(String(cx + bw2 + gap / 2, lbl_y, f"{strd:+.0f}%",
+                     fontName="Helvetica-Bold", fontSize=6,
+                     fillColor=str_col, textAnchor="middle"))
+
+    # Legend
+    lx = pad["l"]
+    ly = pad["b"] - 24
+    mr2 = Rect(lx, ly + 2, 8, 6)
+    mr2.fillColor = colors.Color(C_DANGER.red, C_DANGER.green, C_DANGER.blue, alpha=0.7)
+    mr2.strokeColor = None
+    d.add(mr2)
+    d.add(String(lx + 10, ly + 2, "Market",
+                 fontName="Helvetica", fontSize=6.5, fillColor=C_LITE))
+    sr2 = Rect(lx + 50, ly + 2, 8, 6)
+    sr2.fillColor = colors.Color(C_OK.red, C_OK.green, C_OK.blue, alpha=0.75)
+    sr2.strokeColor = None
+    d.add(sr2)
+    d.add(String(lx + 62, ly + 2, "Your Strategy",
+                 fontName="Helvetica", fontSize=6.5, fillColor=C_LITE))
+
+    return d
+
+
+def category_radar_chart(checks: list, width=120, height=120) -> Drawing:
+    """
+    Pentagon radar chart showing average score per category.
+    Drawn manually since reportlab has no native radar widget.
+    """
+    cats    = ["Overfitting", "Risk", "Regime", "Execution", "Compliance"]
+    weights = {"Overfitting": 22, "Risk": 38, "Regime": 14,
+               "Execution": 11, "Compliance": 15}
+
+    scores = {}
+    for cat in cats:
+        cc = [c for c in checks if
+              (c.get("category") if isinstance(c, dict) else getattr(c, "category", "")) == cat]
+        if cc:
+            scores[cat] = sum(
+                (c.get("score", 0) if isinstance(c, dict) else getattr(c, "score", 0))
+                for c in cc
+            ) / len(cc)
+        else:
+            scores[cat] = 0
+
+    d  = Drawing(width, height)
+    cx = width / 2
+    cy = height / 2 - 6
+    R  = min(width, height) / 2 - 18
+    n  = len(cats)
+
+    def pt(i, r_frac):
+        ang = math.pi / 2 + 2 * math.pi * i / n
+        return (cx + r_frac * R * math.cos(ang),
+                cy + r_frac * R * math.sin(ang))
+
+    # Grid rings at 25%, 50%, 75%, 100%
+    for frac in [0.25, 0.5, 0.75, 1.0]:
+        ring_pts = []
+        for i in range(n):
+            px, py = pt(i, frac)
+            ring_pts += [px, py]
+        ring = Polygon(ring_pts)
+        ring.fillColor  = None
+        ring.strokeColor = C_PAPER2
+        ring.strokeWidth = 0.5
+        d.add(ring)
+
+    # Spokes
+    for i in range(n):
+        px, py = pt(i, 1.0)
+        spoke = Line(cx, cy, px, py)
+        spoke.strokeColor = C_PAPER2; spoke.strokeWidth = 0.5
+        d.add(spoke)
+
+    # Score polygon (filled)
+    score_pts = []
+    for i, cat in enumerate(cats):
+        frac = scores[cat] / 100
+        px, py = pt(i, frac)
+        score_pts += [px, py]
+    spoly = Polygon(score_pts)
+    spoly.fillColor  = colors.Color(C_ACCENT.red, C_ACCENT.green, C_ACCENT.blue, alpha=0.18)
+    spoly.strokeColor = C_ACCENT
+    spoly.strokeWidth = 1.4
+    d.add(spoly)
+
+    # Dots on vertices
+    for i, cat in enumerate(cats):
+        frac = scores[cat] / 100
+        px, py = pt(i, frac)
+        dot = Wedge(px, py, 3, 0, 360)
+        dot.fillColor  = C_ACCENT; dot.strokeColor = None
+        d.add(dot)
+
+    # Category labels
+    label_offsets = {0: (0, 6), 1: (8, 0), 2: (6, -8), 3: (-6, -8), 4: (-8, 0)}
+    for i, cat in enumerate(cats):
+        lx, ly = pt(i, 1.15)
+        ox, oy = label_offsets.get(i, (0, 0))
+        score_val = scores[cat]
+        col = cat_color(score_val)
+        d.add(String(lx + ox, ly + oy, f"{cat[:4]}\n{score_val:.0f}",
+                     fontName="Helvetica-Bold", fontSize=6.5,
+                     fillColor=col, textAnchor="middle"))
+
     return d
 
 
@@ -285,7 +553,58 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(metrics_row)
     story.append(Spacer(1, 6*mm))
 
-    # ══ TOP ISSUES + STRENGTHS ════════════════════════════════════════════════
+    # ══ EQUITY CURVE ══════════════════════════════════════════════════════════
+    equity_data = vr.get("equity_curve")
+    if equity_data and len(equity_data) > 5:
+        story.append(Paragraph("EQUITY CURVE", S["label"]))
+        story.append(Spacer(1, 3))
+        is_real = True
+        curve_note = "actual trade-by-trade equity curve from validator"
+    else:
+        # Build synthetic from sharpe for backwards compat
+        import random as _random
+        _random.seed(abs(hash(str(sharpe) + str(n))) % (2**31))
+        eq = 100.0
+        equity_data = [100.0]
+        mean_r = sharpe * 0.015 / max((252 / max(n, 1)) ** 0.5, 0.1)
+        std_r  = abs(mean_r / (sharpe + 1e-9))
+        for _ in range(min(n, 200) - 1):
+            r = _random.gauss(mean_r, std_r)
+            eq *= (1 + max(-0.99, min(0.99, r)))
+            equity_data.append(round(eq, 4))
+        is_real = False
+        curve_note = f"illustrative — derived from Sharpe {sharpe:.2f} (upload dated CSV for real curve)"
+        story.append(Paragraph("EQUITY CURVE (ILLUSTRATIVE)", S["label"]))
+        story.append(Spacer(1, 3))
+
+    # Two-column: chart left, stats right
+    final_return = (equity_data[-1] / equity_data[0] - 1) * 100 if equity_data[0] else 0
+    end_col_name = "green" if equity_data[-1] >= equity_data[0] else "red"
+    eq_stats_col = [
+        Paragraph("TOTAL RETURN", S["label"]),
+        Paragraph(f"{'+'if final_return>=0 else ''}{final_return:.1f}%",
+                  _s("eq_ret", fontName="Helvetica-Bold", fontSize=16,
+                     textColor=C_OK if final_return >= 0 else C_DANGER, leading=20)),
+        Spacer(1, 6),
+        Paragraph("DATA SOURCE", S["label"]),
+        Paragraph("Real trades" if is_real else "Synthetic",
+                  _s("eq_src", fontSize=8, textColor=C_LITE, leading=11)),
+        Spacer(1, 4),
+        Paragraph(curve_note, _s("eq_note", fontSize=7, textColor=C_LITE,
+                                  leading=10, fontName="Helvetica-Oblique")),
+    ]
+    eq_tbl = Table([[equity_curve_chart(equity_data, width=INNER_W*0.72), eq_stats_col]],
+                   colWidths=[INNER_W*0.72, INNER_W*0.28])
+    eq_tbl.setStyle(TableStyle([
+        ("VALIGN",        (0,0),(-1,-1), "TOP"),
+        ("BACKGROUND",    (0,0),(-1,-1), C_PAPER),
+        ("TOPPADDING",    (0,0),(-1,-1), 10),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+        ("LEFTPADDING",   (0,0),(-1,-1), 8),
+        ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+    ]))
+    story.append(eq_tbl)
+    story.append(Spacer(1, 6*mm))
     if issues or strengths:
         col_a, col_b = [], []
         if issues:
@@ -414,9 +733,59 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(c_tbl)
             story.append(Spacer(1, 3))
 
+        # Crash bar chart — visual comparison of all 5 crashes
+        story.append(Spacer(1, 4))
+        story.append(Paragraph("CRASH IMPACT SUMMARY", S["label"]))
+        story.append(Spacer(1, 3))
+        story.append(crash_bar_chart(crashes, width=INNER_W, height=110))
+        story.append(Spacer(1, 2*mm))
+
     # ══ PAGE 2: DETAILED CHECKS ════════════════════════════════════════════════
     story.append(PageBreak())
-    story.append(Paragraph("DETAILED CHECK BREAKDOWN — 40 SCORED CHECKS", S["h_section"]))
+
+    # Category radar at top of page 2
+    story.append(Paragraph("CATEGORY BREAKDOWN", S["h_section"]))
+    radar_col   = category_radar_chart(checks, width=140, height=140)
+    cats_scored = ["Overfitting", "Risk", "Regime", "Execution", "Compliance"]
+    cat_legend_rows = []
+    weights_map = {"Overfitting": 22, "Risk": 38, "Regime": 14,
+                   "Execution": 11, "Compliance": 15}
+    for cat in cats_scored:
+        cc = [c for c in checks if
+              (c.get("category") if isinstance(c, dict) else getattr(c, "category", "")) == cat]
+        avg_s = sum(
+            (c.get("score", 0) if isinstance(c, dict) else getattr(c, "score", 0))
+            for c in cc
+        ) / max(len(cc), 1)
+        passed_n = sum(1 for c in cc if
+                       (c.get("passed") if isinstance(c, dict) else getattr(c, "passed", False)))
+        cat_legend_rows.append([
+            Paragraph(f"{cat} ({weights_map.get(cat,0)}%)",
+                      _s("cl", fontName="Helvetica-Bold", fontSize=8, textColor=cat_color(avg_s))),
+            [score_bar(avg_s, width=46, height=5),
+             Paragraph(f"{avg_s:.0f}/100  {passed_n}/{len(cc)} pass",
+                       _s("clv", fontSize=7.5, textColor=C_LITE, leading=10))],
+        ])
+    legend_tbl = Table(cat_legend_rows, colWidths=[INNER_W*0.40 - 140, INNER_W*0.60 - 10])
+    legend_tbl.setStyle(TableStyle([
+        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ("TOPPADDING",    (0,0),(-1,-1), 5),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+        ("LEFTPADDING",   (0,0),(-1,-1), 4),
+    ]))
+    radar_tbl = Table([[radar_col, legend_tbl]],
+                      colWidths=[140 + 10, INNER_W - 150])
+    radar_tbl.setStyle(TableStyle([
+        ("VALIGN",     (0,0),(-1,-1), "MIDDLE"),
+        ("BACKGROUND", (0,0),(-1,-1), C_PAPER),
+        ("TOPPADDING", (0,0),(-1,-1), 8),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 8),
+        ("LEFTPADDING",   (0,0),(-1,-1), 8),
+    ]))
+    story.append(radar_tbl)
+    story.append(Spacer(1, 6*mm))
+
+    story.append(Paragraph("DETAILED CHECK BREAKDOWN — 44 CHECKS", S["h_section"]))
     story.append(Paragraph(
         "Every check below was run against your specific strategy data. "
         "Red rows are institutional failures. Orange rows are warnings that won't disqualify "
@@ -624,7 +993,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     rid = abs(hash(str(score) + grade + str(n))) % 100000
     story.append(Paragraph(
         f"Report ID: QP-{rid:05d}  ·  "
-        f"Engine: v6.2  ·  40 scored checks  ·  "
+        f"Engine: v6.2  ·  44 checks  ·  5 crash simulations  ·  "
         f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
         S["footer"]))
     story.append(Spacer(1, 2))
