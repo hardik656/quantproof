@@ -104,6 +104,7 @@ class ValidationResponse(BaseModel):
     assumptions: List[str]
     dashboard: Optional[Dict[str, Any]]
     ai_plan: Optional[Dict[str, Any]]
+    equity_curve: Optional[List[float]] = None
 
 
 # ── Rate limiting (3 free validations / IP / day) ────────────────────────────
@@ -2091,6 +2092,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         assumptions=r.assumptions,
         dashboard=dashboard_data,
         ai_plan=None,
+        equity_curve=getattr(r, 'equity_curve', None),
     )
 
 @app.get("/health")
@@ -2334,6 +2336,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             ],
             dashboard=dashboard_data, ai_plan=None,
             scale_warning=False, currency=acct_currency,
+            equity_curve=getattr(r, 'equity_curve', None),
         )
 
     except HTTPException:
@@ -3161,6 +3164,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             "P&L uses fifoPnlRealized when available, netCash/cost-basis as fallback",
         ],
         dashboard=None, ai_plan=None,
+        equity_curve=getattr(report, 'equity_curve', None),
     )
 
     return IBKRConnectResponse(
@@ -3335,6 +3339,7 @@ async def validate_kite(
         ],
         dashboard=dashboard_data,
         ai_plan=None,
+        equity_curve=getattr(report, 'equity_curve', None),
     )
 
 
@@ -3715,6 +3720,7 @@ def validate_tv_alerts(session_id: str):
         ],
         dashboard=None,
         ai_plan=None,
+        equity_curve=getattr(report, 'equity_curve', None),
     )
 
 
