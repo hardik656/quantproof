@@ -870,12 +870,14 @@ class QuantProofValidator:
         strict_mode: bool = False,
         seed: int = 42,
         n_trials: int = 1,
+        benchmark_type: str = "spy",
         benchmark_returns: Optional[np.ndarray] = None,
     ):
         self.strict_mode = strict_mode
         self.seed        = seed
         self.n_trials    = max(1, int(n_trials))
         self.rng         = np.random.default_rng(seed)
+        self.benchmark_type = benchmark_type
         self.df          = self._clean(df)
         self.trades_per_year, self.timeframe_info = self._detect_timeframe()
         self.has_dates   = 'date' in self.df.columns
@@ -1003,18 +1005,34 @@ class QuantProofValidator:
     def _classify_market_regime_by_date(self) -> Optional[dict]:
         if not self.has_dates or 'date' not in self.df.columns:
             return None
-        bear_periods = [
+        spy_bear_periods = [
             (pd.Timestamp('2000-03-01'), pd.Timestamp('2002-10-31')),
             (pd.Timestamp('2007-10-01'), pd.Timestamp('2009-03-31')),
             (pd.Timestamp('2020-02-01'), pd.Timestamp('2020-03-31')),
             (pd.Timestamp('2022-01-01'), pd.Timestamp('2022-10-31')),
         ]
-        bull_periods = [
+        spy_bull_periods = [
             (pd.Timestamp('2003-03-01'), pd.Timestamp('2007-09-30')),
             (pd.Timestamp('2009-04-01'), pd.Timestamp('2020-01-31')),
             (pd.Timestamp('2020-04-01'), pd.Timestamp('2021-12-31')),
             (pd.Timestamp('2023-01-01'), pd.Timestamp('2099-12-31')),
         ]
+        nifty_bear_periods = [
+            (pd.Timestamp('2020-02-01'), pd.Timestamp('2020-03-31')),
+            (pd.Timestamp('2022-01-01'), pd.Timestamp('2022-06-30')),
+            (pd.Timestamp('2024-10-01'), pd.Timestamp('2025-03-31')),
+        ]
+        nifty_bull_periods = [
+            (pd.Timestamp('2020-04-01'), pd.Timestamp('2021-12-31')),
+            (pd.Timestamp('2022-07-01'), pd.Timestamp('2024-09-30')),
+            (pd.Timestamp('2025-04-01'), pd.Timestamp('2099-12-31')),
+        ]
+        if self.benchmark_type == "nifty":
+            bear_periods = nifty_bear_periods
+            bull_periods = nifty_bull_periods
+        else:
+            bear_periods = spy_bear_periods
+            bull_periods = spy_bull_periods
         labels = {}
         for idx, row in self.df.iterrows():
             d = row['date']
