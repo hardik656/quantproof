@@ -2076,7 +2076,8 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     if reg_cols:
                         result["regime"] = df[reg_cols[0]].values[:len(vals)]
                     elif "date" in result.columns and result["date"].notna().any():
-                        result, regime_note = assign_regimes(result)
+                        _bm_type_for_regime = get_benchmark_type(result, None)
+                        result, regime_note = assign_regimes(result, _bm_type_for_regime)
 
                     if _dollar_pnl_warning:
                         regime_note = (
@@ -2332,7 +2333,7 @@ def health():
     return {"status": "ok", "version": API_VERSION}
 
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD"])
 def ping():
     """
     Keep-alive endpoint.
@@ -2653,6 +2654,7 @@ REPORT_PRICE_INR    = 299
 @app.post("/report/generate")
 async def generate_report_endpoint(
     file: UploadFile = File(...),
+    currency: str = Form("USD"),
     x_report_token: str = Header(default=""),
     x_report_source: str = Header(default="csv")
 ):
@@ -2685,7 +2687,7 @@ async def generate_report_endpoint(
         raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
 
     try:
-        _bm_type = get_benchmark_type(df, None)
+        _bm_type = get_benchmark_type(df, currency)
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
