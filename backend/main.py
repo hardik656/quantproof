@@ -477,7 +477,7 @@ def get_benchmark_type(df: pd.DataFrame, currency: str = None) -> str:
     return "spy"
 
 
-def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.DataFrame, str]:
     """
     Assigns a 'regime' column to df using SPY 20-day SMA via yfinance.
     Falls back to SPY monthly lookup table if yfinance is unavailable.
@@ -505,9 +505,14 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     try:
         start = df["date"].min() - pd.Timedelta(days=35)  # 35 days: 30 warmup + 5 buffer
         end   = df["date"].max() + pd.Timedelta(days=1)
-        spy   = _get_spy_cached(start, end)
-        if spy is None:
-            raise ValueError("SPY data unavailable")
+        if benchmark_type == "nifty":
+            spy   = _get_nifty_cached(start, end)
+            if spy is None:
+                raise ValueError("Nifty data unavailable")
+        else:
+            spy   = _get_spy_cached(start, end)
+            if spy is None:
+                raise ValueError("SPY data unavailable")
         sma20 = spy.rolling(20, min_periods=20).mean()
 
         # Build a raw regime series for the full SPY date range
@@ -571,13 +576,14 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
 
         # Warn if SPY is not a meaningful proxy for this strategy
         spy_warning = ""
-        if _is_non_us_strategy(df):
+        if benchmark_type != "nifty" and _is_non_us_strategy(df):
             spy_warning = (
                 " ⚠ SPY regime may not be meaningful for non-US/forex/crypto strategies "
                 "— regime labels reflect S&P 500 conditions, not the traded asset class."
             )
 
-        return df, f"✓ Regime auto-detected from SPY 20-day SMA (3-day confirmation) — {dist}{spy_warning}"
+        benchmark_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
+        return df, f"✓ Regime auto-detected from {benchmark_label} 20-day SMA (3-day confirmation) — {dist}{spy_warning}"
 
     except Exception as e:
         def _regime_fallback(d):
@@ -587,7 +593,8 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
                     return "CONSOLIDATION"
                 key = dt_norm.strftime("%Y-%m")
                 # Extend beyond lookup table: use CONSOLIDATION with explicit note
-                return SPY_REGIME_LOOKUP.get(key, "CONSOLIDATION")
+                lookup = NIFTY_REGIME_LOOKUP if benchmark_type == "nifty" else SPY_REGIME_LOOKUP
+                return lookup.get(key, "CONSOLIDATION")
             except Exception:
                 return "CONSOLIDATION"
 
@@ -599,8 +606,8 @@ def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
         beyond_note = ""
         if pd.notna(max_date) and pd.Timestamp(max_date) > lookup_end:
             beyond_note = " ⚠ Some dates beyond lookup table — marked CONSOLIDATION."
-        return df, f"⚠ Regime from monthly SPY approximation (live data unavailable) — {dist}{beyond_note}"
-
+        fallback_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
+        return df, f"⚠ Regime from monthly {fallback_label} approximation (live data unavailable) — {dist}{beyond_note}"
 
 # =========================================================
 # SPY BENCHMARK HELPER
@@ -1976,7 +1983,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             _df, _note, _flags = _parse_kite_csv(raw)
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df)
+                    _df, _regime_note = assign_regimes(_df, "nifty")
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
@@ -1998,7 +2005,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             _df, _note, _flags = _parse_kite_orders_csv(raw)
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df)
+                    _df, _regime_note = assign_regimes(_df, "nifty")
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
@@ -2194,7 +2201,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
     try:
-        _bm_type = get_benchmark_type(df, None)
+        _bm_type = get_benchmark_type(df, currency)
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
@@ -3524,11 +3531,11 @@ async def validate_kite(
 
     regime_note = ""
     if "date" in df.columns and df["date"].notna().any():
-        df, regime_note = assign_regimes(df)
+        df, regime_note = assign_regimes(df, "nifty")
         kite_note += " | " + regime_note
 
     try:
-        _bm_type = get_benchmark_type(df, None)
+        _bm_type = get_benchmark_type(df, currency)
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
