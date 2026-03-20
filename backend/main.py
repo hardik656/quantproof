@@ -283,6 +283,61 @@ SPY_REGIME_LOOKUP: Dict[str, str] = {
     "2027-10": "CONSOLIDATION", "2027-11": "CONSOLIDATION", "2027-12": "CONSOLIDATION",
 }
 
+# =========================================================
+# NIFTY REGIME LOOKUP
+# =========================================================
+NIFTY_REGIME_LOOKUP: Dict[str, str] = {
+    # 2020 — COVID crash Mar, recovery Apr onwards
+    "2020-01": "BULL",  "2020-02": "BEAR",  "2020-03": "BEAR",
+    "2020-04": "BULL",  "2020-05": "BULL",  "2020-06": "BULL",
+    "2020-07": "BULL",  "2020-08": "BULL",  "2020-09": "CONSOLIDATION",
+    "2020-10": "BULL",  "2020-11": "BULL",  "2020-12": "BULL",
+
+    # 2021 — strong bull run all year
+    "2021-01": "BULL",  "2021-02": "BULL",  "2021-03": "BULL",
+    "2021-04": "BEAR",  "2021-05": "BULL",  "2021-06": "BULL",
+    "2021-07": "BULL",  "2021-08": "BULL",  "2021-09": "BULL",
+    "2021-10": "BULL",  "2021-11": "CONSOLIDATION",  "2021-12": "BULL",
+
+    # 2022 — bear year, rate hikes, FII selloff
+    "2022-01": "BEAR",  "2022-02": "BEAR",  "2022-03": "CONSOLIDATION",
+    "2022-04": "BEAR",  "2022-05": "BEAR",  "2022-06": "BEAR",
+    "2022-07": "BULL",  "2022-08": "BULL",  "2022-09": "CONSOLIDATION",
+    "2022-10": "BULL",  "2022-11": "BULL",  "2022-12": "CONSOLIDATION",
+
+    # 2023 — recovery and bull run
+    "2023-01": "BULL",  "2023-02": "BEAR",  "2023-03": "CONSOLIDATION",
+    "2023-04": "BULL",  "2023-05": "BULL",  "2023-06": "BULL",
+    "2023-07": "BULL",  "2023-08": "CONSOLIDATION",  "2023-09": "CONSOLIDATION",
+    "2023-10": "BULL",  "2023-11": "BULL",  "2023-12": "BULL",
+
+    # 2024 — bull run to Sep, correction Oct onwards
+    "2024-01": "BULL",  "2024-02": "BULL",  "2024-03": "BULL",
+    "2024-04": "CONSOLIDATION",  "2024-05": "BULL",  "2024-06": "BULL",
+    "2024-07": "BULL",  "2024-08": "BULL",  "2024-09": "BULL",
+    "2024-10": "BEAR",  "2024-11": "BEAR",  "2024-12": "BEAR",
+
+    # 2025 — correction continues, slow recovery mid-year
+    "2025-01": "BEAR",  "2025-02": "BEAR",  "2025-03": "BEAR",
+    "2025-04": "CONSOLIDATION",  "2025-05": "BULL",  "2025-06": "BULL",
+    "2025-07": "BULL",  "2025-08": "BULL",  "2025-09": "BULL",
+    "2025-10": "BULL",  "2025-11": "CONSOLIDATION",  "2025-12": "BULL",
+
+    # 2026 onwards — unknown future, use CONSOLIDATION
+    "2026-01": "CONSOLIDATION", "2026-02": "CONSOLIDATION",
+    "2026-03": "CONSOLIDATION", "2026-04": "CONSOLIDATION",
+    "2026-05": "CONSOLIDATION", "2026-06": "CONSOLIDATION",
+    "2026-07": "CONSOLIDATION", "2026-08": "CONSOLIDATION",
+    "2026-09": "CONSOLIDATION", "2026-10": "CONSOLIDATION",
+    "2026-11": "CONSOLIDATION", "2026-12": "CONSOLIDATION",
+    "2027-01": "CONSOLIDATION", "2027-02": "CONSOLIDATION",
+    "2027-03": "CONSOLIDATION", "2027-04": "CONSOLIDATION",
+    "2027-05": "CONSOLIDATION", "2027-06": "CONSOLIDATION",
+    "2027-07": "CONSOLIDATION", "2027-08": "CONSOLIDATION",
+    "2027-09": "CONSOLIDATION", "2027-10": "CONSOLIDATION",
+    "2027-11": "CONSOLIDATION", "2027-12": "CONSOLIDATION",
+}
+
 _SPY_CACHE: dict = {}
 _SPY_CACHE_MAX = 10
 
@@ -315,6 +370,41 @@ def _get_spy_cached(start, end) -> pd.Series | None:
     return None
 
 
+# =========================================================
+# NIFTY BENCHMARK HELPER
+# =========================================================
+_NIFTY_CACHE: dict = {}
+_NIFTY_CACHE_MAX = 10
+
+def _get_nifty_cached(start, end) -> pd.Series | None:
+    """Fetch Nifty 50 Close with caching. Returns None on any failure."""
+    key = (str(start.date()), str(end.date()))
+    if key in _NIFTY_CACHE:
+        return _NIFTY_CACHE[key]
+    try:
+        import yfinance as yf, threading
+        result_holder = [None]
+        def _fetch():
+            try:
+                raw = yf.download("^NSEI", start=start, end=end,
+                                  progress=False, timeout=6)["Close"]
+                result_holder[0] = raw.squeeze()
+            except Exception:
+                pass
+        t = threading.Thread(target=_fetch, daemon=True)
+        t.start()
+        t.join(timeout=8)
+        nifty = result_holder[0]
+        if nifty is not None and len(nifty) >= 5:
+            if len(_NIFTY_CACHE) >= _NIFTY_CACHE_MAX:
+                _NIFTY_CACHE.pop(next(iter(_NIFTY_CACHE)))
+            _NIFTY_CACHE[key] = nifty
+            return nifty
+    except Exception:
+        pass
+    return None
+
+
 def _is_non_us_strategy(df: pd.DataFrame) -> bool:
     """
     Detect if the strategy trades non-US assets (forex, metals, crypto, Indian equities).
@@ -338,6 +428,53 @@ def _is_non_us_strategy(df: pd.DataFrame) -> bool:
         if any(p(t) for p in non_us_patterns)
     )
     return non_us_count > len(tickers) * 0.5  # majority non-US
+
+
+# =========================================================
+# INDIAN STRATEGY DETECTION
+# =========================================================
+def _is_indian_strategy(df: pd.DataFrame, currency: str = None) -> bool:
+    """
+    Detect if the strategy trades Indian equities.
+    Returns True when Nifty 50 is the appropriate benchmark.
+    """
+    # Check explicit currency parameter
+    if currency and currency.upper() == "INR":
+        # Check if tickers are forex pairs (exclude forex even with INR currency)
+        if "ticker" in df.columns:
+            tickers = df["ticker"].dropna().astype(str)
+            forex_pairs = [t for t in tickers if len(t) == 6 and t[:3].isalpha() and t[3:].isalpha()]
+            if len(forex_pairs) > len(tickers) * 0.5:  # majority forex pairs
+                return False
+        return True
+    
+    # Check ticker suffixes for Indian exchanges
+    if "ticker" in df.columns:
+        tickers = df["ticker"].dropna().astype(str)
+        nse_suffixes = [t for t in tickers if t.endswith((".NS", ".BO"))]
+        eq_suffixes = [t for t in tickers if t.endswith("-EQ")]
+        
+        # Exclude forex pairs (3-char currency pairs like USDINR, EURINR)
+        forex_pairs = [t for t in tickers if len(t) == 6 and t[:3].isalpha() and t[3:].isalpha()]
+        
+        indian_indicators = nse_suffixes + eq_suffixes
+        if len(indian_indicators) > 0 and len(forex_pairs) <= len(tickers) * 0.5:
+            return True
+    
+    return False
+
+
+# =========================================================
+# BENCHMARK ROUTER
+# =========================================================
+def get_benchmark_type(df: pd.DataFrame, currency: str = None) -> str:
+    """
+    Route to appropriate benchmark based on strategy characteristics.
+    Returns "nifty" for Indian equity strategies, "spy" otherwise.
+    """
+    if _is_indian_strategy(df, currency):
+        return "nifty"
+    return "spy"
 
 
 def assign_regimes(df: pd.DataFrame) -> tuple[pd.DataFrame, str]:
@@ -586,6 +723,87 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
 
     except Exception:
         return None, "⚠ SPY benchmark unavailable (unexpected error). IR + Beta checks are informational."
+
+
+# =========================================================
+# NIFTY BENCHMARK HELPER
+# =========================================================
+
+def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tuple:
+    """
+    Align Nifty 50 daily returns to strategy trade dates for IR + Beta scoring.
+    Returns (benchmark_array, audit_note) or (None, audit_note) on any failure.
+
+    IMPROVEMENTS:
+    - Date normalisation: timestamps stripped to date-only before lookup,
+      preventing intraday UTC offsets (TV, Alpaca) from mapping to wrong calendar day
+    - match_pct now counts only TRUE trading day matches (dates in nifty_ret.index),
+      not any calendar date
+    - NSE trading day calendar (actual NSE trading days from yfinance)
+    - Minimum 30% NSE trading day coverage required for meaningful IR/Beta
+    """
+    if 'date' not in df.columns:
+        return None, "⚠ Nifty benchmark skipped — no date column in trades."
+
+    # Normalise all trade dates to date-only (midnight) before lookup
+    def _normalise_date(d):
+        try:
+            ts = pd.Timestamp(d)
+            if ts.tzinfo is not None:
+                ts = ts.tz_convert("UTC").tz_localize(None)
+            return pd.Timestamp(ts.date())  # strip time component
+        except Exception:
+            return pd.NaT
+
+    try:
+        start = df["date"].min() - pd.Timedelta(days=35)  # 35 days: 30 warmup + 5 buffer
+        end   = df["date"].max() + pd.Timedelta(days=1)
+        nifty = _get_nifty_cached(start, end) if nifty_series is None else nifty_series
+        if nifty is None:
+            raise ValueError("Nifty data unavailable")
+        nifty_ret = nifty.pct_change().dropna()
+        
+        # Normalise timezone to date-only for reliable asof() lookup
+        if hasattr(nifty_ret.index, 'tz') and nifty_ret.index.tz is not None:
+            nifty_ret.index = nifty_ret.index.tz_convert("UTC").tz_localize(None)
+        nifty_ret.index = pd.DatetimeIndex(
+            [pd.Timestamp(d.date()) for d in pd.to_datetime(nifty_ret.index)]
+        )
+
+        # Track true NSE trading day matches
+        trading_dates = set(nifty_ret.index.date)
+        aligned = []
+        true_matches = 0
+
+        for trade_date in df["date"]:
+            norm_date = _normalise_date(trade_date)
+            if pd.isna(norm_date):
+                continue
+            
+            val = float(nifty_ret.asof(norm_date))
+            if np.isnan(val) or abs(val) > 0.20:
+                aligned.append(0.0)
+            else:
+                aligned.append(val)
+                if norm_date.date() in trading_dates:
+                    true_matches += 1
+
+        benchmark = np.array(aligned, dtype=float)
+        true_match_pct = true_matches / max(len(benchmark), 1) * 100
+        if true_match_pct < 30:  # Require 30% NSE trading day coverage
+            return None, (
+                f"⚠ Nifty 50 benchmark coverage too low ({true_match_pct:.1f}% of NSE trading days). "
+                "IR + Beta vs Nifty would be misleading."
+            )
+
+        valid_mask = ~np.isnan(benchmark)
+        if valid_mask.sum() < 5:
+            return None, "⚠ Insufficient Nifty 50 overlap for meaningful IR + Beta."
+
+        return benchmark, f"✓ Nifty 50 benchmark aligned ({true_match_pct:.1f}% of NSE trading days)"
+
+    except Exception as e:
+        return None, f"⚠ Nifty 50 benchmark alignment failed: {str(e)[:100]}"
 
 
 # =========================================================
@@ -1976,8 +2194,15 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         report = validator.run()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
@@ -2035,8 +2260,8 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         _mt5_scale_warn = True
 
     # Put SPY failure note FIRST so it appears at top of audit trail, not buried
-    _spy_flags_first = [_spy_note] if (_spy_note and "unavailable" in _spy_note) else []
-    _spy_flags_rest  = [_spy_note] if (_spy_note and "unavailable" not in _spy_note) else []
+    _spy_flags_first = [_bm_note] if (_bm_note and "unavailable" in _bm_note) else []
+    _spy_flags_rest  = [_bm_note] if (_bm_note and "unavailable" not in _bm_note) else []
     extra_flags = _spy_flags_first + ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + _spy_flags_rest + _options_flags + _mt5_flags
 
     _vr_cache = {
@@ -2234,7 +2459,6 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 "trades_needed": 10,
                 "message": (
                     f"Only {len(df)} completed round-trip trade(s) found — need 10. "
-                    "A round-trip = one BUY + one SELL of the same stock, both within your order history. "
                     f"{_detail}"
                 )
             })
@@ -2246,8 +2470,15 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
 
         # ── Run validation — FIX: off event loop with timeout ────────────────
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         try:
             loop   = asyncio.get_event_loop()
             report = await asyncio.wait_for(
@@ -2302,7 +2533,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                             "strategy_drop":s.strategy_drop,"survived":s.survived,
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
             "top_issues": top_issues, "top_strengths": top_strengths,
-            "audit_flags": r.audit_flags + parse_flags + ([_spy_note] if _spy_note else []),
+            "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
         }
         _cache_validation(r.validation_hash, _vr_cache)
 
@@ -2321,9 +2552,10 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             date_range=date_range, sharpe=round(r.sharpe, 2),
             max_drawdown=round(r.max_drawdown, 4), win_rate=round(r.win_rate, 1),
             top_issues=top_issues, top_strengths=top_strengths,
-            validation_hash=r.validation_hash, validation_date=r.validation_date,
+            validation_hash=r.validation_hash + "-VERIFIED",
+            validation_date=r.validation_date,
             engine_version=r.engine_version + "-VERIFIED",
-            audit_flags=r.audit_flags + parse_flags + ([_spy_note] if _spy_note else []) + [
+            audit_flags=r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []) + [
                 f"✓ Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
                 "✓ Trades independently verified — not user-uploaded",
                 "✓ Credential handling: keys discarded after fetch, never logged",
@@ -2446,8 +2678,15 @@ async def generate_report_endpoint(
         raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -2504,7 +2743,7 @@ async def generate_report_endpoint(
         "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
         "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
         "regime_note":   regime_note,
-        "audit_flags":   report.audit_flags + ([_spy_note] if _spy_note else []) + (
+        "audit_flags":   report.audit_flags + ([_bm_note] if _bm_note else []) + (
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
     }
@@ -2553,8 +2792,6 @@ async def create_checkout(payload: dict):
                 "currency": order["currency"], "key_id": key_id, "checkout_url": None}
     except Exception as e:
         raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
-
-
 
 
 @app.post("/report/create-checkout-intl")
@@ -2784,7 +3021,7 @@ async def generate_broker_report(
             grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
             return Response(
                 content=pdf_bytes, media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename=QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"}
+                headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
             )
 
     def _verify_token(token: str) -> bool:
@@ -2850,13 +3087,23 @@ async def generate_broker_report(
         raise HTTPException(500, f"Alpaca fetch failed: {str(e)[:200]}")
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
     scored = [c for c in report.checks if c.category != "Plausibility"]
+    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
+    top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
+
     date_range = "No date data"
     if "date" in df.columns:
         try:
@@ -2868,7 +3115,8 @@ async def generate_broker_report(
         "fundable_score": min(100.0, round(report.score, 1)), "grade": report.grade,
         "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
         "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
-        "date_range": date_range, "is_verified": True,
+        "date_range": date_range,
+        "is_verified": True,
         "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                     "value":c.value,"insight":c.insight,"fix":c.fix,
                     "category":c.category} for c in report.checks],
@@ -2876,9 +3124,9 @@ async def generate_broker_report(
                         "description":s.description,"market_drop":s.market_drop,
                         "strategy_drop":s.strategy_drop,"survived":s.survived,
                         "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
-        "top_issues":    [c.fix  for c in sorted(scored, key=lambda x: x.score)[:4]],
-        "top_strengths": [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]],
-        "audit_flags":   report.audit_flags + parse_flags + ([_spy_note] if _spy_note else []),
+        "top_issues":    top_issues,
+        "top_strengths": top_strengths,
+        "audit_flags":   report.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -3071,8 +3319,15 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         regime_note = ""
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -3096,7 +3351,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     )
 
     extra_flags = ([regime_note] if regime_note else []) + \
-                  ([_spy_note] if _spy_note else []) + \
+                  ([_bm_note] if _bm_note else []) + \
                   ["SOURCE: Interactive Brokers Flex API — trade data verified",
                    "VERIFIED: Flex Web Service — read-only, credentials never stored"]
 
@@ -3153,7 +3408,8 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         max_drawdown=round(report.max_drawdown, 4), win_rate=round(report.win_rate, 1),
         top_issues=top_issues, top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-IBKR",
-        validation_date=report.validation_date, engine_version=report.engine_version,
+        validation_date=report.validation_date,
+        engine_version=report.engine_version,
         audit_flags=report.audit_flags + extra_flags + audit_flags_ibkr,
         plausibility_summary=report.plausibility_summary,
         scale_warning=getattr(report, '_scale_warning', False),
@@ -3272,8 +3528,15 @@ async def validate_kite(
         kite_note += " | " + regime_note
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
         report    = validator.run()
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
@@ -3329,7 +3592,7 @@ async def validate_kite(
         validation_hash=report.validation_hash + "-KITE",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
-        audit_flags=report.audit_flags + [kite_note] + kite_flags + ([_spy_note] if _spy_note else []),
+        audit_flags=report.audit_flags + [kite_note] + kite_flags + ([_bm_note] if _bm_note else []),
         plausibility_summary=report.plausibility_summary,
         scale_warning=getattr(report, '_scale_warning', False),
         currency=detected_currency,
@@ -3651,8 +3914,15 @@ def validate_tv_alerts(session_id: str):
         df, regime_note = assign_regimes(df)
 
     try:
-        _spy_bm, _spy_note = get_spy_benchmark(df)
-        validator = QuantProofValidator(df, benchmark_returns=_spy_bm)
+        _bm_type = get_benchmark_type(df, None)
+        _bm, _bm_note = (get_nifty_benchmark(df) 
+            if _bm_type == "nifty" 
+            else get_spy_benchmark(df))
+        validator = QuantProofValidator(
+            df,
+            benchmark_returns=_bm,
+            benchmark_type=_bm_type
+        )
     except ValueError as e:
         raise HTTPException(400, str(e))
 
