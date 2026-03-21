@@ -1490,7 +1490,7 @@
   }
 
   async function generatePdfBlob(token) {
-    const src = sessionStorage.getItem('qp_source')||_brokerSource||'csv';
+    const hash = sessionStorage.getItem('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
     let res;
     if(src==='alpaca') {
       const validationHash = sessionStorage.getItem('qp_validation_hash') || '';
