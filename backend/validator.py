@@ -1457,12 +1457,12 @@ class QuantProofValidator:
             try:
                 if adjusted_ratio >= 1.0:
                     ruin_prob = 1.0
+                elif adjusted_ratio <= 0:
+                    ruin_prob = 0.0
                 else:
-                    ruin_prob = float(np.clip(
-                        adjusted_ratio ** 50, 
-                        0.0, 1.0
-                    ))
-            except (OverflowError, FloatingPointError, 
+                    ruin_prob = float(adjusted_ratio ** 50)
+                    ruin_prob = float(np.clip(ruin_prob, 0.0, 1.0))
+            except (OverflowError, FloatingPointError,
                     ZeroDivisionError, ValueError):
                 ruin_prob = 1.0
         else:
@@ -2320,6 +2320,7 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
 
 
