@@ -2272,7 +2272,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
     # Put SPY failure note FIRST so it appears at top of audit trail, not buried
     _spy_flags_first = [_bm_note] if (_bm_note and "unavailable" in _bm_note) else []
     _spy_flags_rest  = [_bm_note] if (_bm_note and "unavailable" not in _bm_note) else []
-    extra_flags = _spy_flags_first + ([regime_note] if (regime_note and regime_note not in existing_flags_text) else []) + _spy_flags_rest + _options_flags + _mt5_flags
+    extra_flags = _spy_flags_first + ([regime_note]  if (regime_note and regime_note not in existing_flags_text) else []) + _spy_flags_rest + _options_flags + _mt5_flags
 
     _vr_cache = {
         "fundable_score": min(100.0, round(r.score, 1)),
@@ -2293,6 +2293,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         "top_issues":    top_issues,
         "top_strengths": top_strengths,
         "audit_flags":   r.audit_flags + extra_flags,
+        "equity_curve":  getattr(r, 'equity_curve', None),
     }
     _cache_validation(r.validation_hash, _vr_cache)
     _save_validation_cache()
@@ -2545,6 +2546,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                             "emotional_verdict":s.emotional_verdict} for s in r.crash_sims],
             "top_issues": top_issues, "top_strengths": top_strengths,
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
+            "equity_curve": getattr(r, 'equity_curve', None),
         }
         _cache_validation(r.validation_hash, _vr_cache)
         _save_validation_cache()
@@ -2780,6 +2782,7 @@ async def generate_report_endpoint(
         "audit_flags":   report.audit_flags + ([_bm_note] if _bm_note else []) + (
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
+        "equity_curve": getattr(report, 'equity_curve', None),
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -3167,6 +3170,7 @@ async def generate_broker_report(
         "top_issues":    top_issues,
         "top_strengths": top_strengths,
         "audit_flags":   report.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
+        "equity_curve": getattr(report, 'equity_curve', None),
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -3415,6 +3419,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         "top_issues":    top_issues,
         "top_strengths": top_strengths,
         "audit_flags":   report.audit_flags + extra_flags + audit_flags_ibkr,
+        "equity_curve": getattr(report, 'equity_curve', None),
     }
     _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
     _save_validation_cache()
