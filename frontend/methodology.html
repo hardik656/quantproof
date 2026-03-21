@@ -113,7 +113,7 @@
     <span class="page-tag">// Validation Methodology</span>
     <h1>How QuantProof<br>scores your strategy</h1>
     <p>Every check, every category, and the research behind it. We show you exactly what we measure and why — because a score you can't explain is a score you can't trust.</p>
-    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-13 &nbsp;·&nbsp; 40 scored checks + 2 operational diagnostics + 1 conditional + 5 crash simulations</div>
+    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Methodology date: 2026-03-21 &nbsp;·&nbsp; 40 scored checks + 2 operational diagnostics + 1 conditional + 5 crash simulations</div>
   </div>
 
   <!-- Score Breakdown -->
@@ -196,7 +196,7 @@
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Deflated Sharpe Ratio (DSR)</div>
-        <div class="check-row-desc">Corrects the Sharpe ratio for non-normality (skewness and excess kurtosis), finite sample bias, and multiple testing. Uses the Harvey-Liu-Zhu framework to estimate the minimum Sharpe required for statistical significance given the number of strategies tested.</div>
+        <div class="check-row-desc">Corrects the Sharpe ratio for non-normality (skewness and excess kurtosis), finite sample bias, and multiple testing. Uses the Harvey-Liu-Zhu framework to estimate the minimum Sharpe required for statistical significance given the number of strategies tested. QuantProof defaults to n_trials=20 — a conservative assumption reflecting the typical number of strategies a retail trader tests before submitting for validation. Users with a known trial count should interpret DSR results accordingly.</div>
         <div class="check-row-why">A raw Sharpe ratio of 1.5 on 100 trades after testing 20 strategies is statistically meaningless. DSR expresses the true probability that the Sharpe is genuine.</div>
         <div class="reference-block">
           <div class="reference-label">Academic Reference</div>
@@ -295,7 +295,7 @@
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Probability of Ruin</div>
-        <div class="check-row-desc">Generalised gambler's ruin formula at institutional position sizing: N=50 capital units (2% risk per trade). Uses reward-to-risk ratio in the ruin calculation, not just win rate.</div>
+        <div class="check-row-desc">Generalised gambler's ruin formula at institutional position sizing: N=50 capital units (2% risk per trade). Uses reward-to-risk ratio in the ruin calculation, not just win rate. Applies the asymmetric formula accounting for unequal win/loss sizes — more accurate than the symmetric version for real trading strategies. Results are clamped to prevent numerical overflow on edge cases.</div>
         <div class="check-row-why">At 2% risk per trade, a genuinely profitable strategy should have near-zero ruin probability. If it doesn't, the edge is insufficient for real money deployment.</div>
         <div class="reference-block">
           <div class="reference-label">Academic Reference</div>
@@ -548,12 +548,12 @@
       <span style="color:var(--accent)">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
     <div class="footer-text" style="margin-top:10px;">
-      Questions? <a href="mailto:quantproof@gmail.com">quantproof@gmail.com</a>
+      Questions? <a href="/cdn-cgi/l/email-protection#0f7e7a6e617b7f7d6060694f68626e6663216c6062"><span class="__cf_email__" data-cfemail="522327333c2622203d3d3412353f333b3e7c313d3f">[email&#160;protected]</span></a>
     </div>
   </div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
   // ── Copy protection ────────────────────────────────────────────────────
   document.addEventListener('copy', function(e) {
     const selection = window.getSelection();
@@ -565,7 +565,7 @@
       '[ QuantProof Methodology — quantproof-frontend.onrender.com ]',
       '',
       'This methodology was written by QuantProof.',
-      'Engine v6.2 | 40 scored checks | Methodology date: 2026-03-13',
+      'Engine v6.2 | 40 scored checks | Methodology date: 2026-03-21',
       '',
       'Full validation tool available at:',
       'quantproof-frontend.onrender.com',
@@ -589,12 +589,4 @@
       toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d1117;color:#00ff88;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,255,136,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s;';
       document.body.appendChild(toast);
     }
-    toast.textContent = 'Link to this page: quantproof-frontend.onrender.com/methodology';
-    toast.style.opacity = '1';
-    clearTimeout(window._toastTimer);
-    window._toastTimer = setTimeout(function() { toast.style.opacity = '0'; }, 3000);
-  });
-</script>
-
-</body>
-</html>
+    toast.textContent = 'Link to this pag
