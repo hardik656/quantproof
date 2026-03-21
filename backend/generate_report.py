@@ -375,6 +375,7 @@ def category_radar_chart(checks: list, width=120, height=120) -> Drawing:
 
     # Category labels
     label_offsets = {0: (0, 6), 1: (8, 0), 2: (6, -8), 3: (-6, -8), 4: (-8, 0)}
+    for i, cat in enumerate(cats):
         lx, ly = pt(i, 1.15)
         ox, oy = label_offsets.get(i, (0, 0))
         score_val = scores[cat]
