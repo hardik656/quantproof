@@ -898,15 +898,8 @@
     const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
     const file = new File([blob], 'sample_nifty_momentum.csv', { type: 'text/csv' });
     _lastValidatedFile = file;
-    try {
-      const reader = new FileReader();
-      reader.onload = e => {
-        sessionStorage.setItem('qp_filename', file.name);
-        sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]);
-        sessionStorage.setItem('qp_source', 'csv');
-      };
-      reader.readAsDataURL(file);
-    } catch(e) {}
+    // Do NOT write sample data to sessionStorage — prevents stale sample
+    // file being sent to /report/generate when user later pays for real PDF
     showLoading();
     const fd = new FormData();
     fd.append('file', file);
