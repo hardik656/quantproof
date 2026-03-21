@@ -1454,7 +1454,11 @@ class QuantProofValidator:
         if p > q:  # profitable edge exists
             # Generalised gambler's ruin: P(ruin) = ((q/p) / rr_ratio)^N
             adjusted_ratio = (q / p) / (rr_ratio + EPSILON)
-            ruin_prob = min(1.0, adjusted_ratio ** 50) if adjusted_ratio < 1 else 1.0
+            # Guard against overflow before exponentiation
+            if adjusted_ratio >= 1.0:
+                ruin_prob = 1.0  # guaranteed ruin, no calculation needed
+            else:
+                ruin_prob = min(1.0, adjusted_ratio ** 50)
         else:
             ruin_prob = 1.0
         ruin_pct  = ruin_prob * 100
@@ -2310,4 +2314,5 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
