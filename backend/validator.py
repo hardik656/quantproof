@@ -878,7 +878,7 @@ class QuantProofValidator:
         df: pd.DataFrame,
         strict_mode: bool = False,
         seed: int = 42,
-        n_trials: int = 1,
+        n_trials: int = 20,
         benchmark_type: str = "spy",
         benchmark_returns: Optional[np.ndarray] = None,
     ):
@@ -1217,7 +1217,8 @@ class QuantProofValidator:
         else:
             passed, score = False, 10
         return CheckResult("Deflated Sharpe Ratio", passed, round(score, 1),
-            f"DSR={dsr:.3f} | SE=±{se:.2f} | Min SR: {sr_min:.2f} | n_trials={self.n_trials}",
+            f"DSR={dsr:.3f} | SE=±{se:.2f} | Min SR: {sr_min:.2f} | "
+            f"n_trials={self.n_trials} (assumed — actual may differ)",
             f"DSR corrects Sharpe={sharpe:.2f} for non-normality and {self.n_trials} trial(s).",
             "Increase backtest length or reduce parameter count.", "Overfitting")
 
@@ -2328,7 +2329,6 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
-
 
 
 
