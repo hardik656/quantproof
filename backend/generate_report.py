@@ -235,7 +235,10 @@ def crash_bar_chart(crashes: list, width=None, height=110) -> Drawing:
     d.add(zl)
 
     # Y axis ticks
-    for tick_v in [mn, mn / 2, 0, mx / 2 if mx > 0 else 0]:
+    tick_vals = [mn, mn / 2, 0]
+    if mx > 0:
+        tick_vals.append(mx / 2)
+    for tick_v in tick_vals:
         yt = y_of(tick_v)
         tl = Line(pad["l"] - 3, yt, pad["l"], yt)
         tl.strokeColor = C_LITE; tl.strokeWidth = 0.5
@@ -372,13 +375,15 @@ def category_radar_chart(checks: list, width=120, height=120) -> Drawing:
 
     # Category labels
     label_offsets = {0: (0, 6), 1: (8, 0), 2: (6, -8), 3: (-6, -8), 4: (-8, 0)}
-    for i, cat in enumerate(cats):
         lx, ly = pt(i, 1.15)
         ox, oy = label_offsets.get(i, (0, 0))
         score_val = scores[cat]
         col = cat_color(score_val)
-        d.add(String(lx + ox, ly + oy, f"{cat[:4]}\n{score_val:.0f}",
+        d.add(String(lx + ox, ly + oy + 8, f"{cat[:5]}",
                      fontName="Helvetica-Bold", fontSize=6.5,
+                     fillColor=col, textAnchor="middle"))
+        d.add(String(lx + ox, ly + oy, f"{score_val:.0f}",
+                     fontName="Helvetica", fontSize=6,
                      fillColor=col, textAnchor="middle"))
 
     return d
@@ -496,11 +501,20 @@ def generate_pdf_report(vr: dict) -> bytes:
         "B":  ("Live Tradeable — With Caution",
                f"The strategy shows a real but fragile edge (Sharpe {sharpe:.2f}). "
                f"Deploy at reduced size and monitor closely."),
-        "F":  ("Do Not Deploy",
+        "C":  ("Promising — Needs Work",
+               f"The strategy shows early-stage edge (Sharpe {sharpe:.2f}) but "
+               f"fails key institutional checks. Fix the ranked issues below before "
+               f"deploying real capital."),
+        "D":  ("Major Issues",
                f"Critical failures detected across key institutional checks. "
                f"The action plan below shows exactly what to fix first."),
     }
-    tier = "A" if score >= 90 else "B+" if score >= 80 else "B" if score >= 70 else "F"
+    tier = ("A"  if score >= 90 else
+            "B+" if score >= 80 else
+            "B"  if score >= 70 else
+            "C"  if score >= 50 else
+            "D"  if score >= 35 else
+            "F")
     verdict_title, verdict_body = verdict_text[tier]
 
     score_row = Table([[
@@ -990,9 +1004,9 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 3*mm))
-    rid = abs(hash(str(score) + grade + str(n))) % 100000
+    vh = vr.get("validation_hash", f"QP-{abs(hash(str(score)+grade+str(n)))%100000:05d}")
     story.append(Paragraph(
-        f"Report ID: QP-{rid:05d}  ·  "
+        f"Report ID: {vh}  ·  "
         f"Engine: v6.2  ·  44 checks  ·  5 crash simulations  ·  "
         f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
         S["footer"]))
