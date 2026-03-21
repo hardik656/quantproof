@@ -3964,10 +3964,18 @@ def validate_tv_alerts(session_id: str):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    import sys
     try:
         report = validator.run()
     except Exception as e:
-        raise HTTPException(500, f"Validation failed: {str(e)}")
+        # Log the full traceback so we can see 
+        # exactly which line is overflowing
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[TV_VALIDATE_ERROR] {tb}", 
+              file=sys.stderr, flush=True)
+        raise HTTPException(400, 
+            f"Validation failed: {str(e)}")
 
     scored        = [c for c in report.checks if c.category != "Plausibility"]
     top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
