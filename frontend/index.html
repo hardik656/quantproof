@@ -37,7 +37,7 @@
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web",
   "url": "https://quantproof-frontend.onrender.com/",
-  "description": "Institutional-grade backtest validator for retail algo traders. 40 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
+  "description": "Institutional-grade backtest validator for retail algo traders. 44 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
   "offers": {
     "@type": "Offer",
     "price": "0",
@@ -45,7 +45,7 @@
     "description": "3 free validations per day. Full PDF report from ₹299."
   },
   "featureList": [
-    "40 institutional validation checks",
+    "44 institutional validation checks",
     "5 historical crash simulations (2008, 2020, 2022, 2010, 1998)",
     "Fundable Score 0-100",
     "Zerodha Kite TradeBook and Orders CSV support",
@@ -75,7 +75,7 @@
       "name": "How do I know if my trading strategy is ready for a prop firm challenge?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Upload your backtest CSV to QuantProof. It runs 40 institutional checks including Sharpe ratio, max drawdown, FTMO and Topstep compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
+        "text": "Upload your backtest CSV to QuantProof. It runs 44 institutional checks including Sharpe ratio, max drawdown, FTMO and Topstep compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
       }
     },
     {
@@ -83,7 +83,7 @@
       "name": "How do I validate a Zerodha Kite strategy?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Export your TradeBook or Orders CSV from Zerodha Console and upload it to QuantProof. It auto-detects the format, pairs BUY and SELL trades using FIFO matching, and runs all 40 institutional checks. Supports both TradeBook and Orders CSV formats."
+        "text": "Export your TradeBook or Orders CSV from Zerodha Console and upload it to QuantProof. It auto-detects the format, pairs BUY and SELL trades using FIFO matching, and runs all 44 institutional checks. Supports both TradeBook and Orders CSV formats."
       }
     },
     {
@@ -99,7 +99,7 @@
       "name": "Is QuantProof free?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. QuantProof gives 3 free full validations per day including all 40 checks and 5 crash simulations. Unlock all fix details for ₹99, or get a full PDF report with a ranked fix plan based on your exact numbers for ₹299 (one-time, no subscription)."
+        "text": "Yes. QuantProof gives 3 free full validations per day including all 44 checks and 5 crash simulations. Unlock all fix details for ₹99, or get a full PDF report with a ranked fix plan based on your exact numbers for ₹299 (one-time, no subscription)."
       }
     },
     {
@@ -295,8 +295,6 @@
     white-space:nowrap; transition:background 0.2s; flex-shrink:0;
   }
   .demo-banner-btn:hover { background:#00cc6e; }
-
-  /* FIX #1 — Urgency gate strip */
   .urgency-gate {
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
     gap:16px; padding:20px 24px; margin-bottom:32px;
@@ -313,8 +311,6 @@
     white-space:nowrap; flex-shrink:0; transition:background 0.2s;
   }
   .urgency-gate-btn:hover { background:#cc3333; }
-
-  /* FIX #2 — Sample strategy gate wall */
   .sample-gate-wall {
     padding:40px 32px; text-align:center;
     border:1px solid rgba(0,255,136,0.2); background:rgba(0,255,136,0.02);
@@ -342,7 +338,6 @@
     </div>
   </header>
 
-  <!-- HERO — pain→solution, prop firm specific, CTA above fold -->
   <main id="heroSection"><div class="hero">
     <div class="hero-tag">// 92% of prop firm challenges fail. Most failures are preventable.</div>
     <h1>Know if your strategy<br>will pass <em>before</em> you pay.</h1>
@@ -363,7 +358,7 @@
     </div>
   </div></main>
 
-  <!-- SOCIAL PROOF BAR — 3 blocks, specific numbers -->
+  <!-- SOCIAL PROOF BAR -->
   <div style="margin:-24px 0 56px;animation:fadeUp 0.8s 0.2s ease both;">
     <div class="proof-bar">
       <div style="background:var(--deep);padding:20px 24px;">
@@ -372,8 +367,8 @@
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">Most from drawdown violations QuantProof catches on check #3</div>
       </div>
       <div style="background:var(--deep);padding:20px 24px;border-left:1px solid var(--border);">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">₹400</div>
-        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">average cost of a failed attempt</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">$155–$399</div>
+        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">average cost of a failed challenge</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">QuantProof validation: free. Finding out after: expensive.</div>
       </div>
       <div style="background:var(--deep);padding:20px 24px;border-left:1px solid var(--border);">
@@ -433,21 +428,24 @@
     </div>
   </div>
 
-  <!-- TRUST SIGNALS — above upload section, below explainer -->
+  <!-- FEATURE CARDS — replaces fake testimonials -->
   <div style="margin-bottom:48px;animation:fadeUp 0.8s 0.15s ease both;">
-    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:20px;">// WHY TRADERS USE QUANTPROOF</div>
+    <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:20px;">// WHAT QUANTPROOF CHECKS</div>
     <div class="testimonials-grid">
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
-        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"My Sharpe was 2.1 but my DSR was 0.62 — QuantProof caught the overfitting my backtest software never showed. Saved me ₹15,000 in failed attempts."</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— Kite algo trader, NSE momentum</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// OVERFITTING DETECTION</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">Deflated Sharpe, CPCV with embargo gaps, Monte Carlo robustness — the same checks hedge funds use to reject curve-fitted strategies before they ever see capital.</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">DSR &nbsp;·&nbsp; CPCV &nbsp;·&nbsp; Ljung-Box &nbsp;·&nbsp; Bootstrap Stability</div>
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
-        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"Failed FTMO twice before this. Both times: max drawdown violation in week 3. QuantProof scored my DD check 18/100 and told me exactly why before I paid again."</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— Alpaca trader, US equities</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// PROP FIRM COMPLIANCE</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">FTMO, Topstep, and The5ers rule checks mapped directly to your trade data. Know your drawdown headroom and daily loss limits before you pay the challenge fee.</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FTMO &nbsp;·&nbsp; Topstep &nbsp;·&nbsp; The5ers &nbsp;·&nbsp; CTA Standards</div>
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
-        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:14px;">"QuantConnect costs $1,000 for a proper backtest. This gave me deflated Sharpe, CPCV, and 5 crash sims in 30 seconds. It's not a journal — it's an audit."</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">— TradingView strategy developer</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// INDIAN MARKET NATIVE</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">Zerodha Kite TradeBook with FIFO pairing. Nifty 50 benchmark for Indian strategies. Oct 2024–2025 correction correctly detected as bear — not SPY bull.</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Kite TradeBook &nbsp;·&nbsp; Kite Orders &nbsp;·&nbsp; Nifty 50 Benchmark</div>
       </div>
     </div>
     <div style="margin-top:16px;text-align:center;">
@@ -596,7 +594,6 @@
         </div>
       </div>
     </div>
-    <!-- IBKR panel injected dynamically -->
 
   </div>
 
@@ -633,7 +630,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">📊</span>
-        <span>Market regime auto-detected from SPY — no manual labelling needed</span>
+        <span>Regime auto-detected from SPY or Nifty 50 — based on your strategy's market</span>
       </div>
       <div style="display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--muted);">
         <span style="font-size:14px;">🎯</span>
@@ -884,7 +881,6 @@
     }
   }
 
-  // FIX #6 — Cold start copy no longer reveals free tier hosting
   function coldStartWarning() {
     return setTimeout(() => {
       const loadLine = document.querySelector('.terminal-line:last-child');
@@ -959,21 +955,14 @@
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
 
-  // ── Results rendering ──────────────────────────────────────
   function renderResults(data, isSample) {
     setCurrency(data.currency || 'USD');
     const section = document.getElementById('resultsSection');
-
-    // Hide upload and hero so results take the full screen
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('heroSection').style.display   = 'none';
-
     section.classList.add('active');
     section.innerHTML = '';
-
-    // Scroll to very top so score is first thing user sees
     window.scrollTo({ top: 0, behavior: 'smooth' });
-
     if (isSample) {
       const demoBanner = document.createElement('div');
       demoBanner.className = 'demo-banner';
@@ -987,14 +976,12 @@
       `;
       section.appendChild(demoBanner);
     }
-
     if(data.scale_warning) {
       const warn = document.createElement('div');
       warn.style.cssText = 'background:#7c3000;color:#ffcc88;padding:12px 18px;margin-bottom:16px;font-size:13px;border:1px solid #cc6600';
       warn.innerHTML = '⚠ <b>Possible data format issue:</b> Over 50% of returns are at the maximum boundary. Submit decimals (0.025) not percentages (2.5) or dollar amounts.';
       section.appendChild(warn);
     }
-
     try {
       const resultsDiv = document.createElement('div');
       resultsDiv.innerHTML = buildResultsHTML(data, isSample);
@@ -1002,12 +989,10 @@
     } catch(e) {
       section.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4444;font-family:monospace">Render error: ${e.message}<br><button onclick="resetApp()" style="margin-top:16px;background:#00ff88;color:#000;border:none;padding:10px 24px;cursor:pointer;font-family:monospace">Try Again</button></div>`;
     }
-
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
     setTimeout(() => { if (typeof QP_Charts !== 'undefined') QP_Charts.init(data); }, 200);
-    // Auto-expand top 3 failing checks so results aren't a wall of collapsed rows
     setTimeout(() => {
       const failItems = document.querySelectorAll('.check-item.fail');
       let opened = 0;
@@ -1022,7 +1007,6 @@
 
   function getScoreColor(s) { return s>=80?'#00ff88':s>=65?'#00cc6e':s>=50?'#ffaa00':s>=35?'#ff6600':'#ff4444'; }
   function getCrashClass(sim) { return !sim.survived?(sim.strategy_drop>0?'warning':'failed'):sim.strategy_drop>-0.05?'survived':'warning'; }
-
   function getCrashVerdictColor(verdict) {
     const v = verdict.replace('[UNCALIBRATED] ','').replace('[UNCALIBRATED]','').trim();
     if(v.startsWith('🟢')) return 'var(--accent)';
@@ -1035,7 +1019,7 @@
     const circle = document.querySelector('.score-circle-fill');
     const numEl  = document.querySelector('.score-val');
     if(!circle||!numEl) return;
-    const circ = 2*Math.PI*70;   // r=70 on new 180x180 circle
+    const circ = 2*Math.PI*70;
     circle.style.strokeDasharray  = circ;
     circle.style.strokeDashoffset = circ - (score/100)*circ;
     circle.style.stroke = getScoreColor(score);
@@ -1065,27 +1049,21 @@
     const gradeDesc   = data.grade.split('—')[1]?.trim()||'';
     const categories  = {};
     (data.checks||[]).forEach(c=>{ if(!categories[c.category])categories[c.category]=[]; categories[c.category].push(c); });
-
     const isVerified = _validationMode==='broker'||_validationMode==='alpaca';
     const modeLabel  = _validationMode==='kite'?'Kite CSV':_validationMode==='tradingview'?'TradingView Webhook':'CSV Upload';
-
-    // FIX #1 — Urgency gate strip: shown immediately after score, before crash grid
     const failedChecks = (data.checks||[]).filter(c=>!c.passed);
     const failedCount  = failedChecks.length;
     const urgencyGateHTML = failedCount > 0 ? `
       <div class="urgency-gate">
         <div class="urgency-gate-text">
           <div class="urgency-gate-label">// ${failedCount} CRITICAL FAILURE${failedCount>1?'S':''} DETECTED</div>
-          <div class="urgency-gate-headline">Your strategy fails ${failedCount} of 40 institutional checks.</div>
+          <div class="urgency-gate-headline">Your strategy fails ${failedCount} of 44 institutional checks.</div>
           <div class="urgency-gate-sub">Each failure has a specific fix. See all of them — ₹99, instant unlock.</div>
         </div>
         <button class="urgency-gate-btn" onclick="buyLiteUnlock()">⚡ See All Fixes — ₹99</button>
       </div>` : '';
-
-    // FIX #2 — Sample strategy gate wall: only first category shown, rest gated
     const categoryEntries = Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance');
     let checksHTML = '';
-    // Show all categories in sample mode — users need to see full results to understand value
     if (isSample) {
       checksHTML = categoryEntries.map(([cat, checks]) => buildCategoryHTML(cat, checks, true)).join('');
       checksHTML += `
@@ -1255,22 +1233,17 @@
     `;
   }
 
-  // Helper: switch result tabs
   function switchResultTab(btn, tabId) {
-    // deactivate all tabs and panels
     document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.result-panel').forEach(p => p.classList.remove('active'));
-    // activate selected
     btn.classList.add('active');
     const panel = document.getElementById(tabId);
     if (panel) panel.classList.add('active');
-    // re-trigger bar animations for checks tab
     if (tabId === 'tab-checks') {
       document.querySelectorAll('.bar-fill').forEach(b => { b.style.width = b.dataset.width + '%'; });
     }
   }
 
-  // Helper: build one category block (used by both full and sample render paths)
   function buildCategoryHTML(cat, checks, forceShowFixes) {
     const catScore = Math.round(checks.reduce((a,c)=>a+c.score,0)/checks.length);
     const passed   = checks.filter(c=>c.passed).length;
@@ -1450,11 +1423,9 @@
     }
   }
 
-  // FIX #3 — Single ₹99 unlock function (buyLiteUnlock). buyQuickUnlock removed.
   async function buyLiteUnlock() {
     const btn    = document.getElementById('unlockBtn');
     const status = document.getElementById('pdfBtnStatus');
-    // Also disable urgency gate button if present
     const ugBtn = document.querySelector('.urgency-gate-btn');
     if(btn) { btn.disabled = true; btn.innerText = 'Opening payment...'; }
     if(ugBtn) { ugBtn.disabled = true; ugBtn.innerText = 'Opening...'; }
@@ -1609,7 +1580,7 @@
       <div style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:18px;">IBKR uses a Flex Web Service for data access. One-time setup takes ~5 minutes.</div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:2.0;margin-bottom:18px;">
         1. Log into <a href="https://clientportal.ibkr.com" target="_blank" style="color:var(--accent)">IBKR Client Portal</a><br>
-        2. Go to: Performance & Reports → Flex Queries → Create<br>
+        2. Go to: Performance &amp; Reports → Flex Queries → Create<br>
         3. Choose "Trade Confirmation Flex Query"<br>
         4. Select fields: <span style="color:var(--accent3)">TradeDate, Symbol, Quantity, Price, NetCash, OpenCloseIndicator, FifoPnlRealized, Currency</span><br>
         5. Save → note the <b>Query ID</b><br>
@@ -1630,7 +1601,7 @@
         <input id="ibkrToken" type="password" placeholder="••••••••••••••••••••••••••••••" style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:var(--mono);font-size:12px;outline:none;">
       </div>
       <div style="display:flex;gap:10px;">
-        <button onclick="handleIBKRConnect()" class="upload-btn" style="flex:1;">FETCH & VALIDATE</button>
+        <button onclick="handleIBKRConnect()" class="upload-btn" style="flex:1;">FETCH &amp; VALIDATE</button>
         <button onclick="document.getElementById('ibkrPanel').remove()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 20px;font-family:var(--mono);font-size:12px;cursor:pointer;">Cancel</button>
       </div>
       <div id="ibkrStatus" style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);min-height:16px;"></div>
@@ -1804,7 +1775,7 @@
       '',
       'Score: ' + score + '/100',
       '',
-      'Full 40-check breakdown and ranked fix plan — PDF report available at:',
+      'Full 44-check breakdown and ranked fix plan — PDF report available at:',
       'quantproof-frontend.onrender.com',
       'PDF report: Rs.299 / $4 USD',
       '',
