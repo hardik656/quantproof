@@ -6,8 +6,8 @@
 
 <!-- Primary SEO -->
 <title>QuantProof — Is Your Trading Strategy's Edge Still Real? Backtest & Live Validation</title>
-<meta name="description" content="Validate your trading strategy against 44 institutional checks — before you go live and while you're trading live. Deflated Sharpe, Ljung-Box, CPCV, SPY alpha check, 5 crash simulations. Backtest or live trade history. Kite, Alpaca, IBKR, MT5, TradingView supported.">
-<meta name="keywords" content="backtest validator, live strategy validation, algo trading validation, prop firm ready, trading strategy checker, FTMO challenge, live trading edge, strategy health check, deflated sharpe ratio, Kite backtest, Alpaca backtest, fundable score, Sharpe ratio checker, trading strategy audit, quantitative trading India, strategy overfitting, live strategy monitor">
+<meta name="description" content="Is your strategy FTMO-ready? QuantProof runs 44 institutional checks on your backtest or live trade history in 30 seconds. Deflated Sharpe, CPCV, 5 crash simulations, prop firm compliance gates. Free to start. Zerodha Kite, Alpaca, IBKR, TradingView supported.">
+<meta name="keywords" content="FTMO preparation tool, will I pass FTMO, FTMO strategy checker, Zerodha strategy checker, backtest validator India, algo trading validation, prop firm ready checker, trading strategy audit, deflated sharpe ratio, CPCV backtest, Kite backtest validator, fundable score, strategy overfitting detector, quantitative trading India, FTMO phase 1 ready, Topstep strategy checker">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
 <link rel="canonical" href="https://quantproof-frontend.onrender.com/">
@@ -230,9 +230,9 @@
   .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted)}
   footer .accent{color:var(--accent)}
   @media(max-width:768px){.crash-grid,.mode-grid{grid-template-columns:1fr}.score-hero-top{flex-direction:column;align-items:center}.score-meta{text-align:center;max-width:100%}.meta-grid{grid-template-columns:repeat(2,1fr)}.stats-row{gap:24px}.score-circle{width:160px;height:160px}.score-circle svg{width:160px;height:160px}.score-val{font-size:42px}.score-circle-wrap{margin-bottom:8px}}
-  .proof-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
+  .proof-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
   .testimonials-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-  @media(max-width:768px) { .proof-bar { grid-template-columns:1fr; } .testimonials-grid { grid-template-columns:1fr; } }
+  @media(max-width:768px) { .proof-bar { grid-template-columns:1fr 1fr; } .testimonials-grid { grid-template-columns:1fr; } }
   .mode-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:0}
   @media(min-width:1025px){.mode-grid{grid-template-columns:repeat(4,1fr);gap:16px}}
   .mode-card{background:var(--deep);border:1px solid var(--border);padding:22px 18px;display:flex;flex-direction:column;transition:border-color 0.2s}
@@ -376,6 +376,22 @@
         <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">checks prop firms actually use</div>
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">Deflated Sharpe, CPCV, CVaR, crash sims — not just win rate</div>
       </div>
+      <a href="https://www.producthunt.com/products/grade-algo-validation/launches"
+         target="_blank" rel="noopener"
+         style="background:var(--deep);padding:20px 24px;border-left:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;text-decoration:none;transition:background 0.2s;"
+         onmouseover="this.style.background='#111820'"
+         onmouseout="this.style.background='var(--deep)'">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <svg width="22" height="22" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+            <circle cx="20" cy="20" r="20" fill="#00ff88"/>
+            <path d="M22.5 20H17.5V15H22.5C23.8807 15 25 16.1193 25 17.5C25 18.8807 23.8807 20 22.5 20Z" fill="#080a0f"/>
+            <path d="M17.5 20H22.5C23.8807 20 25 21.1193 25 22.5C25 23.8807 23.8807 25 22.5 25H17.5V20Z" fill="#080a0f"/>
+          </svg>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:0.12em;">FEATURED ON</div>
+        </div>
+        <div style="font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;">Product Hunt</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.5;">Launched March 2026</div>
+      </a>
     </div>
   </div>
 
@@ -467,6 +483,13 @@
     </div>
 
     <div class="sample-divider"><span class="sample-divider-text">— or validate yours now —</span></div>
+
+    <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:20px;padding:12px 16px;border-left:2px solid var(--border);line-height:1.9;">
+      <span style="color:var(--accent);">Zerodha?</span> &rarr; Kite Export &nbsp;&nbsp;
+      <span style="color:var(--accent);">Alpaca / IBKR?</span> &rarr; Connect Broker &nbsp;&nbsp;
+      <span style="color:var(--accent);">TradingView alerts?</span> &rarr; TV Webhook &nbsp;&nbsp;
+      <span style="color:var(--accent);">Backtest CSV?</span> &rarr; Any CSV
+    </div>
 
     <div class="mode-grid">
 
@@ -651,6 +674,9 @@
     <div class="footer-text">
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
+    <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
+      Built by <a href="https://www.linkedin.com/in/hardik-gumber-93507b98/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">Hardik Gumber</a> &nbsp;·&nbsp; Delhi, India &nbsp;·&nbsp; Algo trader since 2021
+    </div>
   </div>
 </footer>
 
@@ -808,7 +834,7 @@
         if (detail.error === 'rate_limit') {
           hideLoading(true);
           _isSampleRun = false;
-          alert(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+          showRateLimitModal(detail.hours_left);
           return;
         }
         throw new Error(detail.message || detail || 'Validation failed');
@@ -914,7 +940,7 @@
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
-        if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        if(detail.error === 'rate_limit') { hideLoading(true); showRateLimitModal(detail.hours_left); return; }
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
@@ -943,7 +969,7 @@
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
-        if(detail.error === 'rate_limit') throw new Error(`Daily limit reached — 3 free validations/day. Resets in ~${detail.hours_left}h.`);
+        if(detail.error === 'rate_limit') { hideLoading(true); showRateLimitModal(detail.hours_left); return; }
         if(detail.error === 'insufficient_trades') throw new Error(
           `Only ${detail.trades_found} completed trade(s) found — need ${detail.trades_needed}.\n\n${detail.message || 'A round-trip = one BUY + one SELL of the same stock. Export a longer date range from Zerodha Console.'}`
         );
@@ -1291,6 +1317,78 @@
   }
 
   function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
+
+  function showRateLimitModal(hoursLeft) {
+    const existing = document.getElementById('qp-rl-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'qp-rl-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.innerHTML = `
+      <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:460px;width:100%;padding:36px 32px;position:relative;">
+        <button onclick="document.getElementById('qp-rl-modal').remove()"
+          style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">✕</button>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4444;letter-spacing:0.12em;margin-bottom:10px;">// DAILY LIMIT REACHED</div>
+        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:6px;">3 free validations used today.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;">Resets in ~${hoursLeft}h &nbsp;·&nbsp; or unlock now and keep going</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+          <button onclick="document.getElementById('qp-rl-modal').remove();buyLiteUnlock();"
+            style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+            ⚡ Unlock All Fixes Now — ₹99
+          </button>
+          <button onclick="document.getElementById('qp-rl-modal').remove();buyPdfReport();"
+            style="background:transparent;color:#00ff88;border:1px solid rgba(0,255,136,0.4);padding:12px 20px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;width:100%;">
+            📄 Full PDF Report — ₹299
+          </button>
+        </div>
+
+        <div style="border-top:1px solid #1e2d3d;padding-top:18px;">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;letter-spacing:0.08em;">OR — EMAIL ME WHEN MY LIMIT RESETS (FREE)</div>
+          <div style="display:flex;gap:8px;">
+            <input id="rl-email" type="email" placeholder="your@email.com"
+              style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:9px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;">
+            <button onclick="submitRateLimitEmail()"
+              style="background:#1e2d3d;color:#e8edf2;border:1px solid #1e2d3d;padding:9px 14px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.2s;"
+              onmouseover="this.style.background='#2a3f55'" onmouseout="this.style.background='#1e2d3d'">
+              Notify →
+            </button>
+          </div>
+          <div id="rl-status" style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-top:6px;min-height:14px;"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  async function submitRateLimitEmail() {
+    const email = (document.getElementById('rl-email')||{}).value||'';
+    const status = document.getElementById('rl-status');
+    const btn = document.querySelector('#qp-rl-modal button[onclick*="submitRateLimitEmail"]');
+    if (!email || !email.includes('@')) {
+      if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
+      return;
+    }
+    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
+    try {
+      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'QuantProof Rate Limit Capture' })
+      });
+      const data = await resp.json();
+      if(resp.ok) {
+        if(status){ status.innerText="✓ Got it — we'll email you when your limit resets."; status.style.color='#00ff88'; }
+        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
+        const input = document.getElementById('rl-email');
+        if(input){ input.disabled=true; }
+      } else {
+        throw new Error(data.error || 'Failed');
+      }
+    } catch(e) {
+      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='Notify →'; }
+    }
+  }
 
   function resetApp() {
     _isSampleRun = false;
