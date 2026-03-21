@@ -1943,7 +1943,8 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             _df, _note, _flags = _parse_options_csv(raw)
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df)
+                    _bm_type_for_regime = get_benchmark_type(_df, None)
+                    _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | OPTIONS_FLAGS:" + "||".join(_flags)
@@ -1965,7 +1966,8 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     _note = _note[len("MT5_FOREX_SCALE_WARN||"):]
                     _mt5_forex_scale = True
                 if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df)
+                    _bm_type_for_regime = get_benchmark_type(_df, None)
+                    _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
                     _note += (" | " + _regime_note if _regime_note else "")
                 if _flags:
                     _note += " | MT5_FLAGS:" + "||".join(_flags)
@@ -2293,6 +2295,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), re
         "audit_flags":   r.audit_flags + extra_flags,
     }
     _cache_validation(r.validation_hash, _vr_cache)
+    _save_validation_cache()
 
     return ValidationResponse(
         fundable_score=min(100.0, round(r.score, 1)),
@@ -2544,6 +2547,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
         }
         _cache_validation(r.validation_hash, _vr_cache)
+        _save_validation_cache()
 
         return ValidationResponse(
             fundable_score=min(100.0, round(r.score, 1)), grade=r.grade, summary=summary,
@@ -2632,10 +2636,31 @@ _PDF_SEMAPHORE = _asyncio.Semaphore(2)
 VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
+def _save_validation_cache():
+    try:
+        import json
+        with open("/tmp/qp_validation_cache.json", "w") as f:
+            json.dump(dict(VALIDATION_RESULT_CACHE), f)
+    except Exception:
+        pass
+
+def _load_validation_cache():
+    try:
+        import json
+        if os.path.exists("/tmp/qp_validation_cache.json"):
+            with open("/tmp/qp_validation_cache.json", "r") as f:
+                data = json.load(f)
+                VALIDATION_RESULT_CACHE.update(data)
+    except Exception:
+        pass
+
+_load_validation_cache()
+
 def _cache_validation(v_hash: str, vr: dict):
     VALIDATION_RESULT_CACHE[v_hash] = vr
     if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
         VALIDATION_RESULT_CACHE.popitem(last=False)
+    _save_validation_cache()
 
 def _get_cached_validation(v_hash: str) -> dict | None:
     # FIX: LRU eviction — move accessed entry to end so it evicts last
@@ -2760,6 +2785,7 @@ async def generate_report_endpoint(
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
     _cache_validation(report.validation_hash, vr)
+    _save_validation_cache()
 
     try:
         if not _PDF_AVAILABLE:
@@ -2993,6 +3019,11 @@ async def generate_broker_report(
 ):
     if payload.validation_hash:
         cached_vr = _get_cached_validation(payload.validation_hash)
+        if not cached_vr:
+            raise HTTPException(400, {
+                "error": "cache_expired",
+                "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
+            })
         if cached_vr:
             _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
             _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
@@ -3141,6 +3172,7 @@ async def generate_broker_report(
     ai_plan = await generate_ai_plan(report, date_range)
     vr["ai_plan"] = ai_plan
     _cache_validation(report.validation_hash, vr)
+    _save_validation_cache()
 
     if not _PDF_AVAILABLE:
         raise HTTPException(503, "PDF module not available on this server.")
@@ -3385,37 +3417,29 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         "audit_flags":   report.audit_flags + extra_flags + audit_flags_ibkr,
     }
     _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
+    _save_validation_cache()
 
     validation_resp = ValidationResponse(
-        fundable_score=report.score, grade=report.grade, summary=summary,
-        checks=[
-    CheckResultResponse(
-        name=getattr(c, "name", ""),
-        passed=getattr(c, "passed", False),
-        score=getattr(c, "score", 0),
-        value=getattr(c, "value", None),
-        insight=getattr(c, "insight", ""),
-        fix=getattr(c, "fix", ""),
-        category=getattr(c, "category", "")
-    )
-    for c in scored
-],
-        crash_sims=[
-    CrashSimResponse(
-        crash_name=getattr(s, "crash_name", ""),
-        year=getattr(s, "year", 0),
-        description=getattr(s, "description", ""),
-        market_drop=getattr(s, "market_drop", 0),
-        strategy_drop=getattr(s, "strategy_drop", 0),
-        survived=getattr(s, "survived", False),
-        emotional_verdict=getattr(s, "emotional_verdict", "")
-    )
-    for s in report.crash_sims
-],
-        total_trades=report.total_trades, profitable_trades=report.profitable_trades,
-        date_range=date_range, sharpe=round(report.sharpe, 2),
-        max_drawdown=round(report.max_drawdown, 4), win_rate=round(report.win_rate, 1),
-        top_issues=top_issues, top_strengths=top_strengths,
+        fundable_score=min(100.0, round(report.score, 1)),
+        grade=report.grade,
+        summary=summary,
+        checks=[CheckResultResponse(**vars(c)) for c in report.checks],
+        crash_sims=[CrashSimResponse(
+            crash_name=s.crash_name, year=s.year,
+            description=s.description,
+            market_drop=s.market_drop,
+            strategy_drop=s.strategy_drop,
+            survived=s.survived,
+            emotional_verdict=s.emotional_verdict
+        ) for s in report.crash_sims],
+        total_trades=report.total_trades,
+        profitable_trades=report.profitable_trades,
+        date_range=date_range,
+        sharpe=round(report.sharpe, 2),
+        max_drawdown=round(report.max_drawdown, 4),
+        win_rate=round(report.win_rate, 1),
+        top_issues=top_issues,
+        top_strengths=top_strengths,
         validation_hash=report.validation_hash + "-IBKR",
         validation_date=report.validation_date,
         engine_version=report.engine_version,
