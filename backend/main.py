@@ -2174,7 +2174,7 @@ def root():
     }
 
 @app.post("/validate", response_model=ValidationResponse)
-async def validate(file: UploadFile = File(...), currency: str = Form("USD"), request: Request = None):
+async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_trials: int = Form(10), request: Request = None):
     if request:
         # Prefer X-Forwarded-For (Render proxy passes real user IP here)
         ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
