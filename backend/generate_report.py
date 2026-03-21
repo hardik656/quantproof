@@ -570,6 +570,13 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # ══ EQUITY CURVE ══════════════════════════════════════════════════════════
     equity_data = vr.get("equity_curve")
+    if equity_data:
+        try:
+            equity_data = [float(x) for x in equity_data]
+            if len(equity_data) < 3:
+                equity_data = None
+        except (TypeError, ValueError):
+            equity_data = None
     if equity_data and len(equity_data) > 5:
         story.append(Paragraph("EQUITY CURVE", S["label"]))
         story.append(Spacer(1, 3))
