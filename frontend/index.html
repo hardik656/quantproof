@@ -1611,6 +1611,12 @@
   async function buyPdfReport() {
     const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
     if(!btn) return;
+    // Sample demo — download the static sample PDF directly, no payment
+    if (_isSampleRun) {
+      const a=document.createElement('a'); a.href='/sample_report.pdf'; a.download='QuantProof_Sample_Report.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      return;
+    }
     btn.disabled=true; btn.innerText='Opening payment...';
     try {
       const res=await fetch(`${API_URL_REPORT}/report/create-checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
