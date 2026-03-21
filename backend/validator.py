@@ -472,7 +472,7 @@ def calculate_calmar(returns: np.ndarray, trades_per_year: float = 252) -> float
 
 
 def calculate_ruin_probability(win_rate: float, avg_win: float,
-                                avg_loss: float, capital_units: int = 10) -> float:
+                                avg_loss: float, capital_units: int = 50) -> float:
     if win_rate <= 0 or avg_loss < EPSILON:
         return 1.0
     if win_rate >= 1.0:
@@ -482,9 +482,10 @@ def calculate_ruin_probability(win_rate: float, avg_win: float,
         return 1.0
     p = float(win_rate)
     q = 1.0 - p
-    if p <= 0.5:
+    rr_disadvantage = (q / p) * (avg_loss / avg_win)
+    if rr_disadvantage >= 1.0:
         return 1.0
-    ruin = (q / p) ** capital_units
+    ruin = rr_disadvantage ** capital_units
     return float(np.clip(ruin, 0.0, 1.0))
 
 
