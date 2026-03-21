@@ -1457,6 +1457,8 @@ class QuantProofValidator:
             # Guard against overflow before exponentiation
             if adjusted_ratio >= 1.0:
                 ruin_prob = 1.0  # guaranteed ruin, no calculation needed
+            elif adjusted_ratio <= 0:
+                ruin_prob = 0.0  # impossible ruin, no calculation needed
             else:
                 ruin_prob = min(1.0, adjusted_ratio ** 50)
         else:
@@ -2314,5 +2316,6 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
 
