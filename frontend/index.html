@@ -359,7 +359,7 @@
   </div></main>
 
   <!-- SOCIAL PROOF BAR -->
-  <div style="margin:-24px 0 56px;animation:fadeUp 0.8s 0.2s ease both;">
+  <div id="proofBar" style="margin:-24px 0 56px;animation:fadeUp 0.8s 0.2s ease both;">
     <div class="proof-bar">
       <div style="background:var(--deep);padding:20px 24px;">
         <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--accent);margin-bottom:4px;">92%</div>
@@ -395,6 +395,8 @@
     </div>
   </div>
 
+  <!-- MARKETING SECTIONS — hidden when results shown -->
+  <div id="marketingSections">
   <!-- Fundable Score explainer -->
   <div style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.15s ease both;">
     <button onclick="toggleFundableExplainer()" id="fundableToggleBtn"
@@ -468,6 +470,8 @@
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See the exact 44 checks and the math behind each →</a>
     </div>
   </div>
+
+  </div><!-- /marketingSections -->
 
   <div class="upload-section" id="uploadSection">
 
@@ -895,15 +899,19 @@
   }
 
   function showLoading() {
-    document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display   = 'none';
+    document.getElementById('uploadSection').style.display    = 'none';
+    document.getElementById('heroSection').style.display      = 'none';
+    document.getElementById('proofBar').style.display         = 'none';
+    document.getElementById('marketingSections').style.display= 'none';
     document.getElementById('loadingSection').classList.add('active');
   }
   function hideLoading(err) {
     document.getElementById('loadingSection').classList.remove('active');
     if(err) {
-      document.getElementById('uploadSection').style.display = 'block';
-      document.getElementById('heroSection').style.display   = 'block';
+      document.getElementById('uploadSection').style.display    = 'block';
+      document.getElementById('heroSection').style.display      = 'block';
+      document.getElementById('proofBar').style.display         = 'block';
+      document.getElementById('marketingSections').style.display= 'block';
     }
   }
 
@@ -1395,8 +1403,10 @@
     document.getElementById('resultsSection').classList.remove('active');
     document.getElementById('resultsSection').innerHTML = '';
     if (typeof QP_Charts !== 'undefined') QP_Charts.destroy();
-    document.getElementById('uploadSection').style.display = 'block';
-    document.getElementById('heroSection').style.display   = 'block';
+    document.getElementById('uploadSection').style.display    = 'block';
+    document.getElementById('heroSection').style.display      = 'block';
+    document.getElementById('proofBar').style.display         = 'block';
+    document.getElementById('marketingSections').style.display= 'block';
     document.getElementById('fileInput').value = '';
     document.getElementById('kiteFileInput').value = '';
     document.getElementById('alpacaPanel').style.display   = 'none';
