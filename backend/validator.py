@@ -464,7 +464,15 @@ def calculate_calmar(returns: np.ndarray, trades_per_year: float = 252) -> float
         return 0.0
     total_return = float(np.prod(1 + returns))
     years        = len(returns) / trades_per_year
-    cagr         = total_return ** (1 / max(years, EPSILON)) - 1
+    try:
+        exponent = 1 / max(years, EPSILON)
+        if exponent > 100:
+            # exponent too large — years near zero
+            # (no date data). Cap it.
+            exponent = 100
+        cagr = total_return ** exponent - 1
+    except (OverflowError, FloatingPointError):
+        cagr = total_return - 1
     dd           = abs(calculate_max_drawdown(returns))
     if dd < EPSILON:
         return 10.0 if cagr > 0 else 0.0
