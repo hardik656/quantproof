@@ -3966,6 +3966,11 @@ def validate_tv_alerts(session_id: str):
 
     try:
         report = validator.run()
+    except (OverflowError, FloatingPointError, ZeroDivisionError) as e:
+        raise HTTPException(400, 
+            f"Validation failed due to numerical overflow. "
+            f"This usually means the strategy has extreme returns "
+            f"or too few trades. Try adding more trades and retry.")
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
