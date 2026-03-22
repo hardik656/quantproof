@@ -2788,6 +2788,7 @@ async def generate_report_endpoint(
         "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
         "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
         "date_range": date_range,
+        "n_trials": n_trials,
         "is_verified": x_report_source in ("alpaca", "ibkr"),
         "checks": [
             (_csv_check_filter(c) if x_report_source == "csv" else
@@ -3190,6 +3191,7 @@ async def generate_broker_report(
         "sharpe": round(report.sharpe, 2), "max_drawdown": round(report.max_drawdown, 4),
         "win_rate": round(report.win_rate, 1), "total_trades": report.total_trades,
         "date_range": date_range,
+        "n_trials": n_trials,
         "is_verified": True,
         "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
                     "value":c.value,"insight":c.insight,"fix":c.fix,
