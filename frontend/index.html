@@ -2817,19 +2817,18 @@
     const n       = names.length;
     const divScore= data.diversification_score || 0;
     const divCol  = divScore >= 70 ? '#F5B700' : divScore >= 45 ? '#ffaa00' : '#ff4444';
-    const corrDisplayCol = avgCorrAbs < 0.3 ? 'var(--accent)' : avgCorrAbs < 0.6 ? '#ffaa00' : '#ff4444';
 
-    // Use signed avg_correlation from backend if available (accurate)
-    // Fall back to computing from matrix if not
+    // Compute avgCorr FIRST — corrDisplayCol depends on it
     let avgCorr;
     if (data.avg_correlation !== undefined && data.avg_correlation !== null) {
       avgCorr = Number(data.avg_correlation).toFixed(2);
     } else {
       const offDiag = [];
       for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) offDiag.push((mat[i]||[])[j]||0);
-      avgCorr = offDiag.length ? (offDiag.reduce((a,b)=>a+b,0)/offDiag.length).toFixed(2) : '—';
+      avgCorr = offDiag.length ? (offDiag.reduce((a,b)=>a+b,0)/offDiag.length).toFixed(2) : '0.00';
     }
     const avgCorrAbs = Math.abs(parseFloat(avgCorr) || 0);
+    const corrDisplayCol = avgCorrAbs < 0.3 ? 'var(--accent)' : avgCorrAbs < 0.6 ? '#ffaa00' : '#ff4444';
 
     const shCol = c => c>=1.5?'var(--accent)':c>=0.8?'#F5B700':c>=0?'#ffaa00':'#ff4444';
     const scCol = c => c>=70?'var(--accent)':c>=50?'#F5B700':'#ff4444';
