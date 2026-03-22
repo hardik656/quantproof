@@ -4011,7 +4011,7 @@ async def generate_broker_report(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = extract_n_trials(request) if request else 1
+        n_trials = max(1, min(50, n_trials))  # cap: already parsed from Form
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
@@ -4658,7 +4658,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = extract_n_trials(request) if request else 1
+        n_trials = max(1, min(50, n_trials))  # cap: already parsed from Form
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
@@ -4768,6 +4768,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
 async def validate_kite(
     file: UploadFile = File(...),
     currency: str = Form("INR"),
+    n_trials: int = Form(10),
     request: Request = None
 ):
     """
@@ -4865,7 +4866,7 @@ async def validate_kite(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = extract_n_trials(request) if request else 1
+        n_trials = max(1, min(50, n_trials))  # cap: already parsed from Form
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
