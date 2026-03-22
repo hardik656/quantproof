@@ -955,6 +955,7 @@
     <button onclick="devSetTier('report')"    style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹299</button>
     <button onclick="devSetTier('portfolio')" style="background:#1e2d3d;color:#7B61FF;border:1px solid rgba(123,97,255,0.4);padding:5px;cursor:pointer;font-size:9px;">Simulate ₹199</button>
     <button onclick="devSetTier('pro')"       style="background:#1e2d3d;color:#ffaa00;border:1px solid rgba(255,170,0,0.3);padding:5px;cursor:pointer;font-size:9px;">Simulate Pro</button>
+    <button onclick="devResetLimit()" style="background:#1e2d3d;color:#ff6b6b;border:1px solid rgba(255,68,68,0.3);padding:5px;cursor:pointer;font-size:9px;grid-column:span 2;">⚡ Reset Rate Limit</button>
   </div>
   <div id="devStatus" style="margin-top:6px;font-size:9px;color:#5a7a8a;"></div>
 </div>
@@ -2956,6 +2957,27 @@
       };
       const rzp = new Razorpay(options); rzp.open();
     } catch(e) { alert('Pro plan error: ' + e.message); }
+  }
+
+  async function devResetLimit() {
+    const tok = (sessionStorage.getItem('qp_pro_token') || '').trim();
+    const statusEl = document.getElementById('devStatus');
+    if (!tok) { statusEl.textContent = 'Set token first'; statusEl.style.color='#ff4444'; return; }
+    statusEl.textContent = 'Resetting...'; statusEl.style.color='var(--muted)';
+    try {
+      const resp = await fetch(`${API_URL}/debug/reset-limit?t=${encodeURIComponent(tok)}`);
+      const data = await resp.json();
+      if (resp.ok) {
+        statusEl.textContent = `✓ Rate limit reset (${data.cleared_ips} IPs cleared) — validate freely now`;
+        statusEl.style.color = '#00ff88';
+      } else {
+        statusEl.textContent = `✗ ${data.detail || 'Failed'}`;
+        statusEl.style.color = '#ff4444';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Reset failed: ' + e.message;
+      statusEl.style.color = '#ff4444';
+    }
   }
 
   // ── On load: restore tokens ────────────────────────────────────────────────
