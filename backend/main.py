@@ -27,7 +27,7 @@ PARSER FIXES (v1.4.1):
 
 PATCH FIXES:
   - Removed dead record_validation calls (analytics.py not present in this version)
-  - Normalized PnL clipping to ±0.99 across all parsers to match validator guard
+  - Normalized PnL clipping to ?0.99 across all parsers to match validator guard
   - Fixed misleading orphan sell audit message in pair_alpaca_orders
   - Moved validator.run() off event loop in /validate/alpaca (run_in_executor)
   - Fixed _get_cached_validation to use LRU eviction instead of FIFO
@@ -51,6 +51,21 @@ import asyncio
 from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
+
+# ================= HELPER FUNCTIONS =================
+
+def extract_n_trials(request):
+    """Extract n_trials from request (JSON or form-data) with safe validation."""
+    try:
+        if hasattr(request, 'is_json') and request.is_json:
+            val = request.json.get("n_trials")
+        else:
+            val = request.form.get("n_trials") if hasattr(request, 'form') else None
+        
+        return max(1, min(50, int(val))) if val is not None else 1
+    except (ValueError, TypeError, AttributeError):
+        return 1
+
 # ================= RESPONSE MODELS =================
 
 class CheckResultResponse(BaseModel):
@@ -108,7 +123,7 @@ class ValidationResponse(BaseModel):
     equity_curve: Optional[List[float]] = None
 
 
-# ── Rate limiting (3 free validations / IP / day) ────────────────────────────
+# —? Rate limiting (3 free validations / IP / day) ———————————————————————————?
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
 FREE_DAILY_LIMIT = 3
 
@@ -135,7 +150,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── AI Fix Plan ───────────────────────────────────────────────────────────────
+# —? AI Fix Plan ——————————————————————————————————————————————————————————————?
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY",      "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY",    "")
@@ -154,6 +169,7 @@ async def generate_ai_plan(report, date_range: str) -> dict:
             "fixes": [],
             "encouragement": "Rare result — this strategy has institutional-grade statistical foundations."
         }
+
 
     failed_text = "\n".join([
         f"- {c.name} (score {c.score}/100, category {c.category}): {c.value}. {c.insight}"
@@ -579,8 +595,8 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
         spy_warning = ""
         if benchmark_type != "nifty" and _is_non_us_strategy(df):
             spy_warning = (
-                " ⚠ SPY regime may not be meaningful for non-US/forex/crypto strategies "
-                "— regime labels reflect S&P 500 conditions, not the traded asset class."
+                "SPY regime may not be meaningful for non-US/forex/crypto strategies. "
+                "Regime labels reflect S&P 500 conditions, not the traded asset class."
             )
 
         benchmark_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
@@ -606,9 +622,9 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
         lookup_end = pd.Timestamp("2027-12-31")
         beyond_note = ""
         if pd.notna(max_date) and pd.Timestamp(max_date) > lookup_end:
-            beyond_note = " ⚠ Some dates beyond lookup table — marked CONSOLIDATION."
+            beyond_note = "Some dates beyond lookup table marked CONSOLIDATION."
         fallback_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
-        return df, f"⚠ Regime from monthly {fallback_label} approximation (live data unavailable) — {dist}{beyond_note}"
+        return df, f"Regime from monthly {fallback_label} approximation (live data unavailable) {dist}{beyond_note}"
 
 # =========================================================
 # SPY BENCHMARK HELPER
@@ -633,16 +649,16 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
     if "date" not in df.columns or df["date"].isna().all():
         return None, ""
 
-    # ── Non-US strategy guard ─────────────────────────────────────────────────
+    # —? Non-US strategy guard ————————————————————————————————————————————————?
     if _is_non_us_strategy(df):
         return None, (
-            "⚠ SPY benchmark skipped — strategy appears to trade non-US assets "
+            "SPY benchmark skipped - strategy appears to trade non-US assets "
             "(forex/crypto/Indian equities). IR + Beta vs SPY would be misleading. "
             "IR and Beta checks remain informational."
         )
 
     try:
-        # ── Fetch SPY if not already provided ────────────────────────────────
+        # —? Fetch SPY if not already provided ———————————————————————————————?
         if spy_series is None:
             try:
                 start = pd.Timestamp(pd.Timestamp(df["date"].min()).date()) - pd.Timedelta(days=10)
@@ -652,14 +668,14 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
                 end   = df["date"].max() + pd.Timedelta(days=2)
             spy_raw = _get_spy_cached(start, end)
             if spy_raw is None:
-                return None, "⚠ SPY benchmark unavailable (network/yfinance). IR + Beta checks are informational."
+                return None, "⚠️ SPY benchmark unavailable (network/yfinance). IR + Beta checks are informational."
         else:
             spy_raw = spy_series
 
         if spy_raw is None or len(spy_raw) < 5:
-            return None, "⚠ SPY benchmark unavailable (insufficient data). IR + Beta checks are informational."
+            return None, "⚠️ SPY benchmark unavailable (insufficient data). IR + Beta checks are informational."
 
-        # ── Compute daily returns ─────────────────────────────────────────────
+        # —? Compute daily returns ————————————————————————————————————————————?
         spy_ret = spy_raw.pct_change().dropna()
         # Normalise index: strip tz info and time component — only date matters
         if hasattr(spy_ret.index, 'tz') and spy_ret.index.tz is not None:
@@ -671,7 +687,7 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
         # Build set of valid trading dates for TRUE match_pct
         trading_dates = set(spy_ret.index.date)
 
-        # ── HFT / single-day degeneracy check ─────────────────────────────────
+        # —? HFT / single-day degeneracy check ————————————————————————————————?
         unique_trade_dates = set()
         for d in df["date"]:
             try:
@@ -680,12 +696,12 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
                 pass
         if len(unique_trade_dates) <= 1:
             return None, (
-                "⚠ SPY benchmark skipped — all trades occur on 1 unique date. "
+                "SPY benchmark skipped - all trades occur on 1 unique date. "
                 "Benchmark array would be constant (identical SPY return for every trade). "
                 "IR + Beta checks remain informational."
             )
 
-        # ── Align to strategy trade dates ─────────────────────────────────────
+        # —? Align to strategy trade dates ————————————————————————————————————?
         aligned = []
         true_matches = 0
         for d in df["date"]:
@@ -705,12 +721,12 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
 
         benchmark = np.array(aligned, dtype=float)
 
-        # ── Quality gates ──────────────────────────────────────────────────────
+        # —? Quality gates —————————————————————————————————————————————————————?
         # Use TRUE match_pct — asof() forward-fill is NOT a real match
         true_match_pct = true_matches / max(len(benchmark), 1) * 100
         if true_match_pct < 30:
             return None, (
-                f"⚠ SPY benchmark skipped — only {true_match_pct:.0f}% of trade dates "
+                f"SPY benchmark skipped - only {true_match_pct:.0f}% of trade dates "
                 f"fall on US trading days (threshold: 30%). "
                 f"Strategy likely trades non-US markets or weekends. "
                 f"IR + Beta checks remain informational."
@@ -718,19 +734,19 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
 
         if np.std(benchmark) < 1e-6:
             return None, (
-                "⚠ SPY benchmark skipped — benchmark has zero variance "
+                "SPY benchmark skipped - benchmark has zero variance "
                 "(all trades same day or identical SPY returns). "
                 "IR + Beta checks remain informational."
             )
 
         note = (
-            f"📈 SPY benchmark aligned ({true_match_pct:.0f}% of trades on US trading days) — "
+            f"SPY benchmark aligned ({true_match_pct:.0f}% of trades on US trading days) "
             f"IR + Beta checks are now scored. Only meaningful for US equity strategies."
         )
         return benchmark, note
 
     except Exception:
-        return None, "⚠ SPY benchmark unavailable (unexpected error). IR + Beta checks are informational."
+        return None, "⚠️ SPY benchmark unavailable (unexpected error). IR + Beta checks are informational."
 
 
 # =========================================================
@@ -751,7 +767,7 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
     - Minimum 30% NSE trading day coverage required for meaningful IR/Beta
     """
     if 'date' not in df.columns:
-        return None, "⚠ Nifty benchmark skipped — no date column in trades."
+        return None, "Nifty benchmark skipped - no date column in trades."
 
     # Normalise all trade dates to date-only (midnight) before lookup
     def _normalise_date(d):
@@ -800,20 +816,18 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
         true_match_pct = true_matches / max(len(benchmark), 1) * 100
         if true_match_pct < 30:  # Require 30% NSE trading day coverage
             return None, (
-                f"⚠ Nifty 50 benchmark coverage too low ({true_match_pct:.1f}% of NSE trading days). "
+                f"⚠️ Nifty 50 benchmark coverage too low ({true_match_pct:.1f}% of NSE trading days). "
                 "IR + Beta vs Nifty would be misleading."
             )
 
         valid_mask = ~np.isnan(benchmark)
         if valid_mask.sum() < 5:
-            return None, "⚠ Insufficient Nifty 50 overlap for meaningful IR + Beta."
+            return None, "Insufficient Nifty 50 overlap for meaningful IR + Beta."
 
-        return benchmark, f"✓ Nifty 50 benchmark aligned ({true_match_pct:.1f}% of NSE trading days)"
+        return benchmark, "Nifty 50 benchmark aligned ({}% of NSE trading days)".format(true_match_pct)
 
     except Exception as e:
-        return None, f"⚠ Nifty 50 benchmark alignment failed: {str(e)[:100]}"
-
-
+        return None, "Nifty 50 benchmark alignment failed: {}".format(str(e)[:100])
 # =========================================================
 # KITE TRADEBOOK PARSER
 # =========================================================
@@ -861,7 +875,6 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     trades       = []
     audit_flags  = []
     orphan_sells = []
-    orphan_buys  = []
 
     for _, row in df.iterrows():
         symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
@@ -875,8 +888,8 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         # FIX: skip zero/negative qty rows — prevents phantom trades and div-by-zero
         if qty <= 0 or price <= 0:
             audit_flags.append(
-                f"⚠ Skipped row: {symbol} {trade_type} qty={qty} price={price} "
-                f"on {date.date() if hasattr(date, 'date') else date} — invalid qty/price"
+                f"⚠️ Skipped row: {symbol} {trade_type} qty={qty} price={price} "
+                f"on {date.date() if hasattr(date, 'date') else date} invalid qty/price"
             )
             continue
 
@@ -913,7 +926,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
                 else:
                     orphan_sells.append(
                         f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no open position — predates history window)"
+                        f"(no open position - predates history window)"
                     )
                 continue
 
@@ -940,14 +953,14 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         elif trade_type not in ("BUY", "SELL"):
             # FIX: flag unknown trade types instead of silently dropping
             audit_flags.append(
-                f"⚠ Skipped unknown trade_type '{trade_type}' for {symbol} "
+                f"⚠️ Skipped unknown trade_type '{trade_type}' for {symbol} "
                 f"on {date.date() if hasattr(date, 'date') else date}"
             )
 
     if orphan_sells:
         audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
-            f"(position predates TradeBook history) — excluded"
+            f"⚠️ {len(orphan_sells)} sell(s) had no matching buy "
+            f"(position predates TradeBook history) excluded"
         )
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
@@ -958,7 +971,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
         )
         audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
+            f" {len(open_positions)} position(s) still open "
             f"(no closing trade yet): {sym_list}"
         )
 
@@ -1069,7 +1082,7 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
                 else:
                     orphan_sells.append(
                         f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no matching BUY — predates history window)"
+                        f"(no matching BUY - predates history window)"
                     )
                 continue
 
@@ -1095,8 +1108,8 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     if orphan_sells:
         audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching BUY "
-            f"(position predates Orders history) — excluded"
+            f"⚠️ {len(orphan_sells)} sell(s) had no matching BUY "
+            f"(position predates Orders history) excluded"
         )
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
@@ -1107,7 +1120,7 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
         )
         audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
+            f" {len(open_positions)} position(s) still open "
             f"(no closing trade yet): {sym_list}"
         )
 
@@ -1120,7 +1133,7 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
     note = (
-        f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite Orders CSV "
+        f"Parsed {len(trades)} completed trade(s) from Zerodha Kite Orders CSV "
         f"({len(orphan_sells)} orphan sell(s) excluded, "
         f"{len(open_positions)} position(s) still open)"
     )
@@ -1267,7 +1280,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
             if not lots[sym]:
                 orphan_sells.append(
                     f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(no matching buy — position predates history window)"
+                    f"(no matching buy - position predates history window)"
                 )
                 continue
 
@@ -1298,8 +1311,8 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     if orphan_sells:
         audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) had no matching buy "
-            f"(position predates window) — excluded"
+            f"⚠️ {len(orphan_sells)} sell(s) had no matching buy "
+            f"(position predates window) excluded"
         )
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
@@ -1310,7 +1323,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
             f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
         )
         audit_flags.append(
-            f"ℹ {len(open_positions)} open position(s) not included "
+            f" {len(open_positions)} open position(s) not included "
             f"(no closing trade yet): {sym_list}"
         )
 
@@ -1334,7 +1347,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
     paired_trades = len(completed)
     note = (
         f"📊 Parsed {paired_trades} completed trade(s) from Alpaca UI export "
-        f"({total_filled} filled order-sides → {paired_trades} round-trips, "
+        f"({total_filled} filled order-sides ?+ {paired_trades} round-trips, "
         f"{len(orphan_sells)} orphan sell(s) excluded)"
     )
     return result_df, note, audit_flags
@@ -1481,7 +1494,7 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
                 # FIX: message now accurately describes behaviour (short entry, not excluded)
                 orphan_sells.append(
                     f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(short entry — buy predates history, using sell price as cost basis)"
+                    f"(short entry - buy predates history, using sell price as cost basis)"
                 )
                 continue
 
@@ -1522,11 +1535,11 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     if orphan_sells:
         # FIX: message now accurately describes behaviour (short entries, not excluded)
         audit_flags.append(
-            f"⚠ {len(orphan_sells)} sell(s) treated as short entries "
-            f"(buy predates history window — sell price used as cost basis)"
+            f"{len(orphan_sells)} sell(s) treated as short entries "
+            f"(buy predates history window - sell price used as cost basis)"
         )
         for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
+            audit_flags.append(f"   \"{s}\"")
 
     open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
     if open_positions:
@@ -1534,7 +1547,7 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
             f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
         )
         audit_flags.append(
-            f"ℹ {len(open_positions)} open position(s) not included "
+            f" {len(open_positions)} open position(s) not included "
             f"(no closing trade yet): {sym_list}"
         )
 
@@ -1676,15 +1689,15 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         f"Returns normalised as {norm_method}."
     )
     audit_flags = [
-        "OPTIONS DATA: Crash simulations assume linear payoffs — "
+        "OPTIONS DATA: Crash simulations assume linear payoffs ? "
         "options convexity and delta/gamma effects are not modelled. "
         "Results are directionally indicative only.",
         "OPTIONS DATA: Validation assumes sequential non-overlapping trades. "
-        "Multi-leg strategies (spreads, condors) are not supported — "
+        "Multi-leg strategies (spreads, condors) are not supported ? "
         "use daily portfolio P&L as percentage of capital instead.",
         "OPTIONS DATA: Crash simulations scale stress from strategy volatility. "
         "High-volatility strategies (options, leveraged) will show elevated crash "
-        "exposure — all 5 crises blowing up is expected behaviour for options "
+        "exposure - all 5 crises blowing up is expected behaviour for options "
         "strategies and does not indicate a validator error.",
     ]
 
@@ -1834,7 +1847,7 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         if open_pos:
             count = sum(open_pos.values())
             audit_flags.append(
-                f"ℹ {count} MT5 position(s) still open (no closing deal) — excluded"
+                f" {count} MT5 position(s) still open (no closing deal) excluded"
             )
 
     else:
@@ -1870,16 +1883,17 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     if orphan_count:
         audit_flags.append(
-            f"⚠ {orphan_count} MT5 closing deal(s) had no matching open "
-            f"— excluded (position predates history window)"
+            f"⚠️ {orphan_count} MT5 closing deal(s) had no matching open "
+            f" excluded (position predates history window)"
         )
 
     audit_flags.append(
         "MT5 DATA: Returns normalised as net profit / (entry_price * volume). "
-        "Crash simulations assume linear payoffs — leverage and margin effects not modelled. "
+        "Crash simulations assume linear payoffs - leverage and margin effects not modelled. "
         "For accurate capacity analysis, ensure Volume column reflects lot sizes."
     )
     # FIX: warn forex/CFD users that contract size is not applied
+    _forex_scale_warn = False
     if symbol_col and len(trades) > 0:
         sample_symbols = [t.get("ticker", "") for t in trades[:10]]
         # Forex pairs are typically 6-8 chars like EURUSD, GBPJPY, XAUUSD
@@ -1889,19 +1903,21 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         )
         if looks_forex:
             audit_flags.append(
-                "⚠ MT5 FOREX WARNING: Contract size (100,000 units/lot) is NOT applied. "
+                "⚠️ MT5 FOREX WARNING: Contract size (100,000 units/lot) is NOT applied. "
                 "Returns are normalised as profit/(price*lots) not profit/(price*lots*100000). "
-                "All forex PnL values are approximately 1000x overstated and will clip to ±0.99. "
+                "All forex PnL values are approximately 1000x overstated and will clip to ?0.99. "
                 "To fix: pre-calculate per-trade % return and upload as a generic CSV instead."
             )
             # Embed sentinel so smart_parse_csv can set scale_warning for frontend banner
-            note = "MT5_FOREX_SCALE_WARN||" + (note if "note" in dir() else "")
+            _forex_scale_warn = True
 
     report = "deals" if has_direction else "positions"
     note = (
         f"📊 MT5: {len(trades)} completed trade(s) parsed from {report} report "
         f"({orphan_count} orphan(s) excluded)"
     )
+    if _forex_scale_warn:
+        note = "MT5_FOREX_SCALE_WARN||" + note
     return result, note, audit_flags
 
 
@@ -1938,7 +1954,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     except Exception:
         _probe = pd.DataFrame()
 
-    # ── 0. Options CSV ───────────────────────────────────────────────────
+    # —? 0. Options CSV ——————————————————————————————————————————————————?
     if not _probe.empty and _is_options_csv(_probe):
         try:
             _df, _note, _flags = _parse_options_csv(raw)
@@ -1956,7 +1972,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             # Parser was positively identified — crash means bad data, not wrong parser
             raise HTTPException(400, f"Options CSV detected but could not be parsed: {_e}")
 
-    # ── 0.5. MT5 Trade History ───────────────────────────────────────────
+    # —? 0.5. MT5 Trade History ——————————————————————————————————————————?
     if not _probe.empty and _is_mt5_csv(_probe):
         try:
             _df, _note, _flags = _parse_mt5_csv(raw)
@@ -1980,7 +1996,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         except Exception as _e:
             raise HTTPException(400, f"MT5 CSV detected but could not be parsed: {_e}")
 
-    # ── 1. Kite TradeBook ─────────────────────────────────────────────────
+    # —? 1. Kite TradeBook ————————————————————————————————————————————————?
     if not _probe.empty and _is_kite_csv(_probe):
         try:
             _df, _note, _flags = _parse_kite_csv(raw)
@@ -2002,7 +2018,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         except Exception as _e:
             raise HTTPException(400, f"Kite TradeBook CSV detected but could not be parsed: {_e}")
 
-    # ── 2. Kite Orders CSV ────────────────────────────────────────────────
+    # —? 2. Kite Orders CSV ———————————————————————————————————————————————?
     if not _probe.empty and _is_kite_orders_csv(_probe):
         try:
             _df, _note, _flags = _parse_kite_orders_csv(raw)
@@ -2016,7 +2032,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         except Exception as _e:
             raise HTTPException(400, f"Kite Orders CSV detected but could not be parsed: {_e}")
 
-    # ── 3. Alpaca UI export ───────────────────────────────────────────────
+    # —? 3. Alpaca UI export ——————————————————————————————————————————————?
     if not _probe.empty and _is_alpaca_ui_export(_probe):
         try:
             _df, _note, _flags = _parse_alpaca_ui_export(raw)
@@ -2030,7 +2046,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         except Exception as _e:
             raise HTTPException(400, f"Alpaca UI CSV detected but could not be parsed: {_e}")
 
-    # ── 4. Generic PnL CSV ────────────────────────────────────────────────
+    # —? 4. Generic PnL CSV ———————————————————————————————————————————————?
     try:
         df = pd.read_csv(io.StringIO(raw), sep=delim)
         pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l"]
@@ -2044,7 +2060,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                         vals = vals / 100.0
                     # Detection threshold stays at 0.50 — dollar PnL detector
                     _clipped_pct = (vals.abs() > 0.50).mean()
-                    # FIX: clip to ±0.99 to match validator guard (was ±0.50)
+                    # FIX: clip to ?0.99 to match validator guard (was ?0.50)
                     vals = vals.clip(-0.99, 0.99)
                     _dollar_pnl_warning = _clipped_pct > 0.50
                     # HARD REJECT: only fires when values required /100 normalization
@@ -2055,7 +2071,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     if _was_divided and _clipped_pct > 0.80:
                         raise ValueError(
                             f"PnL values appear to be dollar amounts or raw prices, not decimal returns. "
-                            f"{int(_clipped_pct*100)}% of values exceed ±50% per trade after normalisation. "
+                            f"{int(_clipped_pct*100)}% of values exceed ?50% per trade after normalisation. "
                             "Upload decimal returns (e.g. 0.015 = 1.5%, not 1.5 or $15). "
                             "Check your PnL column and re-upload."
                         )
@@ -2084,9 +2100,9 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
 
                     if _dollar_pnl_warning:
                         regime_note = (
-                            ("⚠ " + regime_note + " | " if regime_note else "⚠ ")
+                            ("⚠️ " + regime_note + " | " if regime_note else "⚠️ ")
                             + "PnL values appear to be dollar amounts, not decimal returns "
-                            "— clipped to ±0.99. Upload a column with decimal returns (e.g. 0.015 = 1.5%)."
+                            "? clipped to 0.99. Upload a column with decimal returns (e.g. 0.015 = 1.5%)."
                         )
 
                     return result, regime_note
@@ -2095,7 +2111,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     except Exception:
         pass
 
-    # ── 5. Flexible fallback ──────────────────────────────────────────────
+    # —? 5. Flexible fallback —————————————————————————————————————————————?
     try:
         lines    = [l.strip() for l in raw.split("\n") if l.strip()]
         max_cols = max(len(l.split(delim)) for l in lines[1:] if l)
@@ -2112,7 +2128,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
                 if vals.abs().mean() > 1.0:
                     vals = vals / 100.0
-                # FIX: clip to ±0.99 to match validator guard (was ±0.50)
+                # FIX: clip to ?0.99 to match validator guard (was ?0.50)
                 vals = vals.clip(-0.99, 0.99)
                 return pd.DataFrame({"pnl": vals.values}), ""
         for col in df.columns:
@@ -2120,7 +2136,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             if len(vals) >= 5 and vals.std() > 0:
                 if vals.abs().mean() > 1.0:
                     vals = vals / 100.0
-                # FIX: clip to ±0.99 to match validator guard (was ±0.50)
+                # FIX: clip to ?0.99 to match validator guard (was ?0.50)
                 vals = vals.clip(-0.99, 0.99)
                 return pd.DataFrame({"pnl": vals.values}), ""
     except Exception as e:
@@ -2162,8 +2178,8 @@ def root():
         "version": API_VERSION,
         "checks": "44 institutional checks + 5 crash simulations",
         "new_in_v1.4": [
-            "Information Ratio (vs Benchmark) — detects beta-capture disguised as alpha",
-            "Beta Exposure (vs Benchmark) — flags high market correlation",
+            "Information Ratio (vs Benchmark) - detects beta-capture disguised as alpha",
+            "Beta Exposure (vs Benchmark) - flags high market correlation",
             "Crash exposure model hardened: higher floor, AR(1) penalty, [UNCALIBRATED] labels",
             "Regime auto-detection via SPY 20-day SMA (yfinance) for CSV + Alpaca paths",
             "Alpaca: position-state tracker replaces broken buy/sell stack pairing",
@@ -2201,6 +2217,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         raise HTTPException(status_code=400, detail=str(e))
 
     df = _dedup_trades(df)
+    n_trials = max(1, min(50, n_trials))  # cap: prevent runaway requests
     if len(df) < 10:
         raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
 
@@ -2209,10 +2226,12 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request)
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         report = validator.run()
     except Exception as e:
@@ -2233,8 +2252,8 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
     check_count = len(scored_checks)
     summary = (
         f"QuantProof analyzed {r.total_trades} trades across {check_count} institutional checks "
-        f"+ 5 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
-        f"{'Core risk management needs work — see the action plan below.' if r.score < 60 else 'Edge shows statistical promise — review execution costs and regime coverage.'}"
+        f"+ 5 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('?')[0].strip()}). "
+        f"{'Core risk management needs work ?? see the action plan below.' if r.score < 60 else 'Edge shows statistical promise ?? review execution costs and regime coverage.'}"
     )
 
     detected_currency = (currency or "USD").upper()
@@ -2390,7 +2409,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
     if not api_key or not secret_key:
         raise HTTPException(400, "API key and secret key are required.")
     if len(api_key) < 10 or len(secret_key) < 10:
-        raise HTTPException(400, "Invalid key format — keys are too short.")
+        raise HTTPException(400, "Invalid key format - keys are too short.")
 
     is_paper = payload.mode == "paper"
     base_url = "https://paper-api.alpaca.markets" if is_paper else "https://api.alpaca.markets"
@@ -2455,7 +2474,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             if _orphan_flag:
                 _detail_lines.append(
                     "Some sells were excluded because their matching buy happened before "
-                    "the visible order history window — these are positions you held before "
+                    "the visible order history window - these are positions you held before "
                     "the period covered by the API."
                 )
             if _open_flag:
@@ -2463,7 +2482,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                     "Some buys are still open (no closing sell yet) and cannot be counted as completed trades."
                 )
             _detail = " ".join(_detail_lines) if _detail_lines else (
-                "Make sure you have at least 10 closed positions — a BUY and a matching SELL "
+                "Make sure you have at least 10 closed positions - a BUY and a matching SELL "
                 "for the same stock, both within the history window."
             )
             raise HTTPException(400, {
@@ -2471,7 +2490,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 "trades_found": len(df),
                 "trades_needed": 10,
                 "message": (
-                    f"Only {len(df)} completed round-trip trade(s) found — need 10. "
+                    f"Only {len(df)} completed round-trip trade(s) found - need 10. "
                     f"{_detail}"
                 )
             })
@@ -2480,17 +2499,19 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         paired_sides = len(df) * 2
         unpaired_pct = (total_filled_sides - paired_sides) / max(total_filled_sides, 1) * 100
         if unpaired_pct > 30:
-            print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired — possible options/shorts")
+            print(f"[validate/alpaca] WARNING: {unpaired_pct:.0f}% of orders unpaired - possible options/shorts")
 
-        # ── Run validation — FIX: off event loop with timeout ────────────────
+        # —? Run validation — FIX: off event loop with timeout ———————————————?
         _bm_type = get_benchmark_type(df, None)
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request)
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         try:
             loop   = asyncio.get_event_loop()
@@ -2521,8 +2542,8 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             f"QuantProof VERIFIED analysis of {r.total_trades} trades pulled directly from Alpaca "
             f"({'paper' if is_paper else 'live'} account) across {check_count} institutional checks "
             f"+ 5 crash simulations. "
-            f"Fundable Score: {r.score}/100 ({r.grade.split('—')[0].strip()}). "
-            f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise — focus on execution costs.'}"
+            f"Fundable Score: {r.score}/100 ({r.grade.split('?')[0].strip()}). "
+            f"{'Core risk management needs work.' if r.score < 60 else 'Edge shows real promise ?? focus on execution costs.'}"
         )
 
         visible_checks = [c for c in r.checks if c.category != "Plausibility"]
@@ -2570,22 +2591,23 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             validation_hash=r.validation_hash + "-VERIFIED",
             validation_date=r.validation_date,
             engine_version=r.engine_version + "-VERIFIED",
-            audit_flags=r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []) + [
-                f"✓ Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
-                "✓ Trades independently verified — not user-uploaded",
-                "✓ Credential handling: keys discarded after fetch, never logged",
-            ],
-            plausibility_summary=r.plausibility_summary,
-            assumptions=r.assumptions + [
-                "Trade data sourced directly from Alpaca API — not user-submitted",
-                f"Account type: {'paper trading' if is_paper else 'live trading'}",
-                "API credentials were used read-only and discarded after data fetch",
-            ],
-            dashboard=dashboard_data, ai_plan=None,
-            scale_warning=False, currency=acct_currency,
+audit_flags=r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []) + [
+    f"Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
+    "Trades independently verified - not user-uploaded",
+    "Credential handling: keys discarded after fetch, never logged",
+],
+plausibility_summary=r.plausibility_summary,
+assumptions=r.assumptions + [
+    "Trade data sourced directly from Alpaca API - not user-submitted",
+    f"Account type: {'paper trading' if is_paper else 'live trading'}",
+    "API credentials were used read-only and discarded after data fetch",
+],
+dashboard=dashboard_data,
+ai_plan=None,
+scale_warning=False,
+currency=acct_currency,
             equity_curve=getattr(r, 'equity_curve', None),
         )
-
     except HTTPException:
         raise
     except Exception as e:
@@ -2684,7 +2706,8 @@ async def generate_report_endpoint(
     file: UploadFile = File(...),
     currency: str = Form("USD"),
     x_report_token: str = Header(default=""),
-    x_report_source: str = Header(default="csv")
+    x_report_source: str = Header(default=""),
+    request: Request = None
 ):
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
@@ -2719,10 +2742,12 @@ async def generate_report_endpoint(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request) if request else 1
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         report    = validator.run()
     except Exception as e:
@@ -2745,7 +2770,7 @@ async def generate_report_endpoint(
         if c.name in PROP_FIRM_CHECK_NAMES:
             return {
                 "name": c.name, "passed": False, "score": 0,
-                "value": "⚠ NOT APPLICABLE — CSV Upload",
+                "value": "⚠️ NOT APPLICABLE — CSV Upload",
                 "insight": (
                     "Prop firm and institutional compliance certificates require "
                     "broker-verified trade data. CSV uploads cannot be used for "
@@ -3032,45 +3057,44 @@ async def generate_broker_report(
                 "error": "cache_expired",
                 "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
             })
-        if cached_vr:
-            _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-            _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
-            if not _token_ok:
-                raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
-            if not cached_vr.get("ai_plan"):
-                try:
-                    class _CachedCheck:
-                        def __init__(self, d): self.__dict__.update(d)
-                    class _CachedReport:
-                        def __init__(self, vr):
-                            self.score = vr["fundable_score"]; self.grade = vr["grade"]
-                            self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
-                            self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
-                            self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
-                            self.audit_flags = []
-                    cached_vr["ai_plan"] = await generate_ai_plan(
-                        _CachedReport(cached_vr), cached_vr.get("date_range", "")
-                    )
-                except Exception as _e:
-                    issues = cached_vr.get("top_issues", [])
-                    cached_vr["ai_plan"] = {
-                        "summary": "Top improvements: " + "; ".join(issues[:3]) if issues else "See failed checks above.",
-                        "fixes": [],
-                        "encouragement": ""
-                    } if issues else None
-            if not _PDF_AVAILABLE:
-                raise HTTPException(503, "PDF module not available.")
+        _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+        _token_ok = (_test_tok and x_report_token == _test_tok) or (x_report_token in REPORT_ACCESS_TOKENS)
+        if not _token_ok:
+            raise HTTPException(402, {"error": "payment_required", "message": "Valid payment token required"})
+        if not cached_vr.get("ai_plan"):
             try:
-                async with _PDF_SEMAPHORE:
-                    pdf_bytes = _generate_pdf_report(cached_vr)
-            except Exception as e:
-                raise HTTPException(500, f"PDF generation failed: {str(e)}")
-            score     = int(cached_vr["fundable_score"])
-            grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
-            return Response(
-                content=pdf_bytes, media_type="application/pdf",
-                headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
-            )
+                class _CachedCheck:
+                    def __init__(self, d): self.__dict__.update(d)
+                class _CachedReport:
+                    def __init__(self, vr):
+                        self.score = vr["fundable_score"]; self.grade = vr["grade"]
+                        self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
+                        self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
+                        self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
+                        self.audit_flags = []
+                cached_vr["ai_plan"] = await generate_ai_plan(
+                    _CachedReport(cached_vr), cached_vr.get("date_range", "")
+                )
+            except Exception as _e:
+                issues = cached_vr.get("top_issues", [])
+                cached_vr["ai_plan"] = {
+                    "summary": "Top improvements: " + "; ".join(issues[:3]) if issues else "See failed checks above.",
+                    "fixes": [],
+                    "encouragement": ""
+                } if issues else None
+        if not _PDF_AVAILABLE:
+            raise HTTPException(503, "PDF module not available.")
+        try:
+            async with _PDF_SEMAPHORE:
+                pdf_bytes = _generate_pdf_report(cached_vr)
+        except Exception as e:
+            raise HTTPException(500, f"PDF generation failed: {str(e)}")
+        score     = int(cached_vr["fundable_score"])
+        grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
+        return Response(
+            content=pdf_bytes, media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
+        )
 
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
@@ -3123,7 +3147,7 @@ async def generate_broker_report(
             raise HTTPException(400, {
                 "error": "insufficient_trades",
                 "message": (
-                    f"Only {len(df)} completed round-trip trade(s) found — need 10. "
+                    f"Only {len(df)} completed round-trip trade(s) found - need 10. "
                     f"{_detail}"
                 ),
                 "trades_found": len(df), "trades_needed": 10
@@ -3139,10 +3163,12 @@ async def generate_broker_report(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request) if request else 1
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         report    = validator.run()
     except Exception as e:
@@ -3346,7 +3372,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
 
     if open_skipped > 0:
         audit_flags_ibkr.append(
-            f"ℹ {open_skipped} opening trade leg(s) skipped — "
+            f"— {open_skipped} opening trade leg(s) skipped — "
             f"only closed trades contribute to P&L"
         )
 
@@ -3373,10 +3399,12 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request) if request else 1
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         report    = validator.run()
     except Exception as e:
@@ -3533,7 +3561,7 @@ async def validate_kite(
                 if fo_pct > 0.30:
                     raise HTTPException(
                         400,
-                        f"⚠ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
+                        f"⚠️ {fo_count} of {total} trades ({fo_pct*100:.0f}%) are F&O segment. "
                         "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
                         "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
                         "For options analysis, export only your equity trades, or manually calculate "
@@ -3553,6 +3581,7 @@ async def validate_kite(
         raise HTTPException(400, str(e))
 
     df = _dedup_trades(df)
+    n_trials = max(1, min(50, n_trials))  # cap: prevent runaway requests
     if len(df) < 10:
         raise HTTPException(400, {
             "error": "insufficient_trades",
@@ -3575,10 +3604,12 @@ async def validate_kite(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request) if request else 1
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
         report    = validator.run()
     except Exception as e:
@@ -3820,7 +3851,7 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
             f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6]
         )
         audit_flags.append(
-            f"ℹ {len(open_positions)} position(s) still open "
+            f" {len(open_positions)} position(s) still open "
             f"(no closing alert yet): {sym_list}"
         )
 
@@ -3922,7 +3953,7 @@ def get_tv_status(session_id: str):
 
 
 @app.post("/webhook/tradingview/{session_id}/validate", response_model=ValidationResponse)
-def validate_tv_alerts(session_id: str):
+def validate_tv_alerts(session_id: str, request: Request = None):
     """
     Validate TradingView session alerts using QuantProof.
     """
@@ -3961,10 +3992,12 @@ def validate_tv_alerts(session_id: str):
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
+        n_trials = extract_n_trials(request)
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
-            benchmark_type=_bm_type
+            benchmark_type=_bm_type,
+            n_trials=n_trials
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
