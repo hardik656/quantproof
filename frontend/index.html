@@ -849,11 +849,20 @@
         </div>
 
         <!-- Token row (only if not already unlocked) -->
-        <div id="portTokenRow" style="display:none;padding:0 24px 16px;">
+        <div id="portTokenRow" style="padding:0 24px 16px;">
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:0.08em;">PORTFOLIO TOKEN</div>
-          <input id="portToken" type="text" placeholder="PORT-xxxx or PRO-xxxx"
-            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:11px;box-sizing:border-box;outline:none;"
-            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+          <div style="display:flex;gap:6px;">
+            <input id="portToken" type="text" placeholder="PORT-xxxx, PRO-xxxx, or your TEST_REPORT_TOKEN"
+              style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:11px;outline:none;min-width:0;"
+              onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+            <button onclick="verifyPortToken()" title="Verify token against server"
+              style="background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:9px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;"
+              onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+              VERIFY →
+            </button>
+          </div>
+          <div id="portTokenStatus" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:5px;min-height:12px;"></div>
         </div>
 
         <!-- Submit -->
@@ -955,7 +964,7 @@
   if (new URLSearchParams(window.location.search).get('dev') === '1') {
     document.getElementById('devPanel').style.display = 'block';
   }
-  function applyDevToken() {
+  async function applyDevToken() {
     const tok = document.getElementById('devToken').value.trim();
     if (!tok) return;
     // Store under every token key so all endpoints see it
@@ -968,8 +977,23 @@
     // Pre-fill portfolio token field if visible
     const pt = document.getElementById('portToken');
     if (pt) pt.value = tok;
-    document.getElementById('devStatus').textContent = '✓ Token set — all endpoints unlocked';
+    document.getElementById('devStatus').textContent = '✓ Token stored — verifying with server...';
     document.getElementById('devStatus').style.color = '#00ff88';
+    // Auto-verify against server
+    try {
+      const vr = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
+      if (vr.ok) {
+        const vd = await vr.json();
+        if (vd.is_pro) {
+          document.getElementById('devStatus').textContent = `✓ Verified pro access · tier: ${vd.tier}`;
+        } else {
+          document.getElementById('devStatus').textContent = `⚠ Token not recognised by server (tier: ${vd.tier}) — check TEST_REPORT_TOKEN env var on Render`;
+          document.getElementById('devStatus').style.color = '#ffaa00';
+        }
+      }
+    } catch(e) {
+      document.getElementById('devStatus').textContent = '✓ Token stored (server verify failed — check /debug/token manually)';
+    }
   }
   function devSetTier(tier) {
     const tok = sessionStorage.getItem('qp_pro_token') || 'DEV-TOKEN-MISSING';
@@ -2554,18 +2578,42 @@
   const _portFiles = {};
 
   function showPortfolioUpload() {
-    const tok = sessionStorage.getItem('qp_pro_token')
-             || sessionStorage.getItem('qp_port_token')
-             || sessionStorage.getItem('qp_report_token') || '';
-    document.getElementById('portToken').value = tok;
-    // Always show token row so user can see/change it; hide only if token present
-    document.getElementById('portTokenRow').style.display = tok ? 'none' : 'block';
+    const tok = (sessionStorage.getItem('qp_pro_token')
+              || sessionStorage.getItem('qp_port_token')
+              || sessionStorage.getItem('qp_report_token') || '').trim();
+    const input = document.getElementById('portToken');
+    if (input && !input.value) input.value = tok;  // pre-fill only if empty
+    // Token row always visible — user must always be able to see/verify what's sent
+    document.getElementById('portTokenRow').style.display = 'block';
     document.getElementById('portfolioPanel').style.display = 'block';
     document.getElementById('portfolioPanel').scrollIntoView({behavior:'smooth'});
   }
 
   function hidePortfolioPanel() {
     document.getElementById('portfolioPanel').style.display = 'none';
+  }
+
+  async function verifyPortToken() {
+    const tok = (document.getElementById('portToken').value || '').trim();
+    const statusEl = document.getElementById('portTokenStatus');
+    if (!tok) { statusEl.textContent = 'Enter a token first.'; statusEl.style.color='#ff4444'; return; }
+    statusEl.textContent = 'Verifying...'; statusEl.style.color = 'var(--muted)';
+    try {
+      const resp = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
+      if (!resp.ok) { statusEl.textContent = 'Debug endpoint not available on this server.'; return; }
+      const data = await resp.json();
+      if (data.is_pro || data.tier === 'pro') {
+        statusEl.textContent = `✓ Valid — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}`;
+        statusEl.style.color = 'var(--accent)';
+      } else {
+        statusEl.innerHTML = `✗ Not recognised — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}<br>
+          <span style="opacity:0.7;">Set <code>TEST_REPORT_TOKEN</code> in Render environment to match what you typed above.</span>`;
+        statusEl.style.color = '#ffaa00';
+      }
+    } catch(e) {
+      statusEl.textContent = 'Verify failed: ' + e.message;
+      statusEl.style.color = '#ff4444';
+    }
   }
 
   function portFileChanged(n, input) {
@@ -2579,10 +2627,10 @@
 
   async function handlePortfolioSubmit() {
     const status = document.getElementById('portStatus');
-    const token  = document.getElementById('portToken').value.trim()
+    const token  = (document.getElementById('portToken').value.trim()
                 || sessionStorage.getItem('qp_pro_token')
                 || sessionStorage.getItem('qp_port_token')
-                || sessionStorage.getItem('qp_report_token') || '';
+                || sessionStorage.getItem('qp_report_token') || '').trim();
 
     if (!_portFiles[1] || !_portFiles[2]) {
       status.textContent = 'Please select at least 2 strategy CSV files.';
@@ -2615,7 +2663,11 @@
         hideLoading(true);
         const detail = err.detail || err;
         if (detail.error === 'payment_required') {
-          status.innerHTML = 'Token invalid or expired. <a href="#" onclick="buyPortfolioUnlock()" style="color:#7B61FF;">Unlock ₹199 →</a>';
+          const sentTok = (document.getElementById('portToken').value || '').trim();
+          status.innerHTML = sentTok
+            ? `Token not recognised: <code style="color:#ffaa00;">${sentTok.slice(0,12)}…</code> — check it matches your Render <code>TEST_REPORT_TOKEN</code> env var exactly. <a href="#" onclick="verifyPortToken()" style="color:var(--gold);">Verify →</a>`
+            : 'No token. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);">Unlock Portfolio ₹199 →</a>';
+          status.style.color = '#ffaa00';
           showPortfolioUpload();
         } else {
           alert('Portfolio error: ' + (detail.message || detail));
