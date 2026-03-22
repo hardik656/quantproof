@@ -3739,26 +3739,38 @@ async def validate_portfolio(
         _top_issues = [f"{c['name']}: {c['insight']}" for c in _failed[:3] if c.get("insight")]
         _top_strengths = [f"{c['name']}" for c in _passed_chk
                           if c.get("score", 0) >= 80][:3]
+        # Cast all numerics to plain Python types — numpy.int64/float64 break Pydantic
         strategy_summaries.append({
-            "name":             names_list[i],
-            "fundable_score":   round(report.score, 1),
+            "name":             str(names_list[i]),
+            "fundable_score":   float(round(report.score, 1)),
             "grade":            report.grade.split("—")[0].strip(),
-            "sharpe":           round(report.sharpe, 2),
-            "max_drawdown":     round(report.max_drawdown, 4),
-            "win_rate":         round(report.win_rate, 1),
-            "total_trades":     report.total_trades,
-            "date_range":       date_range,
-            "regime_note":      regime_note,
+            "sharpe":           float(round(report.sharpe, 2)),
+            "max_drawdown":     float(round(report.max_drawdown, 4)),
+            "win_rate":         float(round(report.win_rate, 1)),
+            "total_trades":     int(report.total_trades),
+            "date_range":       str(date_range),
+            "regime_note":      str(regime_note),
             "source_format":    regime_note.split("|")[0].strip()[:40] if regime_note else "CSV",
-            "checks_passed":    len(_passed_chk),
-            "checks_failed":    len(_failed),
-            "checks_total":     len(_checks_list),
-            "crash_survived":   _survived,
-            "crash_total":      len(_crash_sims),
-            "top_issues":       _top_issues,
-            "top_strengths":    _top_strengths,
+            "checks_passed":    int(len(_passed_chk)),
+            "checks_failed":    int(len(_failed)),
+            "checks_total":     int(len(_checks_list)),
+            "crash_survived":   int(_survived),
+            "crash_total":      int(len(_crash_sims)),
+            "top_issues":       [str(x) for x in _top_issues],
+            "top_strengths":    [str(x) for x in _top_strengths],
             "equity_curve":     _eq,
-            "checks":           _checks_list[:44],  # full checks for detail panel
+            "checks":           [
+                {
+                    "name":     str(c.get("name","")),
+                    "passed":   bool(c.get("passed", False)),
+                    "score":    float(c.get("score", 0)),
+                    "category": str(c.get("category","")),
+                    "insight":  str(c.get("insight","")),
+                    "fix":      str(c.get("fix","")),
+                    "value":    str(c.get("value","")),
+                }
+                for c in _checks_list[:44]
+            ],
         })
         dfs.append(df)
         sharpes.append(report.sharpe)
@@ -3786,9 +3798,9 @@ async def validate_portfolio(
     roll_max = eq.cummax()
     combined_dd = float(((eq - roll_max) / roll_max).min()) if len(eq) > 0 else 0.0
     combined_wr = float((combined_pnl > 0).mean() * 100)
-    combined_trades = sum(s["total_trades"] for s in strategy_summaries)
+    combined_trades = int(sum(s["total_trades"] for s in strategy_summaries))
 
-    div_score = _diversification_score(corr_mat, sharpes)
+    div_score = float(_diversification_score(corr_mat, sharpes))
     verdict   = _portfolio_verdict(div_score, avg_corr, n)
 
     audit_flags.append(
@@ -3798,15 +3810,15 @@ async def validate_portfolio(
 
     return PortfolioResponse(
         strategies=strategy_summaries,
-        correlation_matrix=corr_mat.tolist(),
-        strategy_names=names_list,
-        combined_sharpe=round(combined_sharpe, 2),
-        combined_drawdown=round(combined_dd, 4),
-        combined_win_rate=round(combined_wr, 1),
-        diversification_score=div_score,
-        combined_total_trades=combined_trades,
-        portfolio_verdict=verdict,
-        audit_flags=audit_flags,
+        correlation_matrix=[[float(v) for v in row] for row in corr_mat.tolist()],
+        strategy_names=[str(n) for n in names_list],
+        combined_sharpe=float(round(combined_sharpe, 2)),
+        combined_drawdown=float(round(combined_dd, 4)),
+        combined_win_rate=float(round(combined_wr, 1)),
+        diversification_score=float(div_score),
+        combined_total_trades=int(combined_trades),
+        portfolio_verdict=str(verdict),
+        audit_flags=[str(f) for f in audit_flags],
         n_trials=10,
     )
 
@@ -4671,6 +4683,5 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
 
