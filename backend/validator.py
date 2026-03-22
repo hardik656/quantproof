@@ -534,13 +534,33 @@ def calculate_deflated_sharpe(
     dsr      = float(stats.norm.cdf((sharpe_ann - sr_benchmark) / se_sr_ann))
     sr_min95 = sr_benchmark + 1.645 * se_sr_ann
 
+    # Calculate institutional benchmark (n_trials=20)
+    institutional_n_trials = 20
+    gamma_em = 0.5772156649
+    sr_benchmark_institutional = (
+        (1 - gamma_em) * stats.norm.ppf(1 - 1.0 / institutional_n_trials)
+        + gamma_em     * stats.norm.ppf(1 - 1.0 / (institutional_n_trials * np.e))
+    ) * se_sr_ann
+    sr_benchmark_institutional = max(sr_benchmark_institutional, 0.0)
+    dsr_institutional = float(stats.norm.cdf((sharpe_ann - sr_benchmark_institutional) / se_sr_ann))
+
+    # Add bias interpretation label
+    if n_trials <= 2:
+        bias_label = "Optimistic (low selection bias adjustment)"
+    elif n_trials <= 10:
+        bias_label = "Moderate adjustment"
+    else:
+        bias_label = "Strict (institutional standard)"
+
     return {
         'dsr':           round(dsr, 4),
+        'dsr_institutional': round(dsr_institutional, 4),
         'sr_benchmark':  round(sr_benchmark, 4),
         'sr_min_95':     round(sr_min95, 4),
         'se_sr':         round(se_sr_ann, 4),
         'is_significant': dsr > 0.95,
         'n_trials':      n_trials,
+        'bias_label':    bias_label,
         'skew':          round(skew, 3),
         'excess_kurt':   round(kurt - 3, 3),
     }
@@ -884,7 +904,11 @@ class QuantProofValidator:
     ):
         self.strict_mode = strict_mode
         self.seed        = seed
-        self.n_trials    = max(1, int(n_trials))
+        # Accept user input directly with minimal validation (>=1 only)
+        try:
+            self.n_trials = max(1, int(n_trials))
+        except (ValueError, TypeError):
+            self.n_trials = 1
         self.rng         = np.random.default_rng(seed)
         self.benchmark_type = benchmark_type
         self.df          = self._clean(df)
@@ -1206,8 +1230,11 @@ class QuantProofValidator:
         sharpe     = calculate_sharpe(self.returns, self.trades_per_year)
         dsr_result = calculate_deflated_sharpe(self.returns, sharpe, self.n_trials, self.trades_per_year)
         dsr    = dsr_result['dsr']
+        dsr_inst = dsr_result['dsr_institutional']
         sr_min = dsr_result['sr_min_95']
         se     = dsr_result['se_sr']
+        bias_label = dsr_result['bias_label']
+        
         if dsr >= 0.99:
             passed, score = True, 100
         elif dsr >= 0.95:
@@ -1216,10 +1243,15 @@ class QuantProofValidator:
             passed, score = False, 50
         else:
             passed, score = False, 10
+            
+        # Enhanced output with institutional comparison
+        user_dsr_text = f"DSR={dsr:.3f} | SE=±{se:.2f} | Min SR: {sr_min:.2f} | n_trials={self.n_trials} ({bias_label})"
+        institutional_text = f"Institutional DSR (n=20): {dsr_inst:.3f}"
+        comparison_text = f"User vs Institutional: {dsr:.3f} vs {dsr_inst:.3f}"
+        
         return CheckResult("Deflated Sharpe Ratio", passed, round(score, 1),
-            f"DSR={dsr:.3f} | SE=±{se:.2f} | Min SR: {sr_min:.2f} | "
-            f"n_trials={self.n_trials} (assumed — actual may differ)",
-            f"DSR corrects Sharpe={sharpe:.2f} for non-normality and {self.n_trials} trial(s).",
+            f"{user_dsr_text} | {institutional_text}",
+            f"DSR corrects Sharpe={sharpe:.2f} for non-normality and selection bias. {comparison_text}",
             "Increase backtest length or reduce parameter count.", "Overfitting")
 
     def check_sharpe_ci_enforcement(self) -> CheckResult:
