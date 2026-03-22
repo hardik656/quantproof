@@ -1280,7 +1280,9 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         trade_type = str(row["trade_type"]).upper().strip()
         date       = row["trade_date"]
         segment    = str(row.get("segment", "EQ")).upper().strip()
-        is_fo      = segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF")
+        is_fo      = (segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF",
+                          "NFO", "BCD", "MCX", "NCO")
+                         or str(row.get("series", "")).upper().strip() in ("FO", "CD"))
 
         # FIX: skip zero/negative qty rows — prevents phantom trades and div-by-zero
         if qty <= 0 or price <= 0:
