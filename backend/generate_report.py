@@ -513,6 +513,8 @@ def generate_pdf_report(vr: dict) -> bytes:
         "D":  ("Major Issues",
                f"Critical failures detected across key institutional checks. "
                f"The action plan below shows exactly what to fix first."),
+        "F":  ("Do Not Deploy",
+               f"This strategy fails institutional standards. Do not deploy capital until major issues are resolved."),
     }
     tier = ("A"  if score >= 90 else
             "B+" if score >= 80 else
@@ -522,7 +524,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             "F")
     # Defensive guard for verdict_text lookup
     verdict_title, verdict_body = verdict_text.get(tier, 
-        ("Unknown", ("Unknown grade", "Unable to determine verdict due to invalid score.")))
+        ("Unknown", "Unable to determine verdict due to invalid score."))
 
     score_row = Table([[
         score_gauge(score, grade_short),
