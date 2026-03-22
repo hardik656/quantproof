@@ -192,9 +192,11 @@ def _token_tier(token: str) -> str:
     return "none"
 
 def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
-    # Pro tokens bypass rate limit entirely
-    # _is_pro_token now handles all dev override env vars including TEST_REPORT_TOKEN
+    # Pro tokens bypass rate limit entirely AND clear any existing counter for this IP
     if _is_pro_token(token) or token.startswith(TOKEN_PRO):
+        # Reset counter so they don't get blocked even if they hit limit before setting token
+        if ip in _validation_counts:
+            _validation_counts[ip]["count"] = 0
         return True, 999
     now = time.time()
     rec = _validation_counts[ip]
@@ -2519,6 +2521,16 @@ async def get_ai_fixes(
 @app.get("/health")
 def health():
     return {"status": "ok", "version": API_VERSION}
+
+
+@app.get("/debug/reset-limit")
+def debug_reset_limit(t: str = ""):
+    """Dev endpoint — reset rate limit for your IP. Requires valid pro/dev token."""
+    if not _is_pro_token(t):
+        raise HTTPException(403, "Valid pro token required as ?t= param")
+    cleared = len(_validation_counts)
+    _validation_counts.clear()
+    return {"status": "ok", "cleared_ips": cleared, "message": "All rate limits reset"}
 
 
 @app.get("/debug/token")
