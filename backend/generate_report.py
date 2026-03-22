@@ -462,6 +462,10 @@ def generate_pdf_report(vr: dict) -> bytes:
     strengths = vr.get("top_strengths", [])
     grade_short = grade.split("—")[0].strip()
     gc = grade_color(grade)
+    
+    # Debug logging to identify score/tier issues
+    import sys
+    print(f"[PDF_DEBUG] score={score}, grade={grade}, grade_short='{grade_short}'", file=sys.stderr, flush=True)
 
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -516,7 +520,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             "C"  if score >= 50 else
             "D"  if score >= 35 else
             "F")
-    verdict_title, verdict_body = verdict_text[tier]
+    # Defensive guard for verdict_text lookup
+    verdict_title, verdict_body = verdict_text.get(tier, 
+        ("Unknown", ("Unknown grade", "Unable to determine verdict due to invalid score.")))
 
     score_row = Table([[
         score_gauge(score, grade_short),
