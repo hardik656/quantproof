@@ -3488,16 +3488,17 @@ async def generate_broker_report(
 # =========================================================
 
 class PortfolioResponse(BaseModel):
-    strategies:         List[Dict[str, Any]]   # per-strategy summary
-    correlation_matrix: List[List[float]]
-    strategy_names:     List[str]
-    combined_sharpe:    float
-    combined_drawdown:  float
-    combined_win_rate:  float
-    diversification_score: float               # 0-100, higher = better diversified
+    strategies:            List[Dict[str, Any]]   # full per-strategy data
+    correlation_matrix:    List[List[float]]
+    strategy_names:        List[str]
+    combined_sharpe:       float
+    combined_drawdown:     float
+    combined_win_rate:     float
+    diversification_score: float
     combined_total_trades: int
-    portfolio_verdict:  str
-    audit_flags:        List[str]
+    portfolio_verdict:     str
+    audit_flags:           List[str]
+    n_trials:              int = 10
 
 
 def _portfolio_correlation(dfs: list) -> np.ndarray:
@@ -3663,16 +3664,47 @@ async def validate_portfolio(
             except Exception:
                 pass
 
+        # Build per-strategy richness — same as single strategy validator
+        _checks_list = [
+            {"name": c.name, "passed": c.passed, "score": round(c.score, 1),
+             "category": c.category, "insight": c.insight or "", "fix": c.fix or ""}
+            for c in report.checks if c.category != "Plausibility"
+        ]
+        _failed     = [c for c in _checks_list if not c["passed"]]
+        _passed_chk = [c for c in _checks_list if c["passed"]]
+        _crash_sims = getattr(report, "crash_sims", [])
+        _survived   = sum(1 for c in _crash_sims if
+                          (c.get("survived") if isinstance(c, dict) else getattr(c, "survived", False)))
+        # Equity curve
+        _eq = None
+        try:
+            _eq = [round(float(v), 4) for v in getattr(report, "equity_curve", None) or []]
+            if len(_eq) < 3: _eq = None
+        except Exception: _eq = None
+        # Top issues and strengths
+        _top_issues = [f"{c['name']}: {c['insight']}" for c in _failed[:3] if c.get("insight")]
+        _top_strengths = [f"{c['name']}" for c in _passed_chk
+                          if c.get("score", 0) >= 80][:3]
         strategy_summaries.append({
-            "name":           names_list[i],
-            "fundable_score": round(report.score, 1),
-            "grade":          report.grade.split("—")[0].strip(),
-            "sharpe":         round(report.sharpe, 2),
-            "max_drawdown":   round(report.max_drawdown, 4),
-            "win_rate":       round(report.win_rate, 1),
-            "total_trades":   report.total_trades,
-            "date_range":     date_range,
-            "regime_note":    regime_note,
+            "name":             names_list[i],
+            "fundable_score":   round(report.score, 1),
+            "grade":            report.grade.split("—")[0].strip(),
+            "sharpe":           round(report.sharpe, 2),
+            "max_drawdown":     round(report.max_drawdown, 4),
+            "win_rate":         round(report.win_rate, 1),
+            "total_trades":     report.total_trades,
+            "date_range":       date_range,
+            "regime_note":      regime_note,
+            "source_format":    regime_note.split("|")[0].strip()[:40] if regime_note else "CSV",
+            "checks_passed":    len(_passed_chk),
+            "checks_failed":    len(_failed),
+            "checks_total":     len(_checks_list),
+            "crash_survived":   _survived,
+            "crash_total":      len(_crash_sims),
+            "top_issues":       _top_issues,
+            "top_strengths":    _top_strengths,
+            "equity_curve":     _eq,
+            "checks":           _checks_list[:44],  # full checks for detail panel
         })
         dfs.append(df)
         sharpes.append(report.sharpe)
@@ -3721,6 +3753,7 @@ async def validate_portfolio(
         combined_total_trades=combined_trades,
         portfolio_verdict=verdict,
         audit_flags=audit_flags,
+        n_trials=10,
     )
 
 
@@ -4584,3 +4617,4 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
