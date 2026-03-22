@@ -145,7 +145,7 @@
   <div class="page-hero">
     <span class="page-tag">// Validation Methodology</span>
     <h1>How QuantProof<br>scores your strategy</h1>
-    <p>Every check, the math behind the key ones, and the research behind each category. We show exactly what we measure and why — because a score you can't explain is a score you can't trust.</p>
+    <p>I built QuantProof because I got tired of backtests that looked great and fell apart in live trading. This page explains every check we run, why it exists, and the research behind it. If you're going to trust a score with real money, you deserve to know exactly how it's calculated.</p>
     <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Updated 2026-03-23 &nbsp;·&nbsp; 44 scored checks + 5 crash simulations + portfolio analyser</div>
   </div>
 
@@ -190,7 +190,7 @@
       <div>
         <div class="cat-title">Validation Depth (n_trials)</div>
         <div class="cat-weight">Controls Monte Carlo and DSR rigour — not a check category</div>
-        <div class="cat-desc">The <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">n_trials</code> parameter controls how many independent Monte Carlo paths are run for the Deflated Sharpe Ratio (DSR) and related stochastic checks. Higher n = harder to pass = closer to how a fund manager would validate before deployment.</div>
+        <div class="cat-desc">This is one of the most important settings and most people miss it. <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">n_trials</code> tells the engine how many strategies you tested before submitting this one. The more strategies you tested, the higher your chances of finding a good-looking one by luck. A Sharpe of 1.5 means something very different if it's your first strategy vs your 50th — this parameter captures that difference.</div>
       </div>
     </div>
     <table class="depth-table">
@@ -206,9 +206,7 @@
         <tr><td>Deep (₹999 Pro)</td><td style="color:var(--gold)">n = 20–50</td><td>Slider — matches prop firm / fund pre-screening depth</td><td>E[max SR] ≈ 1.6–2.2σ</td></tr>
       </tbody>
     </table>
-    <div class="breakdown-note" style="margin-top:12px;">
-      The same strategy with the same data can score 80/100 at n=1 and 30/100 at n=50. Both results are mathematically correct — they answer different questions. n=1 asks "does this strategy have positive expected value?" n=50 asks "would this strategy survive a proper multi-strategy selection process?" Serious traders should validate at both extremes.
-    </div>
+    <div class="breakdown-note" style="margin-top:12px;">The same strategy, same data, can score 80/100 at n=1 and 30/100 at n=50. Both numbers are correct — they're answering different questions. n=1 asks: does this strategy have genuine edge? n=50 asks: would this edge hold up if a fund manager was screening it against 50 alternatives? If you're serious about deploying, run both.</div>
   </div>
 
   <!-- CATEGORY 1: Overfitting -->
@@ -218,24 +216,24 @@
       <div>
         <div class="cat-title">Overfitting Detection</div>
         <div class="cat-weight">22% of Fundable Score · 11 checks</div>
-        <div class="cat-desc">The most common failure mode in backtesting. A strategy optimised on historical data will always look good — the question is whether it has real predictive power or just memorised the past.</div>
+        <div class="cat-desc">This is where most backtests die. Optimise any strategy on historical data and it will look brilliant — that's just mathematics. The question is whether it has real predictive power or just memorised noise. Every check in this category is designed to catch the difference.</div>
       </div>
     </div>
     <div class="check-list">
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">CORE</span>Sharpe Ratio Decay</div>
         <div class="check-row-desc">Splits the backtest in half and compares in-sample vs out-of-sample Sharpe ratio. Also checks mean return decay independently. Uses the worse of the two as the effective decay score.</div>
-        <div class="check-row-why">A strategy with good in-sample and bad out-of-sample performance was fitted to noise. Real edge decays slowly, not catastrophically.</div>
+        <div class="check-row-why">If a strategy only works on the data it was built on, it was fitted to noise. Real edge doesn't evaporate the moment you look at new data — it decays gradually. A cliff-edge drop between in-sample and out-of-sample Sharpe is one of the clearest red flags in quantitative trading.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">CORE</span>Monte Carlo Robustness</div>
         <div class="check-row-desc">Three-component test: (1) bootstrap mean stability across 300 resamples, (2) sequence independence across 200 permutations, (3) worst-5th-percentile equity curve across 500 permutations.</div>
-        <div class="check-row-why">A strategy that only works because of the specific order of trades is not robust.</div>
+        <div class="check-row-why">The order your trades happened in history was partly random. If the strategy only works with that exact sequence — if shuffling the order destroys the returns — the edge isn't real. This test reshuffles thousands of times and checks whether the edge survives.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">CORE</span>Profit / Loss Concentration</div>
         <div class="check-row-desc">Measures what percentage of total profit comes from the top 1% of trades and the top 2 individual trades. Removes the top trades and recalculates Sharpe.</div>
-        <div class="check-row-why">A strategy that depends on 2–3 outlier trades is not a strategy — it is luck.</div>
+        <div class="check-row-why">Remove your two best trades. Is the strategy still profitable? If those two trades are holding up the entire P&L, you don't have a strategy — you got lucky twice. This is surprisingly common and surprisingly easy to miss in standard backtesting.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>CPCV Path Stability</div>
@@ -248,8 +246,8 @@
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Deflated Sharpe Ratio (DSR)</div>
-        <div class="check-row-desc">Corrects the Sharpe ratio for non-normality (skewness, kurtosis), finite sample bias, and multiple testing. Uses the Bailey-López de Prado framework to estimate the minimum Sharpe required for statistical significance given n_trials strategies tested.</div>
-        <div class="check-row-why">A raw Sharpe of 1.5 on 100 trades after testing 20 strategies is statistically near-meaningless. DSR expresses the true probability that the Sharpe is genuine.</div>
+        <div class="check-row-desc">The raw Sharpe ratio is almost always overstated. DSR corrects it for three things most people ignore: the fat tails in real trading returns (your losses are bigger than a normal distribution predicts), the fact that short backtests always look better by chance, and how many strategies you tested before finding this one. The result is the Sharpe ratio you'd need to see before being statistically confident the edge is real.</div>
+        <div class="check-row-why">Most people don't realise how much selection bias inflates their results. Test 20 strategies and the best one will look great even if all 20 are pure noise. DSR is the only metric I know of that directly accounts for this. It's why the same strategy can score very differently depending on how many alternatives you tested first.</div>
         <details class="math-details"><summary class="math-summary">// DSR Formula <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
           <div class="math-label">// DSR Formula</div>
           <div class="math-formula">
@@ -344,14 +342,14 @@ If rejected, Newey-West HAC correction:
       <div>
         <div class="cat-title">Risk Management</div>
         <div class="cat-weight">38% of Fundable Score · 11 checks</div>
-        <div class="cat-desc">The largest category by weight because risk management is the primary reason strategies fail in live trading. A strategy can have genuine alpha and still blow up due to position sizing, tail risk, or extended drawdowns.</div>
+        <div class="cat-desc">Risk management gets the highest weight because it's where live accounts actually die. I've seen strategies with beautiful Sharpe ratios blow up accounts in three months because nobody stress-tested the drawdown. Genuine edge isn't enough if you can't survive the variance to collect it.</div>
       </div>
     </div>
     <div class="check-list">
       <div class="check-row">
         <div class="check-row-name">Max Drawdown</div>
         <div class="check-row-desc">Maximum peak-to-trough equity curve decline as a percentage. Institutional threshold: &lt;20%. Prop firm threshold: &lt;10%.</div>
-        <div class="check-row-why">Every prop firm and institutional fund has a hard drawdown limit. Exceeding it means termination.</div>
+        <div class="check-row-why">Every prop firm and fund has a hard number here. Exceed it and the account is closed — doesn't matter how good your average returns are. Knowing your worst case before you go live is not optional.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name">Calmar Ratio</div>
@@ -366,7 +364,7 @@ If rejected, Newey-West HAC correction:
       <div class="check-row">
         <div class="check-row-name">CVaR / Expected Shortfall</div>
         <div class="check-row-desc">Average loss in the worst 5% of outcomes. Uses kernel density estimation for small samples (&lt;100 trades). CVaR is the risk measure used by Basel III for bank capital requirements.</div>
-        <div class="check-row-why">VaR tells you the threshold. CVaR tells you what happens when you cross it.</div>
+        <div class="check-row-why">VaR tells you the door. CVaR tells you what's on the other side. Knowing the threshold is only half the picture — the average of your worst outcomes matters just as much for position sizing and risk of ruin.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name">Sortino Ratio</div>
@@ -376,7 +374,7 @@ If rejected, Newey-West HAC correction:
       <div class="check-row">
         <div class="check-row-name">Max Losing Streak</div>
         <div class="check-row-desc">Longest consecutive losing trades. Also flags zero losing streaks over 20+ trades as implausible — a signature of look-ahead bias.</div>
-        <div class="check-row-why">Most prop firms terminate accounts after 5–8 consecutive losses.</div>
+        <div class="check-row-why">A run of consecutive losses will test you psychologically and financially. Most prop firms pull accounts after 5-8 in a row. More importantly: if you don't know your worst historical streak before going live, you'll be genuinely shocked when it happens — and that shock leads to bad decisions.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name">Recovery Factor</div>
@@ -405,7 +403,7 @@ If rejected, Newey-West HAC correction:
       <div class="check-row">
         <div class="check-row-name">Ulcer Index</div>
         <div class="check-row-desc">Root mean square of all drawdown percentages throughout the backtest. Also reports the Martin Ratio (Sharpe / Ulcer Index).</div>
-        <div class="check-row-why">Max drawdown captures only the single worst event. Ulcer Index captures the overall pain throughout the entire backtest.</div>
+        <div class="check-row-why">Max drawdown is one number from one bad period. The Ulcer Index captures how painful the entire journey was — a strategy that spends 18 months in a slow grind down is different from one that had one sharp drop and recovered. The Ulcer Index reflects that difference.</div>
       </div>
     </div>
   </div>
@@ -417,19 +415,19 @@ If rejected, Newey-West HAC correction:
       <div>
         <div class="cat-title">Regime Robustness</div>
         <div class="cat-weight">14% of Fundable Score · 6 checks</div>
-        <div class="cat-desc">A strategy backtested entirely in a bull market is not tested — it is lucky. These checks verify that the strategy works across different market conditions.</div>
+        <div class="cat-desc">Most retail backtests run from 2019 to 2024. That's almost entirely a bull market interrupted by a 33-day crash that recovered in months. A strategy that looks great over that period hasn't been tested — it's been lucky. These checks look for what happens when the market isn't cooperating.</div>
       </div>
     </div>
     <div class="check-list">
       <div class="check-row">
         <div class="check-row-name">Bull / Bear / Consolidation Performance</div>
         <div class="check-row-desc">When date data is present, classifies trades using actual market regime periods (S&P 500 bull/bear cycles from 2000–2026). Without dates, uses rolling return proxy. Computes Sharpe and win rate for each regime separately.</div>
-        <div class="check-row-why">Most retail backtests run 2019–2024 — almost entirely bull market. Bear and consolidation performance reveals the real durability of edge.</div>
+        <div class="check-row-why">If your strategy only has data from 2019-2024, you've essentially backtested one market regime. The strategy hasn't seen a real bear market, a rate hiking cycle, or an extended sideways grind. This check uses actual historical regime periods to find out.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Volatility Spike Stress Test</div>
         <div class="check-row-desc">Simulates a 3x volatility spike using Student's t-distribution (df=3, fat tails) with AR(1) autocorrelation to model crisis momentum. Strategy-specific seed ensures different strategies get different stress paths.</div>
-        <div class="check-row-why">Volatility regimes change abruptly. A strategy calibrated to normal vol can be destroyed when vol triples.</div>
+        <div class="check-row-why">Volatility doesn't change gradually — it spikes. A strategy calibrated to a 15 VIX environment can be completely destroyed when VIX hits 45. This stress test simulates that jump and measures how badly the strategy breaks.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name">Performance Consistency</div>
@@ -456,14 +454,14 @@ If rejected, Newey-West HAC correction:
       <div>
         <div class="cat-title">Execution Reality</div>
         <div class="cat-weight">11% of Fundable Score · 6 checks</div>
-        <div class="cat-desc">Backtests assume perfect fills. Reality does not. These checks model the gap between backtest performance and live performance due to slippage, commissions, partial fills, and market impact.</div>
+        <div class="cat-desc">Backtests lie about execution. They assume you always get filled at the price you wanted, pay no commissions, and never move the market. None of that is true. The gap between backtest and live performance is almost always explained by execution costs — and these checks quantify exactly how much of your edge survives them.</div>
       </div>
     </div>
     <div class="check-list">
       <div class="check-row">
         <div class="check-row-name">Slippage Impact (0.1% and 0.3%)</div>
         <div class="check-row-desc">Two checks. 0.1% = institutional / large-cap. 0.3% = retail / small-cap / illiquid. Both scale with trade frequency.</div>
-        <div class="check-row-why">Slippage is often larger than the edge. A strategy with 0.2% mean return that fails the 0.1% slippage test has no real edge after costs.</div>
+        <div class="check-row-why">This is the most common way apparently profitable strategies fail in live trading. The edge was real — but it was smaller than the cost of executing it. 0.1% slippage on every trade adds up faster than most people think, especially at high frequency.</div>
       </div>
       <div class="check-row">
         <div class="check-row-name">Commission Drag</div>
@@ -483,7 +481,7 @@ If rejected, Newey-West HAC correction:
       <div class="check-row">
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Impact-Adjusted Capacity (Almgren-Chriss)</div>
         <div class="check-row-desc">Computes strategy Sharpe at $100k, $1M, $10M, and $100M AUM using the Almgren-Chriss optimal execution model. Uses the strategy's actual volatility and trade frequency to estimate market impact at each scale.</div>
-        <div class="check-row-why">A strategy that works with ₹50k can be completely destroyed at ₹5Cr due to market impact.</div>
+        <div class="check-row-why">This is what nobody tells you when you start scaling up. A strategy that works beautifully with ₹50k starts to break at ₹5L and is completely destroyed at ₹5Cr — because your own orders move the market against you. The Almgren-Chriss model estimates exactly where your specific strategy starts to degrade.</div>
         <details class="math-details"><summary class="math-summary">// Almgren-Chriss Market Impact <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
           <div class="math-label">// Almgren-Chriss Market Impact</div>
           <div class="math-formula">
@@ -523,7 +521,7 @@ We compute at 4 AUM levels:
       <div>
         <div class="cat-title">Compliance</div>
         <div class="cat-weight">15% of Fundable Score · 3 checks</div>
-        <div class="cat-desc">Two separate compliance standards: prop firm (FTMO/Topstep/The5ers challenge rules) and institutional (CTA/fund). These have different thresholds and serve different purposes.</div>
+        <div class="cat-desc">Two very different sets of rules for two very different audiences. Prop firm rules are strict on drawdown because the firm is risking their capital on a 30-day challenge. Institutional rules care more about long-term Sharpe and Calmar because a fund allocator is thinking in years not months. A strategy can pass one and fail the other — knowing which is useful before you pay for a challenge.</div>
       </div>
     </div>
     <div class="check-list">
@@ -552,7 +550,7 @@ We compute at 4 AUM levels:
       <div>
         <div class="cat-title">Historical Crash Simulations</div>
         <div class="cat-weight">Informational — do not affect Fundable Score</div>
-        <div class="cat-desc">Five historical crisis scenarios using fat-tailed Student's t-distribution (df=3) with AR(1) crisis autocorrelation. Each strategy gets a unique simulation path based on its own returns data — same crash hits different strategies differently based on their actual volatility and autocorrelation profile.</div>
+        <div class="cat-desc">These don't affect your score — they're here because I think every trader should see how their strategy would have behaved in the worst markets of the last 30 years. We simulate each crash using fat-tailed distributions because real crises have fatter tails than normal markets. Each strategy gets a unique path based on its own volatility profile — the same crash hits a high-vol strategy much harder than a low-vol one.</div>
       </div>
     </div>
     <div class="crash-profiles">
@@ -594,7 +592,7 @@ We compute at 4 AUM levels:
       <div>
         <div class="cat-title" style="color:var(--gold);">Portfolio Analyser</div>
         <div class="cat-weight" style="color:var(--gold);">Separate product — ₹199 · 2–3 strategies · institutional-grade portfolio construction</div>
-        <div class="cat-desc">Runs the full 44-check validator on each strategy independently, then computes portfolio-level metrics using institutional methods. The goal is to answer: "Do these strategies genuinely diversify each other, or do they just look uncorrelated until the market crashes?"</div>
+        <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 44-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
       </div>
     </div>
 
@@ -706,7 +704,7 @@ Interpretation:
       <div>
         <div class="cat-title">Operational Checks</div>
         <div class="cat-weight">Not in weighted score — always appended, always visible</div>
-        <div class="cat-desc">Two checks appended to every validation. They provide diagnostic information about strategy persistence and structural overfit but do not affect the Fundable Score.</div>
+        <div class="cat-desc">These two checks don't affect your score but I always read them first. Alpha Decay tells you if the strategy is gradually losing its edge over the backtest period — which is often the most honest signal of whether it will work going forward. Symbolic Overfit catches the strategies that look statistically clean but are suspiciously too perfect compared to real noise.</div>
       </div>
     </div>
     <div class="check-list">
@@ -730,7 +728,7 @@ Interpretation:
       <div>
         <div class="cat-title">Plausibility Checks</div>
         <div class="cat-weight">4 checks — flag data integrity issues, can trigger Manual Audit Required</div>
-        <div class="cat-desc">Do not contribute to the weighted Fundable Score. Flag statistical signatures that commonly indicate data errors, look-ahead bias, or synthetic data. Manual Audit Required suppresses Prop Firm Eligible and caps score at 35.</div>
+        <div class="cat-desc">These checks exist because people sometimes upload data that can't possibly reflect real trading — whether by accident or on purpose. A Sharpe of 15 has never been documented in any institutional strategy over a multi-year period. An equity curve that never drawdowns more than 2% over 500 trades is almost certainly look-ahead bias. These flags don't punish you — they tell you the data needs a closer look before any score means anything.</div>
       </div>
     </div>
     <div class="check-list">
@@ -754,12 +752,12 @@ Interpretation:
   </div>
 
   <div class="disclaimer">
-    ⚠ &nbsp; QuantProof validates statistical properties of backtests. A passing score does not guarantee future performance. All results are based on historical data submitted by the user. Broker-verified validations confirm the source of data, not future predictive power. Not financial advice.
+    ⚠ &nbsp; QuantProof validates the statistical properties of backtests — it doesn't predict the future. A high score means your strategy has the right foundations. What happens in live markets depends on a hundred things this tool can't see. Not financial advice — do your own due diligence before risking real capital.
   </div>
 
   <div class="bottom-cta">
     <h2>Validate your strategy now</h2>
-    <p>Free for CSV, Kite TradeBook, TradingView webhooks.<br>Broker-verified for Alpaca and IBKR. 3 free validations per day.</p>
+    <p>Upload your CSV and get a full score in under 30 seconds. Free to start — no account needed.<br>3 validations per day on the free tier.</p>
     <a href="/" class="cta-btn">← Back to Validator</a>
   </div>
 </div>
