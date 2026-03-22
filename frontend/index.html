@@ -785,6 +785,23 @@
           Accepts: Zerodha Kite · Alpaca · MT5 · TradingView CSV · Generic PnL CSV &nbsp;—&nbsp; same auto-detection as single strategy
         </div>
 
+        <!-- Limitations — shown before payment -->
+        <div style="padding:10px 24px 0;border-bottom:1px solid var(--border);">
+          <details style="font-family:var(--mono);font-size:9px;">
+            <summary style="color:var(--muted);cursor:pointer;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px;">
+              <span style="color:#ffaa00;">⚠</span> Known limitations — read before uploading
+              <span style="color:var(--muted);font-size:8px;margin-left:auto;">▶</span>
+            </summary>
+            <div style="padding:8px 0 12px;color:var(--muted);line-height:2.0;font-size:9px;">
+              <div><span style="color:#ffaa00;">MT5 multi-leg trades</span> — MT5 files with 4-leg or hedged positions may fail parsing. Use the single-strategy validator first to check your MT5 file parses correctly before uploading here.</div>
+              <div style="margin-top:4px;"><span style="color:#ffaa00;">No date column</span> — correlation is computed positionally (trade 1 vs trade 1), not by date. Meaningless if strategies trade at different frequencies. Always upload dated CSVs.</div>
+              <div style="margin-top:4px;"><span style="color:#ffaa00;">Minimum 10 trades</span> — each strategy needs at least 10 trades. Strategies below this are rejected.</div>
+              <div style="margin-top:4px;"><span style="color:#ffaa00;">Correlation is Pearson (linear)</span> — options portfolios with non-linear payoffs need copula-based analysis. Pearson underestimates tail dependence for options strategies.</div>
+              <div style="margin-top:4px;"><span style="color:#ffaa00;">n=10 per strategy</span> — portfolio runs at n=10 Monte Carlo. Run single-strategy validation at higher n first to verify each strategy individually.</div>
+            </div>
+          </details>
+        </div>
+
         <!-- Strategy rows -->
         <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
           <!-- Strategy 1 -->
@@ -1802,12 +1819,9 @@
             ✓ Validate My Strategy — Free →
           </button>
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:8px;">3 free validations/day · No account needed · Results in 30s</div>
-          <a href="https://github.com/hardik-gumber/quantproof/blob/main/sample_report.pdf"
-            target="_blank" rel="noopener"
-            style="display:block;text-align:center;background:transparent;color:var(--muted);border:1px solid var(--border);padding:10px 28px;font-family:var(--mono);font-size:11px;cursor:pointer;width:100%;margin-top:10px;text-decoration:none;box-sizing:border-box;">
-            📄 View sample PDF report →
-          </a>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:5px;opacity:0.6;">PDF is generated from your real strategy — not available on demo</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7;">
+            PDF reports are generated from your real strategy — validate yours to get one.
+          </div>
         </div>` : `
         <div style="margin:16px 0 32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);">
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// GET YOUR FIX PLAN</div>
