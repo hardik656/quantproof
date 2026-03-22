@@ -2683,6 +2683,62 @@
     }
   }
 
+  function buildPortfolioFixPlan(plan, strategyNames) {
+    if (!plan) return `
+      <div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;">
+        Fix plan not available — no AI key configured on server. Rule-based plan shown below.
+      </div>`;
+
+    const fixes   = plan.portfolio_fixes || [];
+    const summary = plan.summary || '';
+    const verdict = plan.allocation_verdict || '';
+    const bestPair= plan.strongest_combination || '';
+    const catColors = {'High Drawdown Coincidence':'#ff6b6b','High Correlation':'#ffaa00',
+      'Weak Strategy':'#ff6b6b','Combined Sharpe Below Average':'#ffaa00',
+      'Portfolio is well-constructed':'var(--accent)'};
+
+    return `
+      <div style="margin-bottom:16px;padding:14px 16px;background:rgba(245,183,0,0.05);border:1px solid rgba(245,183,0,0.2);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;margin-bottom:6px;">// PORTFOLIO ASSESSMENT</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;">${summary}</div>
+      </div>
+
+      ${verdict ? `<div style="margin-bottom:16px;padding:10px 14px;background:rgba(0,0,0,0.2);border-left:3px solid var(--gold);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:3px;">ALLOCATION VERDICT</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.6;">${verdict}</div>
+      </div>` : ''}
+
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
+        // RANKED FIX PLAN — ${fixes.length} ISSUES
+      </div>
+
+      ${fixes.map((fix, i) => {
+        const colKey = Object.keys(catColors).find(k => fix.issue && fix.issue.includes(k));
+        const col = colKey ? catColors[colKey] : '#ffaa00';
+        const effortCol = fix.effort==='Low'?'var(--accent)':fix.effort==='High'?'#ff6b6b':'#ffaa00';
+        return `<div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="font-family:var(--mono);font-size:20px;font-weight:700;color:${col};min-width:28px;line-height:1;">${fix.rank}</span>
+            <div style="flex:1;">
+              <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">${fix.issue||''}</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                ${fix.effort?`<span style="font-family:var(--mono);font-size:8px;color:${effortCol};padding:1px 7px;border:1px solid ${effortCol}33;">EFFORT: ${fix.effort.toUpperCase()}</span>`:''}
+                ${fix.score_impact?`<span style="font-family:var(--mono);font-size:8px;color:var(--accent);padding:1px 7px;border:1px solid rgba(0,255,136,0.2);">${fix.score_impact}</span>`:''}
+              </div>
+              <div style="font-size:12px;color:var(--muted);line-height:1.65;margin-bottom:6px;">${fix.why_it_matters||''}</div>
+              <div style="font-size:12px;color:var(--gold);line-height:1.65;padding:8px 12px;background:rgba(245,183,0,0.06);border-left:2px solid rgba(245,183,0,0.4);">↳ ${fix.specific_fix||''}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+
+      ${bestPair ? `<div style="margin-top:16px;padding:10px 14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-bottom:3px;">STRONGEST PAIR</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;">${bestPair}</div>
+      </div>` : ''}
+    `;
+  }
+
   function buildCombinedEquityCurve(equityCurve, weights, names) {
     if (!equityCurve || equityCurve.length < 5) return '';
     const W = 560, H = 70, pad = {l:8,r:50,t:6,b:16};
@@ -2810,9 +2866,10 @@
             ['DD COINCIDENCE',  ((data.dd_coincidence||0)*100).toFixed(0)+'%',
               (data.dd_coincidence||0)<0.3?'var(--accent)':(data.dd_coincidence||0)<0.6?'#ffaa00':'#ff4444',
               (data.dd_coincidence||0)<0.3?'Low — strategies fall independently':(data.dd_coincidence||0)<0.6?'Moderate overlap':'High — strategies crash together'],
-            ['PORTFOLIO DSR',   data.portfolio_dsr!=null?(data.portfolio_dsr+'/100'):'n/a',
-              data.portfolio_dsr>=70?'var(--accent)':data.portfolio_dsr>=40?'#ffaa00':'#ff4444',
-              'Combined strategy deflated Sharpe'],
+            ['PORTFOLIO DSR',
+              data.portfolio_dsr!=null?(data.portfolio_dsr.toFixed(1)+'/100'):'n/a',
+              (data.portfolio_dsr||0)>=80?'var(--accent)':(data.portfolio_dsr||0)>=50?'#ffaa00':'#ff4444',
+              data.portfolio_dsr>=99?'Capped at 99.8 — strong but never absolute':'Combined strategy deflated Sharpe (BLP 2012)'],
           ].map(([lbl,val,col,sub],i)=>`
             <div style="padding:14px 18px;${i<2?'border-right:1px solid var(--border);':''}">
               <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:4px;">${lbl}</div>
@@ -2836,6 +2893,7 @@
         <div style="padding:0 24px;">
           <div class="port-tabs" id="portTabs">
             <button class="port-tab active" onclick="portTab('overview')">Overview</button>
+            <button class="port-tab" onclick="portTab('fixplan')">Fix Plan</button>
             <button class="port-tab" onclick="portTab('checks')">Checks Detail</button>
             <button class="port-tab" onclick="portTab('correlation')">Correlation</button>
           </div>
@@ -2953,12 +3011,32 @@
           </div>
         </div>
 
+        <!-- TAB: FIX PLAN -->
+        <div id="portTabFixplan" style="display:none;padding:0 24px 24px;">
+          ${buildPortfolioFixPlan(data.portfolio_plan, data.strategy_names)}
+        </div>
+
+        <!-- Audit flags — date warnings, regime notes etc -->
+        ${(data.audit_flags||[]).filter(f=>f.includes('⚠')).length ? `
+        <div style="padding:12px 24px;border-top:1px solid var(--border);background:rgba(255,170,0,0.03);">
+          ${(data.audit_flags||[]).filter(f=>f.includes('⚠')).map(f=>`
+            <div style="font-family:var(--mono);font-size:9px;color:#ffaa00;line-height:1.7;margin-bottom:4px;">
+              ${f}
+            </div>`).join('')}
+        </div>` : ''}
+
         <!-- Footer -->
         <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">
-            Portfolio validated at n=10 · Equal-weight · Pearson correlation on PnL series
+            Portfolio validated at n=10 · Risk-parity weighted · Normalised Pearson correlation
           </div>
-          <button onclick="resetApp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;font-family:var(--mono);font-size:10px;cursor:pointer;">← Run Another</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="downloadPortfolioPdf()" id="portPdfBtn"
+              style="background:var(--gold);color:#0a0a0a;border:none;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">
+              📄 Download Portfolio PDF
+            </button>
+            <button onclick="resetApp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;font-family:var(--mono);font-size:10px;cursor:pointer;">← Run Another</button>
+          </div>
         </div>
 
       </div>`;
@@ -2968,13 +3046,63 @@
     if (ps) ps.style.display = 'block';
   }
 
+  async function downloadPortfolioPdf() {
+    const btn = document.getElementById('portPdfBtn');
+    const tok = (sessionStorage.getItem('qp_pro_token')
+              || sessionStorage.getItem('qp_port_token')
+              || sessionStorage.getItem('qp_report_token') || '').trim();
+    if (!tok) {
+      alert('No portfolio token found. Please unlock portfolio analysis first.');
+      return;
+    }
+    if (!_portFiles[1] || !_portFiles[2]) {
+      alert('Files no longer in memory — please re-upload your strategies and run analysis again.');
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating PDF...'; }
+    const names = [1,2,3].map(n => (document.getElementById(`portName${n}`)?.value||'').trim() || `Strategy ${n}`).join(',');
+    const fd = new FormData();
+    [1,2,3].forEach(n => { if (_portFiles[n]) fd.append('files', _portFiles[n]); });
+    fd.append('currency', 'USD');
+    fd.append('strategy_names', names);
+    try {
+      const resp = await fetch(`${API_URL_REPORT}/report/generate-portfolio`, {
+        method: 'POST',
+        headers: { 'x-portfolio-token': tok },
+        body: fd
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({detail:'Unknown error'}));
+        const detail = err.detail || err;
+        if (detail.error === 'payment_required') {
+          alert('Portfolio PDF requires a valid portfolio or pro token.');
+        } else {
+          alert('PDF generation failed: ' + (detail.message || JSON.stringify(detail)));
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '📄 Download Portfolio PDF'; }
+        return;
+      }
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `QuantProof_Portfolio_Report.pdf`;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      if (btn) { btn.disabled = false; btn.textContent = '✓ PDF Downloaded'; btn.style.background='var(--accent)'; }
+    } catch(e) {
+      alert('PDF download failed: ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = '📄 Download Portfolio PDF'; }
+    }
+  }
+
   function portTab(name) {
-    ['overview','checks','correlation'].forEach(t => {
+    ['overview','fixplan','checks','correlation'].forEach(t => {
       const el = document.getElementById('portTab'+t.charAt(0).toUpperCase()+t.slice(1));
       if (el) el.style.display = t===name ? 'block' : 'none';
     });
     document.querySelectorAll('.port-tab').forEach((btn,i)=>{
-      btn.classList.toggle('active', ['overview','checks','correlation'][i]===name);
+      btn.classList.toggle('active', ['overview','fixplan','checks','correlation'][i]===name);
     });
   }
 
