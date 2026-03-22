@@ -1252,6 +1252,100 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(portfolio_combined_curve(strategies, width=INNER_W, height=100))
         story.append(Spacer(1, 2*mm))
 
+        # Portfolio fix plan
+        plan = portfolio.get("portfolio_plan")
+        if plan and isinstance(plan, dict):
+            story.append(PageBreak())
+            story.append(Paragraph("PORTFOLIO FIX PLAN", S["h_section"]))
+            story.append(Spacer(1, 4))
+
+            plan_summary = plan.get("summary","")
+            if plan_summary:
+                story.append(Paragraph(_clean_text(plan_summary), S["body"]))
+                story.append(Spacer(1, 8))
+
+            alloc_verdict = plan.get("allocation_verdict","")
+            if alloc_verdict:
+                v_tbl = Table([[
+                    Paragraph("ALLOCATION VERDICT", S["label"]),
+                    Paragraph(_clean_text(alloc_verdict),
+                              _s("av", fontSize=9, leading=13, textColor=C_DARK,
+                                 alignment=TA_JUSTIFY))
+                ]], colWidths=[36*mm, INNER_W-36*mm])
+                v_tbl.setStyle(TableStyle([
+                    ("BACKGROUND",    (0,0),(-1,-1), colors.HexColor("#FFF8EC")),
+                    ("TOPPADDING",    (0,0),(-1,-1), 9),
+                    ("BOTTOMPADDING", (0,0),(-1,-1), 9),
+                    ("LEFTPADDING",   (0,0),(-1,-1), 10),
+                    ("VALIGN",        (0,0),(-1,-1), "TOP"),
+                    ("LINEAFTER",     (0,0),(0,0),   2.5, C_WARN),
+                ]))
+                story.append(v_tbl)
+                story.append(Spacer(1, 6))
+
+            port_fixes = plan.get("portfolio_fixes", [])
+            if port_fixes:
+                story.append(Paragraph("RANKED PORTFOLIO FIXES",
+                    _s("h_sub", fontName="Helvetica-Bold", fontSize=11, textColor=C_BLACK)))
+                story.append(Spacer(1, 6))
+                priority_map = {}
+                for fix in port_fixes:
+                    issue = fix.get("issue","")
+                    if "Coincidence" in issue or "Weak" in issue:
+                        priority_map[fix.get("rank",99)] = C_DANGER
+                    elif "Correlation" in issue:
+                        priority_map[fix.get("rank",99)] = C_WARN
+                    else:
+                        priority_map[fix.get("rank",99)] = C_LITE
+
+                for fix in sorted(port_fixes, key=lambda x: x.get("rank",99)):
+                    rank      = fix.get("rank","")
+                    issue     = fix.get("issue","")
+                    why       = fix.get("why_it_matters","")
+                    specific  = fix.get("specific_fix","")
+                    impact    = fix.get("score_impact","")
+                    effort    = fix.get("effort","")
+                    badge_col = priority_map.get(rank, C_LITE)
+                    header    = f"#{rank} - {issue}"
+                    if impact:  header += f"  |  {impact}"
+                    if effort:  header += f"  |  Effort: {effort}"
+                    fix_row = Table([[
+                        Paragraph(str(rank), _s("bnum", fontName="Helvetica-Bold",
+                            fontSize=16, textColor=badge_col, alignment=TA_CENTER, leading=20)),
+                        [
+                            Paragraph(_clean_text(issue),
+                                      _s("ph", fontName="Helvetica-Bold", fontSize=10, textColor=C_BLACK)),
+                            Spacer(1,3),
+                            Paragraph(f"Impact: {_clean_text(impact)}  |  Effort: {_clean_text(effort)}",
+                                      S["label"]) if (impact or effort) else Spacer(1,1),
+                            Spacer(1,4),
+                            Paragraph(_clean_text(why)[:220], S["action_b"]) if why else Spacer(1,1),
+                            Spacer(1,4),
+                            Paragraph(f"Fix: {_clean_text(specific)[:220]}",
+                                _s("pf", fontSize=9, leading=13, textColor=C_ORANGE)) if specific else Spacer(1,1),
+                        ],
+                    ]], colWidths=[13*mm, INNER_W-13*mm])
+                    fix_row.setStyle(TableStyle([
+                        ("BACKGROUND",    (0,0),(-1,-1), C_PAPER),
+                        ("VALIGN",        (0,0),(-1,-1), "TOP"),
+                        ("TOPPADDING",    (0,0),(-1,-1), 10),
+                        ("BOTTOMPADDING", (0,0),(-1,-1), 10),
+                        ("LEFTPADDING",   (0,0),(-1,-1), 8),
+                        ("RIGHTPADDING",  (0,0),(-1,-1), 10),
+                        ("LINEAFTER",     (0,0),(0,0),   2.5, badge_col),
+                        ("LINEBELOW",     (0,-1),(-1,-1), 0.3, C_PAPER2),
+                    ]))
+                    story.append(fix_row)
+                    story.append(Spacer(1,3))
+
+            strongest = plan.get("strongest_combination","")
+            if strongest:
+                story.append(Spacer(1,6))
+                story.append(Paragraph("STRONGEST PAIR", S["label"]))
+                story.append(Paragraph(_clean_text(strongest),
+                    _s("sp", fontSize=9, leading=13, textColor=C_DARK,
+                       fontName="Helvetica-Oblique")))
+
     # ── DISCLAIMER ────────────────────────────────────────────────────────────
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
