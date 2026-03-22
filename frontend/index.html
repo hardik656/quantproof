@@ -787,8 +787,6 @@
 
         <!-- Strategy rows -->
         <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
-          ${[1,2,3].map ? '' : ''}
-
           <!-- Strategy 1 -->
           <div id="portRow1" style="background:var(--surface);border:1px solid var(--border);padding:14px 16px;transition:border-color 0.2s;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -960,12 +958,17 @@
   function applyDevToken() {
     const tok = document.getElementById('devToken').value.trim();
     if (!tok) return;
-    sessionStorage.setItem('qp_pro_token',   tok);
-    sessionStorage.setItem('qp_port_token',  tok);
-    sessionStorage.setItem('qp_lite_token',  tok);
+    // Store under every token key so all endpoints see it
+    sessionStorage.setItem('qp_pro_token',    tok);
+    sessionStorage.setItem('qp_port_token',   tok);
+    sessionStorage.setItem('qp_lite_token',   tok);
+    sessionStorage.setItem('qp_report_token', tok);
     _nTrials = 50;
     if (typeof unlockInstitutional === 'function') unlockInstitutional();
-    document.getElementById('devStatus').textContent = '✓ Token set — full pro access active';
+    // Pre-fill portfolio token field if visible
+    const pt = document.getElementById('portToken');
+    if (pt) pt.value = tok;
+    document.getElementById('devStatus').textContent = '✓ Token set — all endpoints unlocked';
     document.getElementById('devStatus').style.color = '#00ff88';
   }
   function devSetTier(tier) {
@@ -1251,7 +1254,9 @@
     fd.append('n_trials', String(_nTrials));
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd });
+      const _tok = sessionStorage.getItem('qp_pro_token') || sessionStorage.getItem('qp_report_token') || sessionStorage.getItem('qp_lite_token') || '';
+      const _h = _tok ? {'x-pro-token':_tok,'x-report-token':_tok,'x-lite-token':_tok} : {};
+      const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd, headers: _h });
       if (cst) clearTimeout(cst);
       if (!resp.ok) {
         const err = await resp.json();
@@ -1362,8 +1367,8 @@
         <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:20px;line-height:1.9;">
           Standard (n=10) runs 10 Monte Carlo simulations.<br>
           Institutional lets you run <b style="color:#e8edf2;">20 to 50</b> &mdash; you choose the depth.<br>
-          <span style="color:#ffaa00;">DSR scores at n=20 are typically 15&ndash;30 pts lower than Standard.</span><br>
-          At n=50 the score is as rigorous as a quant fund's pre-deployment gate.
+          <span style="color:#ffaa00;">If your Sharpe is below 0.8 or you have under 100 trades: n=20 can drop your DSR score 30&ndash;70 pts.</span><br>
+          If your Sharpe is above 1.0: n=50 confirms the edge is real, not just lucky. Either way, you know.
         </div>
 
         <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);padding:16px;margin-bottom:20px;">
@@ -1483,7 +1488,11 @@
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const _proH = sessionStorage.getItem('qp_pro_token') || '';
-      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: _proH ? {'x-pro-token': _proH} : {}});
+      const _liteH = sessionStorage.getItem('qp_lite_token') || '';
+      const _devHeaders = {};
+      if (_proH)  { _devHeaders['x-pro-token'] = _proH; _devHeaders['x-report-token'] = _proH; }
+      if (_liteH) { _devHeaders['x-lite-token'] = _liteH; }
+      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: _devHeaders});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -1513,8 +1522,9 @@
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _proHk = sessionStorage.getItem('qp_pro_token') || '';
-      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _proHk ? {'x-pro-token': _proHk} : {}});
+      const _proHk = sessionStorage.getItem('qp_pro_token') || sessionStorage.getItem('qp_report_token') || sessionStorage.getItem('qp_lite_token') || '';
+      const _kiteHeaders = _proHk ? {'x-pro-token': _proHk, 'x-report-token': _proHk, 'x-lite-token': _proHk} : {};
+      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _kiteHeaders});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -2090,6 +2100,8 @@
   }
 
   async function generatePdfWithToken(token) {
+    // Pro token also works as report token
+    if (!token) token = sessionStorage.getItem('qp_pro_token') || '';
     const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
     if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
     if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
@@ -2207,44 +2219,87 @@
   }
 
   function renderAiFixPlan(aiData) {
-    // Find or create the AI fix panel in results section
     let panel = document.getElementById('aiFixPanelLive');
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'aiFixPanelLive';
       panel.className = 'ai-fix-panel';
-      // Insert after the checks section
       const checksSection = document.querySelector('.checks-section');
       if (checksSection && checksSection.parentNode) {
         checksSection.parentNode.insertBefore(panel, checksSection.nextSibling);
       } else {
-        const resultsSection = document.getElementById('resultsSection');
-        if (resultsSection) resultsSection.appendChild(panel);
+        const rs = document.getElementById('resultsSection');
+        if (rs) rs.appendChild(panel);
       }
     }
-    const fixes = aiData.fixes || [];
-    const summary = aiData.summary || '';
-    const isPdf = aiData.full_plan_in_pdf;
-    panel.innerHTML = `
-      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:8px;">// AI FIX PLAN — BASED ON YOUR EXACT NUMBERS</div>
-      ${summary ? `<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px;">${summary}</div>` : ''}
-      ${fixes.map((fix, i) => `
-        <div class="ai-fix-item">
-          <div class="ai-fix-rank">FIX #${fix.rank || i+1} &nbsp;·&nbsp; ${fix.effort || ''} effort &nbsp;·&nbsp; ${fix.score_impact || ''}</div>
-          <div class="ai-fix-check">${fix.check || ''}</div>
-          ${fix.why_it_matters ? `<div class="ai-fix-why">${fix.why_it_matters}</div>` : ''}
-          ${fix.specific_fix ? `<div class="ai-fix-action">${fix.specific_fix}</div>` : ''}
-        </div>`).join('')}
-      ${isPdf ? `<div style="margin-top:16px;padding:12px 16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-            Showing top 3 of ${aiData.total_failures || fixes.length} failures.
-            Full ranked plan for all failures → PDF report.
-          </div>
-          <button onclick="buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;">📄 Full PDF — ₹299 →</button>
+
+    const fixes        = aiData.fixes || [];
+    const failedChecks = aiData.failed_checks || [];
+    const summary      = aiData.summary || '';
+    const isPdf        = aiData.full_plan_in_pdf;
+    const total        = aiData.total_failures || fixes.length;
+
+    // Build AI top-3 section
+    const aiSection = fixes.length ? `
+      <div style="margin-bottom:20px;">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
+          // AI FIX PLAN — PERSONALISED TO YOUR EXACT NUMBERS ${isPdf ? '(top 3 shown — full ranked plan in PDF)' : ''}
         </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.7;">PDF also forces n=20 institutional depth — your score may be lower and more accurate</div>
-      </div>` : `<div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--accent);opacity:0.7;">✓ Full ranked plan — all ${aiData.total_failures || fixes.length} failures shown (Pro/Report tier)</div>`}
+        ${fixes.map((fix, i) => `
+          <div class="ai-fix-item">
+            <div class="ai-fix-rank">FIX #${fix.rank || i+1} &nbsp;·&nbsp; ${fix.effort || ''} effort &nbsp;·&nbsp; ${fix.score_impact || ''}</div>
+            <div class="ai-fix-check">${fix.check || ''}</div>
+            ${fix.why_it_matters ? `<div class="ai-fix-why">${fix.why_it_matters}</div>` : ''}
+            ${fix.specific_fix ? `<div class="ai-fix-action">${fix.specific_fix}</div>` : ''}
+          </div>`).join('')}
+      </div>` : '';
+
+    // Build ALL failed checks section — every check with full insight + fix
+    const catColors = {
+      'Overfitting':'#ff6b6b','Risk':'#ffaa00','Regime':'#60a5fa',
+      'Execution':'#a78bfa','Compliance':'#f472b6','Operational':'var(--muted)'
+    };
+    const checksSection = failedChecks.length ? `
+      <div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
+          // ALL ${failedChecks.length} FAILED CHECKS — FULL DETAIL
+        </div>
+        ${failedChecks.map(c => {
+          const catCol = catColors[c.category] || 'var(--muted)';
+          return `<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
+              <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:#ff6b6b;">✗ ${c.name}</span>
+              <span style="font-family:var(--mono);font-size:8px;color:${catCol};padding:1px 6px;border:1px solid ${catCol}33;">${c.category}</span>
+              <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${c.score}/100</span>
+            </div>
+            ${c.value ? `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">${c.value}</div>` : ''}
+            ${c.insight ? `<div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px;">${c.insight}</div>` : ''}
+            ${c.fix ? `<div style="font-size:12px;color:var(--accent3,#ffaa00);line-height:1.6;padding:7px 10px;background:rgba(255,170,0,0.05);border-left:2px solid rgba(255,170,0,0.4);">↳ ${c.fix}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    // PDF upsell — only for ₹99 tier
+    const pdfTeaser = isPdf ? `
+      <div style="margin-top:16px;padding:12px 16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+            AI plan shows top 3 of ${total} failures. PDF has all ${total} ranked with n=20 institutional depth.
+          </div>
+          <button onclick="buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;">
+            📄 Full PDF ₹299 →
+          </button>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.6;">PDF forces n=20 — your score may be lower and more accurate than what you see here</div>
+      </div>` : `
+      <div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--accent);opacity:0.7;">✓ Full ranked AI plan — all ${total} failures (Pro/Report tier)</div>`;
+
+    panel.innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:16px;">// ANALYSIS UNLOCKED</div>
+      ${summary ? `<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">${summary}</div>` : ''}
+      ${aiSection}
+      ${checksSection}
+      ${pdfTeaser}
     `;
   }
 
@@ -2499,8 +2554,11 @@
   const _portFiles = {};
 
   function showPortfolioUpload() {
-    const tok = sessionStorage.getItem('qp_port_token') || sessionStorage.getItem('qp_pro_token') || '';
+    const tok = sessionStorage.getItem('qp_pro_token')
+             || sessionStorage.getItem('qp_port_token')
+             || sessionStorage.getItem('qp_report_token') || '';
     document.getElementById('portToken').value = tok;
+    // Always show token row so user can see/change it; hide only if token present
     document.getElementById('portTokenRow').style.display = tok ? 'none' : 'block';
     document.getElementById('portfolioPanel').style.display = 'block';
     document.getElementById('portfolioPanel').scrollIntoView({behavior:'smooth'});
@@ -2522,8 +2580,9 @@
   async function handlePortfolioSubmit() {
     const status = document.getElementById('portStatus');
     const token  = document.getElementById('portToken').value.trim()
+                || sessionStorage.getItem('qp_pro_token')
                 || sessionStorage.getItem('qp_port_token')
-                || sessionStorage.getItem('qp_pro_token') || '';
+                || sessionStorage.getItem('qp_report_token') || '';
 
     if (!_portFiles[1] || !_portFiles[2]) {
       status.textContent = 'Please select at least 2 strategy CSV files.';
