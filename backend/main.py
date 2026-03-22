@@ -2610,6 +2610,8 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         raise HTTPException(status_code=400, detail="Please upload a CSV file")
 
     contents = await file.read()
+    if len(contents) > 5_000_000:
+        raise HTTPException(400, f"File too large ({len(contents)//1024}KB). Max 5MB — a real trade CSV is never larger.")
 
     try:
         df, regime_note = smart_parse_csv(contents)
@@ -3249,6 +3251,8 @@ async def generate_report_endpoint(
         raise HTTPException(400, "Please upload a CSV file")
 
     contents = await file.read()
+    if len(contents) > 5_000_000:
+        raise HTTPException(400, f"File too large ({len(contents)//1024}KB). Max 5MB — a real trade CSV is never larger.")
     try:
         df, regime_note = smart_parse_csv(contents)
     except ValueError as e:
@@ -3602,6 +3606,8 @@ async def generate_portfolio_report_endpoint(
         if not file.filename.lower().endswith(".csv"):
             raise HTTPException(400, f"File {i+1} must be a CSV.")
         contents = await file.read()
+        if len(contents) > 5_000_000:
+            raise HTTPException(400, f"File too large ({len(contents)//1024}KB). Max 5MB — a real trade CSV is never larger.")
         try:
             df, regime_note = smart_parse_csv(contents)
         except (ValueError, HTTPException) as e:
@@ -3670,7 +3676,21 @@ async def generate_portfolio_report_endpoint(
     for df,w in zip(dfs,rp_weights):
         p = df["pnl"].values.astype(float)
         weighted += np.pad(p,(0,max_len-len(p)),constant_values=0.0)*w
-    cs = float(weighted.mean()/weighted.std()*np.sqrt(252)) if weighted.std()>1e-10 else 0.0
+    cs_std = float(weighted.std())
+    cs_mean = float(weighted.mean())
+    _pdf_total_trades = sum(s["total_trades"] for s in strategy_summaries)
+    _pdf_date_ranges  = [s["date_range"] for s in strategy_summaries if s.get("date_range","No date data") != "No date data"]
+    try:
+        if _pdf_date_ranges:
+            _ps = min(pd.to_datetime(r.split(" to ")[0], errors="coerce") for r in _pdf_date_ranges)
+            _pe = max(pd.to_datetime(r.split(" to ")[1], errors="coerce") for r in _pdf_date_ranges)
+            _py = max((_pe - _ps).days / 365.25, 0.1)
+            _paf = float(np.sqrt(_pdf_total_trades / _py))
+        else:
+            _paf = float(np.sqrt(max_len))
+    except Exception:
+        _paf = float(np.sqrt(252))
+    cs = float(cs_mean / cs_std * _paf) if cs_std > 1e-10 else 0.0
     eq_c = np.cumprod(1+np.clip(weighted,-0.99,0.99))
     rm_c = np.maximum.accumulate(eq_c)
     cd   = float(((eq_c-rm_c)/np.where(rm_c>0,rm_c,1.0)).min())
@@ -4249,6 +4269,8 @@ async def validate_portfolio(
         if not file.filename.lower().endswith(".csv"):
             raise HTTPException(400, f"File {i+1} must be a CSV.")
         contents = await file.read()
+        if len(contents) > 5_000_000:
+            raise HTTPException(400, f"File too large ({len(contents)//1024}KB). Max 5MB — a real trade CSV is never larger.")
         try:
             df, regime_note = smart_parse_csv(contents)
         except (ValueError, HTTPException) as e:
@@ -4367,7 +4389,22 @@ async def validate_portfolio(
 
     combined_std    = float(weighted_pnl.std())
     combined_mean   = float(weighted_pnl.mean())
-    combined_sharpe = float(combined_mean / combined_std * np.sqrt(252)) if combined_std > 1e-10 else 0.0
+    # Annualise by actual trade frequency, not a fixed 252.
+    # total_trades spread across the longest strategy's date range.
+    # If no date range is available, fall back to the number of observations.
+    _total_trades = sum(s["total_trades"] for s in strategy_summaries)
+    _date_ranges  = [s["date_range"] for s in strategy_summaries if s.get("date_range","No date data") != "No date data"]
+    try:
+        if _date_ranges:
+            _start = min(pd.to_datetime(r.split(" to ")[0], errors="coerce") for r in _date_ranges)
+            _end   = max(pd.to_datetime(r.split(" to ")[1], errors="coerce") for r in _date_ranges)
+            _years = max((_end - _start).days / 365.25, 0.1)
+            _ann_factor = float(np.sqrt(_total_trades / _years))
+        else:
+            _ann_factor = float(np.sqrt(max_len))
+    except Exception:
+        _ann_factor = float(np.sqrt(252))
+    combined_sharpe = float(combined_mean / combined_std * _ann_factor) if combined_std > 1e-10 else 0.0
 
     # Combined drawdown from actual weighted equity curve
     eq_combined  = np.cumprod(1 + np.clip(weighted_pnl, -0.99, 0.99))
@@ -4754,6 +4791,8 @@ async def validate_kite(
         raise HTTPException(400, "Please upload a CSV file")
 
     contents = await file.read()
+    if len(contents) > 5_000_000:
+        raise HTTPException(400, f"File too large ({len(contents)//1024}KB). Max 5MB — a real trade CSV is never larger.")
     raw      = contents.decode("utf-8", errors="ignore")
 
     try:
