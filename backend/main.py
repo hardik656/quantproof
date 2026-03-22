@@ -3558,63 +3558,107 @@ async def generate_broker_report(
 # =========================================================
 
 class PortfolioResponse(BaseModel):
-    strategies:            List[Dict[str, Any]]   # full per-strategy data
+    strategies:            List[Dict[str, Any]]
     correlation_matrix:    List[List[float]]
     strategy_names:        List[str]
     combined_sharpe:       float
     combined_drawdown:     float
     combined_win_rate:     float
     diversification_score: float
-    avg_correlation:       float = 0.0            # signed average off-diagonal
+    avg_correlation:       float = 0.0
     combined_total_trades: int
     portfolio_verdict:     str
     audit_flags:           List[str]
     n_trials:              int = 10
+    rp_weights:            List[float] = []        # risk parity allocation weights
+    dd_coincidence:        float = 0.0             # fraction of DD periods overlapping
+    portfolio_dsr:         Optional[float] = None  # combined strategy DSR score
+    combined_equity:       List[float] = []        # normalised combined equity curve
+
+
+def _normalise_pnl(pnl_array: np.ndarray) -> np.ndarray:
+    """Normalise PnL to unit variance — removes scale-dependence from correlation."""
+    std = float(pnl_array.std())
+    return pnl_array / std if std > 1e-10 else pnl_array
 
 
 def _portfolio_correlation(dfs: list) -> np.ndarray:
     """
-    Compute pairwise Pearson correlation of daily PnL series.
-    Aligns on date index where available, falls back to position index.
+    Pairwise Pearson correlation on NORMALISED PnL.
+    Normalising to unit variance makes correlation scale-independent —
+    a ₹100-avg-trade strategy and a ₹10,000-avg-trade strategy
+    are compared on signal shape, not magnitude.
+    Aligns on date where available (inner join), falls back to positional.
     """
     n = len(dfs)
     mat = np.ones((n, n))
     series = []
     for df in dfs:
+        raw = df["pnl"].values.astype(float)
+        norm = _normalise_pnl(raw)
         if "date" in df.columns and df["date"].notna().any():
-            s = df.set_index("date")["pnl"].sort_index()
+            idx = pd.to_datetime(df["date"], errors="coerce")
+            s = pd.Series(norm, index=idx).sort_index()
         else:
-            s = pd.Series(df["pnl"].values)
+            s = pd.Series(norm)
         series.append(s)
 
     for i in range(n):
         for j in range(i + 1, n):
             try:
-                if hasattr(series[i].index, "date") and hasattr(series[j].index, "date"):
-                    aligned = pd.concat([series[i], series[j]], axis=1, join="inner")
+                si, sj = series[i], series[j]
+                if hasattr(si.index, "date") and hasattr(sj.index, "date"):
+                    aligned = pd.concat([si, sj], axis=1, join="inner")
                     if len(aligned) >= 5:
                         corr = float(aligned.iloc[:, 0].corr(aligned.iloc[:, 1]))
                     else:
-                        # Not enough overlap — use raw series correlation
-                        min_len = min(len(series[i]), len(series[j]))
-                        corr = float(np.corrcoef(
-                            series[i].values[:min_len],
-                            series[j].values[:min_len]
-                        )[0, 1])
+                        min_len = min(len(si), len(sj))
+                        corr = float(np.corrcoef(si.values[:min_len], sj.values[:min_len])[0, 1])
                 else:
-                    min_len = min(len(series[i]), len(series[j]))
-                    corr = float(np.corrcoef(
-                        series[i].values[:min_len],
-                        series[j].values[:min_len]
-                    )[0, 1])
-                if np.isnan(corr):
-                    corr = 0.0
-                mat[i][j] = round(corr, 4)
-                mat[j][i] = round(corr, 4)
+                    min_len = min(len(si), len(sj))
+                    corr = float(np.corrcoef(si.values[:min_len], sj.values[:min_len])[0, 1])
+                mat[i][j] = mat[j][i] = round(0.0 if np.isnan(corr) else corr, 4)
             except Exception:
-                mat[i][j] = 0.0
-                mat[j][i] = 0.0
+                mat[i][j] = mat[j][i] = 0.0
     return mat
+
+
+def _risk_parity_weights(dfs: list) -> list:
+    """
+    Inverse-volatility (risk parity) weights.
+    Each strategy weighted by 1/vol so all contribute equally to portfolio variance.
+    Institutional standard for multi-strategy allocation.
+    """
+    vols = []
+    for df in dfs:
+        v = float(df["pnl"].values.astype(float).std())
+        vols.append(max(v, 1e-10))
+    inv_vol = [1.0 / v for v in vols]
+    total = sum(inv_vol)
+    return [float(w / total) for w in inv_vol]
+
+
+def _drawdown_coincidence(dfs: list, threshold: float = -0.02) -> float:
+    """
+    Fraction of drawdown-period steps where 2+ strategies are simultaneously
+    in drawdown below threshold. Institutional target: < 0.30.
+    High coincidence = strategies fail together = poor real diversification.
+    """
+    if len(dfs) < 2:
+        return 0.0
+    min_len = min(len(df) for df in dfs)
+    dd_flags = []
+    for df in dfs:
+        pnl = df["pnl"].values.astype(float)[:min_len]
+        eq = np.cumprod(1 + np.clip(pnl, -0.99, 0.99))
+        roll_max = np.maximum.accumulate(eq)
+        dd = (eq - roll_max) / np.where(roll_max > 0, roll_max, 1.0)
+        dd_flags.append(dd < threshold)
+    stacked   = np.stack(dd_flags, axis=0)
+    n_down    = stacked.sum(axis=0)
+    any_down  = int((n_down >= 1).sum())
+    multi_down = int((n_down >= 2).sum())
+    return round(float(multi_down / any_down), 3) if any_down > 0 else 0.0
 
 
 def _diversification_score(corr_matrix: np.ndarray, sharpes: list) -> float:
@@ -3790,53 +3834,87 @@ async def validate_portfolio(
         if regime_note:
             audit_flags.append(f"{names_list[i]}: {regime_note}")
 
-    # Correlation matrix
+    # Correlation matrix (normalised PnL — scale independent)
     corr_mat = _portfolio_correlation(dfs)
 
-    # Off-diagonal average correlation — both signed (for display) and abs (for scoring)
+    # Risk parity weights — institutional standard allocation
+    rp_weights = _risk_parity_weights(dfs)
+
+    # Off-diagonal correlation stats — signed and absolute
     n = len(dfs)
     off_diag_signed = [float(corr_mat[i][j]) for i in range(n) for j in range(i+1, n)]
     off_diag_abs    = [abs(v) for v in off_diag_signed]
     avg_corr_signed = float(np.mean(off_diag_signed)) if off_diag_signed else 0.0
     avg_corr        = float(np.mean(off_diag_abs))    if off_diag_abs    else 0.0
-    # avg_corr = abs average (for scoring); avg_corr_signed = for display
 
-    # Combined stats — equal-weight portfolio
-    all_pnl = pd.concat([df["pnl"].reset_index(drop=True) for df in dfs], axis=1)
-    combined_pnl = all_pnl.mean(axis=1).dropna()
+    # Combined stats — risk-parity weighted, fillna(0) not dropna
+    max_len = max(len(df) for df in dfs)
+    weighted_pnl = np.zeros(max_len)
+    for df, w in zip(dfs, rp_weights):
+        pnl = df["pnl"].values.astype(float)
+        padded = np.pad(pnl, (0, max_len - len(pnl)), constant_values=0.0)
+        weighted_pnl += padded * w
 
-    combined_sharpe = float(
-        combined_pnl.mean() / combined_pnl.std() * np.sqrt(252)
-        if combined_pnl.std() > 0 else 0.0
-    )
-    # Combined drawdown
-    eq = (1 + combined_pnl).cumprod()
-    roll_max = eq.cummax()
-    combined_dd = float(((eq - roll_max) / roll_max).min()) if len(eq) > 0 else 0.0
-    combined_wr = float((combined_pnl > 0).mean() * 100)
+    combined_std    = float(weighted_pnl.std())
+    combined_mean   = float(weighted_pnl.mean())
+    combined_sharpe = float(combined_mean / combined_std * np.sqrt(252)) if combined_std > 1e-10 else 0.0
+
+    # Combined drawdown from actual weighted equity curve
+    eq_combined  = np.cumprod(1 + np.clip(weighted_pnl, -0.99, 0.99))
+    roll_max_c   = np.maximum.accumulate(eq_combined)
+    combined_dd  = float(((eq_combined - roll_max_c) / np.where(roll_max_c > 0, roll_max_c, 1.0)).min())
+    combined_wr  = float((weighted_pnl > 0).mean() * 100)
     combined_trades = int(sum(s["total_trades"] for s in strategy_summaries))
+
+    # Combined equity curve (normalised to 100)
+    combined_equity = [float(round(v * 100 / eq_combined[0], 2)) for v in eq_combined] if eq_combined[0] > 0 else []
+
+    # Drawdown coincidence — % of drawdown periods where 2+ strategies fall together
+    dd_coincidence = _drawdown_coincidence(dfs)
 
     div_score = float(_diversification_score(corr_mat, sharpes))
     verdict   = _portfolio_verdict(div_score, avg_corr_signed, n)
 
+    # Portfolio-level DSR estimate
+    # A combined strategy with combined_sharpe and total_observations gets its own DSR
+    total_obs = max_len
+    try:
+        from scipy import stats as _scipy_stats
+        import math as _math
+        _sr_std = float(np.sqrt((1 + 0.5 * combined_sharpe**2) / max(total_obs - 1, 1)))
+        _e_max  = ((1 - _math.e**(-_math.pi/2)) *
+                   _scipy_stats.norm.ppf(1 - 1.0/max(n, 1)) +
+                   (_math.e**(-_math.pi/2)) *
+                   _scipy_stats.norm.ppf(1 - 1.0/(max(n, 1) * _math.e)))
+        _dsr    = (combined_sharpe - max(_e_max, 0)) / _sr_std if _sr_std > 0 else 0
+        portfolio_dsr = float(round(_scipy_stats.norm.cdf(_dsr) * 100, 1))
+    except Exception:
+        portfolio_dsr = None
+
     audit_flags.append(
-        f"Portfolio: {n} strategies, avg correlation {avg_corr:.2f}, "
-        f"diversification score {div_score}/100"
+        f"Portfolio: {n} strategies, avg abs correlation {avg_corr:.2f}, "
+        f"avg signed correlation {avg_corr_signed:.2f}, "
+        f"div score {div_score}/100, DD coincidence {dd_coincidence:.0%}, "
+        f"risk parity weights {[f'{w:.2f}' for w in rp_weights]}"
     )
 
     return PortfolioResponse(
         strategies=strategy_summaries,
         correlation_matrix=[[float(v) for v in row] for row in corr_mat.tolist()],
-        strategy_names=[str(n) for n in names_list],
+        strategy_names=[str(nm) for nm in names_list],
         combined_sharpe=float(round(combined_sharpe, 2)),
         combined_drawdown=float(round(combined_dd, 4)),
         combined_win_rate=float(round(combined_wr, 1)),
         diversification_score=float(div_score),
-        avg_correlation=float(round(avg_corr_signed, 3)),   # signed, for display
+        avg_correlation=float(round(avg_corr_signed, 3)),
         combined_total_trades=int(combined_trades),
         portfolio_verdict=str(verdict),
         audit_flags=[str(f) for f in audit_flags],
         n_trials=10,
+        rp_weights=[float(round(w, 3)) for w in rp_weights],
+        dd_coincidence=float(dd_coincidence),
+        portfolio_dsr=portfolio_dsr,
+        combined_equity=[float(v) for v in combined_equity[:200]],
     )
 
 
@@ -4700,5 +4778,3 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
