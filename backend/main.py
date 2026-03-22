@@ -3562,6 +3562,180 @@ async def payment_webhook_lite(request: Request):
 
 
 # =========================================================
+# PORTFOLIO PDF REPORT
+# =========================================================
+
+@app.post("/report/generate-portfolio")
+async def generate_portfolio_report_endpoint(
+    files: List[UploadFile] = File(...),
+    currency: str = Form("USD"),
+    strategy_names: str = Form(""),
+    x_portfolio_token: str = Header(default=""),
+    request: Request = None,
+):
+    """Portfolio PDF — requires PORT or PRO token."""
+    if not (_is_pro_token(x_portfolio_token) or
+            _token_tier(x_portfolio_token) in ("portfolio", "pro")):
+        raise HTTPException(402, {"error": "payment_required",
+            "message": "Portfolio PDF requires ₹199 Portfolio unlock or Pro plan.",
+            "price_inr": 199})
+
+    if not _PDF_AVAILABLE:
+        raise HTTPException(503, "PDF module not available.")
+    if len(files) < 2:
+        raise HTTPException(400, "Need at least 2 strategy CSV files.")
+    if len(files) > 3:
+        raise HTTPException(400, "Maximum 3 strategies.")
+
+    names_list = [n.strip() for n in strategy_names.split(",") if n.strip()]
+    while len(names_list) < len(files):
+        names_list.append(f"Strategy {len(names_list)+1}")
+
+    audit_flags = []
+    strategy_summaries = []
+    dfs = []
+    sharpes = []
+    _tier = _token_tier(x_portfolio_token)
+    _n    = 20 if _tier == "pro" else 10
+
+    for i, file in enumerate(files):
+        if not file.filename.lower().endswith(".csv"):
+            raise HTTPException(400, f"File {i+1} must be a CSV.")
+        contents = await file.read()
+        try:
+            df, regime_note = smart_parse_csv(contents)
+        except (ValueError, HTTPException) as e:
+            raise HTTPException(400, f"Strategy {i+1}: {str(e)}")
+        df = _dedup_trades(df)
+        if len(df) < 10:
+            raise HTTPException(400, f"Strategy {i+1} has only {len(df)} trades.")
+        try:
+            _bm_type = get_benchmark_type(df, currency)
+            _bm, _bm_note = (get_nifty_benchmark(df) if _bm_type=="nifty"
+                             else get_spy_benchmark(df))
+            validator = QuantProofValidator(df, benchmark_returns=_bm,
+                                            benchmark_type=_bm_type, n_trials=_n)
+            report = validator.run()
+        except Exception as e:
+            raise HTTPException(500, f"Validation failed for strategy {i+1}: {str(e)}")
+
+        date_range = "No date data"
+        if "date" in df.columns and df["date"].notna().any():
+            try:
+                date_range = f"{df['date'].min().date()} to {df['date'].max().date()}"
+            except Exception: pass
+        else:
+            audit_flags.append(f"⚠ {names_list[i]}: no date column — correlation positional.")
+
+        _cl = [{"name":c.name,"passed":c.passed,"score":round(float(c.score),1),
+                "category":c.category,"insight":c.insight or "","fix":c.fix or "",
+                "value":str(c.value or "")} for c in report.checks if c.category!="Plausibility"]
+        _fail = [c for c in _cl if not c["passed"]]
+        _pass = [c for c in _cl if c["passed"]]
+        _cs   = getattr(report,"crash_sims",[])
+        _surv = int(sum(1 for c in _cs if (c.get("survived") if isinstance(c,dict) else getattr(c,"survived",False))))
+        _eq   = None
+        try:
+            _eq = [round(float(v),4) for v in getattr(report,"equity_curve",None) or []]
+            if len(_eq)<3: _eq=None
+        except Exception: pass
+
+        strategy_summaries.append({
+            "name":str(names_list[i]),"fundable_score":float(round(report.score,1)),
+            "grade":report.grade.split("—")[0].strip(),
+            "sharpe":float(round(report.sharpe,2)),"max_drawdown":float(round(report.max_drawdown,4)),
+            "win_rate":float(round(report.win_rate,1)),"total_trades":int(report.total_trades),
+            "date_range":str(date_range),"checks_passed":int(len(_pass)),
+            "checks_failed":int(len(_fail)),"checks_total":int(len(_cl)),
+            "crash_survived":_surv,"crash_total":int(len(_cs)),
+            "top_issues":[str(f"{c['name']}: {c['insight']}") for c in _fail[:3] if c.get("insight")],
+            "top_strengths":[str(c["name"]) for c in _pass if c.get("score",0)>=80][:3],
+            "equity_curve":_eq,
+            "checks":[{"name":str(c.get("name","")),"passed":bool(c.get("passed",False)),
+                       "score":float(c.get("score",0)),"category":str(c.get("category","")),
+                       "insight":str(c.get("insight","")),"fix":str(c.get("fix","")),
+                       "value":str(c.get("value",""))} for c in _cl[:44]],
+        })
+        dfs.append(df); sharpes.append(report.sharpe)
+        if regime_note: audit_flags.append(f"{names_list[i]}: {regime_note}")
+
+    corr_mat        = _portfolio_correlation(dfs)
+    rp_weights      = _risk_parity_weights(dfs)
+    n               = len(dfs)
+    off_signed      = [float(corr_mat[i][j]) for i in range(n) for j in range(i+1,n)]
+    avg_corr_signed = float(np.mean(off_signed)) if off_signed else 0.0
+    avg_corr_abs    = float(np.mean([abs(v) for v in off_signed])) if off_signed else 0.0
+    max_len = max(len(df) for df in dfs)
+    weighted = np.zeros(max_len)
+    for df,w in zip(dfs,rp_weights):
+        p = df["pnl"].values.astype(float)
+        weighted += np.pad(p,(0,max_len-len(p)),constant_values=0.0)*w
+    cs = float(weighted.mean()/weighted.std()*np.sqrt(252)) if weighted.std()>1e-10 else 0.0
+    eq_c = np.cumprod(1+np.clip(weighted,-0.99,0.99))
+    rm_c = np.maximum.accumulate(eq_c)
+    cd   = float(((eq_c-rm_c)/np.where(rm_c>0,rm_c,1.0)).min())
+    cw   = float((weighted>0).mean()*100)
+    ddc  = _drawdown_coincidence(dfs)
+    div  = float(_diversification_score(corr_mat,sharpes))
+    ceq  = [float(round(v*100/eq_c[0],2)) for v in eq_c] if eq_c[0]>0 else []
+    try:
+        from scipy import stats as _scs; import math as _m
+        _sr_std = float(np.sqrt((1+0.5*cs**2)/max(max_len-1,1)))
+        _e_max  = ((1-_m.e**(-_m.pi/2))*_scs.norm.ppf(1-1.0/max(n,1))+
+                   (_m.e**(-_m.pi/2))*_scs.norm.ppf(1-1.0/(max(n,1)*_m.e)))
+        _dsr_z  = (cs-max(_e_max,0))/_sr_std if _sr_std>0 else 0
+        pdsr    = float(round(min(float(_scs.norm.cdf(_dsr_z)*100),99.8),1))
+    except Exception: pdsr = None
+
+    verdict = _portfolio_verdict(div, avg_corr_signed, n)
+    plan    = await generate_portfolio_fix_plan(
+        strategies=strategy_summaries,
+        corr_matrix=[[float(v) for v in row] for row in corr_mat.tolist()],
+        rp_weights=rp_weights, div_score=div, dd_coincidence=ddc,
+        combined_sharpe=cs, combined_dd=cd, avg_corr=avg_corr_signed,
+        portfolio_dsr=pdsr, strategy_names=names_list,
+    )
+
+    best = max(strategy_summaries, key=lambda s: s["fundable_score"])
+    vr = {
+        "fundable_score": best["fundable_score"], "grade": best["grade"],
+        "sharpe": float(round(cs,2)), "max_drawdown": float(round(cd,4)),
+        "win_rate": float(round(cw,1)),
+        "total_trades": int(sum(s["total_trades"] for s in strategy_summaries)),
+        "date_range": "Portfolio — " + " / ".join(s["date_range"] for s in strategy_summaries),
+        "n_trials": _n, "is_verified": False,
+        "checks": best.get("checks",[]), "crash_sims": [],
+        "top_issues": best.get("top_issues",[]),
+        "top_strengths": best.get("top_strengths",[]),
+        "audit_flags": audit_flags, "equity_curve": ceq[:200] or None, "ai_plan": None,
+        "portfolio": {
+            "strategies": strategy_summaries,
+            "correlation_matrix": [[float(v) for v in row] for row in corr_mat.tolist()],
+            "strategy_names": names_list,
+            "combined_sharpe": float(round(cs,2)), "combined_drawdown": float(round(cd,4)),
+            "combined_win_rate": float(round(cw,1)), "diversification_score": float(div),
+            "avg_correlation": float(round(avg_corr_signed,3)),
+            "portfolio_verdict": verdict,
+            "rp_weights": [float(round(w,3)) for w in rp_weights],
+            "dd_coincidence": float(ddc), "portfolio_dsr": pdsr,
+            "portfolio_plan": plan,
+        },
+    }
+
+    try:
+        async with _PDF_SEMAPHORE:
+            pdf_bytes = _generate_pdf_report(vr)
+    except Exception as e:
+        import traceback
+        print(f"[PORTFOLIO_PDF_ERROR] {traceback.format_exc()}", file=sys.stderr)
+        raise HTTPException(400, f"Portfolio PDF failed: {str(e)}")
+
+    filename = f"QuantProof_Portfolio_{n}strategies.pdf"
+    return FastAPIResponse(content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+# =========================================================
 # PORTFOLIO CHECKOUT — ₹199
 # =========================================================
 
