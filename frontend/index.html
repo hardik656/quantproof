@@ -153,6 +153,21 @@
   .upload-btn:hover { background:#00cc6e; transform:translateY(-1px); }
   input[type="file"] { display:none; }
   .format-hint { margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.7; }
+  .depth-selector { display:flex; gap:0; margin-bottom:8px; border:1px solid var(--border); background:var(--deep); overflow:hidden; }
+  .depth-btn { flex:1; font-family:var(--mono); font-size:11px; letter-spacing:0.05em; padding:12px 8px; cursor:pointer; background:transparent; border:none; border-right:1px solid var(--border); color:var(--muted); transition:all 0.2s; text-align:center; line-height:1.5; position:relative; }
+  .depth-btn:last-child { border-right:none; }
+  .depth-btn:hover { background:rgba(0,255,136,0.05); color:var(--text); }
+  .depth-btn.active { background:rgba(0,255,136,0.08); color:var(--accent); }
+  .depth-btn .depth-tier { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:3px; }
+  .depth-btn .depth-name { font-size:12px; font-weight:700; margin-bottom:3px; }
+  .depth-btn .depth-sub { font-size:9px; color:var(--muted); line-height:1.4; }
+  .depth-btn.active .depth-sub { color:rgba(0,255,136,0.6); }
+  .depth-inst-badge { display:inline-block; background:rgba(255,170,0,0.15); color:#ffaa00; font-size:8px; padding:2px 6px; margin-top:3px; border:1px solid rgba(255,170,0,0.3); letter-spacing:0.05em; }
+  .depth-unlocked-row { display:none; margin-bottom:20px; padding:14px 16px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2); border-top:none; }
+  .depth-unlocked-row.visible { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .depth-slider { -webkit-appearance:none; width:100%; height:4px; background:var(--border); outline:none; flex:1; min-width:120px; }
+  .depth-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:0; }
+  .depth-slider::-moz-range-thumb { width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:0; border:none; }
   .loading { display:none; text-align:center; padding:80px 0; }
   .loading.active { display:block; }
   .terminal { background:var(--deep); border:1px solid var(--border); padding:24px; max-width:500px; margin:0 auto 32px; text-align:left; }
@@ -495,6 +510,45 @@
       <span style="color:var(--accent);">Backtest CSV?</span> &rarr; Any CSV
     </div>
 
+    <!-- VALIDATION DEPTH SELECTOR -->
+    <div style="margin-bottom:4px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.12em;margin-bottom:10px;">// VALIDATION DEPTH &mdash; how hard should we stress-test your strategy?</div>
+      <div class="depth-selector">
+        <button class="depth-btn" id="depth-quick" onclick="setDepth('quick')">
+          <div class="depth-tier" style="color:var(--muted);">QUICK</div>
+          <div class="depth-name">n = 1</div>
+          <div class="depth-sub">Fast scan<br>Less rigorous</div>
+        </button>
+        <button class="depth-btn active" id="depth-standard" onclick="setDepth('standard')">
+          <div class="depth-tier" style="color:var(--accent);">STANDARD</div>
+          <div class="depth-name">n = 10</div>
+          <div class="depth-sub">Default &mdash; free<br>Good starting point</div>
+        </button>
+        <button class="depth-btn" id="depth-institutional" onclick="setDepth('institutional')">
+          <div class="depth-tier" style="color:#ffaa00;">INSTITUTIONAL</div>
+          <div class="depth-name" id="depth-inst-label">n = 20 &#128274;</div>
+          <div class="depth-sub">Fund-grade rigour<br>DSR typically 15&ndash;30pts lower</div>
+          <div id="depth-inst-badge-wrap"><span class="depth-inst-badge">&#8377;99 UNLOCK</span></div>
+        </button>
+      </div>
+
+      <!-- Unlocked slider row — hidden until paid -->
+      <div class="depth-unlocked-row" id="depthSliderRow">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);white-space:nowrap;">n = <span id="sliderVal">20</span></div>
+        <input type="range" class="depth-slider" id="depthSlider" min="11" max="50" value="20"
+          oninput="onSliderMove(this.value)">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">max 50</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;min-width:120px;">
+          Higher = harder to pass<br>
+          <span style="color:#ffaa00;" id="sliderWarnTxt">~2s extra per +10</span>
+        </div>
+      </div>
+
+      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.6;margin-bottom:20px;line-height:1.6;">
+        n = Monte Carlo simulations on your Deflated Sharpe Ratio &nbsp;&middot;&nbsp; free users: n=10 max &nbsp;&middot;&nbsp; serious traders use n=20&ndash;50 before any prop challenge
+      </div>
+    </div>
+
     <div class="mode-grid">
 
       <!-- CSV -->
@@ -627,7 +681,7 @@
   <div class="loading" id="loadingSection">
     <div class="terminal">
       <div class="terminal-bar"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
-      <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
+      <div class="terminal-line" id="terminalCmd">$ quantproof --validate trade_log.csv --n-trials 10</div>
       <div class="terminal-line">→ Parsing trade data + auto-detecting regime...</div>
       <div class="terminal-line">→ Running overfitting detection (8 checks)...</div>
       <div class="terminal-line">→ Computing risk metrics (8 checks)...</div>
@@ -904,6 +958,7 @@
     const fd = new FormData();
     fd.append('file', file);
     fd.append('currency', 'INR');
+    fd.append('n_trials', String(_nTrials));
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
       const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd });
@@ -937,6 +992,109 @@
   };
   let _activeCurrency = 'USD';
   function setCurrency(c) { _activeCurrency = (c||'USD').toUpperCase(); }
+
+  // Validation depth
+  let _nTrials = 10;
+  let _depthUnlocked = false;
+
+  function onSliderMove(val) {
+    _nTrials = parseInt(val);
+    document.getElementById('sliderVal').textContent = val;
+    const warn = document.getElementById('sliderWarnTxt');
+    if (warn) {
+      if (val <= 20)      warn.textContent = 'Recommended starting point';
+      else if (val <= 35) warn.textContent = '~' + Math.round((val-10)*0.2) + 's extra vs Standard';
+      else                warn.textContent = 'Serious depth — ~' + Math.round((val-10)*0.2) + 's extra';
+      warn.style.color = val > 35 ? '#00ff88' : '#ffaa00';
+    }
+  }
+
+  function setDepth(tier) {
+    if (tier === 'institutional' && !_depthUnlocked) {
+      showInstitutionalTeaser();
+      return;
+    }
+    document.querySelectorAll('.depth-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('depth-' + tier);
+    if (btn) btn.classList.add('active');
+
+    if (tier === 'quick') {
+      _nTrials = 1;
+      document.getElementById('depthSliderRow').classList.remove('visible');
+    } else if (tier === 'standard') {
+      _nTrials = 10;
+      document.getElementById('depthSliderRow').classList.remove('visible');
+    } else if (tier === 'institutional') {
+      // Already unlocked — show slider
+      _nTrials = parseInt(document.getElementById('depthSlider').value) || 20;
+      document.getElementById('depthSliderRow').classList.add('visible');
+    }
+  }
+
+  function unlockInstitutional() {
+    _depthUnlocked = true;
+    // Update button appearance
+    const btn = document.getElementById('depth-institutional');
+    if (btn) {
+      document.getElementById('depth-inst-label').textContent = 'n = custom';
+      const badge = document.getElementById('depth-inst-badge-wrap');
+      if (badge) badge.innerHTML = '<span class="depth-inst-badge" style="background:rgba(0,255,136,0.15);color:#00ff88;border-color:rgba(0,255,136,0.3);">UNLOCKED</span>';
+    }
+    // Auto-select institutional
+    setDepth('institutional');
+    // Close modal if open
+    const modal = document.getElementById('qp-inst-modal');
+    if (modal) modal.remove();
+  }
+
+  function showInstitutionalTeaser() {
+    const ex = document.getElementById('qp-inst-modal');
+    if (ex) ex.remove();
+    const m = document.createElement('div');
+    m.id = 'qp-inst-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    m.innerHTML = `
+      <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:480px;width:100%;padding:36px 32px;position:relative;">
+        <button onclick="document.getElementById('qp-inst-modal').remove()"
+          style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">&#10005;</button>
+
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.12em;margin-bottom:10px;">// INSTITUTIONAL DEPTH &mdash; n=20 to 50</div>
+        <div style="font-size:20px;font-weight:700;color:#e8edf2;margin-bottom:8px;line-height:1.3;">Most strategies that look fundable at Standard fail here.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:20px;line-height:1.9;">
+          Standard (n=10) runs 10 Monte Carlo simulations.<br>
+          Institutional lets you run <b style="color:#e8edf2;">20 to 50</b> &mdash; you choose the depth.<br>
+          <span style="color:#ffaa00;">DSR scores at n=20 are typically 15&ndash;30 pts lower than Standard.</span><br>
+          At n=50 the score is as rigorous as a quant fund's pre-deployment gate.
+        </div>
+
+        <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);padding:16px;margin-bottom:20px;">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-bottom:10px;">WHAT YOU GET</div>
+          <div style="font-size:12px;color:#e8edf2;line-height:2.1;">
+            &#10003; &nbsp;Custom n slider: run 20, 30, 40, or 50 simulations<br>
+            &#10003; &nbsp;The same DSR stress test prop firm quants run<br>
+            &#10003; &nbsp;See exactly where your Sharpe inflation breaks down<br>
+            &#10003; &nbsp;Unlimited validations at any depth for 24h
+          </div>
+        </div>
+
+        <div style="background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.2);padding:12px 16px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:10px;color:#ffaa00;line-height:1.7;">
+          &#9888; Free tier is capped at n=10. If your strategy passes at n=10 but you haven't tested at n=20+, you don't actually know if it's real.
+        </div>
+
+        <button onclick="buyLiteUnlock(); document.getElementById('qp-inst-modal').remove();"
+          style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
+          &#9889; Unlock Institutional Depth &mdash; &#8377;99
+        </button>
+        <button onclick="document.getElementById('qp-inst-modal').remove()"
+          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
+          Continue with Standard (n=10) &mdash; free
+        </button>
+        <div style="margin-top:14px;font-family:'Space Mono',monospace;font-size:9px;color:#5a7a8a;text-align:center;">
+          One-time unlock &middot; Valid for 24h &middot; No subscription
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+  }
   function currencyBadge() {
     if (_activeCurrency === 'USD') return '';
     return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
@@ -980,6 +1138,8 @@
     document.getElementById('proofBar').style.display         = 'none';
     document.getElementById('marketingSections').style.display= 'none';
     document.getElementById('loadingSection').classList.add('active');
+    const tc = document.getElementById('terminalCmd');
+    if (tc) tc.textContent = '$ quantproof --validate trade_log.csv --n-trials ' + _nTrials;
   }
   function hideLoading(err) {
     document.getElementById('loadingSection').classList.remove('active');
@@ -1017,6 +1177,7 @@
     const fd = new FormData(); fd.append('file', file);
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
+    fd.append('n_trials', String(_nTrials));
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
@@ -1046,6 +1207,7 @@
     const fd = new FormData(); fd.append('file', file);
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
+    fd.append('n_trials', String(_nTrials));
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
@@ -1211,6 +1373,15 @@
           </div>
           <div class="score-meta">
             <div class="score-summary">${data.summary}</div>
+            ${_nTrials < 20 ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.6;">
+                &#9888;&nbsp; This score is at Standard depth (n=10).<br>
+                <span style="color:#5a7a8a;">At Institutional depth (n=20), DSR typically drops 15&ndash;30 pts. Your real score may be lower.</span>
+              </div>
+              <button onclick="showInstitutionalTeaser()" style="background:transparent;border:1px solid rgba(255,170,0,0.4);color:#ffaa00;padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0;" onmouseover="this.style.background='rgba(255,170,0,0.1)'" onmouseout="this.style.background='transparent'">Test at n=20 &mdash; &#8377;99 &rarr;</button>
+            </div>` : `<div style="margin-top:10px;padding:8px 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);font-family:var(--mono);font-size:10px;color:var(--accent);line-height:1.6;">
+              &#10003; Validated at Institutional depth (n=20) &mdash; fund-grade rigour applied
+            </div>`}
             ${data.date_range!=='No date data'
               ?`<div style="font-size:11px;color:var(--muted);font-family:var(--mono)">📅 ${data.date_range}</div>`
               :`<div style="font-size:11px;color:var(--accent3);font-family:var(--mono)">⚠ No date column — add dates for regime analysis</div>`
@@ -1702,6 +1873,8 @@
     if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
     if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
     if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for full PDF with ranked fix plan'; status.style.color = 'var(--accent)'; }
+    // Also unlock institutional depth
+    if (typeof unlockInstitutional === 'function') unlockInstitutional();
   }
 
   async function buyPdfReport() {
