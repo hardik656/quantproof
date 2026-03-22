@@ -123,11 +123,62 @@ class ValidationResponse(BaseModel):
     equity_curve: Optional[List[float]] = None
 
 
-# —? Rate limiting (3 free validations / IP / day) ———————————————————————————?
+# ── Rate limiting & token tiers ─────────────────────────────────────────────
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
 FREE_DAILY_LIMIT = 3
 
-def check_rate_limit(ip: str) -> tuple[bool, int]:
+# Token prefixes
+TOKEN_LITE      = "LITE-"   # ₹99  — fixes + AI top-3 in browser
+TOKEN_REPORT    = "RPT-"    # ₹299 — PDF + forced n=20 + full AI
+TOKEN_PORTFOLIO = "PORT-"   # ₹199 — portfolio correlation endpoint
+TOKEN_PRO       = "PRO-"    # ₹999 — 30-day: unlimited + n=50 + all
+
+# Pro token store: token -> expiry_timestamp
+_PRO_TOKENS: dict = {}
+_PRO_TOKENS_FILE = "/tmp/qp_pro_tokens.json"
+
+def _load_pro_tokens():
+    try:
+        import json
+        if os.path.exists(_PRO_TOKENS_FILE):
+            with open(_PRO_TOKENS_FILE) as f:
+                _PRO_TOKENS.update(json.load(f))
+    except Exception:
+        pass
+
+def _save_pro_tokens():
+    try:
+        import json
+        with open(_PRO_TOKENS_FILE, "w") as f:
+            json.dump(_PRO_TOKENS, f)
+    except Exception:
+        pass
+
+_load_pro_tokens()
+
+def _is_pro_token(token: str) -> bool:
+    if not token.startswith(TOKEN_PRO):
+        return False
+    expiry = _PRO_TOKENS.get(token, 0)
+    return time.time() < expiry
+
+def _token_tier(token: str) -> str:
+    """Return the tier of a token: 'pro', 'report', 'portfolio', 'lite', or 'none'."""
+    _test = os.getenv("TEST_REPORT_TOKEN", "")
+    if _test and token == _test: return "pro"   # dev override = full access
+    if _is_pro_token(token):     return "pro"
+    if token in REPORT_ACCESS_TOKENS:
+        if token.startswith(TOKEN_PRO):      return "pro"
+        if token.startswith(TOKEN_REPORT):   return "report"
+        if token.startswith(TOKEN_PORTFOLIO):return "portfolio"
+        if token.startswith(TOKEN_LITE):     return "lite"
+        return "report"  # legacy tokens without prefix = RPT
+    return "none"
+
+def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
+    # Pro tokens bypass rate limit entirely
+    if _is_pro_token(token) or token.startswith(TOKEN_PRO):
+        return True, 999
     now = time.time()
     rec = _validation_counts[ip]
     if now > rec["reset"]:
@@ -2193,10 +2244,10 @@ def root():
 @app.post("/validate", response_model=ValidationResponse)
 async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_trials: int = Form(10), request: Request = None):
     if request:
-        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
         ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
               or (request.client.host if request.client else "")) or "unknown"
-        allowed, remaining = check_rate_limit(ip)
+        _pro_tok = request.headers.get("x-pro-token", "")
+        allowed, remaining = check_rate_limit(ip, _pro_tok)
         if not allowed:
             hours_left = remaining // 3600
             raise HTTPException(
@@ -2351,6 +2402,77 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         ai_plan=None,
         equity_curve=getattr(r, 'equity_curve', None),
     )
+
+@app.post("/validate/ai-fixes")
+async def get_ai_fixes(
+    validation_hash: str = Form(...),
+    x_lite_token: str = Header(default=""),
+    request: Request = None
+):
+    """
+    ₹99 endpoint — returns top 3 AI fixes as JSON for display in browser.
+    Requires LITE or higher token.
+    """
+    tier = _token_tier(x_lite_token)
+    # Pro tokens always get full AI plan
+    if _is_pro_token(x_lite_token):
+        tier = "pro"
+    if tier == "none":
+        raise HTTPException(402, {
+            "error": "payment_required",
+            "message": "Unlock required to access AI fix plan.",
+            "price_inr": 99,
+        })
+
+    cached = _get_cached_validation(validation_hash)
+    if not cached:
+        raise HTTPException(400, {
+            "error": "cache_expired",
+            "message": "Validation result not found. Re-run your validation first."
+        })
+
+    # If AI plan already cached, return top 3
+    ai_plan = cached.get("ai_plan")
+    if not ai_plan:
+        # Generate it now
+        try:
+            class _CR:
+                def __init__(self, d): self.__dict__.update(d)
+            class _Rep:
+                def __init__(self, vr):
+                    self.score = vr["fundable_score"]; self.grade = vr["grade"]
+                    self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
+                    self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
+                    self.checks = [_CR(c) for c in vr.get("checks", [])]
+                    self.audit_flags = []
+            ai_plan = await generate_ai_plan(_Rep(cached), cached.get("date_range", ""))
+            if ai_plan:
+                cached["ai_plan"] = ai_plan
+                _cache_validation(validation_hash, cached)
+        except Exception as e:
+            raise HTTPException(500, f"AI plan generation failed: {str(e)}")
+
+    if not ai_plan:
+        return {"fixes": [], "summary": "No AI plan available — re-run validation."}
+
+    fixes = ai_plan.get("fixes", [])
+    all_fixes = sorted(fixes, key=lambda x: x.get("rank", 99))
+    # Lite = top 3 in browser + teaser for full PDF
+    # Report/Pro = all fixes, no teaser
+    if tier in ("report", "pro"):
+        shown_fixes = all_fixes
+    else:
+        shown_fixes = all_fixes[:3]
+
+    return {
+        "summary":          ai_plan.get("summary", ""),
+        "fixes":            shown_fixes,
+        "encouragement":    ai_plan.get("encouragement", ""),
+        "tier":             tier,
+        "total_failures":   len(all_fixes),
+        "full_plan_in_pdf": tier not in ("report", "pro"),
+    }
+
 
 @app.get("/health")
 def health():
@@ -2712,6 +2834,7 @@ async def generate_report_endpoint(
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
         if _test_tok and token == _test_tok: return True
+        if _is_pro_token(token): return True          # Pro = unlimited PDFs
         if token in REPORT_ACCESS_TOKENS: return True
         if token.startswith("cs_"): return False
         return False
@@ -2743,6 +2866,11 @@ async def generate_report_endpoint(
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
         n_trials = extract_n_trials(request) if request else 1
+        # PDF tier: force minimum n=20 for RPT and PRO tokens
+        _tier = _token_tier(x_report_token)
+        if _tier in ("report", "pro"):
+            n_trials = max(20, min(50, n_trials))
+        n_trials = max(1, min(50, n_trials))
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
@@ -3037,6 +3165,133 @@ async def payment_webhook_lite(request: Request):
 
 
 # =========================================================
+# PORTFOLIO CHECKOUT — ₹199
+# =========================================================
+
+@app.post("/report/create-checkout-portfolio")
+async def create_checkout_portfolio(payload: dict):
+    import hmac, hashlib
+    try:
+        import razorpay
+    except ImportError:
+        raise HTTPException(503, {"error": "razorpay_not_installed",
+            "message": "razorpay package not installed."})
+    key_id     = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(503, {"error": "razorpay_not_configured",
+            "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        order  = client.order.create({
+            "amount": 19900, "currency": "INR", "payment_capture": 1,
+            "notes": {"product": "QuantProof Portfolio Analysis"}
+        })
+        return {"order_id": order["id"], "amount": order["amount"],
+                "currency": order["currency"], "key_id": key_id}
+    except Exception as e:
+        raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
+
+
+@app.post("/report/webhook-portfolio")
+async def payment_webhook_portfolio(request: Request):
+    import hashlib, hmac, time, json
+    body = await request.body()
+    try:
+        data = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    payment_id = data.get("razorpay_payment_id", "")
+    order_id   = data.get("razorpay_order_id", "")
+    signature  = data.get("razorpay_signature", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    if not payment_id or not order_id or not signature:
+        raise HTTPException(400, "Missing payment fields")
+    expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid payment signature")
+    current_hour = int(time.time() // 3600)
+    token_now  = f"PORT-{hashlib.sha256(f'port:{current_hour}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
+    token_next = f"PORT-{hashlib.sha256(f'port:{current_hour+1}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
+    REPORT_ACCESS_TOKENS.add(token_now)
+    REPORT_ACCESS_TOKENS.add(token_next)
+    LS_ORDER_TOKENS[order_id] = token_now
+    _save_tokens()
+    return {"status": "ok", "token": token_now}
+
+
+# =========================================================
+# PRO PLAN CHECKOUT — ₹999 / 30 days
+# =========================================================
+
+@app.post("/report/create-checkout-pro")
+async def create_checkout_pro(payload: dict):
+    import hmac, hashlib
+    try:
+        import razorpay
+    except ImportError:
+        raise HTTPException(503, {"error": "razorpay_not_installed",
+            "message": "razorpay package not installed."})
+    key_id     = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(503, {"error": "razorpay_not_configured",
+            "message": "Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in Render environment."})
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        order  = client.order.create({
+            "amount": 99900, "currency": "INR", "payment_capture": 1,
+            "notes": {"product": "QuantProof Pro — 30 days"}
+        })
+        return {"order_id": order["id"], "amount": order["amount"],
+                "currency": order["currency"], "key_id": key_id}
+    except Exception as e:
+        raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
+
+
+@app.post("/report/webhook-pro")
+async def payment_webhook_pro(request: Request):
+    import hashlib, hmac, time, json
+    body = await request.body()
+    try:
+        data = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    payment_id = data.get("razorpay_payment_id", "")
+    order_id   = data.get("razorpay_order_id", "")
+    signature  = data.get("razorpay_signature", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    if not payment_id or not order_id or not signature:
+        raise HTTPException(400, "Missing payment fields")
+    expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(400, "Invalid payment signature")
+    current_hour = int(time.time() // 3600)
+    # Pro token — 30-day expiry stored in _PRO_TOKENS
+    expiry = time.time() + 30 * 24 * 3600
+    token  = f"PRO-{hashlib.sha256(f'pro:{current_hour}:{key_secret}:{payment_id}'.encode()).hexdigest()[:36]}"
+    _PRO_TOKENS[token] = expiry
+    REPORT_ACCESS_TOKENS.add(token)
+    LS_ORDER_TOKENS[order_id] = token
+    _save_pro_tokens()
+    _save_tokens()
+    return {"status": "ok", "token": token, "expires_in_days": 30}
+
+
+@app.get("/report/token-status")
+async def token_status(x_token: str = Header(default="")):
+    """Check what tier a token grants and when it expires."""
+    tier = _token_tier(x_token)
+    if tier == "none":
+        return {"tier": "none", "valid": False}
+    if tier == "pro":
+        expiry = _PRO_TOKENS.get(x_token, 0)
+        days_left = max(0, int((expiry - time.time()) / 86400))
+        return {"tier": "pro", "valid": True, "days_remaining": days_left}
+    return {"tier": tier, "valid": True}
+
+
+# =========================================================
 # BROKER PDF REPORT
 # =========================================================
 
@@ -3100,6 +3355,7 @@ async def generate_broker_report(
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
         if _test_tok and token == _test_tok: return True
+        if _is_pro_token(token): return True          # Pro = unlimited PDFs
         if token in REPORT_ACCESS_TOKENS: return True
         return False
 
@@ -3224,6 +3480,247 @@ async def generate_broker_report(
     return FastAPIResponse(
         content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
+    )
+
+
+# =========================================================
+# PORTFOLIO VALIDATION — ₹199
+# =========================================================
+
+class PortfolioResponse(BaseModel):
+    strategies:         List[Dict[str, Any]]   # per-strategy summary
+    correlation_matrix: List[List[float]]
+    strategy_names:     List[str]
+    combined_sharpe:    float
+    combined_drawdown:  float
+    combined_win_rate:  float
+    diversification_score: float               # 0-100, higher = better diversified
+    combined_total_trades: int
+    portfolio_verdict:  str
+    audit_flags:        List[str]
+
+
+def _portfolio_correlation(dfs: list) -> np.ndarray:
+    """
+    Compute pairwise Pearson correlation of daily PnL series.
+    Aligns on date index where available, falls back to position index.
+    """
+    n = len(dfs)
+    mat = np.ones((n, n))
+    series = []
+    for df in dfs:
+        if "date" in df.columns and df["date"].notna().any():
+            s = df.set_index("date")["pnl"].sort_index()
+        else:
+            s = pd.Series(df["pnl"].values)
+        series.append(s)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            try:
+                if hasattr(series[i].index, "date") and hasattr(series[j].index, "date"):
+                    aligned = pd.concat([series[i], series[j]], axis=1, join="inner")
+                    if len(aligned) >= 5:
+                        corr = float(aligned.iloc[:, 0].corr(aligned.iloc[:, 1]))
+                    else:
+                        # Not enough overlap — use raw series correlation
+                        min_len = min(len(series[i]), len(series[j]))
+                        corr = float(np.corrcoef(
+                            series[i].values[:min_len],
+                            series[j].values[:min_len]
+                        )[0, 1])
+                else:
+                    min_len = min(len(series[i]), len(series[j]))
+                    corr = float(np.corrcoef(
+                        series[i].values[:min_len],
+                        series[j].values[:min_len]
+                    )[0, 1])
+                if np.isnan(corr):
+                    corr = 0.0
+                mat[i][j] = round(corr, 4)
+                mat[j][i] = round(corr, 4)
+            except Exception:
+                mat[i][j] = 0.0
+                mat[j][i] = 0.0
+    return mat
+
+
+def _diversification_score(corr_matrix: np.ndarray, sharpes: list) -> float:
+    """
+    0-100 score. Higher = better diversified portfolio.
+    Per-pair scoring:
+      near-zero corr → 82-90 (ideal diversification)
+      negative corr  → 96-100 (true hedge)
+      0.0-0.3 corr   → 40-82 (ok)
+      0.3-0.6 corr   → 10-40 (moderate concern)
+      0.6+ corr      → 0-10  (high concern, minimal diversification)
+    """
+    n = len(sharpes)
+    if n < 2:
+        return 50.0
+
+    def _pair_score(c: float) -> float:
+        if c <= -0.3:  return 96.0
+        elif c <= 0.0: return 82.0 + abs(c) * 47.0
+        elif c < 0.3:  return 82.0 - c * 140.0
+        elif c < 0.6:  return 40.0 - (c - 0.3) * 100.0
+        else:          return max(0.0, 10.0 - (c - 0.6) * 25.0)
+
+    off_diag = [float(corr_matrix[i][j]) for i in range(n) for j in range(i + 1, n)]
+    avg_pair     = float(np.mean([_pair_score(c) for c in off_diag])) if off_diag else 50.0
+    sharpe_bonus = (sum(1 for s in sharpes if s > 0) / max(n, 1)) * 8.0
+    return round(min(100.0, max(0.0, avg_pair + sharpe_bonus)), 1)
+
+
+def _portfolio_verdict(div_score: float, avg_corr: float, n: int) -> str:
+    if div_score >= 75:
+        return (f"Strong portfolio — {n} strategies with low average correlation "
+                f"({avg_corr:.2f}). Each strategy adds independent alpha. "
+                "This combination is institutionally viable for diversified deployment.")
+    elif div_score >= 55:
+        return (f"Moderate diversification — {n} strategies with some overlap "
+                f"(avg correlation {avg_corr:.2f}). Consider strategies from different "
+                "asset classes or time horizons to reduce correlation further.")
+    elif div_score >= 35:
+        return (f"High correlation detected (avg {avg_corr:.2f}) — these strategies "
+                f"likely move together. During drawdowns they will all drawdown simultaneously. "
+                "Portfolio diversification benefit is limited.")
+    else:
+        return (f"Poor diversification — strategies are highly correlated "
+                f"(avg {avg_corr:.2f}). Running all {n} together provides minimal "
+                "risk reduction over running just the best one.")
+
+
+@app.post("/validate/portfolio", response_model=PortfolioResponse)
+async def validate_portfolio(
+    files: List[UploadFile] = File(...),
+    currency: str = Form("USD"),
+    strategy_names: str = Form(""),   # comma-separated names
+    x_portfolio_token: str = Header(default=""),
+    request: Request = None,
+):
+    """
+    Portfolio correlation analysis — ₹199 or PRO.
+    Accepts 2-3 CSV files. Returns per-strategy scores + correlation matrix
+    + combined stats + diversification score.
+    """
+    # Dev override: TEST_REPORT_TOKEN bypasses all payment checks
+    _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
+    if _test_tok and x_portfolio_token == _test_tok:
+        pass  # dev access granted
+    else:
+        tier = _token_tier(x_portfolio_token)
+        if tier not in ("portfolio", "pro"):
+            raise HTTPException(402, {
+                "error": "payment_required",
+                "message": "Portfolio analysis requires the ₹199 Portfolio unlock or Pro plan.",
+                "price_inr": 199,
+            })
+
+    if len(files) < 2:
+        raise HTTPException(400, "Portfolio analysis requires at least 2 strategy CSV files.")
+    if len(files) > 3:
+        raise HTTPException(400, "Maximum 3 strategies per portfolio analysis.")
+
+    names_list = [n.strip() for n in strategy_names.split(",") if n.strip()]
+    while len(names_list) < len(files):
+        names_list.append(f"Strategy {len(names_list) + 1}")
+
+    audit_flags = []
+    strategy_summaries = []
+    dfs = []
+    sharpes = []
+
+    for i, file in enumerate(files):
+        if not file.filename.lower().endswith(".csv"):
+            raise HTTPException(400, f"File {i+1} must be a CSV.")
+        contents = await file.read()
+        try:
+            df, regime_note = smart_parse_csv(contents)
+        except (ValueError, HTTPException) as e:
+            raise HTTPException(400, f"Strategy {i+1} ({names_list[i]}): {str(e)}")
+
+        df = _dedup_trades(df)
+        if len(df) < 10:
+            raise HTTPException(400,
+                f"Strategy {i+1} ({names_list[i]}) has only {len(df)} trades — need at least 10.")
+
+        try:
+            _bm_type = get_benchmark_type(df, currency)
+            _bm, _bm_note = (get_nifty_benchmark(df)
+                if _bm_type == "nifty" else get_spy_benchmark(df))
+            validator = QuantProofValidator(
+                df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=10
+            )
+            report = validator.run()
+        except Exception as e:
+            raise HTTPException(500, f"Validation failed for strategy {i+1}: {str(e)}")
+
+        date_range = "No date data"
+        if "date" in df.columns and df["date"].notna().any():
+            try:
+                date_range = f"{df['date'].min().date()} to {df['date'].max().date()}"
+            except Exception:
+                pass
+
+        strategy_summaries.append({
+            "name":           names_list[i],
+            "fundable_score": round(report.score, 1),
+            "grade":          report.grade.split("—")[0].strip(),
+            "sharpe":         round(report.sharpe, 2),
+            "max_drawdown":   round(report.max_drawdown, 4),
+            "win_rate":       round(report.win_rate, 1),
+            "total_trades":   report.total_trades,
+            "date_range":     date_range,
+            "regime_note":    regime_note,
+        })
+        dfs.append(df)
+        sharpes.append(report.sharpe)
+        if regime_note:
+            audit_flags.append(f"{names_list[i]}: {regime_note}")
+
+    # Correlation matrix
+    corr_mat = _portfolio_correlation(dfs)
+
+    # Off-diagonal average correlation
+    n = len(dfs)
+    off_diag = [abs(corr_mat[i][j]) for i in range(n) for j in range(i+1, n)]
+    avg_corr  = float(np.mean(off_diag)) if off_diag else 0.0
+
+    # Combined stats — equal-weight portfolio
+    all_pnl = pd.concat([df["pnl"].reset_index(drop=True) for df in dfs], axis=1)
+    combined_pnl = all_pnl.mean(axis=1).dropna()
+
+    combined_sharpe = float(
+        combined_pnl.mean() / combined_pnl.std() * np.sqrt(252)
+        if combined_pnl.std() > 0 else 0.0
+    )
+    # Combined drawdown
+    eq = (1 + combined_pnl).cumprod()
+    roll_max = eq.cummax()
+    combined_dd = float(((eq - roll_max) / roll_max).min()) if len(eq) > 0 else 0.0
+    combined_wr = float((combined_pnl > 0).mean() * 100)
+    combined_trades = sum(s["total_trades"] for s in strategy_summaries)
+
+    div_score = _diversification_score(corr_mat, sharpes)
+    verdict   = _portfolio_verdict(div_score, avg_corr, n)
+
+    audit_flags.append(
+        f"Portfolio: {n} strategies, avg correlation {avg_corr:.2f}, "
+        f"diversification score {div_score}/100"
+    )
+
+    return PortfolioResponse(
+        strategies=strategy_summaries,
+        correlation_matrix=corr_mat.tolist(),
+        strategy_names=names_list,
+        combined_sharpe=round(combined_sharpe, 2),
+        combined_drawdown=round(combined_dd, 4),
+        combined_win_rate=round(combined_wr, 1),
+        diversification_score=div_score,
+        combined_total_trades=combined_trades,
+        portfolio_verdict=verdict,
+        audit_flags=audit_flags,
     )
 
 
