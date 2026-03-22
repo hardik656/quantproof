@@ -42,6 +42,7 @@ import numpy as np
 import io
 import os
 import re as _re
+import sys
 import time
 import hashlib
 import traceback
@@ -2796,7 +2797,11 @@ async def generate_report_endpoint(
         async with _PDF_SEMAPHORE:
             pdf_bytes = _generate_pdf_report(vr)
     except Exception as e:
-        raise HTTPException(500, f"PDF generation failed: {str(e)}")
+        # Log full traceback for debugging
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[PDF_GENERATE_ERROR] {tb}", file=sys.stderr, flush=True)
+        raise HTTPException(400, f"PDF generation failed: {str(e)}")
 
     score     = int(report.score)
     grade_str = report.grade.split("—")[0].strip().replace(" ", "")
