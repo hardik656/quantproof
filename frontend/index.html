@@ -986,10 +986,10 @@
     const tok = document.getElementById('devToken').value.trim();
     if (!tok) return;
     // Store under every token key so all endpoints see it
-    sessionStorage.setItem('qp_pro_token',    tok);
-    sessionStorage.setItem('qp_port_token',   tok);
-    sessionStorage.setItem('qp_lite_token',   tok);
-    sessionStorage.setItem('qp_report_token', tok);
+    saveToken('qp_pro_token',    tok);
+    saveToken('qp_port_token',   tok);
+    saveToken('qp_lite_token',   tok);
+    saveToken('qp_report_token', tok);
     _nTrials = 50;
     if (typeof unlockInstitutional === 'function') unlockInstitutional();
     // Pre-fill portfolio token field if visible
@@ -1014,19 +1014,19 @@
     }
   }
   function devSetTier(tier) {
-    const tok = sessionStorage.getItem('qp_pro_token') || 'DEV-TOKEN-MISSING';
+    const tok = loadToken('qp_pro_token') || 'DEV-TOKEN-MISSING';
     if (tier === 'pro') {
-      sessionStorage.setItem('qp_pro_token',  tok);
-      sessionStorage.setItem('qp_port_token', tok);
-      sessionStorage.setItem('qp_lite_token', tok);
+      saveToken('qp_pro_token',  tok);
+      saveToken('qp_port_token', tok);
+      saveToken('qp_lite_token', tok);
       _nTrials = 50;
       if (typeof unlockInstitutional === 'function') unlockInstitutional();
     } else if (tier === 'portfolio') {
-      sessionStorage.setItem('qp_port_token', tok);
+      saveToken('qp_port_token', tok);
     } else if (tier === 'report') {
-      sessionStorage.setItem('qp_lite_token', tok);
+      saveToken('qp_lite_token', tok);
     } else if (tier === 'lite') {
-      sessionStorage.setItem('qp_lite_token', tok);
+      saveToken('qp_lite_token', tok);
     }
     document.getElementById('devStatus').textContent = '✓ Simulating ' + tier + ' tier';
     document.getElementById('devStatus').style.color = '#ffaa00';
@@ -1075,6 +1075,28 @@
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
 <script>
+  // Token storage with 7-day TTL — survives tab close
+  function saveToken(key, value) {
+    const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    try { localStorage.setItem(key, JSON.stringify({value, expiry})); } catch(e) {}
+    sessionStorage.setItem(key, value); // keep session copy for speed
+  }
+  function loadToken(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const obj = JSON.parse(raw);
+        if (obj.expiry > Date.now()) return obj.value;
+        localStorage.removeItem(key);
+      }
+    } catch(e) {}
+    return sessionStorage.getItem(key) || null;
+  }
+  function clearToken(key) {
+    try { localStorage.removeItem(key); } catch(e) {}
+    sessionStorage.removeItem(key);
+  }
+
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
@@ -1296,7 +1318,7 @@
     fd.append('n_trials', String(_nTrials));
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _tok = sessionStorage.getItem('qp_pro_token') || sessionStorage.getItem('qp_report_token') || sessionStorage.getItem('qp_lite_token') || '';
+      const _tok = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
       const _h = _tok ? {'x-pro-token':_tok,'x-report-token':_tok,'x-lite-token':_tok} : {};
       const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd, headers: _h });
       if (cst) clearTimeout(cst);
@@ -1312,7 +1334,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
-      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      if (data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data, true); }, 3200);
     } catch(err) {
       if (cst) clearTimeout(cst);
@@ -1529,8 +1551,8 @@
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _proH = sessionStorage.getItem('qp_pro_token') || '';
-      const _liteH = sessionStorage.getItem('qp_lite_token') || '';
+      const _proH = loadToken('qp_pro_token') || '';
+      const _liteH = loadToken('qp_lite_token') || '';
       const _devHeaders = {};
       if (_proH)  { _devHeaders['x-pro-token'] = _proH; _devHeaders['x-report-token'] = _proH; }
       if (_liteH) { _devHeaders['x-lite-token'] = _liteH; }
@@ -1542,7 +1564,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
-      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
   }
@@ -1564,7 +1586,7 @@
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _proHk = sessionStorage.getItem('qp_pro_token') || sessionStorage.getItem('qp_report_token') || sessionStorage.getItem('qp_lite_token') || '';
+      const _proHk = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
       const _kiteHeaders = _proHk ? {'x-pro-token': _proHk, 'x-report-token': _proHk, 'x-lite-token': _proHk} : {};
       const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _kiteHeaders});
       if (cst) clearTimeout(cst);
@@ -1577,7 +1599,7 @@
         throw new Error(detail.message || detail || 'Kite validation failed');
       }
       const data = await resp.json();
-      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
+      if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
@@ -2037,7 +2059,7 @@
     _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
     try {
       sessionStorage.removeItem('qp_source');
-      sessionStorage.removeItem('qp_validation_hash');
+      clearToken('qp_validation_hash');
       sessionStorage.removeItem('qp_filename');
       sessionStorage.removeItem('qp_filedata');
     } catch(e) {}
@@ -2113,10 +2135,10 @@
   }
 
   async function generatePdfBlob(token) {
-    const hash = sessionStorage.getItem('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
+    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
     let res;
     if(src==='alpaca') {
-      const validationHash = sessionStorage.getItem('qp_validation_hash') || '';
+      const validationHash = loadToken('qp_validation_hash') || '';
       if(!validationHash) throw new Error('Validation result not found — please re-run the Alpaca validation before downloading the report.');
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
@@ -2139,7 +2161,7 @@
 
   async function generatePdfWithToken(token) {
     // Pro token also works as report token
-    if (!token) token = sessionStorage.getItem('qp_pro_token') || '';
+    if (!token) token = loadToken('qp_pro_token') || '';
     const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
     if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
     if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
@@ -2215,7 +2237,7 @@
   }
 
   async function applyLiteUnlock(token) {
-    try { sessionStorage.setItem('qp_lite_token', token); } catch(e) {}
+    try { saveToken('qp_lite_token', token); } catch(e) {}
     document.querySelectorAll('.check-item.fail .check-details').forEach(details => {
       const blurDiv = details.querySelector('[style*="blur"]');
       const gradDiv = details.querySelector('[style*="gradient"]');
@@ -2234,7 +2256,7 @@
     if(status){ status.innerText = '✓ Analysis unlocked — fetching your personalised AI fix plan...'; status.style.color = 'var(--accent)'; }
     if (typeof unlockInstitutional === 'function') unlockInstitutional();
     // Fetch AI fix plan for ₹99 tier
-    const vHash = sessionStorage.getItem('qp_validation_hash');
+    const vHash = loadToken('qp_validation_hash');
     if (vHash) {
       try {
         const aiResp = await fetch(`${API_URL}/validate/ai-fixes`, {
@@ -2479,7 +2501,7 @@
         return;
       }
       const result=await resp.json(); const data=result.validation;
-      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err) { hideLoading(true); alert('IBKR error: '+err.message); }
   }
@@ -2517,7 +2539,7 @@
         throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
       const data=await resp.json();
-      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){if (cst) clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
@@ -2573,7 +2595,7 @@
         return;
       }
       const data=await resp.json();
-      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){hideLoading(true);alert('TradingView validation error: '+err.message);}
   }
@@ -2592,9 +2614,9 @@
   const _portFiles = {};
 
   function showPortfolioUpload() {
-    const tok = (sessionStorage.getItem('qp_pro_token')
-              || sessionStorage.getItem('qp_port_token')
-              || sessionStorage.getItem('qp_report_token') || '').trim();
+    const tok = (loadToken('qp_pro_token')
+              || loadToken('qp_port_token')
+              || loadToken('qp_report_token') || '').trim();
     const input = document.getElementById('portToken');
     if (input && !input.value) input.value = tok;  // pre-fill only if empty
     // Token row always visible — user must always be able to see/verify what's sent
@@ -2642,9 +2664,9 @@
   async function handlePortfolioSubmit() {
     const status = document.getElementById('portStatus');
     const token  = (document.getElementById('portToken').value.trim()
-                || sessionStorage.getItem('qp_pro_token')
-                || sessionStorage.getItem('qp_port_token')
-                || sessionStorage.getItem('qp_report_token') || '').trim();
+                || loadToken('qp_pro_token')
+                || loadToken('qp_port_token')
+                || loadToken('qp_report_token') || '').trim();
 
     if (!_portFiles[1] || !_portFiles[2]) {
       status.textContent = 'Please select at least 2 strategy CSV files.';
@@ -2725,6 +2747,11 @@
       <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
         // RANKED FIX PLAN — ${fixes.length} ISSUES
       </div>
+
+      ${fixes.length === 0 ? `
+        <div style="padding:16px 0;font-family:var(--mono);font-size:11px;color:var(--accent);">
+          ✓ No portfolio-level issues detected. All strategies are well-diversified and independently viable.
+        </div>` : ''}
 
       ${fixes.map((fix, i) => {
         const colKey = Object.keys(catColors).find(k => fix.issue && fix.issue.includes(k));
@@ -3061,9 +3088,9 @@
 
   async function downloadPortfolioPdf() {
     const btn = document.getElementById('portPdfBtn');
-    const tok = (sessionStorage.getItem('qp_pro_token')
-              || sessionStorage.getItem('qp_port_token')
-              || sessionStorage.getItem('qp_report_token') || '').trim();
+    const tok = (loadToken('qp_pro_token')
+              || loadToken('qp_port_token')
+              || loadToken('qp_report_token') || '').trim();
     if (!tok) {
       alert('No portfolio token found. Please unlock portfolio analysis first.');
       return;
@@ -3142,7 +3169,7 @@
           });
           const vd = await vr.json();
           if (vd.token) {
-            sessionStorage.setItem('qp_port_token', vd.token);
+            saveToken('qp_port_token', vd.token);
             document.getElementById('portToken').value = vd.token;
             document.getElementById('portTokenRow').style.display = 'none';
             const s = document.getElementById('portStatus');
@@ -3177,9 +3204,9 @@
           });
           const vd = await vr.json();
           if (vd.token) {
-            sessionStorage.setItem('qp_pro_token', vd.token);
-            sessionStorage.setItem('qp_port_token', vd.token);
-            sessionStorage.setItem('qp_lite_token', vd.token);
+            saveToken('qp_pro_token', vd.token);
+            saveToken('qp_port_token', vd.token);
+            saveToken('qp_lite_token', vd.token);
             // Unlock everything
             if (typeof unlockInstitutional === 'function') unlockInstitutional();
             _nTrials = 50;
@@ -3195,7 +3222,7 @@
   }
 
   async function devResetLimit() {
-    const tok = (sessionStorage.getItem('qp_pro_token') || '').trim();
+    const tok = (loadToken('qp_pro_token') || '').trim();
     const statusEl = document.getElementById('devStatus');
     if (!tok) { statusEl.textContent = 'Set token first'; statusEl.style.color='#ff4444'; return; }
     statusEl.textContent = 'Resetting...'; statusEl.style.color='var(--muted)';
@@ -3217,8 +3244,8 @@
 
   // ── On load: restore tokens ────────────────────────────────────────────────
   (function restoreTokens() {
-    const proTok  = sessionStorage.getItem('qp_pro_token');
-    const portTok = sessionStorage.getItem('qp_port_token');
+    const proTok  = loadToken('qp_pro_token');
+    const portTok = loadToken('qp_port_token');
     if (proTok) {
       _nTrials = 50;
       if (typeof unlockInstitutional === 'function') {
@@ -3298,3 +3325,4 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
