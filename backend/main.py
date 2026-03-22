@@ -3565,6 +3565,7 @@ class PortfolioResponse(BaseModel):
     combined_drawdown:     float
     combined_win_rate:     float
     diversification_score: float
+    avg_correlation:       float = 0.0            # signed average off-diagonal
     combined_total_trades: int
     portfolio_verdict:     str
     audit_flags:           List[str]
@@ -3792,10 +3793,13 @@ async def validate_portfolio(
     # Correlation matrix
     corr_mat = _portfolio_correlation(dfs)
 
-    # Off-diagonal average correlation
+    # Off-diagonal average correlation — both signed (for display) and abs (for scoring)
     n = len(dfs)
-    off_diag = [abs(corr_mat[i][j]) for i in range(n) for j in range(i+1, n)]
-    avg_corr  = float(np.mean(off_diag)) if off_diag else 0.0
+    off_diag_signed = [float(corr_mat[i][j]) for i in range(n) for j in range(i+1, n)]
+    off_diag_abs    = [abs(v) for v in off_diag_signed]
+    avg_corr_signed = float(np.mean(off_diag_signed)) if off_diag_signed else 0.0
+    avg_corr        = float(np.mean(off_diag_abs))    if off_diag_abs    else 0.0
+    # avg_corr = abs average (for scoring); avg_corr_signed = for display
 
     # Combined stats — equal-weight portfolio
     all_pnl = pd.concat([df["pnl"].reset_index(drop=True) for df in dfs], axis=1)
@@ -3813,7 +3817,7 @@ async def validate_portfolio(
     combined_trades = int(sum(s["total_trades"] for s in strategy_summaries))
 
     div_score = float(_diversification_score(corr_mat, sharpes))
-    verdict   = _portfolio_verdict(div_score, avg_corr, n)
+    verdict   = _portfolio_verdict(div_score, avg_corr_signed, n)
 
     audit_flags.append(
         f"Portfolio: {n} strategies, avg correlation {avg_corr:.2f}, "
@@ -3828,6 +3832,7 @@ async def validate_portfolio(
         combined_drawdown=float(round(combined_dd, 4)),
         combined_win_rate=float(round(combined_wr, 1)),
         diversification_score=float(div_score),
+        avg_correlation=float(round(avg_corr_signed, 3)),   # signed, for display
         combined_total_trades=int(combined_trades),
         portfolio_verdict=str(verdict),
         audit_flags=[str(f) for f in audit_flags],
