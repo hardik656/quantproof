@@ -157,6 +157,9 @@ def _save_pro_tokens():
 _load_pro_tokens()
 
 def _is_pro_token(token: str) -> bool:
+    # Dev override token = always pro
+    _test = os.getenv("TEST_REPORT_TOKEN", "")
+    if _test and token == _test: return True
     if not token.startswith(TOKEN_PRO):
         return False
     expiry = _PRO_TOKENS.get(token, 0)
@@ -177,6 +180,8 @@ def _token_tier(token: str) -> str:
 
 def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
     # Pro tokens bypass rate limit entirely
+    _test = os.getenv("TEST_REPORT_TOKEN", "")
+    if _test and token == _test:       return True, 999   # dev override
     if _is_pro_token(token) or token.startswith(TOKEN_PRO):
         return True, 999
     now = time.time()
@@ -2246,7 +2251,10 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
     if request:
         ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
               or (request.client.host if request.client else "")) or "unknown"
-        _pro_tok = request.headers.get("x-pro-token", "")
+        # Accept dev token from either header
+        _pro_tok = (request.headers.get("x-pro-token", "")
+                    or request.headers.get("x-report-token", "")
+                    or request.headers.get("x-lite-token", ""))
         allowed, remaining = check_rate_limit(ip, _pro_tok)
         if not allowed:
             hours_left = remaining // 3600
@@ -2277,7 +2285,8 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = extract_n_trials(request)
+        # n_trials already parsed from Form(10) above — do NOT call extract_n_trials
+        # which reads raw request body (already consumed) and returns 1
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
@@ -2413,10 +2422,11 @@ async def get_ai_fixes(
     ₹99 endpoint — returns top 3 AI fixes as JSON for display in browser.
     Requires LITE or higher token.
     """
-    tier = _token_tier(x_lite_token)
-    # Pro tokens always get full AI plan
+    # _is_pro_token now handles TEST_REPORT_TOKEN via FIX 2
     if _is_pro_token(x_lite_token):
         tier = "pro"
+    else:
+        tier = _token_tier(x_lite_token)
     if tier == "none":
         raise HTTPException(402, {
             "error": "payment_required",
@@ -2464,10 +2474,30 @@ async def get_ai_fixes(
     else:
         shown_fixes = all_fixes[:3]
 
+    # All tiers get ALL failed check details (insight + fix) — that's what they paid for.
+    # The difference: ₹99 gets AI top-3 summary, ₹299 gets full AI ranked plan in PDF.
+    all_checks  = cached.get("checks", [])
+    failed_checks = [
+        {
+            "name":     c.get("name", "") if isinstance(c, dict) else getattr(c, "name", ""),
+            "category": c.get("category", "") if isinstance(c, dict) else getattr(c, "category", ""),
+            "score":    c.get("score", 0) if isinstance(c, dict) else getattr(c, "score", 0),
+            "insight":  c.get("insight", "") if isinstance(c, dict) else getattr(c, "insight", ""),
+            "fix":      c.get("fix", "") if isinstance(c, dict) else getattr(c, "fix", ""),
+            "value":    c.get("value", "") if isinstance(c, dict) else getattr(c, "value", ""),
+        }
+        for c in all_checks
+        if not (c.get("passed") if isinstance(c, dict) else getattr(c, "passed", True))
+        and (c.get("category") if isinstance(c, dict) else getattr(c, "category", "")) != "Plausibility"
+    ]
+    # Sort by score ascending (worst first)
+    failed_checks.sort(key=lambda x: x.get("score", 0))
+
     return {
         "summary":          ai_plan.get("summary", ""),
-        "fixes":            shown_fixes,
-        "encouragement":    ai_plan.get("encouragement", ""),
+        "fixes":            shown_fixes,        # AI fixes: top-3 for ₹99, all for ₹299+
+        "failed_checks":    failed_checks,       # ALL failed checks with full insight+fix
+        "encouragement":    ai_plan.get("encouragement", "") if tier in ("report", "pro") else "",
         "tier":             tier,
         "total_failures":   len(all_fixes),
         "full_plan_in_pdf": tier not in ("report", "pro"),
@@ -2744,7 +2774,6 @@ currency=acct_currency,
 # PDF REPORT — PAYWALL ENDPOINT
 # =========================================================
 
-from fastapi import Header
 from fastapi.responses import Response as FastAPIResponse
 try:
     from generate_report import generate_pdf_report as _generate_pdf_report
@@ -3605,18 +3634,14 @@ async def validate_portfolio(
     Accepts 2-3 CSV files. Returns per-strategy scores + correlation matrix
     + combined stats + diversification score.
     """
-    # Dev override: TEST_REPORT_TOKEN bypasses all payment checks
-    _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
-    if _test_tok and x_portfolio_token == _test_tok:
-        pass  # dev access granted
-    else:
-        tier = _token_tier(x_portfolio_token)
-        if tier not in ("portfolio", "pro"):
-            raise HTTPException(402, {
-                "error": "payment_required",
-                "message": "Portfolio analysis requires the ₹199 Portfolio unlock or Pro plan.",
-                "price_inr": 199,
-            })
+    # Token check: TEST_REPORT_TOKEN, PRO, or PORT all grant access
+    if not (_is_pro_token(x_portfolio_token) or
+            _token_tier(x_portfolio_token) in ("portfolio", "pro")):
+        raise HTTPException(402, {
+            "error": "payment_required",
+            "message": "Portfolio analysis requires the ₹199 Portfolio unlock or Pro plan.",
+            "price_inr": 199,
+        })
 
     if len(files) < 2:
         raise HTTPException(400, "Portfolio analysis requires at least 2 strategy CSV files.")
