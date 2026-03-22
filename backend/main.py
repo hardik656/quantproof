@@ -4618,3 +4618,5 @@ def reset_tv_session(session_id: str):
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
 
+
+
