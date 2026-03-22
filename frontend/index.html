@@ -2683,6 +2683,37 @@
     }
   }
 
+  function buildCombinedEquityCurve(equityCurve, weights, names) {
+    if (!equityCurve || equityCurve.length < 5) return '';
+    const W = 560, H = 70, pad = {l:8,r:50,t:6,b:16};
+    const pts = equityCurve;
+    const mn = Math.min(...pts), mx = Math.max(...pts), rng = mx - mn || 1;
+    const col = pts[pts.length-1] >= 100 ? 'var(--accent)' : '#ff6b6b';
+    const polyPts = pts.map((v,i) => {
+      const x = pad.l + i/(pts.length-1)*(W-pad.l-pad.r);
+      const y = H-pad.b - (v-mn)/rng*(H-pad.t-pad.b);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    // fill polygon
+    const first = `${pad.l},${H-pad.b}`;
+    const last  = `${(pad.l+(W-pad.l-pad.r)).toFixed(1)},${H-pad.b}`;
+    const fillPts = first + ' ' + polyPts + ' ' + last;
+    const ret = ((pts[pts.length-1]/100)-1)*100;
+    return `<div style="background:rgba(0,0,0,0.2);padding:8px 0 4px;border:1px solid var(--border);margin-top:4px;">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:0 8px 4px;letter-spacing:0.1em;">RISK-PARITY COMBINED EQUITY CURVE</div>
+      <svg width="${W}" height="${H}" style="display:block;overflow:visible;">
+        <polygon points="${fillPts}" fill="${col}" fill-opacity="0.08"/>
+        <polyline points="${polyPts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
+        <line x1="${pad.l}" y1="${H-pad.b-(100-mn)/rng*(H-pad.t-pad.b)}" x2="${W-pad.r}" y2="${H-pad.b-(100-mn)/rng*(H-pad.t-pad.b)}"
+          stroke="rgba(255,255,255,0.1)" stroke-width="0.5" stroke-dasharray="3,3"/>
+        <text x="${W-pad.r+2}" y="${(H-pad.b-(pts[pts.length-1]-mn)/rng*(H-pad.t-pad.b)).toFixed(1)}"
+          font-family="monospace" font-size="9" fill="${col}">${ret>=0?'+':''}${ret.toFixed(1)}%</text>
+        <text x="${pad.l}" y="${H}" font-family="monospace" font-size="7" fill="rgba(255,255,255,0.3)">T1</text>
+        <text x="${(W-pad.r).toFixed(0)}" y="${H}" font-family="monospace" font-size="7" fill="rgba(255,255,255,0.3)" text-anchor="end">T${pts.length}</text>
+      </svg>
+    </div>`;
+  }
+
   function buildMiniEquityCurve(equityCurve, sharpe) {
     // Build a mini SVG equity curve — 200x50px
     // If no real curve, synthesise a plausible one from Sharpe
@@ -2761,23 +2792,44 @@
         </div>
 
         <!-- 4 combined stats -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);">
           ${[
             ['DIVERSIFICATION', divScore+'/100', divCol, 'Higher = more independent'],
-            ['AVG CORRELATION', avgCorr, corrDisplayCol, parseFloat(avgCorr)<0?'Negative = hedge portfolio':'Target: < 0.30'],
-            ['COMBINED SHARPE', data.combined_sharpe, shCol(data.combined_sharpe), 'Equal-weight portfolio'],
-            ['COMBINED MAX DD', (Math.abs(data.combined_drawdown||0)*100).toFixed(1)+'%', ddCol(data.combined_drawdown), 'Blended drawdown'],
+            ['AVG CORRELATION', avgCorr, corrDisplayCol, parseFloat(avgCorr)<0?'Negative corr = hedge':'Target: < 0.30'],
+            ['COMBINED SHARPE', data.combined_sharpe, shCol(data.combined_sharpe), 'Risk-parity weighted'],
           ].map(([lbl,val,col,sub],i)=>`
-            <div style="padding:16px 18px;${i<3?'border-right:1px solid var(--border);':''}">
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">${lbl}</div>
+            <div style="padding:14px 18px;${i<2?'border-right:1px solid var(--border);':''}">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:4px;">${lbl}</div>
               <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col};">${val}</div>
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">${sub}</div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">${sub}</div>
+            </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);">
+          ${[
+            ['COMBINED MAX DD', (Math.abs(data.combined_drawdown||0)*100).toFixed(1)+'%', ddCol(data.combined_drawdown), 'From risk-parity equity curve'],
+            ['DD COINCIDENCE',  ((data.dd_coincidence||0)*100).toFixed(0)+'%',
+              (data.dd_coincidence||0)<0.3?'var(--accent)':(data.dd_coincidence||0)<0.6?'#ffaa00':'#ff4444',
+              (data.dd_coincidence||0)<0.3?'Low — strategies fall independently':(data.dd_coincidence||0)<0.6?'Moderate overlap':'High — strategies crash together'],
+            ['PORTFOLIO DSR',   data.portfolio_dsr!=null?(data.portfolio_dsr+'/100'):'n/a',
+              data.portfolio_dsr>=70?'var(--accent)':data.portfolio_dsr>=40?'#ffaa00':'#ff4444',
+              'Combined strategy deflated Sharpe'],
+          ].map(([lbl,val,col,sub],i)=>`
+            <div style="padding:14px 18px;${i<2?'border-right:1px solid var(--border);':''}">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:4px;">${lbl}</div>
+              <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col};">${val}</div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">${sub}</div>
             </div>`).join('')}
         </div>
 
-        <!-- Verdict -->
-        <div style="padding:16px 24px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);line-height:1.75;">
-          ${data.portfolio_verdict||''}
+        <!-- Verdict + combined equity -->
+        <div style="padding:16px 24px;border-bottom:1px solid var(--border);">
+          <div style="font-size:13px;color:var(--muted);line-height:1.75;margin-bottom:${(data.combined_equity||[]).length>5?'12px':'0'};">
+            ${data.portfolio_verdict||''}
+          </div>
+          ${(data.combined_equity||[]).length > 5 ? buildCombinedEquityCurve(data.combined_equity, data.rp_weights, data.strategy_names) : ''}
+          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;">
+            Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}
+          </div>` : ''}
         </div>
 
         <!-- Tabs -->
