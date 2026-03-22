@@ -157,9 +157,19 @@ def _save_pro_tokens():
 _load_pro_tokens()
 
 def _is_pro_token(token: str) -> bool:
-    # Dev override token = always pro
-    _test = os.getenv("TEST_REPORT_TOKEN", "")
-    if _test and token == _test: return True
+    """
+    Returns True if token grants pro-level access.
+    Dev override: set TEST_REPORT_TOKEN env var on Render to any value,
+    then paste that exact value into the dev panel on ?dev=1.
+    """
+    if not token:
+        return False
+    # Check all dev override env vars
+    for _env_key in ("TEST_REPORT_TOKEN", "DEV_TOKEN", "ADMIN_TOKEN"):
+        _test = os.getenv(_env_key, "").strip()
+        if _test and token.strip() == _test:
+            return True
+    # Real PRO token check
     if not token.startswith(TOKEN_PRO):
         return False
     expiry = _PRO_TOKENS.get(token, 0)
@@ -167,8 +177,11 @@ def _is_pro_token(token: str) -> bool:
 
 def _token_tier(token: str) -> str:
     """Return the tier of a token: 'pro', 'report', 'portfolio', 'lite', or 'none'."""
-    _test = os.getenv("TEST_REPORT_TOKEN", "")
-    if _test and token == _test: return "pro"   # dev override = full access
+    # Check all dev override env vars (same as _is_pro_token)
+    for _env_key in ("TEST_REPORT_TOKEN", "DEV_TOKEN", "ADMIN_TOKEN"):
+        _test = os.getenv(_env_key, "").strip()
+        if _test and token.strip() == _test:
+            return "pro"
     if _is_pro_token(token):     return "pro"
     if token in REPORT_ACCESS_TOKENS:
         if token.startswith(TOKEN_PRO):      return "pro"
@@ -180,8 +193,7 @@ def _token_tier(token: str) -> str:
 
 def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
     # Pro tokens bypass rate limit entirely
-    _test = os.getenv("TEST_REPORT_TOKEN", "")
-    if _test and token == _test:       return True, 999   # dev override
+    # _is_pro_token now handles all dev override env vars including TEST_REPORT_TOKEN
     if _is_pro_token(token) or token.startswith(TOKEN_PRO):
         return True, 999
     now = time.time()
@@ -2509,6 +2521,23 @@ def health():
     return {"status": "ok", "version": API_VERSION}
 
 
+@app.get("/debug/token")
+def debug_token(t: str = ""):
+    """Dev endpoint — check if a token is valid and what tier it grants."""
+    if not t:
+        return {"error": "Pass ?t=YOUR_TOKEN"}
+    tier   = _token_tier(t)
+    is_pro = _is_pro_token(t)
+    env_keys = {k: bool(os.getenv(k,"").strip()) for k in ("TEST_REPORT_TOKEN","DEV_TOKEN","ADMIN_TOKEN")}
+    return {
+        "token_preview": t[:8] + "..." if len(t) > 8 else t,
+        "tier":          tier,
+        "is_pro":        is_pro,
+        "in_token_store":t in REPORT_ACCESS_TOKENS,
+        "env_vars_set":  env_keys,
+    }
+
+
 @app.api_route("/ping", methods=["GET", "HEAD"])
 def ping():
     """
@@ -4642,7 +4671,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
 
 
