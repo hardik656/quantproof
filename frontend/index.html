@@ -163,6 +163,47 @@
   .depth-btn .depth-sub { font-size:9px; color:var(--muted); line-height:1.4; }
   .depth-btn.active .depth-sub { color:rgba(0,255,136,0.6); }
   .depth-inst-badge { display:inline-block; background:rgba(255,170,0,0.15); color:#ffaa00; font-size:8px; padding:2px 6px; margin-top:3px; border:1px solid rgba(255,170,0,0.3); letter-spacing:0.05em; }
+  /* AI Fix Plan panel */
+  .ai-fix-panel { margin:20px 0;padding:24px 28px;background:rgba(0,255,136,0.03);border:1.5px solid rgba(0,255,136,0.2); }
+  .ai-fix-item { padding:14px 0;border-bottom:1px solid var(--border); }
+  .ai-fix-item:last-child { border-bottom:none; }
+  .ai-fix-rank { font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:4px; }
+  .ai-fix-check { font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px; }
+  .ai-fix-why { font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px; }
+  .ai-fix-action { font-size:12px;color:var(--accent3);line-height:1.6;padding:8px 12px;background:rgba(255,170,0,0.05);border-left:2px solid var(--accent3); }
+  .ai-fix-impact { font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:6px; }
+  /* Portfolio — gold accent */
+  :root { --gold: #F5B700; --gold-dim: rgba(245,183,0,0.15); --gold-border: rgba(245,183,0,0.35); }
+  .mode-card-portfolio { border:1px solid var(--gold-border) !important; }
+  .mode-card-portfolio:hover { border-color:var(--gold) !important; background:rgba(245,183,0,0.03) !important; }
+  .port-gold { color: var(--gold); }
+  .port-gold-bg { background: var(--gold-dim); border: 1px solid var(--gold-border); }
+  .port-strategy-card { background:var(--surface);border:1px solid var(--border);padding:20px;transition:border-color 0.2s; }
+  .port-strategy-card:hover { border-color:var(--gold-border); }
+  .port-strategy-card.active-card { border-color:var(--gold); }
+  .port-grade-badge { display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border:1px solid; }
+  .port-check-bar { height:3px;background:var(--border);margin-top:4px; }
+  .port-check-fill { height:3px;background:var(--gold); }
+  .port-corr-cell { padding:10px 14px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;cursor:default; }
+  .port-tabs { display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px; }
+  .port-tab { font-family:var(--mono);font-size:10px;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);background:none;border-top:none;border-left:none;border-right:none;transition:all 0.2s; }
+  .port-tab.active { color:var(--gold);border-bottom-color:var(--gold); }
+  .port-tab:hover:not(.active) { color:var(--text); }
+  /* Portfolio results */
+  .port-matrix-cell { font-family:var(--mono);font-size:11px;text-align:center;padding:8px; }
+  .port-strat-row { display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--border); }
+  /* Pricing tiers */
+  .tier-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:24px 0; }
+  @media(max-width:900px){ .tier-grid { grid-template-columns:repeat(2,1fr); } }
+  .tier-card { background:var(--deep);border:1px solid var(--border);padding:20px 16px;position:relative; }
+  .tier-card.tier-highlight { border-color:rgba(0,255,136,0.5);background:rgba(0,255,136,0.03); }
+  .tier-card.tier-pro { border-color:rgba(123,97,255,0.5);background:rgba(123,97,255,0.04); }
+  .tier-price { font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);margin:8px 0 4px; }
+  .tier-label { font-family:var(--mono);font-size:9px;letter-spacing:0.12em;color:var(--muted);text-transform:uppercase; }
+  .tier-name { font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px; }
+  .tier-features { list-style:none;margin:12px 0;font-size:11px;color:var(--muted);line-height:2; }
+  .tier-features li::before { content:"✓ ";color:var(--accent); }
+  .tier-btn { width:100%;padding:10px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;border:none;margin-top:8px;transition:all 0.2s; }
   .depth-unlocked-row { display:none; margin-bottom:20px; padding:14px 16px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2); border-top:none; }
   .depth-unlocked-row.visible { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   .depth-slider { -webkit-appearance:none; width:100%; height:4px; background:var(--border); outline:none; flex:1; min-width:120px; }
@@ -488,6 +529,75 @@
 
   </div><!-- /marketingSections -->
 
+  <!-- PRICING — collapsed by default, shown after validation -->
+  <div id="pricingSection" style="display:none;margin-bottom:32px;">
+    <div style="border:1px solid var(--border);background:var(--deep);">
+
+      <!-- Collapsed header — always visible when section is shown -->
+      <button onclick="togglePricing()" id="pricingToggleBtn"
+        style="width:100%;background:transparent;border:none;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);"
+        onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
+        <span>// Unlock fix details, AI plan &amp; PDF report — one-time, no subscription</span>
+        <span id="pricingChevron" style="transition:transform 0.25s;">&#9660;</span>
+      </button>
+
+      <!-- Expandable grid -->
+      <div id="pricingGrid" style="display:none;padding:0 20px 20px;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;">
+
+          <div style="background:var(--surface);border:1px solid var(--border);padding:16px;">
+            <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">LITE</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;99</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+              All fix details revealed<br>
+              AI top-3 fix plan in browser<br>
+              Personalised to your numbers
+            </div>
+            <button onclick="buyLiteUnlock()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#9889; Unlock &#8377;99</button>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid rgba(0,255,136,0.3);padding:16px;position:relative;">
+            <div style="position:absolute;top:-9px;left:12px;background:var(--accent);color:var(--black);font-family:var(--mono);font-size:8px;padding:2px 8px;font-weight:700;">MOST POPULAR</div>
+            <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:0.1em;margin-bottom:6px;">FULL PDF</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;299</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+              Everything in Lite<br>
+              n=20 forced (institutional)<br>
+              All failures ranked in PDF
+            </div>
+            <button onclick="buyPdfReport()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128196; PDF &#8377;299</button>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid rgba(245,183,0,0.3);padding:16px;">
+            <div style="font-family:var(--mono);font-size:9px;color:#F5B700;letter-spacing:0.1em;margin-bottom:6px;">PORTFOLIO</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;199</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+              2&#8211;3 strategies at once<br>
+              Correlation matrix<br>
+              Diversification score 0&#8211;100
+            </div>
+            <button onclick="buyPortfolioUnlock()" style="width:100%;background:rgba(245,183,0,0.9);color:#0a0a0a;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">Portfolio &#8377;199</button>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid rgba(123,97,255,0.2);padding:16px;">
+            <div style="font-family:var(--mono);font-size:9px;color:#7B61FF;letter-spacing:0.1em;margin-bottom:6px;">PRO &#8212; 30 DAYS</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;999</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+              Unlimited validations<br>
+              n=50 always &amp; all PDFs free<br>
+              Portfolio included
+            </div>
+            <button onclick="buyProPlan()" style="width:100%;background:rgba(123,97,255,0.85);color:#fff;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128640; Pro &#8377;999</button>
+          </div>
+
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;opacity:0.6;">
+          All one-time purchases &nbsp;&middot;&nbsp; No recurring charges &nbsp;&middot;&nbsp; Pro valid 30 days
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="upload-section" id="uploadSection">
 
     <div class="sample-btn-wrap">
@@ -639,6 +749,133 @@
         </div>
       </div>
 
+      <!-- PORTFOLIO -->
+      <div class="mode-card mode-card-portfolio" id="portfolioCard">
+        <div class="mode-tag port-gold">// PORTFOLIO</div>
+        <div class="mode-icon" style="font-size:28px;margin:10px 0;">◈</div>
+        <div class="mode-title">Portfolio Analysis</div>
+        <div class="mode-desc">Upload 2–3 strategy files. Get full validation per strategy, correlation matrix, combined drawdown and diversification score.</div>
+        <div class="mode-limits" style="margin-top:10px;">
+          <span class="mode-limit-item" style="border-color:var(--gold-border);color:var(--gold);">Kite · Alpaca · MT5</span>
+          <span class="mode-limit-item" style="border-color:var(--gold-border);color:var(--gold);">Correlation matrix</span>
+        </div>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.8;">
+          Same 44-check validator per strategy &nbsp;·&nbsp; Auto-detects broker format &nbsp;·&nbsp; Diversification score 0–100
+        </div>
+        <button class="upload-btn" style="width:100%;margin-top:14px;background:rgba(245,183,0,0.12);color:var(--gold);border:1px solid var(--gold-border);font-size:11px;letter-spacing:0.05em;" onclick="showPortfolioUpload()">ANALYSE PORTFOLIO →</button>
+      </div>
+
+    </div>
+
+    <!-- PORTFOLIO PANEL -->
+    <div id="portfolioPanel" style="display:none;margin-top:20px;max-width:680px;margin-left:auto;margin-right:auto;">
+      <div style="background:var(--deep);border:1px solid var(--gold-border);">
+
+        <!-- Header -->
+        <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:2px;">// PORTFOLIO ANALYSIS</div>
+            <div style="font-size:11px;color:var(--muted);">Full 44-check validation per strategy · Correlation · Diversification score</div>
+          </div>
+          <button onclick="hidePortfolioPanel()" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;padding:4px 8px;">✕</button>
+        </div>
+
+        <!-- Format hint -->
+        <div style="padding:10px 24px;background:rgba(245,183,0,0.04);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--muted);">
+          Accepts: Zerodha Kite · Alpaca · MT5 · TradingView CSV · Generic PnL CSV &nbsp;—&nbsp; same auto-detection as single strategy
+        </div>
+
+        <!-- Strategy rows -->
+        <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
+          ${[1,2,3].map ? '' : ''}
+
+          <!-- Strategy 1 -->
+          <div id="portRow1" style="background:var(--surface);border:1px solid var(--border);padding:14px 16px;transition:border-color 0.2s;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;">STRATEGY 01 — REQUIRED</span>
+              <span id="portFile1Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="file" id="portFile1" accept=".csv" onchange="portFileChanged(1,this)" style="display:none;">
+              <button onclick="document.getElementById('portFile1').click()" id="portBtn1"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                SELECT FILE
+              </button>
+              <input id="portName1" type="text" placeholder="Strategy name (e.g. Momentum)" maxlength="30"
+                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;"
+                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+          </div>
+
+          <!-- Strategy 2 -->
+          <div id="portRow2" style="background:var(--surface);border:1px solid var(--border);padding:14px 16px;transition:border-color 0.2s;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;">STRATEGY 02 — REQUIRED</span>
+              <span id="portFile2Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="file" id="portFile2" accept=".csv" onchange="portFileChanged(2,this)" style="display:none;">
+              <button onclick="document.getElementById('portFile2').click()" id="portBtn2"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                SELECT FILE
+              </button>
+              <input id="portName2" type="text" placeholder="Strategy name (e.g. Mean Reversion)" maxlength="30"
+                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;"
+                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+          </div>
+
+          <!-- Strategy 3 -->
+          <div id="portRow3" style="background:var(--surface);border:1px dashed rgba(255,255,255,0.08);padding:14px 16px;transition:border-color 0.2s;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;">STRATEGY 03 — OPTIONAL</span>
+              <span id="portFile3Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="file" id="portFile3" accept=".csv" onchange="portFileChanged(3,this)" style="display:none;">
+              <button onclick="document.getElementById('portFile3').click()" id="portBtn3"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;opacity:0.6;transition:all 0.2s;"
+                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)';this.style.opacity='1'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';this.style.opacity='0.6'">
+                SELECT FILE
+              </button>
+              <input id="portName3" type="text" placeholder="Optional third strategy" maxlength="30"
+                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;opacity:0.6;"
+                onfocus="this.style.borderColor='var(--gold)';this.style.opacity='1'" onblur="this.style.borderColor='var(--border)';this.style.opacity='0.6'">
+            </div>
+          </div>
+        </div>
+
+        <!-- Token row (only if not already unlocked) -->
+        <div id="portTokenRow" style="display:none;padding:0 24px 16px;">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:0.08em;">PORTFOLIO TOKEN</div>
+          <input id="portToken" type="text" placeholder="PORT-xxxx or PRO-xxxx"
+            style="width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:11px;box-sizing:border-box;outline:none;"
+            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+        </div>
+
+        <!-- Submit -->
+        <div style="padding:0 24px 20px;">
+          <button onclick="handlePortfolioSubmit()"
+            style="width:100%;background:var(--gold);color:#0a0a0a;border:none;padding:13px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.06em;transition:opacity 0.2s;"
+            onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+            RUN PORTFOLIO ANALYSIS →
+          </button>
+          <div id="portStatus" style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;min-height:14px;line-height:1.5;"></div>
+          <div style="margin-top:10px;text-align:center;">
+            <button onclick="buyPortfolioUnlock()"
+              style="background:transparent;color:var(--gold);border:none;padding:6px;font-family:var(--mono);font-size:9px;cursor:pointer;opacity:0.7;text-decoration:underline;"
+              onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+              No token yet? Unlock Portfolio Analysis →
+            </button>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <!-- ALPACA PANEL -->
@@ -697,6 +934,59 @@
 
   <div class="results" id="resultsSection" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;"></div>
 </div>
+
+<!-- DEV OVERRIDE PANEL — only visible at ?dev=1 -->
+<div id="devPanel" style="display:none;position:fixed;bottom:16px;right:16px;background:#0d1117;border:1px solid rgba(0,255,136,0.4);padding:16px;z-index:9999;font-family:monospace;font-size:11px;min-width:260px;">
+  <div style="color:#00ff88;margin-bottom:8px;font-weight:700;">// DEV MODE</div>
+  <div style="display:flex;gap:6px;margin-bottom:6px;">
+    <input id="devToken" type="text" placeholder="TEST_REPORT_TOKEN value"
+      style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:5px 8px;font-size:10px;font-family:monospace;">
+    <button onclick="applyDevToken()" style="background:#00ff88;color:#000;border:none;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:700;">SET</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+    <button onclick="devSetTier('lite')"      style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹99</button>
+    <button onclick="devSetTier('report')"    style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹299</button>
+    <button onclick="devSetTier('portfolio')" style="background:#1e2d3d;color:#7B61FF;border:1px solid rgba(123,97,255,0.4);padding:5px;cursor:pointer;font-size:9px;">Simulate ₹199</button>
+    <button onclick="devSetTier('pro')"       style="background:#1e2d3d;color:#ffaa00;border:1px solid rgba(255,170,0,0.3);padding:5px;cursor:pointer;font-size:9px;">Simulate Pro</button>
+  </div>
+  <div id="devStatus" style="margin-top:6px;font-size:9px;color:#5a7a8a;"></div>
+</div>
+
+<script>
+  // Show dev panel if ?dev=1 in URL
+  if (new URLSearchParams(window.location.search).get('dev') === '1') {
+    document.getElementById('devPanel').style.display = 'block';
+  }
+  function applyDevToken() {
+    const tok = document.getElementById('devToken').value.trim();
+    if (!tok) return;
+    sessionStorage.setItem('qp_pro_token',   tok);
+    sessionStorage.setItem('qp_port_token',  tok);
+    sessionStorage.setItem('qp_lite_token',  tok);
+    _nTrials = 50;
+    if (typeof unlockInstitutional === 'function') unlockInstitutional();
+    document.getElementById('devStatus').textContent = '✓ Token set — full pro access active';
+    document.getElementById('devStatus').style.color = '#00ff88';
+  }
+  function devSetTier(tier) {
+    const tok = sessionStorage.getItem('qp_pro_token') || 'DEV-TOKEN-MISSING';
+    if (tier === 'pro') {
+      sessionStorage.setItem('qp_pro_token',  tok);
+      sessionStorage.setItem('qp_port_token', tok);
+      sessionStorage.setItem('qp_lite_token', tok);
+      _nTrials = 50;
+      if (typeof unlockInstitutional === 'function') unlockInstitutional();
+    } else if (tier === 'portfolio') {
+      sessionStorage.setItem('qp_port_token', tok);
+    } else if (tier === 'report') {
+      sessionStorage.setItem('qp_lite_token', tok);
+    } else if (tier === 'lite') {
+      sessionStorage.setItem('qp_lite_token', tok);
+    }
+    document.getElementById('devStatus').textContent = '✓ Simulating ' + tier + ' tier';
+    document.getElementById('devStatus').style.color = '#ffaa00';
+  }
+</script>
 
 <footer>
   <div class="container">
@@ -1009,6 +1299,15 @@
     }
   }
 
+  function togglePricing() {
+    const grid = document.getElementById('pricingGrid');
+    const chev = document.getElementById('pricingChevron');
+    if (!grid) return;
+    const open = grid.style.display !== 'none';
+    grid.style.display = open ? 'none' : 'block';
+    if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+  }
+
   function setDepth(tier) {
     if (tier === 'institutional' && !_depthUnlocked) {
       showInstitutionalTeaser();
@@ -1137,6 +1436,7 @@
     document.getElementById('heroSection').style.display      = 'none';
     document.getElementById('proofBar').style.display         = 'none';
     document.getElementById('marketingSections').style.display= 'none';
+
     document.getElementById('loadingSection').classList.add('active');
     const tc = document.getElementById('terminalCmd');
     if (tc) tc.textContent = '$ quantproof --validate trade_log.csv --n-trials ' + _nTrials;
@@ -1148,6 +1448,7 @@
       document.getElementById('heroSection').style.display      = 'block';
       document.getElementById('proofBar').style.display         = 'block';
       document.getElementById('marketingSections').style.display= 'block';
+
     }
   }
 
@@ -1181,7 +1482,8 @@
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
+      const _proH = sessionStorage.getItem('qp_pro_token') || '';
+      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: _proH ? {'x-pro-token': _proH} : {}});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -1211,7 +1513,8 @@
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
+      const _proHk = sessionStorage.getItem('qp_pro_token') || '';
+      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _proHk ? {'x-pro-token': _proHk} : {}});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -1232,6 +1535,11 @@
     const section = document.getElementById('resultsSection');
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('heroSection').style.display   = 'none';
+    // Show pricing section collapsed after first validation — user has seen value first
+    if (!isSample) {
+      const ps = document.getElementById('pricingSection');
+      if (ps) ps.style.display = 'block';
+    }
     section.classList.add('active');
     section.innerHTML = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1673,6 +1981,7 @@
     document.getElementById('heroSection').style.display      = 'block';
     document.getElementById('proofBar').style.display         = 'block';
     document.getElementById('marketingSections').style.display= 'block';
+
     document.getElementById('fileInput').value = '';
     document.getElementById('kiteFileInput').value = '';
     document.getElementById('alpacaPanel').style.display   = 'none';
@@ -1855,7 +2164,7 @@
     }
   }
 
-  function applyLiteUnlock(token) {
+  async function applyLiteUnlock(token) {
     try { sessionStorage.setItem('qp_lite_token', token); } catch(e) {}
     document.querySelectorAll('.check-item.fail .check-details').forEach(details => {
       const blurDiv = details.querySelector('[style*="blur"]');
@@ -1872,9 +2181,71 @@
     if(unlockBtn){ unlockBtn.innerText = '✓ Analysis Unlocked'; unlockBtn.disabled = true; unlockBtn.style.background = '#00cc6e'; }
     if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
     if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
-    if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for full PDF with ranked fix plan'; status.style.color = 'var(--accent)'; }
-    // Also unlock institutional depth
+    if(status){ status.innerText = '✓ Analysis unlocked — fetching your personalised AI fix plan...'; status.style.color = 'var(--accent)'; }
     if (typeof unlockInstitutional === 'function') unlockInstitutional();
+    // Fetch AI fix plan for ₹99 tier
+    const vHash = sessionStorage.getItem('qp_validation_hash');
+    if (vHash) {
+      try {
+        const aiResp = await fetch(`${API_URL}/validate/ai-fixes`, {
+          method: 'POST',
+          headers: { 'x-lite-token': token },
+          body: new URLSearchParams({ validation_hash: vHash })
+        });
+        if (aiResp.ok) {
+          const aiData = await aiResp.json();
+          renderAiFixPlan(aiData);
+          if(status) status.innerText = '✓ AI fix plan loaded — see below';
+        }
+      } catch(e) {
+        console.warn('AI fixes fetch failed:', e);
+        if(status) status.innerText = '✓ Analysis unlocked';
+      }
+    } else {
+      if(status) status.innerText = '✓ Analysis unlocked';
+    }
+  }
+
+  function renderAiFixPlan(aiData) {
+    // Find or create the AI fix panel in results section
+    let panel = document.getElementById('aiFixPanelLive');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'aiFixPanelLive';
+      panel.className = 'ai-fix-panel';
+      // Insert after the checks section
+      const checksSection = document.querySelector('.checks-section');
+      if (checksSection && checksSection.parentNode) {
+        checksSection.parentNode.insertBefore(panel, checksSection.nextSibling);
+      } else {
+        const resultsSection = document.getElementById('resultsSection');
+        if (resultsSection) resultsSection.appendChild(panel);
+      }
+    }
+    const fixes = aiData.fixes || [];
+    const summary = aiData.summary || '';
+    const isPdf = aiData.full_plan_in_pdf;
+    panel.innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:8px;">// AI FIX PLAN — BASED ON YOUR EXACT NUMBERS</div>
+      ${summary ? `<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px;">${summary}</div>` : ''}
+      ${fixes.map((fix, i) => `
+        <div class="ai-fix-item">
+          <div class="ai-fix-rank">FIX #${fix.rank || i+1} &nbsp;·&nbsp; ${fix.effort || ''} effort &nbsp;·&nbsp; ${fix.score_impact || ''}</div>
+          <div class="ai-fix-check">${fix.check || ''}</div>
+          ${fix.why_it_matters ? `<div class="ai-fix-why">${fix.why_it_matters}</div>` : ''}
+          ${fix.specific_fix ? `<div class="ai-fix-action">${fix.specific_fix}</div>` : ''}
+        </div>`).join('')}
+      ${isPdf ? `<div style="margin-top:16px;padding:12px 16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
+            Showing top 3 of ${aiData.total_failures || fixes.length} failures.
+            Full ranked plan for all failures → PDF report.
+          </div>
+          <button onclick="buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;">📄 Full PDF — ₹299 →</button>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.7;">PDF also forces n=20 institutional depth — your score may be lower and more accurate</div>
+      </div>` : `<div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--accent);opacity:0.7;">✓ Full ranked plan — all ${aiData.total_failures || fixes.length} failures shown (Pro/Report tier)</div>`}
+    `;
   }
 
   async function buyPdfReport() {
@@ -2123,6 +2494,372 @@
       setTimeout(()=>checkTVStatus(sessionId),1500);
     } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
+
+  // ── Portfolio ─────────────────────────────────────────────────────────────
+  const _portFiles = {};
+
+  function showPortfolioUpload() {
+    const tok = sessionStorage.getItem('qp_port_token') || sessionStorage.getItem('qp_pro_token') || '';
+    document.getElementById('portToken').value = tok;
+    document.getElementById('portTokenRow').style.display = tok ? 'none' : 'block';
+    document.getElementById('portfolioPanel').style.display = 'block';
+    document.getElementById('portfolioPanel').scrollIntoView({behavior:'smooth'});
+  }
+
+  function hidePortfolioPanel() {
+    document.getElementById('portfolioPanel').style.display = 'none';
+  }
+
+  function portFileChanged(n, input) {
+    if (input.files[0]) {
+      _portFiles[n] = input.files[0];
+      document.getElementById(`portFile${n}Label`).textContent = '✓ ' + input.files[0].name.slice(0,12);
+      if (!document.getElementById(`portName${n}`).value)
+        document.getElementById(`portName${n}`).value = input.files[0].name.replace('.csv','').slice(0,20);
+    }
+  }
+
+  async function handlePortfolioSubmit() {
+    const status = document.getElementById('portStatus');
+    const token  = document.getElementById('portToken').value.trim()
+                || sessionStorage.getItem('qp_port_token')
+                || sessionStorage.getItem('qp_pro_token') || '';
+
+    if (!_portFiles[1] || !_portFiles[2]) {
+      status.textContent = 'Please select at least 2 strategy CSV files.';
+      status.style.color = '#ff4444'; return;
+    }
+    if (!token) {
+      status.innerHTML = 'No token found. <a href="#" onclick="buyPortfolioUnlock()" style="color:#7B61FF;">Unlock Portfolio (₹199) →</a>';
+      status.style.color = '#7B61FF'; return;
+    }
+
+    status.textContent = 'Running portfolio analysis...';
+    status.style.color = 'var(--accent)';
+
+    const names = [1,2,3].map(n => document.getElementById(`portName${n}`).value.trim() || `Strategy ${n}`).join(',');
+    const fd = new FormData();
+    [1,2,3].forEach(n => { if (_portFiles[n]) fd.append('files', _portFiles[n]); });
+    fd.append('currency', 'USD');
+    fd.append('strategy_names', names);
+
+    try {
+      showLoading();
+      hidePortfolioPanel();
+      const resp = await fetch(`${API_URL}/validate/portfolio`, {
+        method: 'POST',
+        headers: { 'x-portfolio-token': token },
+        body: fd
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        hideLoading(true);
+        const detail = err.detail || err;
+        if (detail.error === 'payment_required') {
+          status.innerHTML = 'Token invalid or expired. <a href="#" onclick="buyPortfolioUnlock()" style="color:#7B61FF;">Unlock ₹199 →</a>';
+          showPortfolioUpload();
+        } else {
+          alert('Portfolio error: ' + (detail.message || detail));
+        }
+        return;
+      }
+      const data = await resp.json();
+      setTimeout(() => { hideLoading(); renderPortfolioResults(data); }, 2000);
+    } catch(e) {
+      hideLoading(true);
+      status.textContent = 'Error: ' + e.message;
+      status.style.color = '#ff4444';
+    }
+  }
+
+  function renderPortfolioResults(data) {
+    const section = document.getElementById('resultsSection');
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('heroSection').style.display   = 'none';
+    section.classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+
+    const strats  = data.strategies || [];
+    const mat     = data.correlation_matrix || [];
+    const names   = data.strategy_names || strats.map(s => s.name);
+    const n       = names.length;
+    const divScore= data.diversification_score || 0;
+    const divCol  = divScore >= 70 ? '#F5B700' : divScore >= 45 ? '#ffaa00' : '#ff4444';
+
+    const offDiag = [];
+    for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) offDiag.push((mat[i]||[])[j]||0);
+    const avgCorr = offDiag.length
+      ? (offDiag.reduce((a,b)=>a+b,0)/offDiag.length).toFixed(2) : '—';
+
+    const shCol = c => c>=1.5?'var(--accent)':c>=0.8?'#F5B700':c>=0?'#ffaa00':'#ff4444';
+    const scCol = c => c>=70?'var(--accent)':c>=50?'#F5B700':'#ff4444';
+    const ddCol = d => Math.abs(d)<0.1?'var(--accent)':Math.abs(d)<0.2?'#ffaa00':'#ff4444';
+
+    section.innerHTML = `
+      <div style="background:var(--deep);border:1px solid rgba(245,183,0,0.3);margin-bottom:20px;">
+
+        <!-- Gold header bar -->
+        <div style="background:rgba(245,183,0,0.06);border-bottom:1px solid rgba(245,183,0,0.2);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;color:#F5B700;letter-spacing:0.15em;margin-bottom:2px;">// PORTFOLIO ANALYSIS</div>
+            <div style="font-size:11px;color:var(--muted);">${n} strategies validated &nbsp;·&nbsp; 44 checks each &nbsp;·&nbsp; Pearson correlation on daily PnL</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:${divCol};">${divScore}<span style="font-size:14px;color:var(--muted);font-weight:400;">/100</span></div>
+        </div>
+
+        <!-- 4 combined stats -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);">
+          ${[
+            ['DIVERSIFICATION', divScore+'/100', divCol, 'Higher = more independent'],
+            ['AVG CORRELATION', avgCorr, Math.abs(avgCorr)<0.3?'var(--accent)':Math.abs(avgCorr)<0.6?'#ffaa00':'#ff4444', 'Target: < 0.30'],
+            ['COMBINED SHARPE', data.combined_sharpe, shCol(data.combined_sharpe), 'Equal-weight portfolio'],
+            ['COMBINED MAX DD', (Math.abs(data.combined_drawdown||0)*100).toFixed(1)+'%', ddCol(data.combined_drawdown), 'Blended drawdown'],
+          ].map(([lbl,val,col,sub],i)=>`
+            <div style="padding:16px 18px;${i<3?'border-right:1px solid var(--border);':''}">
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">${lbl}</div>
+              <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col};">${val}</div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;">${sub}</div>
+            </div>`).join('')}
+        </div>
+
+        <!-- Verdict -->
+        <div style="padding:16px 24px;border-bottom:1px solid var(--border);font-size:13px;color:var(--muted);line-height:1.75;">
+          ${data.portfolio_verdict||''}
+        </div>
+
+        <!-- Tabs -->
+        <div style="padding:0 24px;">
+          <div class="port-tabs" id="portTabs">
+            <button class="port-tab active" onclick="portTab('overview')">Overview</button>
+            <button class="port-tab" onclick="portTab('checks')">Checks Detail</button>
+            <button class="port-tab" onclick="portTab('correlation')">Correlation</button>
+          </div>
+        </div>
+
+        <!-- TAB: OVERVIEW -->
+        <div id="portTabOverview" style="padding:0 24px 24px;">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            ${strats.map((s,idx)=>{
+              const sc   = s.fundable_score||0;
+              const pct  = s.checks_passed&&s.checks_total ? Math.round(s.checks_passed/s.checks_total*100) : 0;
+              const crash= (s.crash_survived!=null&&s.crash_total) ? `${s.crash_survived}/${s.crash_total} crashes` : '';
+              const fmt  = s.source_format||'CSV';
+              return `<div class="port-strategy-card">
+                <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                      <div style="font-family:var(--mono);font-size:9px;color:#F5B700;letter-spacing:0.1em;">S${idx+1}</div>
+                      <div style="font-size:14px;font-weight:700;color:var(--text);">${s.name}</div>
+                      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--deep);padding:2px 7px;border:1px solid var(--border);">${fmt}</div>
+                      ${crash?`<div style="font-family:var(--mono);font-size:9px;color:var(--muted);">${crash}</div>`:''}
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+                      ${[
+                        ['SHARPE', s.sharpe, shCol(s.sharpe)],
+                        ['MAX DD', (Math.abs(s.max_drawdown||0)*100).toFixed(1)+'%', ddCol(s.max_drawdown)],
+                        ['WIN RATE', s.win_rate+'%', 'var(--text)'],
+                        ['TRADES', s.total_trades, 'var(--text)'],
+                      ].map(([l,v,c])=>`<div style="background:var(--deep);padding:8px 10px;">
+                        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-bottom:3px;">${l}</div>
+                        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:${c};">${v}</div>
+                      </div>`).join('')}
+                    </div>
+                    ${s.date_range&&s.date_range!='No date data'?`<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;">${s.date_range}</div>`:''}
+                    ${(s.top_issues||[]).length?`<div style="font-family:var(--mono);font-size:9px;color:#ff6b6b;line-height:1.7;">${s.top_issues.slice(0,2).map(i=>'⚠ '+i).join('<br>')}</div>`:''}
+                    ${(s.top_strengths||[]).length?`<div style="font-family:var(--mono);font-size:9px;color:var(--accent);line-height:1.7;margin-top:4px;">${s.top_strengths.slice(0,2).map(i=>'✓ '+i).join('<br>')}</div>`:''}
+                  </div>
+                  <div style="text-align:center;min-width:70px;">
+                    <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:${scCol(sc)};line-height:1;">${sc}</div>
+                    <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;">${s.grade||''}</div>
+                    <div class="port-check-bar" style="margin-top:8px;"><div class="port-check-fill" style="width:${pct}%;background:${scCol(sc)};"></div></div>
+                    <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:3px;">${s.checks_passed||0}/${s.checks_total||44} pass</div>
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- TAB: CHECKS DETAIL (hidden by default) -->
+        <div id="portTabChecks" style="display:none;padding:0 24px 24px;">
+          ${strats.map((s,idx)=>`
+            <div style="margin-bottom:20px;">
+              <div style="font-family:var(--mono);font-size:10px;color:#F5B700;letter-spacing:0.1em;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
+                S${idx+1} — ${s.name} — Score: ${s.fundable_score}
+              </div>
+              ${(s.checks||[]).filter(c=>!c.passed).slice(0,8).map(c=>`
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                    <span style="font-family:var(--mono);font-size:10px;color:#ff6b6b;">✗ ${c.name}</span>
+                    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${c.category} · ${c.score}/100</span>
+                  </div>
+                  ${c.insight?`<div style="font-size:11px;color:var(--muted);line-height:1.6;">${c.insight}</div>`:''}
+                  ${c.fix?`<div style="font-size:11px;color:#F5B700;margin-top:3px;">Fix: ${c.fix}</div>`:''}
+                </div>`).join('')}
+              ${(s.checks||[]).filter(c=>c.passed&&(c.score||0)>=80).slice(0,4).map(c=>`
+                <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);">
+                  <span style="font-family:var(--mono);font-size:10px;color:var(--accent);">✓ ${c.name}</span>
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:10px;">${c.score}/100</span>
+                </div>`).join('')}
+            </div>`).join('')}
+        </div>
+
+        <!-- TAB: CORRELATION (hidden by default) -->
+        <div id="portTabCorrelation" style="display:none;padding:0 24px 24px;">
+          <div style="overflow-x:auto;margin-bottom:16px;">
+            <table style="border-collapse:collapse;font-family:var(--mono);font-size:12px;width:100%;">
+              <thead>
+                <tr>
+                  <th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);text-align:left;font-size:9px;color:var(--muted);letter-spacing:0.08em;">STRATEGY</th>
+                  ${names.map(nm=>`<th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:9px;letter-spacing:0.06em;">${nm.slice(0,14)}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>
+                ${mat.map((row,i)=>`<tr>
+                  <th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);text-align:left;font-size:9px;color:var(--muted);font-weight:600;white-space:nowrap;">${(names[i]||'').slice(0,14)}</th>
+                  ${row.map((v,j)=>{
+                    const av=Math.abs(v);
+                    const isD=i===j;
+                    const bg=isD?'rgba(245,183,0,0.08)':av<0.3?'rgba(0,255,136,0.05)':av<0.6?'rgba(255,170,0,0.08)':'rgba(255,68,68,0.1)';
+                    const cl=isD?'#F5B700':v<0?'var(--accent)':av<0.3?'var(--accent)':av<0.6?'#ffaa00':'#ff4444';
+                    return `<td style="padding:12px 14px;text-align:center;background:${bg};border:1px solid var(--border);color:${cl};font-weight:700;">${Number(v).toFixed(2)}</td>`;
+                  }).join('')}
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-family:var(--mono);font-size:9px;">
+            <div style="padding:10px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15);">
+              <div style="color:var(--accent);margin-bottom:3px;">GREEN — GOOD</div>
+              <div style="color:var(--muted);">Below 0.30 · Strategies move independently · Full diversification benefit</div>
+            </div>
+            <div style="padding:10px;background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.15);">
+              <div style="color:#ffaa00;margin-bottom:3px;">AMBER — CAUTION</div>
+              <div style="color:var(--muted);">0.30–0.60 · Partial overlap · Some diversification but correlated drawdowns</div>
+            </div>
+            <div style="padding:10px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15);">
+              <div style="color:#ff4444;margin-bottom:3px;">RED — HIGH CORR</div>
+              <div style="color:var(--muted);">Above 0.60 · Minimal diversification · Will drawdown together</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">
+            Negative correlation = hedge — strategies offset each other. Institutional target: avg off-diagonal &lt; 0.30.
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">
+            Portfolio validated at n=10 · Equal-weight · Pearson correlation on PnL series
+          </div>
+          <button onclick="resetApp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;font-family:var(--mono);font-size:10px;cursor:pointer;">← Run Another</button>
+        </div>
+
+      </div>`;
+
+    // Show pricing after portfolio results too
+    const ps = document.getElementById('pricingSection');
+    if (ps) ps.style.display = 'block';
+  }
+
+  function portTab(name) {
+    ['overview','checks','correlation'].forEach(t => {
+      const el = document.getElementById('portTab'+t.charAt(0).toUpperCase()+t.slice(1));
+      if (el) el.style.display = t===name ? 'block' : 'none';
+    });
+    document.querySelectorAll('.port-tab').forEach((btn,i)=>{
+      btn.classList.toggle('active', ['overview','checks','correlation'][i]===name);
+    });
+  }
+
+  // ── Pro Plan ──────────────────────────────────────────────────────────────
+  async function buyPortfolioUnlock() {
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-portfolio`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Portfolio Analysis Unlock',
+        order_id: data.order_id, theme: {color:'#7B61FF'},
+        handler: async function(response) {
+          const vr = await fetch(`${API_URL_REPORT}/report/webhook-portfolio`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_signature:  response.razorpay_signature
+            })
+          });
+          const vd = await vr.json();
+          if (vd.token) {
+            sessionStorage.setItem('qp_port_token', vd.token);
+            document.getElementById('portToken').value = vd.token;
+            document.getElementById('portTokenRow').style.display = 'none';
+            const s = document.getElementById('portStatus');
+            if (s) { s.textContent = '✓ Portfolio unlocked — you can now analyse your strategies.'; s.style.color='var(--accent)'; }
+          }
+        },
+        modal: { ondismiss: function(){} }
+      };
+      const rzp = new Razorpay(options); rzp.open();
+    } catch(e) { alert('Portfolio unlock error: ' + e.message); }
+  }
+
+  async function buyProPlan() {
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-pro`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Pro Plan — 30 days unlimited',
+        order_id: data.order_id, theme: {color:'#7B61FF'},
+        handler: async function(response) {
+          const vr = await fetch(`${API_URL_REPORT}/report/webhook-pro`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_signature:  response.razorpay_signature
+            })
+          });
+          const vd = await vr.json();
+          if (vd.token) {
+            sessionStorage.setItem('qp_pro_token', vd.token);
+            sessionStorage.setItem('qp_port_token', vd.token);
+            sessionStorage.setItem('qp_lite_token', vd.token);
+            // Unlock everything
+            if (typeof unlockInstitutional === 'function') unlockInstitutional();
+            _nTrials = 50;
+            document.getElementById('sliderVal') && (document.getElementById('sliderVal').textContent = '50');
+            document.getElementById('depthSlider') && (document.getElementById('depthSlider').value = '50');
+            alert('✓ Pro Plan activated — 30 days of unlimited access. Reload to apply full benefits.');
+          }
+        },
+        modal: { ondismiss: function(){} }
+      };
+      const rzp = new Razorpay(options); rzp.open();
+    } catch(e) { alert('Pro plan error: ' + e.message); }
+  }
+
+  // ── On load: restore tokens ────────────────────────────────────────────────
+  (function restoreTokens() {
+    const proTok  = sessionStorage.getItem('qp_pro_token');
+    const portTok = sessionStorage.getItem('qp_port_token');
+    if (proTok) {
+      _nTrials = 50;
+      if (typeof unlockInstitutional === 'function') {
+        // delay until DOM ready
+        document.addEventListener('DOMContentLoaded', unlockInstitutional);
+      }
+    }
+  })();
+
 </script>
 
 <script>
