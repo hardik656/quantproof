@@ -4049,39 +4049,40 @@ async def generate_broker_report(
     print(f"[DEBUG] Broker PDF - Cache hit, proceeding with PDF generation")
     
     if not cached_vr.get("ai_plan"):
-            try:
-                class _CachedCheck:
-                    def __init__(self, d): self.__dict__.update(d)
-                class _CachedReport:
-                    def __init__(self, vr):
-                        self.score = vr["fundable_score"]; self.grade = vr["grade"]
-                        self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
-                        self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
-                        self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
-                        self.audit_flags = []
-                cached_vr["ai_plan"] = await generate_ai_plan(
-                    _CachedReport(cached_vr), cached_vr.get("date_range", "")
-                )
-            except Exception as _e:
-                issues = cached_vr.get("top_issues", [])
-                cached_vr["ai_plan"] = {
-                    "summary": "Top improvements: " + "; ".join(issues[:3]) if issues else "See failed checks above.",
-                    "fixes": [],
-                    "encouragement": ""
-                } if issues else None
-        if not _PDF_AVAILABLE:
-            raise HTTPException(503, "PDF module not available.")
         try:
-            async with _PDF_SEMAPHORE:
-                pdf_bytes = _generate_pdf_report(cached_vr)
-        except Exception as e:
-            raise HTTPException(500, f"PDF generation failed: {str(e)}")
-        score     = int(cached_vr["fundable_score"])
-        grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
-        return Response(
-            content=pdf_bytes, media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
-        )
+            class _CachedCheck:
+                def __init__(self, d): self.__dict__.update(d)
+            class _CachedReport:
+                def __init__(self, vr):
+                    self.score = vr["fundable_score"]; self.grade = vr["grade"]
+                    self.sharpe = vr["sharpe"]; self.max_drawdown = vr["max_drawdown"]
+                    self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
+                    self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
+                    self.audit_flags = []
+            cached_vr["ai_plan"] = await generate_ai_plan(
+                _CachedReport(cached_vr), cached_vr.get("date_range", "")
+            )
+        except Exception as _e:
+            issues = cached_vr.get("top_issues", [])
+            cached_vr["ai_plan"] = {
+                "summary": "Top improvements: " + "; ".join(issues[:3]) if issues else "See failed checks above.",
+                "fixes": [],
+                "encouragement": ""
+            } if issues else None
+    
+    if not _PDF_AVAILABLE:
+        raise HTTPException(503, "PDF module not available.")
+    try:
+        async with _PDF_SEMAPHORE:
+            pdf_bytes = _generate_pdf_report(cached_vr)
+    except Exception as e:
+        raise HTTPException(500, f"PDF generation failed: {str(e)}")
+    score     = int(cached_vr["fundable_score"])
+    grade_str = cached_vr["grade"].split("—")[0].strip().replace(" ", "")
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="QuantProof_VERIFIED_Report_{grade_str}_{score}.pdf"'}
+    )
 
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
@@ -5491,6 +5492,7 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
 
