@@ -170,36 +170,64 @@ const QP_Charts = (function () {
   }
   function chartOpts(ov) { return _merge(CHART_DEFAULTS, ov || {}); }
 
-  function renderEquityChart(canvasId, equitySeries) {
+  function renderEquityChart(canvasId, equitySeries, drawdownSeries) {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     const labels   = equitySeries.map((_, i) => `T${i + 1}`);
     const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, ctx.offsetHeight || 200);
-    gradient.addColorStop(0, 'rgba(0,255,136,0.20)');
+    gradient.addColorStop(0, 'rgba(0,255,136,0.15)');
     gradient.addColorStop(1, 'rgba(0,255,136,0)');
+    const dd = drawdownSeries || equitySeries.map(() => 0);
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          data: equitySeries,
-          borderColor: '#00ff88',
-          borderWidth: 2,
-          fill: true,
-          backgroundColor: gradient,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#00ff88',
-        }]
+        datasets: [
+          // IMPROVEMENT 2: flat baseline at starting equity (break-even reference)
+          {
+            data: Array(equitySeries.length).fill(equitySeries[0] || 100),
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            fill: false,
+            pointRadius: 0,
+            tension: 0,
+            tooltip: { enabled: false },
+          },
+          // IMPROVEMENT 3: equity curve coloured by drawdown depth
+          {
+            data: equitySeries,
+            borderColor: '#00ff88',
+            borderWidth: 2,
+            fill: true,
+            backgroundColor: gradient,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: '#00ff88',
+            // segment colouring: green=ATH, amber=minor DD, red=major DD
+            segment: {
+              borderColor: ctx => {
+                const d = Math.abs(dd[ctx.p1DataIndex] || 0);
+                if (d < 1)  return '#00ff88';
+                if (d < 5)  return '#ffaa00';
+                return '#ff5544';
+              }
+            }
+          }
+        ]
       },
       options: chartOpts({
         plugins: {
           tooltip: {
+            filter: item => item.datasetIndex === 1,
             callbacks: {
               title: items => `Trade ${items[0].label.replace('T', '')}`,
-              label: item  => ` Equity: ${item.parsed.y.toFixed(2)}`
+              label: item  => {
+                const d = dd[item.dataIndex] || 0;
+                return [` Equity: ${item.parsed.y.toFixed(2)}`, ` DD: ${d.toFixed(2)}%`];
+              }
             }
           }
         },
@@ -231,8 +259,14 @@ const QP_Charts = (function () {
         }]
       },
       options: chartOpts({
-        plugins: { tooltip: { callbacks: { label: item => ` DD: ${item.parsed.y.toFixed(2)}%` } } },
-        scales:  { y: { ticks: { callback: v => `${v.toFixed(0)}%` } } }
+        plugins: { tooltip: { callbacks: {
+          title: items => `Trade ${items[0].label.replace('T','')}`,
+          label: item  => ` DD: ${item.parsed.y.toFixed(2)}%`
+        }}},
+        scales: {
+          x: { ticks: { maxTicksLimit: 5, font: { size: 8 }, color: '#1e3040' }, grid: { color: 'rgba(30,45,61,0.4)' } },
+          y: { ticks: { maxTicksLimit: 3, font: { size: 8 }, callback: v => `${v.toFixed(0)}%` }, grid: { color: 'rgba(30,45,61,0.4)' } }
+        }
       })
     });
   }
@@ -389,7 +423,7 @@ const QP_Charts = (function () {
   }
 
   function switchTab(id) {
-    ['equity', 'drawdown', 'rolling', 'montecarlo', 'radar', 'crash'].forEach(p => {
+    ['equity', 'rolling', 'montecarlo', 'radar', 'crash'].forEach(p => {
       const el = document.getElementById(`qp-panel-${p}`);
       if (el) el.style.display = p === id ? '' : 'none';
     });
@@ -406,8 +440,7 @@ const QP_Charts = (function () {
   function _lazyRender(id) {
     if (!_store.equity) return;
     const { equity, drawdown, rolling, mc, checks, crashSims, reportedSharpe } = _store;
-    if (id === 'equity')      renderEquityChart('qp-canvas-equity', equity);
-    if (id === 'drawdown')    renderDrawdownChart('qp-canvas-drawdown', drawdown);
+    if (id === 'equity')    { renderEquityChart('qp-canvas-equity', equity, drawdown); renderDrawdownChart('qp-canvas-drawdown', drawdown); }
     if (id === 'rolling')     renderRollingSharpeChart('qp-canvas-rolling', rolling, reportedSharpe);
     if (id === 'montecarlo')  renderMonteCarloChart('qp-canvas-montecarlo', equity, mc);
     if (id === 'radar')     { renderCategoryRadar('qp-canvas-radar', checks); renderRadarLegend(checks); }
@@ -419,7 +452,7 @@ const QP_Charts = (function () {
     const curveNote = isReal ? '// actual trade-by-trade equity curve' : `// illustrative — derived from Sharpe ${data.sharpe}`;
     const mcNote    = isReal ? '// resampled from actual returns' : '// resampled from synthetic returns';
     const tabs = [
-      ['equity', '// Equity Curve'], ['drawdown', '// Drawdown'],
+      ['equity', '// Equity Curve'],
       ['rolling', '// Rolling Sharpe'], ['montecarlo', '// Monte Carlo'],
       ['radar', '// Category Radar'], ['crash', '// Crash vs Market'],
     ];
@@ -437,7 +470,7 @@ const QP_Charts = (function () {
   <div style="background:#0d1117;border:1px solid #1e2d3d;padding:20px 24px;">
 
     <div id="qp-panel-equity">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
         <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
           Equity Curve <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">${curveNote}</span>
         </div>
@@ -447,17 +480,13 @@ const QP_Charts = (function () {
           <span>Trades&nbsp;<b style="color:${sc}">${data.total_trades}</b></span>
         </div>
       </div>
-      <div style="height:220px;"><canvas id="qp-canvas-equity"></canvas></div>
-    </div>
-
-    <div id="qp-panel-drawdown" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;font-weight:700;">
-          Drawdown Profile <span style="font-size:9px;color:#5a7a8a;font-weight:400;margin-left:8px;">// max DD: ${(data.max_drawdown * 100).toFixed(1)}%</span>
-        </div>
-        <span style="font-family:Space Mono,monospace;font-size:10px;color:#ff4444;font-weight:700;">${(data.max_drawdown * 100).toFixed(1)}% max drawdown</span>
+      <div style="height:200px;"><canvas id="qp-canvas-equity"></canvas></div>
+      <!-- STACKED: Drawdown always visible below equity -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:4px;">
+        <div style="font-family:Space Mono,monospace;font-size:9px;color:#5a7a8a;letter-spacing:0.06em;">DRAWDOWN</div>
+        <span style="font-family:Space Mono,monospace;font-size:9px;color:#ff4444;">${(data.max_drawdown * 100).toFixed(1)}% max</span>
       </div>
-      <div style="height:180px;"><canvas id="qp-canvas-drawdown"></canvas></div>
+      <div style="height:72px;"><canvas id="qp-canvas-drawdown"></canvas></div>
     </div>
 
     <div id="qp-panel-rolling" style="display:none;">
@@ -521,7 +550,10 @@ const QP_Charts = (function () {
     _store.reportedSharpe = data.sharpe || 1;
 
     target.innerHTML = _buildHTML(data, isReal);
-    setTimeout(() => renderEquityChart('qp-canvas-equity', equity), 100);
+    setTimeout(() => {
+      renderEquityChart('qp-canvas-equity', equity, drawdown);
+      renderDrawdownChart('qp-canvas-drawdown', drawdown);
+    }, 100);
   }
 
   return { init, destroy, switchTab };
