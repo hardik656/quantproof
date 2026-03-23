@@ -1346,7 +1346,175 @@ def generate_pdf_report(vr: dict) -> bytes:
                     _s("sp", fontSize=9, leading=13, textColor=C_DARK,
                        fontName="Helvetica-Oblique")))
 
-    # ── DISCLAIMER ────────────────────────────────────────────────────────────
+    # -- SEBI COMPLIANCE PAGE --
+    sebi_checks = vr.get("sebi_checks") or {}
+    sebi_decl   = vr.get("sebi_declaration") or {}  # self-declared answers from frontend
+
+    if sebi_checks:
+        story.append(PageBreak())
+        story.append(Paragraph("SEBI Algo Framework — Compliance Pre-Check",
+            _s("h2", fontSize=14, fontName="Helvetica-Bold",
+               textColor=HexColor("#ffaa00"), spaceAfter=4)))
+        story.append(Paragraph("April 2026 | Kite TradeBook Validation",
+            _s("sp", fontSize=9, textColor=C_DARK, spaceAfter=6)))
+        story.append(Paragraph(
+            "3 of 5 checks verified from trade data. 2 are self-declared. "
+            "SEBI compliance is shown separately — it does not affect the Fundable Score.",
+            _s("sp", fontSize=9, leading=13, textColor=C_DARK, spaceAfter=16)))
+
+        # Method labels
+        METHOD_COLORS = {
+            "FROM_DATA":    HexColor("#00ff88"),
+            "SOFT_CHECK":   HexColor("#ffaa00"),
+            "SELF_DECLARED":HexColor("#5a7a8a"),
+        }
+
+        def _sebi_row(label, method, status_label, status_ok, detail, warning=""):
+            method_col = METHOD_COLORS.get(method, C_DARK)
+            status_col = HexColor("#00ff88") if status_ok else HexColor("#ff4444")
+            if "WARNING" in status_label or "NOT CHECKED" in status_label or "UNCONFIRMED" in status_label:
+                status_col = HexColor("#ffaa00")
+            method_str = method.replace("_", " ")
+            rows = [[
+                Paragraph(f"<b>{label}</b><br/><font size=8 color='#5a7a8a'>{detail}</font>"
+                          + (f"<br/><font size=8 color='#ff8844'>{warning}</font>" if warning else ""),
+                          _s("sp", fontSize=9, leading=13)),
+                Paragraph(method_str,
+                          _s("sp", fontSize=8, textColor=method_col, fontName="Helvetica-Oblique")),
+                Paragraph(status_label,
+                          _s("sp", fontSize=9, fontName="Helvetica-Bold", textColor=status_col)),
+            ]]
+            t = Table(rows, colWidths=[310, 90, 80])
+            t.setStyle(TableStyle([
+                ("VALIGN",     (0,0), (-1,-1), "TOP"),
+                ("LINEBELOW",  (0,0), (-1,-1), 0.5, HexColor("#1e2d3d")),
+                ("TOPPADDING", (0,0), (-1,-1), 8),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+                ("LEFTPADDING",  (0,0), (0,-1), 0),
+            ]))
+            return t
+
+        # Header row
+        hdr = Table([["CHECK", "METHOD", "RESULT"]],
+                    colWidths=[310, 90, 80])
+        hdr.setStyle(TableStyle([
+            ("FONTNAME",       (0,0), (-1,-1), "Helvetica-Bold"),
+            ("FONTSIZE",       (0,0), (-1,-1), 8),
+            ("TEXTCOLOR",      (0,0), (-1,-1), C_DARK),
+            ("LINEBELOW",      (0,0), (-1,-1), 0.5, HexColor("#1e2d3d")),
+            ("BOTTOMPADDING",  (0,0), (-1,-1), 6),
+            ("LEFTPADDING",    (0,0), (0,-1),  0),
+        ]))
+        story.append(hdr)
+
+        # OPS threshold
+        ops = sebi_checks.get("ops_threshold", {})
+        story.append(_sebi_row(
+            "OPS Threshold (<10 orders/second)", "FROM_DATA",
+            "PASS" if ops.get("passed", True) else "FAIL",
+            ops.get("passed", True),
+            f"Max order frequency: {ops.get('value','N/A')} orders/second. "
+            + ("Within SEBI limit." if ops.get("passed", True) else "Exceeds 10 OPS — mandatory registration required."),
+            "" if ops.get("passed", True) else "Strategies above 10 OPS require mandatory exchange registration.",
+        ))
+
+        # Session logout
+        sess = sebi_checks.get("session_logout", {})
+        story.append(_sebi_row(
+            "Daily Session Logout", "FROM_DATA",
+            "PASS" if sess.get("passed", True) else "WARNING",
+            sess.get("passed", True),
+            "No orders detected outside NSE market hours." if sess.get("passed", True)
+            else f"{sess.get('value',0)} order(s) detected outside market hours — verify API auto-logout.",
+            "" if sess.get("passed", True) else "SEBI requires automated daily logout before the next trading day.",
+        ))
+
+        # Static IP
+        ip = sebi_checks.get("ip_check", {})
+        ip_result = ip.get("result", "not_entered")
+        ip_label  = "PASS" if ip_result == "match" else ("MISMATCH" if ip_result == "mismatch" else "NOT CHECKED")
+        ip_ok     = ip_result == "match"
+        ip_detail = (
+            "Current IP matches registered IP. Note: soft check only — VPN use would bypass this."
+            if ip_result == "match" else
+            f"Current IP does not match registered IP ({ip.get('registered_ip','')})."
+            if ip_result == "mismatch" else
+            "No registered IP provided. Verify directly with Zerodha that your API app has a registered static IP."
+        )
+        story.append(_sebi_row(
+            "Static IP Registration", "SOFT_CHECK", ip_label, ip_ok, ip_detail,
+            "IP mismatch — algo orders must originate from your registered static IP." if ip_result == "mismatch" else "",
+        ))
+
+        # Algo-ID (self-declared)
+        algo_id = sebi_decl.get("algo_id", "unsure")
+        aid_label  = "DECLARED" if algo_id == "yes" else ("NOT REGISTERED" if algo_id == "no" else "UNCONFIRMED")
+        aid_ok     = algo_id == "yes"
+        aid_detail = (
+            "You declared this strategy has an exchange-assigned Algo-ID. QuantProof cannot independently verify this."
+            if algo_id == "yes" else
+            "You declared no Algo-ID. SEBI requires all automated strategies to carry an Algo-ID from April 2026."
+            if algo_id == "no" else
+            "Status unknown — contact Zerodha to confirm Algo-ID registration status."
+        )
+        story.append(_sebi_row(
+            "Algo-ID Registration", "SELF_DECLARED", aid_label, aid_ok, aid_detail,
+            "Register with Zerodha before April 1 2026 to receive an Algo-ID." if algo_id == "no" else "",
+        ))
+
+        # White/black box (self-declared)
+        box_type   = sebi_decl.get("box_type", "white")
+        box_label  = "WHITE BOX" if box_type == "white" else "BLACK BOX"
+        box_ok     = box_type == "white"
+        box_detail = (
+            "You declared transparent strategy logic. White box strategies can be registered directly through your broker."
+            if box_type == "white" else
+            "You declared proprietary/hidden logic. Black box algos require a SEBI-registered Research Analyst (RA) license."
+        )
+        story.append(_sebi_row(
+            "White Box / Black Box Classification", "SELF_DECLARED", box_label, box_ok, box_detail,
+            "Consult a SEBI-registered RA for black box compliance requirements." if box_type == "black" else "",
+        ))
+
+        story.append(Spacer(1, 16))
+
+        # Score impact box
+        base_score  = vr.get("fundable_score", 0)
+        impact      = (8 if algo_id == "no" else 0) + (6 if box_type == "black" else 0)                     + (10 if not ops.get("passed", True) else 0)                     + (5  if ip_result == "mismatch" else 0)
+        proj_low    = max(0, base_score - impact - 5)
+        proj_high   = max(0, base_score - impact)
+
+        impact_box = Table([[
+            Paragraph(
+                f"<b>Score Impact — Illustrative Only</b><br/>"
+                f"Current Fundable Score: <b>{base_score}/100</b>. "
+                f"If SEBI checks were factored in, unresolved failures could reduce your score to approximately "
+                f"<b>{proj_low}–{proj_high}/100</b>.<br/>"
+                f"<font size=8 color='#5a7a8a'>This is illustrative only. SEBI compliance is not currently factored into the Fundable Score. "
+                f"When full verification infrastructure is available, only verified data will be used — not self-declarations.</font>",
+                _s("sp", fontSize=9, leading=13))
+        ]], colWidths=[480])
+        impact_box.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,-1), HexColor("#1a1500")),
+            ("BOX",           (0,0), (-1,-1), 0.5, HexColor("#ffaa00")),
+            ("TOPPADDING",    (0,0), (-1,-1), 10),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+            ("LEFTPADDING",   (0,0), (-1,-1), 12),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 12),
+        ]))
+        story.append(impact_box)
+        story.append(Spacer(1, 12))
+
+        # Disclaimer
+        story.append(Paragraph(
+            "DISCLAIMER: QuantProof is not a legal compliance tool. This section is informational only. "
+            "3 of 5 checks are verified from trade data. 2 are self-certified by the user — QuantProof cannot independently verify them. "
+            "Static IP is a soft comparison only — QuantProof does not store IP addresses. "
+            "Consult SEBI circulars and your broker for authoritative compliance guidance.",
+            _s("sp", fontSize=8, leading=12, textColor=C_DARK)))
+
+    # -- DISCLAIMER --
+
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 3*mm))
