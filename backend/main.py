@@ -3219,21 +3219,21 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             validation_hash=r.validation_hash + "-VERIFIED",
             validation_date=r.validation_date,
             engine_version=r.engine_version + "-VERIFIED",
-audit_flags=r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []) + [
+            audit_flags=r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []) + [
     f"Source: Alpaca {'Paper' if is_paper else 'Live'} Trading API",
     "Trades independently verified - not user-uploaded",
     "Credential handling: keys discarded after fetch, never logged",
 ],
-plausibility_summary=r.plausibility_summary,
-assumptions=r.assumptions + [
+            plausibility_summary=r.plausibility_summary,
+            assumptions=r.assumptions + [
     "Trade data sourced directly from Alpaca API - not user-submitted",
     f"Account type: {'paper trading' if is_paper else 'live trading'}",
     "API credentials were used read-only and discarded after data fetch",
 ],
-dashboard=dashboard_data,
-ai_plan=None,
-scale_warning=False,
-currency=acct_currency,
+            dashboard=dashboard_data,
+            ai_plan=None,
+            scale_warning=False,
+            currency=acct_currency,
             equity_curve=getattr(r, 'equity_curve', None),
         )
     except HTTPException:
@@ -5460,3 +5460,5 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
