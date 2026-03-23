@@ -175,8 +175,9 @@ const QP_Charts = (function () {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     const labels   = equitySeries.map((_, i) => `T${i + 1}`);
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, ctx.offsetHeight || 200);
-    gradient.addColorStop(0, 'rgba(0,255,136,0.15)');
+    const eqH = ctx.offsetHeight || 200;
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, eqH);
+    gradient.addColorStop(0, 'rgba(0,255,136,0.12)');
     gradient.addColorStop(1, 'rgba(0,255,136,0)');
     const dd = drawdownSeries || equitySeries.map(() => 0);
     _charts[canvasId] = new Chart(ctx, {
@@ -184,16 +185,17 @@ const QP_Charts = (function () {
       data: {
         labels,
         datasets: [
-          // IMPROVEMENT 2: flat baseline at starting equity (break-even reference)
+          // Baseline: faint dashed line at starting equity
           {
             data: Array(equitySeries.length).fill(equitySeries[0] || 100),
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: 'rgba(180,180,180,0.18)',
             borderWidth: 1,
             borderDash: [4, 4],
             fill: false,
             pointRadius: 0,
+            pointHoverRadius: 0,
             tension: 0,
-            tooltip: { enabled: false },
+            order: 2,
           },
           // IMPROVEMENT 3: equity curve coloured by drawdown depth
           {
@@ -206,13 +208,15 @@ const QP_Charts = (function () {
             pointRadius: 0,
             pointHoverRadius: 4,
             pointHoverBackgroundColor: '#00ff88',
-            // segment colouring: green=ATH, amber=minor DD, red=major DD
+            // segment colouring: green=ATH/minor, amber=moderate, red=severe
             segment: {
               borderColor: ctx => {
                 const d = Math.abs(dd[ctx.p1DataIndex] || 0);
-                if (d < 1)  return '#00ff88';
-                if (d < 5)  return '#ffaa00';
-                return '#ff5544';
+                const maxDD = Math.abs(Math.min(...dd));
+                // Thresholds relative to strategy's own max DD
+                if (d < maxDD * 0.15) return '#00ff88';   // near ATH
+                if (d < maxDD * 0.50) return '#ffaa00';   // moderate DD
+                return '#ff5544';                          // major DD
               }
             }
           }
@@ -241,9 +245,10 @@ const QP_Charts = (function () {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     const labels   = drawdownSeries.map((_, i) => `T${i + 1}`);
-    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, ctx.offsetHeight || 120);
-    gradient.addColorStop(0, 'rgba(255,68,68,0)');
-    gradient.addColorStop(1, 'rgba(255,68,68,0.20)');
+    const h = ctx.offsetHeight || 80;
+    const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, 'rgba(255,68,68,0.05)');
+    gradient.addColorStop(1, 'rgba(255,68,68,0.30)');
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
