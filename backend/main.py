@@ -4013,6 +4013,9 @@ async def generate_broker_report(
     payload: BrokerReportRequest,
     x_report_token: str = Header(default=""),
 ):
+    print(f"[DEBUG] Broker PDF payload: {payload}")
+    print(f"[DEBUG] Broker PDF token: {x_report_token[:10] if x_report_token else 'None'}...")
+
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
         if _test_tok and token == _test_tok: return True
@@ -4180,6 +4183,8 @@ async def generate_broker_report(
         "top_strengths": top_strengths,
         "audit_flags":   report.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
         "equity_curve": getattr(report, 'equity_curve', None),
+        "sebi_checks": _compute_sebi_checks(df, request, registered_ip),
+        "sebi_declaration": {"algo_id": "unsure", "box_type": "white"},
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -5478,6 +5483,8 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
 
 
 
