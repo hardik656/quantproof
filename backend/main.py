@@ -122,6 +122,7 @@ class ValidationResponse(BaseModel):
     ai_plan: Optional[Dict[str, Any]]
     equity_curve: Optional[List[float]] = None
     sebi_checks: Optional[Dict[str, Any]] = None
+    sebi_declaration: Optional[Dict[str, Any]] = None
 
 
 # ── Rate limiting & token tiers ─────────────────────────────────────────────
@@ -4913,6 +4914,8 @@ async def validate_kite(
     currency: str = Form("INR"),
     n_trials: int = Form(10),
     registered_ip: str = Form(""),
+    sebi_algo_id: str = Form("unsure"),
+    sebi_box_type: str = Form("white"),
     request: Request = None
 ):
     """
@@ -5083,7 +5086,8 @@ async def validate_kite(
         dashboard=dashboard_data,
         ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
-        sebi_checks={},  # Empty for portfolio validation (no SEBI checks for multi-strategy portfolios)
+        sebi_checks=_compute_sebi_checks(df, request, registered_ip),
+        sebi_declaration={"algo_id": sebi_algo_id, "box_type": sebi_box_type},
     )
 
 
@@ -5492,6 +5496,7 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
 
