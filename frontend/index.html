@@ -2411,6 +2411,11 @@
       }
       if(!_lastValidatedFile) throw new Error('File not found — please re-upload your CSV to generate the report');
       const fd=new FormData(); fd.append('file',_lastValidatedFile);
+      // Pass SEBI declaration if available (Kite uploads only)
+      const _sd = window._sebiDeclaration || {};
+      if (_sd.registered_ip) fd.append('registered_ip', _sd.registered_ip);
+      if (_sd.algo_id)       fd.append('sebi_algo_id',  _sd.algo_id);
+      if (_sd.box_type)      fd.append('sebi_box_type', _sd.box_type);
       res = await fetch(`${API_URL_REPORT}/report/generate`,{method:'POST',headers:{'x-report-token':token},body:fd});
     }
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||e.message||`Server error ${res.status}`);}
