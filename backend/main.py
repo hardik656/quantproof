@@ -3196,6 +3196,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "top_issues": top_issues, "top_strengths": top_strengths,
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
             "equity_curve": getattr(r, 'equity_curve', None),
+            "sebi_checks":  _compute_sebi_checks(df, request, registered_ip),
         }
         _cache_validation(r.validation_hash, _vr_cache)
         _save_validation_cache()
