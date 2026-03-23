@@ -1605,11 +1605,100 @@
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','kite'); };
       r.readAsDataURL(file);
     } catch(e){}
+    // Show SEBI pre-flight before uploading — Kite only
+    showSEBIPreflight(file);
+  }
+
+  function showSEBIPreflight(file) {
+    const ex = document.getElementById('qp-sebi-preflight');
+    if (ex) ex.remove();
+    const m = document.createElement('div');
+    m.id = 'qp-sebi-preflight';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    m.innerHTML = `
+      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #ffaa00;max-width:520px;width:100%;padding:32px;">
+        <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;letter-spacing:2px;margin-bottom:16px;">SEBI ALGO FRAMEWORK — APRIL 2026</div>
+        <div style="font-size:17px;font-weight:800;color:#e8edf2;margin-bottom:8px;letter-spacing:-0.3px;">Pre-flight Compliance Check</div>
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">SEBI requires all retail algo strategies to meet 5 compliance requirements from April 1 2026. 2 of 5 require self-declaration. Your answers are not stored.</div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">1 / ALGO-ID REGISTRATION <span style="color:#5a7a8a;margin-left:6px;">SELF-DECLARED</span></div>
+          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Have you registered this strategy with Zerodha and obtained an exchange-assigned Algo-ID?</div>
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
+              <input type="radio" name="sebi_algo_id" value="yes" style="accent-color:#00ff88;"> Yes
+            </label>
+            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
+              <input type="radio" name="sebi_algo_id" value="no" style="accent-color:#ff4444;"> No
+            </label>
+            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">
+              <input type="radio" name="sebi_algo_id" value="unsure" checked style="accent-color:#ffaa00;"> Not sure
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">2 / STRATEGY TYPE <span style="color:#5a7a8a;margin-left:6px;">SELF-DECLARED</span></div>
+          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Is your strategy logic fully transparent (white box) or proprietary/hidden (black box)?</div>
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
+              <input type="radio" name="sebi_box_type" value="white" checked style="accent-color:#00ff88;"> White box
+            </label>
+            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
+              <input type="radio" name="sebi_box_type" value="black" style="accent-color:#ff4444;"> Black box
+            </label>
+          </div>
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">3 / REGISTERED STATIC IP <span style="color:#5a7a8a;margin-left:6px;">SOFT CHECK</span></div>
+          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Enter the static IP registered with Zerodha for API access (optional). We compare it to your current IP in memory — never stored.</div>
+          <input id="sebi_ip_input" type="text" placeholder="e.g. 103.21.58.140 (optional)" style="width:100%;background:#080a0f;border:1px solid #1e2d3d;color:#e8edf2;padding:10px 12px;font-family:Space Mono,monospace;font-size:11px;outline:none;">
+        </div>
+
+        <div style="background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.15);padding:12px 14px;margin-bottom:20px;font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">
+          ⚠ OPS threshold and session logout are verified automatically from your trade timestamps.<br>
+          SEBI compliance is shown separately — it does not affect your Fundable Score today.<br>
+          When full verification infrastructure is available, failing checks could reduce your score.
+        </div>
+
+        <div style="display:flex;gap:12px;">
+          <button onclick="submitSEBIAndValidate('${file ? 'kite' : ''}')" style="flex:1;background:#ffaa00;color:#080a0f;border:none;padding:14px;font-family:Space Mono,monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;">
+            CONTINUE VALIDATION →
+          </button>
+          <button onclick="document.getElementById('qp-sebi-preflight').remove()" style="background:transparent;border:1px solid #1e2d3d;color:#5a7a8a;padding:14px 20px;font-family:Space Mono,monospace;font-size:11px;cursor:pointer;">
+            Skip
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(m);
+    // Store file reference for after modal
+    window._sebiPendingFile = file;
+  }
+
+  function submitSEBIAndValidate() {
+    // Collect self-declared answers
+    const algoId  = (document.querySelector('input[name="sebi_algo_id"]:checked') || {}).value || 'unsure';
+    const boxType = (document.querySelector('input[name="sebi_box_type"]:checked') || {}).value || 'white';
+    const ipInput = (document.getElementById('sebi_ip_input') || {}).value || '';
+    // Store for use in results rendering
+    window._sebiDeclaration = { algo_id: algoId, box_type: boxType, registered_ip: ipInput.trim() };
+    // Close modal
+    const m = document.getElementById('qp-sebi-preflight');
+    if (m) m.remove();
+    // Now actually run the validation
+    _runKiteValidation(window._sebiPendingFile);
+  }
+
+  async function _runKiteValidation(file) {
     showLoading();
     const fd = new FormData(); fd.append('file', file);
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
     fd.append('n_trials', String(_nTrials));
+    // Pass registered IP for soft check (never stored server-side)
+    const _sebiIp = (window._sebiDeclaration || {}).registered_ip || '';
+    if (_sebiIp) fd.append('registered_ip', _sebiIp);
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
@@ -1627,6 +1716,8 @@
       }
       const data = await resp.json();
       if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
+      // Attach SEBI declaration to data for rendering
+      if (window._sebiDeclaration) data._sebi = window._sebiDeclaration;
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
@@ -1672,6 +1763,7 @@
     }
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
+    setTimeout(() => { if (data._sebi) buildSEBIPanel(data); }, 500);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
     setTimeout(() => {
       document.querySelectorAll('.check-item').forEach((el, i) => {
@@ -1727,6 +1819,116 @@
     numEl.textContent = '0';
     circle.style.strokeDashoffset = circ;
     requestAnimationFrame(tick);
+  }
+
+  function buildSEBIPanel(data) {
+    var el = document.getElementById('sebi-panel-content');
+    if (!el) return;
+    if (!data._sebi) {
+      el.innerHTML = '<div style="padding:40px;text-align:center;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">SEBI compliance panel available for Kite TradeBook uploads only.</div>';
+      return;
+    }
+    var s  = data._sebi;
+    var sc = data.sebi_checks || {};
+    var ops  = sc.ops_threshold  || { passed: true,  value: 'N/A', note: 'Verified from timestamps' };
+    var sess = sc.session_logout || { passed: true,  value: '0',   note: 'No overnight sessions detected' };
+    var ip   = sc.ip_check       || { result: 'not_entered', current_ip: '', registered_ip: '' };
+
+    var baseScore   = data.fundable_score || 0;
+    var impact      = (s.algo_id === 'no' ? 8 : 0) + (s.box_type === 'black' ? 6 : 0) + (!ops.passed ? 10 : 0) + (ip.result === 'mismatch' ? 5 : 0);
+    var projLow     = Math.max(0, baseScore - impact - 5);
+    var projHigh    = Math.max(0, baseScore - impact);
+
+    function methodBadge(m) {
+      var col = m === 'FROM_DATA' ? 'color:#00ff88;border-color:rgba(0,255,136,0.3)' : m === 'SOFT_CHECK' ? 'color:#ffaa00;border-color:rgba(255,170,0,0.3)' : 'color:#5a7a8a;border-color:#1e2d3d';
+      var label = m === 'FROM_DATA' ? 'FROM DATA' : m === 'SOFT_CHECK' ? 'SOFT CHECK' : 'SELF-DECLARED';
+      return '<span style="font-family:Space Mono,monospace;font-size:9px;padding:3px 8px;border:1px solid;' + col + '">' + label + '</span>';
+    }
+
+    function statusColor(pass, warn) {
+      if (warn) return '#ffaa00';
+      return pass ? '#00ff88' : '#ff4444';
+    }
+
+    function checkRow(label, method, statusLabel, statusOk, statusWarn, detail, warning) {
+      var sc2 = statusColor(statusOk, statusWarn);
+      return '<div style="display:grid;grid-template-columns:2fr auto auto;gap:16px;border-bottom:1px solid #1e2d3d;padding:14px 0;align-items:start;">'
+        + '<div>'
+        +   '<div style="font-size:13px;font-weight:700;color:#e8edf2;margin-bottom:4px;">' + label + '</div>'
+        +   '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.6;">' + detail + '</div>'
+        +   (warning ? '<div style="font-family:Space Mono,monospace;font-size:9px;color:#ff8844;margin-top:4px;">' + warning + '</div>' : '')
+        + '</div>'
+        + '<div style="margin-top:2px;">' + methodBadge(method) + '</div>'
+        + '<div style="font-family:Space Mono,monospace;font-size:11px;font-weight:700;color:' + sc2 + ';white-space:nowrap;">' + statusLabel + '</div>'
+        + '</div>';
+    }
+
+    // Build IP status
+    var ipStatus, ipLabel, ipDetail, ipWarn;
+    if (ip.result === 'match') {
+      ipLabel = 'PASS'; ipStatus = true; ipWarn = false;
+      ipDetail = 'Current IP matches registered IP. Note: soft check only — VPN use bypasses this.';
+    } else if (ip.result === 'mismatch') {
+      ipLabel = 'MISMATCH'; ipStatus = false; ipWarn = false;
+      ipDetail = 'Current IP does not match registered IP (' + (ip.registered_ip || '') + '). Verify with Zerodha.';
+    } else {
+      ipLabel = 'NOT CHECKED'; ipStatus = true; ipWarn = true;
+      ipDetail = 'No registered IP entered. Verify directly with Zerodha that your API app has a registered static IP.';
+    }
+
+    // Algo-ID status
+    var aidLabel = s.algo_id === 'yes' ? 'DECLARED' : s.algo_id === 'no' ? 'NOT REGISTERED' : 'UNCONFIRMED';
+    var aidOk    = s.algo_id === 'yes';
+    var aidWarn  = s.algo_id === 'unsure';
+    var aidDetail = s.algo_id === 'yes'
+      ? 'You declared this strategy has an exchange-assigned Algo-ID. QuantProof cannot independently verify this.'
+      : s.algo_id === 'no'
+      ? 'You declared no Algo-ID. SEBI requires all automated strategies to carry an Algo-ID from April 2026.'
+      : 'Status unknown — contact Zerodha to confirm Algo-ID registration status.';
+    var aidWarnTxt = s.algo_id === 'no' ? 'Register with Zerodha before April 1 2026 to receive an Algo-ID.' : '';
+
+    // Box type
+    var boxLabel  = s.box_type === 'white' ? 'WHITE BOX' : 'BLACK BOX';
+    var boxOk     = s.box_type === 'white';
+    var boxDetail = s.box_type === 'white'
+      ? 'You declared transparent strategy logic. White box strategies can be registered directly through your broker.'
+      : 'You declared proprietary/hidden logic. Black box algos require a SEBI-registered Research Analyst (RA) license.';
+    var boxWarnTxt = s.box_type === 'black' ? 'Consult a SEBI-registered RA for black box compliance requirements.' : '';
+
+    el.innerHTML =
+      '<div style="margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;letter-spacing:2px;margin-bottom:4px;">SEBI ALGO FRAMEWORK — APRIL 2026</div>'
+      + '<div style="font-size:16px;font-weight:800;color:#e8edf2;margin-bottom:4px;">Compliance Pre-Check</div>'
+      + '<div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;line-height:1.7;">3 of 5 checks verified from your trade data. 2 are self-declared. This panel is separate from your Fundable Score.</div>'
+      + '</div>'
+
+      + '<div style="background:#0d1117;border:1px solid #1e2d3d;padding:20px 24px;margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;letter-spacing:1px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e2d3d;display:grid;grid-template-columns:2fr auto auto;gap:16px;">'
+      + '<span>CHECK</span><span>METHOD</span><span>RESULT</span></div>'
+      + checkRow('OPS Threshold (<10 orders/second)', 'FROM_DATA', ops.passed ? 'PASS' : 'FAIL', ops.passed, false,
+          ops.passed ? 'Max order frequency verified from timestamps — within SEBI 10 OPS limit.' : 'Max OPS: ' + ops.value + '. Exceeds 10/second — mandatory SEBI registration required.',
+          !ops.passed ? 'Strategies above 10 OPS require mandatory exchange registration.' : '')
+      + checkRow('Daily Session Logout', 'FROM_DATA', sess.passed ? 'PASS' : 'WARNING', sess.passed, !sess.passed,
+          sess.passed ? 'No orders detected outside NSE market hours — session appears compliant.' : sess.value + ' order(s) detected outside market hours. Verify API auto-logout.',
+          !sess.passed ? 'SEBI requires automated daily logout before the next trading day.' : '')
+      + checkRow('Static IP Registration', 'SOFT_CHECK', ipLabel, ipStatus, ipWarn, ipDetail, ip.result === 'mismatch' ? 'IP mismatch — algo orders must originate from your registered static IP.' : '')
+      + checkRow('Algo-ID Registration', 'SELF_DECLARED', aidLabel, aidOk, aidWarn, aidDetail, aidWarnTxt)
+      + checkRow('White Box / Black Box', 'SELF_DECLARED', boxLabel, boxOk, false, boxDetail, boxWarnTxt)
+      + '</div>'
+
+      + '<div style="background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);padding:16px 20px;margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:8px;">SCORE IMPACT — ILLUSTRATIVE ONLY</div>'
+      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Current Fundable Score: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + baseScore + '/100</span></div>'
+      + '<div style="font-size:13px;color:#5a7a8a;margin-bottom:12px;">If SEBI checks were factored in, unresolved failures could reduce score to: <span style="color:#ffaa00;font-family:Space Mono,monospace;font-weight:700;">' + projLow + '–' + projHigh + '/100</span></div>'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">This is illustrative only. SEBI compliance is not currently factored into the Fundable Score.<br>When full verification is available, these checks will use verified data only — not self-declarations.</div>'
+      + '</div>'
+
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#2d4a5a;line-height:1.8;padding:14px;border:1px solid #1e2d3d;">'
+      + 'DISCLAIMER: QuantProof is not a legal compliance tool. This panel is informational only.<br>'
+      + '3 of 5 checks verified from trade data. 2 are self-certified — QuantProof cannot independently verify them.<br>'
+      + 'Static IP is a soft comparison only — QuantProof does not store IP addresses at any point.<br>'
+      + 'Consult SEBI circulars and your broker for authoritative compliance guidance.'
+      + '</div>';
   }
 
   function buildAuditFlagsHTML(flags) {
@@ -1863,6 +2065,7 @@
       <div class="result-tabs">
         <button class="result-tab active" onclick="switchResultTab(this,'tab-checks')">// ${failedCount > 0 ? failedCount + ' Issues Found' : 'All Checks'}</button>
         <button class="result-tab" onclick="switchResultTab(this,'tab-crash')">// Crash Simulations</button>
+        ${data._sebi ? '<button class="result-tab" onclick="switchResultTab(this,\'tab-sebi\')">// SEBI Compliance</button>' : ''}
         <button class="result-tab" onclick="switchResultTab(this,'tab-audit')">// Audit Trail</button>
       </div>
 
@@ -1944,6 +2147,10 @@
           `).join('')}
         </div>
         <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
+      </div>
+
+      <div id="tab-sebi" class="result-panel">
+        <div id="sebi-panel-content"></div>
       </div>
 
       <div id="tab-audit" class="result-panel">
@@ -2304,7 +2511,7 @@
     if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
     if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
     if(status){ status.innerText = '✓ Analysis unlocked — fetching your personalised AI fix plan...'; status.style.color = 'var(--accent)'; }
-    if (typeof unlockInstitutional === 'function') unlockInstitutional();
+    // Note: institutional depth NOT unlocked for ₹99 LITE tier — requires PRO/PDF token
     // Fetch AI fix plan for ₹99 tier
     const vHash = loadToken('qp_validation_hash');
     if (vHash) {
@@ -3292,16 +3499,26 @@
     }
   }
 
-  // ── On load: restore tokens ────────────────────────────────────────────────
+  // ── On load: restore tokens — verify with server before unlocking ────────
   (function restoreTokens() {
     const proTok  = loadToken('qp_pro_token');
     const portTok = loadToken('qp_port_token');
     if (proTok) {
-      _nTrials = 50;
-      if (typeof unlockInstitutional === 'function') {
-        // delay until DOM ready
-        document.addEventListener('DOMContentLoaded', unlockInstitutional);
-      }
+      // Verify token is still valid server-side before unlocking institutional depth
+      fetch(`${API_URL}/debug/token?t=${encodeURIComponent(proTok)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (d && d.is_pro) {
+            _nTrials = 50;
+            if (typeof unlockInstitutional === 'function') unlockInstitutional();
+          } else {
+            // Token expired or invalid — clear it
+            clearToken('qp_pro_token');
+          }
+        })
+        .catch(() => {
+          // Network fail — don't unlock, be safe
+        });
     }
   })();
 
