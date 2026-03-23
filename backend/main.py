@@ -5046,6 +5046,34 @@ async def validate_kite(
 
     detected_currency = (currency or "INR").upper()
 
+    # Cache validation so /report/generate and /validate/ai-fixes can access it
+    _sebi_ch = _compute_sebi_checks(df, request, registered_ip)
+    _vr_cache = {
+        "fundable_score": min(100.0, round(report.score, 1)),
+        "grade": report.grade,
+        "sharpe": round(report.sharpe, 2),
+        "max_drawdown": round(report.max_drawdown, 4),
+        "win_rate": round(report.win_rate, 1),
+        "total_trades": report.total_trades,
+        "date_range": date_range,
+        "is_verified": False,
+        "checks": [{"name":c.name,"passed":c.passed,"score":c.score,
+                    "value":c.value,"insight":c.insight,"fix":c.fix,
+                    "category":c.category} for c in report.checks],
+        "crash_sims": [{"crash_name":s.crash_name,"year":s.year,
+                        "description":s.description,"market_drop":s.market_drop,
+                        "strategy_drop":s.strategy_drop,"survived":s.survived,
+                        "emotional_verdict":s.emotional_verdict} for s in report.crash_sims],
+        "top_issues":    [c.fix  for c in sorted(visible_checks, key=lambda x: x.score)[:3]],
+        "top_strengths": [c.name for c in sorted(visible_checks, key=lambda x: x.score, reverse=True)[:3]],
+        "audit_flags":   report.audit_flags + [kite_note] + kite_flags + ([_bm_note] if _bm_note else []),
+        "equity_curve":  getattr(report, 'equity_curve', None),
+        "sebi_checks":   _sebi_ch,
+        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
+    }
+    _cache_validation(report.validation_hash + "-KITE", _vr_cache)
+    _save_validation_cache()
+
     return ValidationResponse(
         fundable_score=report.score,
         grade=report.grade,
@@ -5086,7 +5114,7 @@ async def validate_kite(
         dashboard=dashboard_data,
         ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
-        sebi_checks=_compute_sebi_checks(df, request, registered_ip),
+        sebi_checks=_sebi_ch,
         sebi_declaration={"algo_id": sebi_algo_id, "box_type": sebi_box_type},
     )
 
@@ -5496,9 +5524,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
-
 
 
 
