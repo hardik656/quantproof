@@ -4242,7 +4242,7 @@ class PortfolioResponse(BaseModel):
     portfolio_plan:        Optional[Dict[str, Any]] = None  # AI fix plan
 
 
-def _normalise_pnl(pnl_array: np.ndarray) -> np.ndarray:
+def _normalise_pnl_series(pnl_array: np.ndarray) -> np.ndarray:
     """Normalise PnL to unit variance — removes scale-dependence from correlation."""
     std = float(pnl_array.std())
     return pnl_array / std if std > 1e-10 else pnl_array
@@ -4261,7 +4261,7 @@ def _portfolio_correlation(dfs: list) -> np.ndarray:
     series = []
     for df in dfs:
         raw = df["pnl"].values.astype(float)
-        norm = _normalise_pnl(raw)
+        norm = _normalise_pnl_series(raw)
         if "date" in df.columns and df["date"].notna().any():
             idx = pd.to_datetime(df["date"], errors="coerce")
             s = pd.Series(norm, index=idx).sort_index()
@@ -5524,7 +5524,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
 
 
