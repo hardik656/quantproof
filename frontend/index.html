@@ -1446,7 +1446,7 @@
     m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
     m.innerHTML = `
       <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:480px;width:100%;padding:36px 32px;position:relative;">
-        <button onclick="document.getElementById('qp-inst-modal').remove()"
+        <button onclick="document.getElementById('qp-inst-modal').remove();"
           style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">&#10005;</button>
 
         <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.12em;margin-bottom:10px;">// INSTITUTIONAL DEPTH &mdash; n=20 to 50</div>
@@ -2396,7 +2396,7 @@
     const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
     let res;
     if(src==='alpaca') {
-      const validationHash = loadToken('qp_validation_hash') || '';
+      const validationHash = (loadToken('qp_validation_hash') || '').replace('-VERIFIED', '');
       if(!validationHash) throw new Error('Validation result not found — please re-run the Alpaca validation before downloading the report.');
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
