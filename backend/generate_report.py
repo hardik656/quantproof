@@ -26,19 +26,19 @@ from reportlab.graphics.widgets.markers import makeMarker
 import io, datetime, math
 
 # Brand
-C_BLACK  = colors.colors.HexColor("#0A0A0A")
+C_BLACK  = colors.HexColor("#0A0A0A")
 C_WHITE  = colors.white
-C_ACCENT = colors.colors.HexColor("#00C896")
-C_ORANGE = colors.colors.HexColor("#FF6B35")
-C_DANGER = colors.colors.HexColor("#FF3B30")
-C_WARN   = colors.colors.HexColor("#FF9F0A")
-C_OK     = colors.colors.HexColor("#30D158")
-C_DARK   = colors.colors.HexColor("#1C1C1E")
-C_MID    = colors.colors.HexColor("#3A3A3C")
-C_LITE   = colors.colors.HexColor("#8E8E93")
-C_PAPER  = colors.colors.HexColor("#F2F2F7")
-C_PAPER2 = colors.colors.HexColor("#E5E5EA")
-C_INST   = colors.colors.HexColor("#7B61FF")   # purple for Institutional depth badge
+C_ACCENT = colors.HexColor("#00C896")
+C_ORANGE = colors.HexColor("#FF6B35")
+C_DANGER = colors.HexColor("#FF3B30")
+C_WARN   = colors.HexColor("#FF9F0A")
+C_OK     = colors.HexColor("#30D158")
+C_DARK   = colors.HexColor("#1C1C1E")
+C_MID    = colors.HexColor("#3A3A3C")
+C_LITE   = colors.HexColor("#8E8E93")
+C_PAPER  = colors.HexColor("#F2F2F7")
+C_PAPER2 = colors.HexColor("#E5E5EA")
+C_INST   = colors.HexColor("#7B61FF")   # purple for Institutional depth badge
 
 PAGE_W, PAGE_H = A4
 MARGIN  = 18 * mm
@@ -159,7 +159,7 @@ def equity_curve_chart(equity: list, width=None, height=110) -> Drawing:
     rng = mx - mn or 1.0
 
     d.add(Rect(pad["l"], pad["b"], aw, ah,
-               fillColor=colors.colors.HexColor("#F8F8FA"), strokeColor=C_PAPER2, strokeWidth=0.5))
+               fillColor=colors.HexColor("#F8F8FA"), strokeColor=C_PAPER2, strokeWidth=0.5))
 
     if mn <= 100 <= mx:
         y100 = pad["b"] + (100 - mn) / rng * ah
@@ -500,7 +500,7 @@ def portfolio_combined_curve(strategies: list, width=None, height=90) -> Drawing
 
     # Background
     d.add(Rect(pad["l"], pad["b"], aw, ah,
-               fillColor=colors.colors.HexColor("#F8F8FA"),
+               fillColor=colors.HexColor("#F8F8FA"),
                strokeColor=C_PAPER2, strokeWidth=0.5))
 
     for idx, strat in enumerate(strategies):
@@ -596,7 +596,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(hdr)
 
     # â”€â”€ DEPTH BADGE STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    depth_bg = colors.colors.HexColor("#1A1040") if n_trials > 10 else colors.colors.HexColor("#0A1A14")
+    depth_bg = colors.HexColor("#1A1040") if n_trials > 10 else colors.HexColor("#0A1A14")
     depth_strip = Table([[
         Paragraph(
             f"VALIDATION DEPTH: {depth_short}",
@@ -773,8 +773,8 @@ def generate_pdf_report(vr: dict) -> bytes:
                              colWidths=[INNER_W*0.52, INNER_W*0.48])
             summ_row.setStyle(TableStyle([
                 ("VALIGN",       (0,0),(-1,-1), "TOP"),
-                ("BACKGROUND",   (0,0),(0,0),   colors.colors.HexColor("#FFF4F0")),
-                ("BACKGROUND",   (1,0),(1,0),   colors.colors.HexColor("#F0FBF5")),
+                ("BACKGROUND",   (0,0),(0,0),   colors.HexColor("#FFF4F0")),
+                ("BACKGROUND",   (1,0),(1,0),   colors.HexColor("#F0FBF5")),
                 ("TOPPADDING",   (0,0),(-1,-1), 9),
                 ("BOTTOMPADDING",(0,0),(-1,-1), 9),
                 ("LEFTPADDING",  (0,0),(-1,-1), 10),
@@ -844,9 +844,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             desc    = crash.get("description", "")[:100]
             verdict = _clean_verdict(crash.get("emotional_verdict", ""))
             dd_breach = not surv and drop > 0
-            bg_row  = (colors.colors.HexColor("#EDF9F3") if surv else
-                       colors.colors.HexColor("#FFF8EC") if dd_breach else
-                       colors.colors.HexColor("#FDF0EF"))
+            bg_row  = (colors.HexColor("#EDF9F3") if surv else
+                       colors.HexColor("#FFF8EC") if dd_breach else
+                       colors.HexColor("#FDF0EF"))
             tag_col = C_OK if surv else (C_WARN if dd_breach else C_DANGER)
             tag_txt = "SURVIVED" if surv else ("DD BREACH" if dd_breach else "BLOWN UP")
 
@@ -989,9 +989,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             insight = _clean_text(str(_get(chk, "insight", "")))
             fix     = _clean_text(str(_get(chk, "fix", "")))
 
-            row_bg  = (colors.colors.HexColor("#F0FBF5") if passed else
-                       colors.colors.HexColor("#FFF8EC") if cscore > 20 else
-                       colors.colors.HexColor("#FEF0EE"))
+            row_bg  = (colors.HexColor("#F0FBF5") if passed else
+                       colors.HexColor("#FFF8EC") if cscore > 20 else
+                       colors.HexColor("#FEF0EE"))
             ico_col = C_OK if passed else C_WARN if cscore > 20 else C_DANGER
             ico_txt = "PASS" if passed else "WARN" if cscore > 20 else "FAIL"
 
@@ -1273,7 +1273,7 @@ def generate_pdf_report(vr: dict) -> bytes:
                                  alignment=TA_JUSTIFY))
                 ]], colWidths=[36*mm, INNER_W-36*mm])
                 v_tbl.setStyle(TableStyle([
-                    ("BACKGROUND",    (0,0),(-1,-1), colors.colors.HexColor("#FFF8EC")),
+                    ("BACKGROUND",    (0,0),(-1,-1), colors.HexColor("#FFF8EC")),
                     ("TOPPADDING",    (0,0),(-1,-1), 9),
                     ("BOTTOMPADDING", (0,0),(-1,-1), 9),
                     ("LEFTPADDING",   (0,0),(-1,-1), 10),
@@ -1533,3 +1533,5 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     doc.build(story, onLaterPages=footer_canvas, onFirstPage=footer_canvas)
     return buf.getvalue()
+
+
