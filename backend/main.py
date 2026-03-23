@@ -4038,7 +4038,7 @@ async def generate_broker_report(
         raise HTTPException(400, {"error": "missing_validation_hash", "message": "Validation hash is required"})
     
     print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
-    print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_CACHE.keys())[:5]}...")  # Show first 5 keys
+    print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_RESULT_CACHE.keys())[:5]}...")  # Show first 5 keys
     cached_vr = _get_cached_validation(payload.validation_hash)
     if not cached_vr:
         print(f"[DEBUG] Broker PDF - Cache miss for validation_hash")
@@ -5492,7 +5492,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
 
 
 
