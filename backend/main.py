@@ -3196,7 +3196,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "top_issues": top_issues, "top_strengths": top_strengths,
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
             "equity_curve": getattr(r, 'equity_curve', None),
-            "sebi_checks":  _compute_sebi_checks(df, request, registered_ip),
+            "sebi_checks":  {},  # Empty for non-SEBI brokers (Alpaca is US-based)
         }
         _cache_validation(r.validation_hash, _vr_cache)
         _save_validation_cache()
@@ -3448,8 +3448,13 @@ async def generate_report_endpoint(
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
         "equity_curve": getattr(report, 'equity_curve', None),
-        "sebi_checks":      _compute_sebi_checks(df, request, registered_ip),
-        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
+        # Only compute SEBI checks for Kite data (Indian broker)
+        "sebi_checks": _compute_sebi_checks(df, request, registered_ip) 
+                      if (_is_kite_csv(df) or _is_kite_orders_csv(df)) 
+                      else {},
+        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type} 
+                            if (_is_kite_csv(df) or _is_kite_orders_csv(df)) 
+                            else {},
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -5051,7 +5056,7 @@ async def validate_kite(
         dashboard=dashboard_data,
         ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
-        sebi_checks=_compute_sebi_checks(df, request, registered_ip),
+        sebi_checks={},  # Empty for portfolio validation (no SEBI checks for multi-strategy portfolios)
     )
 
 
@@ -5460,5 +5465,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
