@@ -3332,6 +3332,9 @@ REPORT_PRICE_INR    = 299
 async def generate_report_endpoint(
     file: UploadFile = File(...),
     currency: str = Form("USD"),
+    registered_ip: str = Form(""),
+    sebi_algo_id: str = Form("unsure"),
+    sebi_box_type: str = Form("white"),
     x_report_token: str = Header(default=""),
     x_report_source: str = Header(default=""),
     request: Request = None
@@ -3445,6 +3448,8 @@ async def generate_report_endpoint(
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
         "equity_curve": getattr(report, 'equity_curve', None),
+        "sebi_checks":      _compute_sebi_checks(df, request, registered_ip),
+        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
