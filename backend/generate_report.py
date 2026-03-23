@@ -26,19 +26,19 @@ from reportlab.graphics.widgets.markers import makeMarker
 import io, datetime, math
 
 # Brand
-C_BLACK  = colors.HexColor("#0A0A0A")
+C_BLACK  = colors.colors.HexColor("#0A0A0A")
 C_WHITE  = colors.white
-C_ACCENT = colors.HexColor("#00C896")
-C_ORANGE = colors.HexColor("#FF6B35")
-C_DANGER = colors.HexColor("#FF3B30")
-C_WARN   = colors.HexColor("#FF9F0A")
-C_OK     = colors.HexColor("#30D158")
-C_DARK   = colors.HexColor("#1C1C1E")
-C_MID    = colors.HexColor("#3A3A3C")
-C_LITE   = colors.HexColor("#8E8E93")
-C_PAPER  = colors.HexColor("#F2F2F7")
-C_PAPER2 = colors.HexColor("#E5E5EA")
-C_INST   = colors.HexColor("#7B61FF")   # purple for Institutional depth badge
+C_ACCENT = colors.colors.HexColor("#00C896")
+C_ORANGE = colors.colors.HexColor("#FF6B35")
+C_DANGER = colors.colors.HexColor("#FF3B30")
+C_WARN   = colors.colors.HexColor("#FF9F0A")
+C_OK     = colors.colors.HexColor("#30D158")
+C_DARK   = colors.colors.HexColor("#1C1C1E")
+C_MID    = colors.colors.HexColor("#3A3A3C")
+C_LITE   = colors.colors.HexColor("#8E8E93")
+C_PAPER  = colors.colors.HexColor("#F2F2F7")
+C_PAPER2 = colors.colors.HexColor("#E5E5EA")
+C_INST   = colors.colors.HexColor("#7B61FF")   # purple for Institutional depth badge
 
 PAGE_W, PAGE_H = A4
 MARGIN  = 18 * mm
@@ -91,13 +91,13 @@ def make_styles():
 def _depth_label(n_trials: int) -> tuple:
     """Return (short_label, description, color) for a given n_trials value."""
     if n_trials <= 1:
-        return "QUICK (n=1)", "Rapid scan — less rigorous", C_LITE
+        return "QUICK (n=1)", "Rapid scan â€” less rigorous", C_LITE
     elif n_trials <= 10:
         return f"STANDARD (n={n_trials})", "Standard free-tier depth", C_ACCENT
     elif n_trials <= 20:
-        return f"INSTITUTIONAL (n={n_trials})", "Institutional depth — fund-grade stress test", C_INST
+        return f"INSTITUTIONAL (n={n_trials})", "Institutional depth â€” fund-grade stress test", C_INST
     else:
-        return f"DEEP INSTITUTIONAL (n={n_trials})", f"Deep stress test — {n_trials}x Monte Carlo simulations", C_INST
+        return f"DEEP INSTITUTIONAL (n={n_trials})", f"Deep stress test â€” {n_trials}x Monte Carlo simulations", C_INST
 
 
 # Score gauge
@@ -159,7 +159,7 @@ def equity_curve_chart(equity: list, width=None, height=110) -> Drawing:
     rng = mx - mn or 1.0
 
     d.add(Rect(pad["l"], pad["b"], aw, ah,
-               fillColor=colors.HexColor("#F8F8FA"), strokeColor=C_PAPER2, strokeWidth=0.5))
+               fillColor=colors.colors.HexColor("#F8F8FA"), strokeColor=C_PAPER2, strokeWidth=0.5))
 
     if mn <= 100 <= mx:
         y100 = pad["b"] + (100 - mn) / rng * ah
@@ -403,15 +403,15 @@ def cat_color(s):
 def _clean_text(raw: str) -> str:
     v = raw or ""
     v = v.replace("[UNCALIBRATED] ", "").replace("[UNCALIBRATED]", "")
-    for e in ("🟢", "🟡", "🟠", "🔴"):
+    for e in ("ðŸŸ¢", "ðŸŸ¡", "ðŸŸ ", "ðŸ”´"):
         v = v.replace(e, "")
-    v = v.replace("✅", "PASS").replace("✓", "OK").replace("✗", "FAIL").replace("❌", "FAIL")
-    v = v.replace("📊", "").replace("ℹ", "").replace("⚠", "WARNING:").replace("📈", "")
-    v = v.replace("α", "alpha").replace("β", "beta").replace("Δ", "delta")
-    v = v.replace("≥", ">=").replace("≤", "<=").replace("≈", "~").replace("→", "->").replace("←", "<-")
-    v = v.replace("×", "x").replace("÷", "/").replace("±", "+/-")
-    v = v.replace("σ", "sigma")
-    v = v.replace("—", " - ").replace("–", "-").replace("‒", "-")
+    v = v.replace("âœ…", "PASS").replace("âœ“", "OK").replace("âœ—", "FAIL").replace("âŒ", "FAIL")
+    v = v.replace("ðŸ“Š", "").replace("â„¹", "").replace("âš ", "WARNING:").replace("ðŸ“ˆ", "")
+    v = v.replace("Î±", "alpha").replace("Î²", "beta").replace("Î”", "delta")
+    v = v.replace("â‰¥", ">=").replace("â‰¤", "<=").replace("â‰ˆ", "~").replace("â†’", "->").replace("â†", "<-")
+    v = v.replace("Ã—", "x").replace("Ã·", "/").replace("Â±", "+/-")
+    v = v.replace("Ïƒ", "sigma")
+    v = v.replace("â€”", " - ").replace("â€“", "-").replace("â€’", "-")
     v = v.replace("\u2018", "'").replace("\u2019", "'")
     v = v.replace("\u201c", '"').replace("\u201d", '"')
     while "  " in v:
@@ -430,7 +430,7 @@ def _get(obj, key, default=""):
     return getattr(obj, key, default)
 
 
-# ─── PORTFOLIO CHARTS ─────────────────────────────────────────────────────────
+# â”€â”€â”€ PORTFOLIO CHARTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def correlation_heatmap(names: list, matrix: list, width=None, height=None) -> Drawing:
     """
@@ -488,7 +488,7 @@ def correlation_heatmap(names: list, matrix: list, width=None, height=None) -> D
 def portfolio_combined_curve(strategies: list, width=None, height=90) -> Drawing:
     """
     Overlaid equity curves for each strategy, normalised to 100.
-    Drawn as line segments — one colour per strategy.
+    Drawn as line segments â€” one colour per strategy.
     """
     w   = width or INNER_W
     d   = Drawing(w, height)
@@ -500,7 +500,7 @@ def portfolio_combined_curve(strategies: list, width=None, height=90) -> Drawing
 
     # Background
     d.add(Rect(pad["l"], pad["b"], aw, ah,
-               fillColor=colors.HexColor("#F8F8FA"),
+               fillColor=colors.colors.HexColor("#F8F8FA"),
                strokeColor=C_PAPER2, strokeWidth=0.5))
 
     for idx, strat in enumerate(strategies):
@@ -538,7 +538,7 @@ def portfolio_combined_curve(strategies: list, width=None, height=90) -> Drawing
     return d
 
 
-# ─── MAIN ─────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ MAIN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def generate_pdf_report(vr: dict) -> bytes:
     buf = io.BytesIO()
     S   = make_styles()
@@ -555,7 +555,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     issues    = vr.get("top_issues", [])
     strengths = vr.get("top_strengths", [])
 
-    # n_trials depth — read from vr, fall back to 10
+    # n_trials depth â€” read from vr, fall back to 10
     n_trials   = int(vr.get("n_trials", 10))
     depth_short, depth_desc, depth_col = _depth_label(n_trials)
 
@@ -576,7 +576,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     )
     story = []
 
-    # ── HEADER ────────────────────────────────────────────────────────────────
+    # â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     is_verified  = vr.get("is_verified", False)
     report_label = "VERIFIED INSTITUTIONAL REPORT" if is_verified else "METHODOLOGY ANALYSIS REPORT"
 
@@ -595,8 +595,8 @@ def generate_pdf_report(vr: dict) -> bytes:
     ]))
     story.append(hdr)
 
-    # ── DEPTH BADGE STRIP ─────────────────────────────────────────────────────
-    depth_bg = colors.HexColor("#1A1040") if n_trials > 10 else colors.HexColor("#0A1A14")
+    # â”€â”€ DEPTH BADGE STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    depth_bg = colors.colors.HexColor("#1A1040") if n_trials > 10 else colors.colors.HexColor("#0A1A14")
     depth_strip = Table([[
         Paragraph(
             f"VALIDATION DEPTH: {depth_short}",
@@ -617,7 +617,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(depth_strip)
     story.append(Spacer(1, 6*mm))
 
-    # ── SCORE + GRADE ─────────────────────────────────────────────────────────
+    # â”€â”€ SCORE + GRADE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     verdict_text = {
         "A":  ("Institutionally Viable",
                f"Passed all critical institutional checks. Sharpe {sharpe:.2f}, "
@@ -670,7 +670,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 4*mm))
 
-    # ── KEY METRICS ───────────────────────────────────────────────────────────
+    # â”€â”€ KEY METRICS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     story.append(Paragraph("KEY METRICS", S["label"]))
     story.append(Spacer(1, 3))
 
@@ -698,7 +698,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(metrics_row)
     story.append(Spacer(1, 6*mm))
 
-    # ── EQUITY CURVE ──────────────────────────────────────────────────────────
+    # â”€â”€ EQUITY CURVE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     equity_data = vr.get("equity_curve")
     if equity_data:
         try:
@@ -773,8 +773,8 @@ def generate_pdf_report(vr: dict) -> bytes:
                              colWidths=[INNER_W*0.52, INNER_W*0.48])
             summ_row.setStyle(TableStyle([
                 ("VALIGN",       (0,0),(-1,-1), "TOP"),
-                ("BACKGROUND",   (0,0),(0,0),   colors.HexColor("#FFF4F0")),
-                ("BACKGROUND",   (1,0),(1,0),   colors.HexColor("#F0FBF5")),
+                ("BACKGROUND",   (0,0),(0,0),   colors.colors.HexColor("#FFF4F0")),
+                ("BACKGROUND",   (1,0),(1,0),   colors.colors.HexColor("#F0FBF5")),
                 ("TOPPADDING",   (0,0),(-1,-1), 9),
                 ("BOTTOMPADDING",(0,0),(-1,-1), 9),
                 ("LEFTPADDING",  (0,0),(-1,-1), 10),
@@ -783,7 +783,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(summ_row)
             story.append(Spacer(1, 6*mm))
 
-    # ── AUDIT TRAIL ───────────────────────────────────────────────────────────
+    # â”€â”€ AUDIT TRAIL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     audit_flags = vr.get("audit_flags", [])
     display_flags = [
         f for f in audit_flags
@@ -811,7 +811,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(flag_tbl)
         story.append(Spacer(1, 4*mm))
 
-    # ── CRASH SIMS ────────────────────────────────────────────────────────────
+    # â”€â”€ CRASH SIMS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if crashes:
         story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
         story.append(Spacer(1, 4*mm))
@@ -844,9 +844,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             desc    = crash.get("description", "")[:100]
             verdict = _clean_verdict(crash.get("emotional_verdict", ""))
             dd_breach = not surv and drop > 0
-            bg_row  = (colors.HexColor("#EDF9F3") if surv else
-                       colors.HexColor("#FFF8EC") if dd_breach else
-                       colors.HexColor("#FDF0EF"))
+            bg_row  = (colors.colors.HexColor("#EDF9F3") if surv else
+                       colors.colors.HexColor("#FFF8EC") if dd_breach else
+                       colors.colors.HexColor("#FDF0EF"))
             tag_col = C_OK if surv else (C_WARN if dd_breach else C_DANGER)
             tag_txt = "SURVIVED" if surv else ("DD BREACH" if dd_breach else "BLOWN UP")
 
@@ -885,7 +885,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         story.append(crash_bar_chart(crashes, width=INNER_W, height=110))
         story.append(Spacer(1, 2*mm))
 
-    # ── PAGE 2: DETAILED CHECKS ───────────────────────────────────────────────
+    # â”€â”€ PAGE 2: DETAILED CHECKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     story.append(PageBreak())
 
     story.append(Paragraph("CATEGORY BREAKDOWN", S["h_section"]))
@@ -989,9 +989,9 @@ def generate_pdf_report(vr: dict) -> bytes:
             insight = _clean_text(str(_get(chk, "insight", "")))
             fix     = _clean_text(str(_get(chk, "fix", "")))
 
-            row_bg  = (colors.HexColor("#F0FBF5") if passed else
-                       colors.HexColor("#FFF8EC") if cscore > 20 else
-                       colors.HexColor("#FEF0EE"))
+            row_bg  = (colors.colors.HexColor("#F0FBF5") if passed else
+                       colors.colors.HexColor("#FFF8EC") if cscore > 20 else
+                       colors.colors.HexColor("#FEF0EE"))
             ico_col = C_OK if passed else C_WARN if cscore > 20 else C_DANGER
             ico_txt = "PASS" if passed else "WARN" if cscore > 20 else "FAIL"
 
@@ -999,7 +999,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             is_dsr = "deflated" in name.lower() or "dsr" in name.lower()
             dsr_note = ""
             if is_dsr:
-                dsr_note = f" [validated at n={n_trials} — {'institutional depth' if n_trials > 10 else 'standard depth, upgrade for deeper stress test'}]"
+                dsr_note = f" [validated at n={n_trials} â€” {'institutional depth' if n_trials > 10 else 'standard depth, upgrade for deeper stress test'}]"
 
             rows = [[
                 Paragraph(f"{name}{dsr_note}",
@@ -1037,7 +1037,7 @@ def generate_pdf_report(vr: dict) -> bytes:
 
         story.append(Spacer(1, 5*mm))
 
-    # ── AI PERSONALISED ANALYSIS ──────────────────────────────────────────────
+    # â”€â”€ AI PERSONALISED ANALYSIS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     ai_plan = vr.get("ai_plan")
     if ai_plan and not isinstance(ai_plan, dict):
         ai_plan = {"summary": str(ai_plan), "fixes": [], "encouragement": ""}
@@ -1078,7 +1078,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(Paragraph(_clean_text(enc), S["body"]))
         story.append(Spacer(1, 16))
 
-    # ── ACTION PLAN ───────────────────────────────────────────────────────────
+    # â”€â”€ ACTION PLAN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     failed_checks = [c for c in checks
                      if not _get(c, "passed", True) and _get(c, "category") != "Plausibility"]
     if failed_checks:
@@ -1123,7 +1123,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             story.append(row)
             story.append(Spacer(1, 3))
 
-    # ── PORTFOLIO SECTION (if present) ────────────────────────────────────────
+    # â”€â”€ PORTFOLIO SECTION (if present) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     portfolio = vr.get("portfolio")
     if portfolio and isinstance(portfolio, dict):
         story.append(PageBreak())
@@ -1273,7 +1273,7 @@ def generate_pdf_report(vr: dict) -> bytes:
                                  alignment=TA_JUSTIFY))
                 ]], colWidths=[36*mm, INNER_W-36*mm])
                 v_tbl.setStyle(TableStyle([
-                    ("BACKGROUND",    (0,0),(-1,-1), colors.HexColor("#FFF8EC")),
+                    ("BACKGROUND",    (0,0),(-1,-1), colors.colors.HexColor("#FFF8EC")),
                     ("TOPPADDING",    (0,0),(-1,-1), 9),
                     ("BOTTOMPADDING", (0,0),(-1,-1), 9),
                     ("LEFTPADDING",   (0,0),(-1,-1), 10),
@@ -1352,28 +1352,28 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     if sebi_checks:
         story.append(PageBreak())
-        story.append(Paragraph("SEBI Algo Framework — Compliance Pre-Check",
+        story.append(Paragraph("SEBI Algo Framework â€” Compliance Pre-Check",
             _s("h2", fontSize=14, fontName="Helvetica-Bold",
-               textColor=HexColor("#ffaa00"), spaceAfter=4)))
+               textColor=colors.HexColor("#ffaa00"), spaceAfter=4)))
         story.append(Paragraph("April 2026 | Kite TradeBook Validation",
             _s("sp", fontSize=9, textColor=C_DARK, spaceAfter=6)))
         story.append(Paragraph(
             "3 of 5 checks verified from trade data. 2 are self-declared. "
-            "SEBI compliance is shown separately — it does not affect the Fundable Score.",
+            "SEBI compliance is shown separately â€” it does not affect the Fundable Score.",
             _s("sp", fontSize=9, leading=13, textColor=C_DARK, spaceAfter=16)))
 
         # Method labels
         METHOD_COLORS = {
-            "FROM_DATA":    HexColor("#00ff88"),
-            "SOFT_CHECK":   HexColor("#ffaa00"),
-            "SELF_DECLARED":HexColor("#5a7a8a"),
+            "FROM_DATA":    colors.HexColor("#00ff88"),
+            "SOFT_CHECK":   colors.HexColor("#ffaa00"),
+            "SELF_DECLARED":colors.HexColor("#5a7a8a"),
         }
 
         def _sebi_row(label, method, status_label, status_ok, detail, warning=""):
             method_col = METHOD_COLORS.get(method, C_DARK)
-            status_col = HexColor("#00ff88") if status_ok else HexColor("#ff4444")
+            status_col = colors.HexColor("#00ff88") if status_ok else colors.HexColor("#ff4444")
             if "WARNING" in status_label or "NOT CHECKED" in status_label or "UNCONFIRMED" in status_label:
-                status_col = HexColor("#ffaa00")
+                status_col = colors.HexColor("#ffaa00")
             method_str = method.replace("_", " ")
             rows = [[
                 Paragraph(f"<b>{label}</b><br/><font size=8 color='#5a7a8a'>{detail}</font>"
@@ -1387,7 +1387,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             t = Table(rows, colWidths=[310, 90, 80])
             t.setStyle(TableStyle([
                 ("VALIGN",     (0,0), (-1,-1), "TOP"),
-                ("LINEBELOW",  (0,0), (-1,-1), 0.5, HexColor("#1e2d3d")),
+                ("LINEBELOW",  (0,0), (-1,-1), 0.5, colors.HexColor("#1e2d3d")),
                 ("TOPPADDING", (0,0), (-1,-1), 8),
                 ("BOTTOMPADDING", (0,0), (-1,-1), 8),
                 ("LEFTPADDING",  (0,0), (0,-1), 0),
@@ -1401,7 +1401,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             ("FONTNAME",       (0,0), (-1,-1), "Helvetica-Bold"),
             ("FONTSIZE",       (0,0), (-1,-1), 8),
             ("TEXTCOLOR",      (0,0), (-1,-1), C_DARK),
-            ("LINEBELOW",      (0,0), (-1,-1), 0.5, HexColor("#1e2d3d")),
+            ("LINEBELOW",      (0,0), (-1,-1), 0.5, colors.HexColor("#1e2d3d")),
             ("BOTTOMPADDING",  (0,0), (-1,-1), 6),
             ("LEFTPADDING",    (0,0), (0,-1),  0),
         ]))
@@ -1414,7 +1414,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             "PASS" if ops.get("passed", True) else "FAIL",
             ops.get("passed", True),
             f"Max order frequency: {ops.get('value','N/A')} orders/second. "
-            + ("Within SEBI limit." if ops.get("passed", True) else "Exceeds 10 OPS — mandatory registration required."),
+            + ("Within SEBI limit." if ops.get("passed", True) else "Exceeds 10 OPS â€” mandatory registration required."),
             "" if ops.get("passed", True) else "Strategies above 10 OPS require mandatory exchange registration.",
         ))
 
@@ -1425,7 +1425,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             "PASS" if sess.get("passed", True) else "WARNING",
             sess.get("passed", True),
             "No orders detected outside NSE market hours." if sess.get("passed", True)
-            else f"{sess.get('value',0)} order(s) detected outside market hours — verify API auto-logout.",
+            else f"{sess.get('value',0)} order(s) detected outside market hours â€” verify API auto-logout.",
             "" if sess.get("passed", True) else "SEBI requires automated daily logout before the next trading day.",
         ))
 
@@ -1435,7 +1435,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         ip_label  = "PASS" if ip_result == "match" else ("MISMATCH" if ip_result == "mismatch" else "NOT CHECKED")
         ip_ok     = ip_result == "match"
         ip_detail = (
-            "Current IP matches registered IP. Note: soft check only — VPN use would bypass this."
+            "Current IP matches registered IP. Note: soft check only â€” VPN use would bypass this."
             if ip_result == "match" else
             f"Current IP does not match registered IP ({ip.get('registered_ip','')})."
             if ip_result == "mismatch" else
@@ -1443,7 +1443,7 @@ def generate_pdf_report(vr: dict) -> bytes:
         )
         story.append(_sebi_row(
             "Static IP Registration", "SOFT_CHECK", ip_label, ip_ok, ip_detail,
-            "IP mismatch — algo orders must originate from your registered static IP." if ip_result == "mismatch" else "",
+            "IP mismatch â€” algo orders must originate from your registered static IP." if ip_result == "mismatch" else "",
         ))
 
         # Algo-ID (self-declared)
@@ -1455,7 +1455,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             if algo_id == "yes" else
             "You declared no Algo-ID. SEBI requires all automated strategies to carry an Algo-ID from April 2026."
             if algo_id == "no" else
-            "Status unknown — contact Zerodha to confirm Algo-ID registration status."
+            "Status unknown â€” contact Zerodha to confirm Algo-ID registration status."
         )
         story.append(_sebi_row(
             "Algo-ID Registration", "SELF_DECLARED", aid_label, aid_ok, aid_detail,
@@ -1486,17 +1486,17 @@ def generate_pdf_report(vr: dict) -> bytes:
 
         impact_box = Table([[
             Paragraph(
-                f"<b>Score Impact — Illustrative Only</b><br/>"
+                f"<b>Score Impact â€” Illustrative Only</b><br/>"
                 f"Current Fundable Score: <b>{base_score}/100</b>. "
                 f"If SEBI checks were factored in, unresolved failures could reduce your score to approximately "
-                f"<b>{proj_low}–{proj_high}/100</b>.<br/>"
+                f"<b>{proj_low}â€“{proj_high}/100</b>.<br/>"
                 f"<font size=8 color='#5a7a8a'>This is illustrative only. SEBI compliance is not currently factored into the Fundable Score. "
-                f"When full verification infrastructure is available, only verified data will be used — not self-declarations.</font>",
+                f"When full verification infrastructure is available, only verified data will be used â€” not self-declarations.</font>",
                 _s("sp", fontSize=9, leading=13))
         ]], colWidths=[480])
         impact_box.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,-1), HexColor("#1a1500")),
-            ("BOX",           (0,0), (-1,-1), 0.5, HexColor("#ffaa00")),
+            ("BACKGROUND",    (0,0), (-1,-1), colors.HexColor("#1a1500")),
+            ("BOX",           (0,0), (-1,-1), 0.5, colors.HexColor("#ffaa00")),
             ("TOPPADDING",    (0,0), (-1,-1), 10),
             ("BOTTOMPADDING", (0,0), (-1,-1), 10),
             ("LEFTPADDING",   (0,0), (-1,-1), 12),
@@ -1508,8 +1508,8 @@ def generate_pdf_report(vr: dict) -> bytes:
         # Disclaimer
         story.append(Paragraph(
             "DISCLAIMER: QuantProof is not a legal compliance tool. This section is informational only. "
-            "3 of 5 checks are verified from trade data. 2 are self-certified by the user — QuantProof cannot independently verify them. "
-            "Static IP is a soft comparison only — QuantProof does not store IP addresses. "
+            "3 of 5 checks are verified from trade data. 2 are self-certified by the user â€” QuantProof cannot independently verify them. "
+            "Static IP is a soft comparison only â€” QuantProof does not store IP addresses. "
             "Consult SEBI circulars and your broker for authoritative compliance guidance.",
             _s("sp", fontSize=8, leading=12, textColor=C_DARK)))
 
