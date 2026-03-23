@@ -4047,7 +4047,8 @@ async def generate_broker_report(
             "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
         })
     print(f"[DEBUG] Broker PDF - Cache hit, proceeding with PDF generation")
-        if not cached_vr.get("ai_plan"):
+    
+    if not cached_vr.get("ai_plan"):
             try:
                 class _CachedCheck:
                     def __init__(self, d): self.__dict__.update(d)
@@ -5490,6 +5491,7 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
 
