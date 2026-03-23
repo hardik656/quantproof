@@ -4015,7 +4015,7 @@ async def generate_broker_report(
 ):
     print(f"[DEBUG] Broker PDF payload: {payload}")
     print(f"[DEBUG] Broker PDF token: {x_report_token[:10] if x_report_token else 'None'}...")
-
+    
     def _verify_token(token: str) -> bool:
         _test_tok = os.getenv("TEST_REPORT_TOKEN", "")
         if _test_tok and token == _test_tok: return True
@@ -4033,13 +4033,20 @@ async def generate_broker_report(
                     "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade"}
         )
 
-    if payload.validation_hash:
-        cached_vr = _get_cached_validation(payload.validation_hash)
-        if not cached_vr:
-            raise HTTPException(400, {
-                "error": "cache_expired",
-                "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
-            })
+    if not payload.validation_hash:
+        print(f"[DEBUG] Broker PDF - MISSING validation_hash")
+        raise HTTPException(400, {"error": "missing_validation_hash", "message": "Validation hash is required"})
+    
+    print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
+    print(f"[DEBUG] Broker PDF - Cache keys available: {list(_VALIDATION_CACHE.keys())[:5]}...")  # Show first 5 keys
+    cached_vr = _get_cached_validation(payload.validation_hash)
+    if not cached_vr:
+        print(f"[DEBUG] Broker PDF - Cache miss for validation_hash")
+        raise HTTPException(400, {
+            "error": "cache_expired",
+            "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
+        })
+    print(f"[DEBUG] Broker PDF - Cache hit, proceeding with PDF generation")
         if not cached_vr.get("ai_plan"):
             try:
                 class _CachedCheck:
@@ -5483,6 +5490,7 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
 
 
 
