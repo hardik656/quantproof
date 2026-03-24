@@ -2401,7 +2401,7 @@
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'x-report-token': token},
-        body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash})
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_tv_validation_data') || '{}')})
       });
     } else if(src==='tv') {
       const validationHash = (loadToken('qp_validation_hash') || '');
@@ -2409,7 +2409,7 @@
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'x-report-token': token},
-        body: JSON.stringify({api_key: '', secret_key: '', mode: 'tradingview', validation_hash: validationHash})
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'tradingview', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_tv_validation_data') || '{}')})
       });
     } else {
       if(!_lastValidatedFile) {
@@ -3606,3 +3606,4 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
