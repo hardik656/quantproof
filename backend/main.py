@@ -3292,19 +3292,29 @@ VALIDATION_CACHE_MAX = 50
 def _save_validation_cache():
     try:
         import json
-        with open("/tmp/qp_validation_cache.json", "w") as f:
+        cache_path = "/tmp/qp_validation_cache.json"
+        print(f"[DEBUG] Cache Save - Writing {len(VALIDATION_RESULT_CACHE)} items to {cache_path}")
+        with open(cache_path, "w") as f:
             json.dump(dict(VALIDATION_RESULT_CACHE), f)
-    except Exception:
+        print(f"[DEBUG] Cache Save - Successfully wrote to disk")
+    except Exception as e:
+        print(f"[DEBUG] Cache Save - Failed: {str(e)}")
         pass
 
 def _load_validation_cache():
     try:
         import json
-        if os.path.exists("/tmp/qp_validation_cache.json"):
-            with open("/tmp/qp_validation_cache.json", "r") as f:
+        cache_path = "/tmp/qp_validation_cache.json"
+        print(f"[DEBUG] Cache Load - Checking {cache_path}")
+        if os.path.exists(cache_path):
+            with open(cache_path, "r") as f:
                 data = json.load(f)
                 VALIDATION_RESULT_CACHE.update(data)
-    except Exception:
+                print(f"[DEBUG] Cache Load - Loaded {len(data)} items from disk")
+        else:
+            print(f"[DEBUG] Cache Load - No cache file found at {cache_path}")
+    except Exception as e:
+        print(f"[DEBUG] Cache Load - Failed: {str(e)}")
         pass
 
 _load_validation_cache()
@@ -5559,6 +5569,11 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
+
 
 
 
