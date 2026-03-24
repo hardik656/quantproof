@@ -3998,6 +3998,7 @@ class BrokerReportRequest(BaseModel):
     secret_key:      str
     mode:            str = "paper"
     validation_hash: str = ""
+    validation_data: dict = {}  # For TV mode - bypass cache
 
 @app.post("/report/generate-broker")
 async def generate_broker_report(
@@ -4028,16 +4029,20 @@ async def generate_broker_report(
         print(f"[DEBUG] Broker PDF - MISSING validation_hash")
         raise HTTPException(400, {"error": "missing_validation_hash", "message": "Validation hash is required"})
     
-    # Special handling for TradingView mode - cache might not persist
+    # Special handling for TradingView mode - use sent data instead of cache
     if payload.mode == 'tradingview':
-        print(f"[DEBUG] Broker PDF - TradingView mode detected, attempting cache retrieval")
-        cached_vr = _get_cached_validation(payload.validation_hash)
-        if not cached_vr:
-            print(f"[DEBUG] Broker PDF - TV cache miss - this shouldn't happen with the fix")
-            raise HTTPException(400, {
-                "error": "tv_cache_miss", 
-                "message": "TradingView validation expired - please re-run validation then download PDF immediately."
-            })
+        print(f"[DEBUG] Broker PDF - TradingView mode detected")
+        if payload.validation_data:
+            print(f"[DEBUG] Broker PDF - Using sent TV validation data")
+            cached_vr = payload.validation_data
+        else:
+            print(f"[DEBUG] Broker PDF - No TV data sent, checking cache")
+            cached_vr = _get_cached_validation(payload.validation_hash)
+            if not cached_vr:
+                raise HTTPException(400, {
+                    "error": "tv_data_missing", 
+                    "message": "TradingView validation data missing - please re-run validation then download PDF immediately."
+                })
     else:
         print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
         print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_RESULT_CACHE.keys())[:5]}...")  # Show first 5 keys
@@ -5559,8 +5564,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
 
 
 
