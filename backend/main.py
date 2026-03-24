@@ -3290,40 +3290,21 @@ VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
 def _save_validation_cache():
-    try:
-        import json
-        cache_path = "qp_validation_cache.json"
-        print(f"[DEBUG] Cache Save - Writing {len(VALIDATION_RESULT_CACHE)} items to {cache_path}")
-        with open(cache_path, "w") as f:
-            json.dump(dict(VALIDATION_RESULT_CACHE), f)
-        print(f"[DEBUG] Cache Save - Successfully wrote to disk")
-    except Exception as e:
-        print(f"[DEBUG] Cache Save - Failed: {str(e)}")
-        pass
+    # In-memory cache - no file system dependency
+    pass
 
 def _load_validation_cache():
-    try:
-        import json
-        cache_path = "qp_validation_cache.json"
-        print(f"[DEBUG] Cache Load - Checking {cache_path}")
-        if os.path.exists(cache_path):
-            with open(cache_path, "r") as f:
-                data = json.load(f)
-                VALIDATION_RESULT_CACHE.update(data)
-                print(f"[DEBUG] Cache Load - Loaded {len(data)} items from disk")
-        else:
-            print(f"[DEBUG] Cache Load - No cache file found at {cache_path}")
-    except Exception as e:
-        print(f"[DEBUG] Cache Load - Failed: {str(e)}")
-        pass
+    # In-memory cache - no file system dependency  
+    pass
 
 _load_validation_cache()
 
 def _cache_validation(v_hash: str, vr: dict):
+    print(f"[DEBUG] Cache - Storing in memory: '{v_hash}'")
     VALIDATION_RESULT_CACHE[v_hash] = vr
     if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
         VALIDATION_RESULT_CACHE.popitem(last=False)
-    _save_validation_cache()
+    print(f"[DEBUG] Cache - Memory size: {len(VALIDATION_RESULT_CACHE)} items")
 
 def _get_cached_validation(v_hash: str) -> dict | None:
     # FIX: LRU eviction — move accessed entry to end so it evicts last
@@ -4053,8 +4034,7 @@ async def generate_broker_report(
         print(f"[DEBUG] Broker PDF - TradingView mode detected, attempting cache retrieval")
         cached_vr = _get_cached_validation(payload.validation_hash)
         if not cached_vr:
-            print(f"[DEBUG] Broker PDF - TV cache miss, but proceeding anyway (TV fallback)")
-            # For TV mode, create a minimal response that allows PDF generation
+            print(f"[DEBUG] Broker PDF - TV cache miss - this shouldn't happen with the fix")
             raise HTTPException(400, {
                 "error": "tv_cache_miss", 
                 "message": "TradingView validation expired - please re-run validation then download PDF immediately."
@@ -5538,7 +5518,7 @@ def validate_tv_alerts(session_id: str, request: Request = None):
         equity_curve=getattr(report, 'equity_curve', None),
     )
 
-    # Cache validation results so PDF generation can access them
+    # CRITICAL: Always cache TV validation results, even if errors occur
     _vr_cache = {
         "fundable_score": report.score,
         "grade": report.grade,
@@ -5567,11 +5547,10 @@ def validate_tv_alerts(session_id: str, request: Request = None):
         "sebi_declaration": {},  # TV is US-based, no SEBI declaration
         "equity_curve": getattr(report, 'equity_curve', None),
     }
+    
     print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + "-TV"}'")
     _cache_validation(report.validation_hash + "-TV", _vr_cache)
-    print(f"[DEBUG] TV Cache - Cache keys after save: {list(VALIDATION_RESULT_CACHE.keys())[-3:]}")
-    _save_validation_cache()
-    print(f"[DEBUG] TV Cache - Saved to disk")
+    print(f"[DEBUG] TV Cache - Successfully stored in memory")
 
 
 @app.post("/webhook/tradingview/{session_id}/reset")
@@ -5581,6 +5560,10 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
 
 
 
