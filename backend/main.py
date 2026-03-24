@@ -3449,13 +3449,9 @@ async def generate_report_endpoint(
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
         "equity_curve": getattr(report, 'equity_curve', None),
-        # Only compute SEBI checks for Kite data (Indian broker)
-        "sebi_checks": _compute_sebi_checks(df, request, registered_ip) 
-                      if (_is_kite_csv(df) or _is_kite_orders_csv(df)) 
-                      else {},
-        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type} 
-                            if (_is_kite_csv(df) or _is_kite_orders_csv(df)) 
-                            else {},
+        # Compute SEBI checks for all data (function handles non-Indian data gracefully)
+        "sebi_checks": _compute_sebi_checks(df, request, registered_ip),
+        "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
     }
 
     ai_plan = await generate_ai_plan(report, date_range)
@@ -5515,6 +5511,38 @@ def validate_tv_alerts(session_id: str, request: Request = None):
         ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
     )
+
+    # Cache validation results so PDF generation can access them
+    _vr_cache = {
+        "fundable_score": report.score,
+        "grade": report.grade,
+        "summary": (
+            f"QuantProof analyzed {report.total_trades} TradingView-constructed trades across "
+            f"{len(scored)} institutional checks + 5 crash simulations. "
+            f"Source: TradingView webhook alerts — paired into trades. "
+            f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
+        ),
+        "checks": [CheckResultResponse(**vars(c)) for c in visible_checks],
+        "crash_sims": [CrashSimResponse(
+            crash_name=s.crash_name, year=s.year,
+            description=s.description,
+            market_drop=s.market_drop,
+            strategy_drop=s.strategy_drop,
+            survived=s.survived,
+            emotional_verdict=s.emotional_verdict
+        ) for s in report.crash_sims],
+        "top_issues": top_issues,
+        "top_strengths": top_strengths,
+        "regime_note": regime_note,
+        "audit_flags": report.audit_flags + [audit_note] + extra_tv_flags,
+        "plausibility_summary": report.plausibility_summary,
+        "scale_warning": getattr(report, '_scale_warning', False),
+        "sebi_checks": {},  # TV is US-based, no SEBI checks
+        "sebi_declaration": {},  # TV is US-based, no SEBI declaration
+        "equity_curve": getattr(report, 'equity_curve', None),
+    }
+    _cache_validation(report.validation_hash + "-TV", _vr_cache)
+    _save_validation_cache()
 
 
 @app.post("/webhook/tradingview/{session_id}/reset")
