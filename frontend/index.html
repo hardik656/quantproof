@@ -2866,7 +2866,10 @@
         return;
       }
       const data=await resp.json();
-      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) { 
+  saveToken('qp_validation_hash',data.validation_hash); 
+  sessionStorage.setItem('qp_tv_validation_data', JSON.stringify(data)); 
+}
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){hideLoading(true);alert('TradingView validation error: '+err.message);}
   }
@@ -3606,4 +3609,5 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
 
