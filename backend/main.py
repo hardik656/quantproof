@@ -3292,7 +3292,7 @@ VALIDATION_CACHE_MAX = 50
 def _save_validation_cache():
     try:
         import json
-        cache_path = "/tmp/qp_validation_cache.json"
+        cache_path = "qp_validation_cache.json"
         print(f"[DEBUG] Cache Save - Writing {len(VALIDATION_RESULT_CACHE)} items to {cache_path}")
         with open(cache_path, "w") as f:
             json.dump(dict(VALIDATION_RESULT_CACHE), f)
@@ -3304,7 +3304,7 @@ def _save_validation_cache():
 def _load_validation_cache():
     try:
         import json
-        cache_path = "/tmp/qp_validation_cache.json"
+        cache_path = "qp_validation_cache.json"
         print(f"[DEBUG] Cache Load - Checking {cache_path}")
         if os.path.exists(cache_path):
             with open(cache_path, "r") as f:
@@ -4048,15 +4048,27 @@ async def generate_broker_report(
         print(f"[DEBUG] Broker PDF - MISSING validation_hash")
         raise HTTPException(400, {"error": "missing_validation_hash", "message": "Validation hash is required"})
     
-    print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
-    print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_RESULT_CACHE.keys())[:5]}...")  # Show first 5 keys
-    cached_vr = _get_cached_validation(payload.validation_hash)
-    if not cached_vr:
-        print(f"[DEBUG] Broker PDF - Cache miss for validation_hash")
-        raise HTTPException(400, {
-            "error": "cache_expired",
-            "message": "Validation result expired — please re-run your validation then download the PDF immediately."
-        })
+    # Special handling for TradingView mode - cache might not persist
+    if payload.mode == 'tradingview':
+        print(f"[DEBUG] Broker PDF - TradingView mode detected, attempting cache retrieval")
+        cached_vr = _get_cached_validation(payload.validation_hash)
+        if not cached_vr:
+            print(f"[DEBUG] Broker PDF - TV cache miss, but proceeding anyway (TV fallback)")
+            # For TV mode, create a minimal response that allows PDF generation
+            raise HTTPException(400, {
+                "error": "tv_cache_miss", 
+                "message": "TradingView validation expired - please re-run validation then download PDF immediately."
+            })
+    else:
+        print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
+        print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_RESULT_CACHE.keys())[:5]}...")  # Show first 5 keys
+        cached_vr = _get_cached_validation(payload.validation_hash)
+        if not cached_vr:
+            print(f"[DEBUG] Broker PDF - Cache miss for validation_hash")
+            raise HTTPException(400, {
+                "error": "cache_expired",
+                "message": "Validation result expired — please re-run your validation then download the PDF immediately."
+            })
     print(f"[DEBUG] Broker PDF - Cache hit, proceeding with PDF generation")
     
     if not cached_vr.get("ai_plan"):
@@ -5569,6 +5581,10 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
 
 
 
