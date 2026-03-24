@@ -3290,31 +3290,30 @@ VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
 def _save_validation_cache():
-    # In-memory cache - no file system dependency
+    # No persistence needed - use validation hash as direct cache
     pass
 
 def _load_validation_cache():
-    # In-memory cache - no file system dependency  
+    # No persistence needed - use validation hash as direct cache
     pass
 
-_load_validation_cache()
-
 def _cache_validation(v_hash: str, vr: dict):
-    print(f"[DEBUG] Cache - Storing in memory: '{v_hash}'")
+    print(f"[DEBUG] Cache - Storing: '{v_hash}'")
     VALIDATION_RESULT_CACHE[v_hash] = vr
     if len(VALIDATION_RESULT_CACHE) > VALIDATION_CACHE_MAX:
         VALIDATION_RESULT_CACHE.popitem(last=False)
-    print(f"[DEBUG] Cache - Memory size: {len(VALIDATION_RESULT_CACHE)} items")
+    print(f"[DEBUG] Cache - Size: {len(VALIDATION_RESULT_CACHE)} items")
 
 def _get_cached_validation(v_hash: str) -> dict | None:
-    # FIX: LRU eviction — move accessed entry to end so it evicts last
-    print(f"[DEBUG] Cache Get - Looking for hash: '{v_hash}'")
-    print(f"[DEBUG] Cache Get - Available keys: {list(VALIDATION_RESULT_CACHE.keys())}")
+    print(f"[DEBUG] Cache Get - Looking for: '{v_hash}'")
+    print(f"[DEBUG] Cache Get - Keys: {list(VALIDATION_RESULT_CACHE.keys())}")
+    
     if v_hash in VALIDATION_RESULT_CACHE:
-        print(f"[DEBUG] Cache Get - FOUND hash: '{v_hash}'")
+        print(f"[DEBUG] Cache Get - FOUND: '{v_hash}'")
         VALIDATION_RESULT_CACHE.move_to_end(v_hash)
         return VALIDATION_RESULT_CACHE[v_hash]
-    print(f"[DEBUG] Cache Get - MISS hash: '{v_hash}'")
+    
+    print(f"[DEBUG] Cache Get - MISS: '{v_hash}'")
     return None
 
 _TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
@@ -5560,6 +5559,8 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
 
 
 
