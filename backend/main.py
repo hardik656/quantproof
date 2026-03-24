@@ -3317,9 +3317,13 @@ def _cache_validation(v_hash: str, vr: dict):
 
 def _get_cached_validation(v_hash: str) -> dict | None:
     # FIX: LRU eviction — move accessed entry to end so it evicts last
+    print(f"[DEBUG] Cache Get - Looking for hash: '{v_hash}'")
+    print(f"[DEBUG] Cache Get - Available keys: {list(VALIDATION_RESULT_CACHE.keys())}")
     if v_hash in VALIDATION_RESULT_CACHE:
+        print(f"[DEBUG] Cache Get - FOUND hash: '{v_hash}'")
         VALIDATION_RESULT_CACHE.move_to_end(v_hash)
         return VALIDATION_RESULT_CACHE[v_hash]
+    print(f"[DEBUG] Cache Get - MISS hash: '{v_hash}'")
     return None
 
 _TEST_TOKEN = os.getenv("TEST_REPORT_TOKEN", "")
@@ -4041,7 +4045,7 @@ async def generate_broker_report(
         print(f"[DEBUG] Broker PDF - Cache miss for validation_hash")
         raise HTTPException(400, {
             "error": "cache_expired",
-            "message": "Validation result expired — please re-run your Alpaca validation then download the PDF immediately."
+            "message": "Validation result expired — please re-run your validation then download the PDF immediately."
         })
     print(f"[DEBUG] Broker PDF - Cache hit, proceeding with PDF generation")
     
@@ -5541,8 +5545,11 @@ def validate_tv_alerts(session_id: str, request: Request = None):
         "sebi_declaration": {},  # TV is US-based, no SEBI declaration
         "equity_curve": getattr(report, 'equity_curve', None),
     }
+    print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + "-TV"}'")
     _cache_validation(report.validation_hash + "-TV", _vr_cache)
+    print(f"[DEBUG] TV Cache - Cache keys after save: {list(VALIDATION_RESULT_CACHE.keys())[-3:]}")
     _save_validation_cache()
+    print(f"[DEBUG] TV Cache - Saved to disk")
 
 
 @app.post("/webhook/tradingview/{session_id}/reset")
@@ -5552,6 +5559,12 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
+
+
 
 
 
