@@ -2393,7 +2393,7 @@
   }
 
   async function generatePdfBlob(token) {
-    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
+    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv'));
     let res;
     if(src==='alpaca') {
       const validationHash = (loadToken('qp_validation_hash') || '').replace('-VERIFIED', '');
@@ -2402,6 +2402,14 @@
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'x-report-token': token},
         body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash})
+      });
+    } else if(src==='tv') {
+      const validationHash = (loadToken('qp_validation_hash') || '');
+      if(!validationHash) throw new Error('TradingView validation result not found — please re-run the TradingView validation before downloading the report.');
+      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'x-report-token': token},
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'tradingview', validation_hash: validationHash})
       });
     } else {
       if(!_lastValidatedFile) {
