@@ -4043,6 +4043,19 @@ async def generate_broker_report(
                     "error": "tv_data_missing", 
                     "message": "TradingView validation data missing - please re-run validation then download PDF immediately."
                 })
+    elif payload.mode == 'ibkr':
+        print(f"[DEBUG] Broker PDF - IBKR mode detected")
+        if payload.validation_data:
+            print(f"[DEBUG] Broker PDF - Using sent IBKR validation data")
+            cached_vr = payload.validation_data
+        else:
+            print(f"[DEBUG] Broker PDF - No IBKR data sent, checking cache")
+            cached_vr = _get_cached_validation(payload.validation_hash)
+            if not cached_vr:
+                raise HTTPException(400, {
+                    "error": "ibkr_data_missing", 
+                    "message": "IBKR validation data missing - please re-run validation then download PDF immediately."
+                })
     else:
         print(f"[DEBUG] Broker PDF - Checking cache for validation_hash: '{payload.validation_hash}'")
         print(f"[DEBUG] Broker PDF - Cache keys available: {list(VALIDATION_RESULT_CACHE.keys())[:5]}...")  # Show first 5 keys
@@ -4635,6 +4648,113 @@ async def validate_portfolio(
 
 
 # =========================================================
+# IBKR PARSER HELPER FUNCTIONS - Improved Logic
+# =========================================================
+
+def calculate_trade_side(buy_sell, qty, open_close, net_cash, price):
+    """
+    Calculate trade side with unified, clear logic.
+    """
+    if open_close == 'C':
+        # Closed trade - determine by position direction
+        return 'long' if qty < 0 else 'short'
+    else:
+        # Opening trade - determine by action
+        return 'long' if buy_sell == 'SELL' else 'short'
+
+
+def is_opening_position(open_close, qty, net_cash, price):
+    """
+    Detect if this is an opening position with robust logic.
+    """
+    # Explicit opening indicator
+    if open_close == 'O':
+        return True
+    
+    # Explicit closing indicator
+    if open_close == 'C':
+        return False
+    
+    # Heuristic detection when indicator is missing
+    trade_value = abs(price * qty) if price > 0 and qty != 0 else 0
+    
+    if trade_value == 0:
+        return False  # Can't determine, assume closing
+    
+    # For long positions (qty > 0): opening requires significant cash outflow
+    if qty > 0:
+        cash_outflow_ratio = abs(net_cash) / trade_value if trade_value > 0 else 0
+        return cash_outflow_ratio > 0.8  # 80%+ of trade value is cash outflow
+    
+    # For short positions (qty < 0): opening requires minimal cash inflow
+    else:
+        cash_inflow_ratio = abs(net_cash) / trade_value if trade_value > 0 else 0
+        return cash_inflow_ratio < 0.2  # Less than 20% of trade value is cash inflow
+
+
+def calculate_pnl_fraction(net_cash, price, qty, fifo_pnl=None):
+    """
+    Calculate P&L as fraction with robust error handling.
+    """
+    import numpy as np
+    
+    # Use FIFO P&L when available (most accurate)
+    if fifo_pnl is not None:
+        try:
+            fifo_val = float(fifo_pnl)
+            if abs(fifo_val) < 0.001:  # Tiny P&L, likely rounding error
+                return None
+            
+            cost = abs(price * qty) if price > 0 and qty != 0 else 1
+            pnl_frac = fifo_val / cost
+            return float(np.clip(pnl_frac, -0.99, 0.99))
+        except (ValueError, ZeroDivisionError):
+            pass  # Fall back to net cash method
+    
+    # Net cash method
+    if price <= 0 or qty == 0:
+        return None  # Can't calculate without valid price/quantity
+    
+    cost_basis = abs(price * qty)
+    pnl_frac = net_cash / cost_basis
+    return float(np.clip(pnl_frac, -0.99, 0.99))
+
+
+def parse_ibkr_trade_improved(trade_element):
+    """
+    Simplified, maintainable IBKR trade parser using helper functions.
+    """
+    # Extract fields with case-insensitive fallbacks
+    date_str = trade_element.get("tradeDate") or trade_element.get("TradeDate", "")
+    symbol = trade_element.get("symbol", "") or trade_element.get("Symbol", "")
+    qty = float(trade_element.get("quantity", 0) or trade_element.get("Quantity", 0) or 0)
+    price = float(trade_element.get("tradePrice") or trade_element.get("TradePrice", 0) or 0)
+    net_cash = float(trade_element.get("netCash") or trade_element.get("NetCash", 0) or 0)
+    buy_sell = (trade_element.get("buySell") or trade_element.get("BuySell") or "").upper()
+    open_close = (trade_element.get("openCloseIndicator") or trade_element.get("OpenCloseIndicator") or "").upper()
+    fifo_pnl = trade_element.get("fifoPnlRealized") or trade_element.get("FifoPnlRealized")
+    
+    # Skip opening positions
+    if is_opening_position(open_close, qty, net_cash, price):
+        return None, "opening_position"
+    
+    # Calculate P&L
+    pnl_frac = calculate_pnl_fraction(net_cash, price, qty, fifo_pnl)
+    if pnl_frac is None:
+        return None, "pnl_calculation_failed"
+    
+    # Calculate side using unified logic
+    side = calculate_trade_side(buy_sell, qty, open_close, net_cash, price)
+    
+    return {
+        "date": date_str,
+        "pnl": round(pnl_frac, 6),
+        "ticker": symbol,
+        "side": side,
+    }, None
+
+
+# =========================================================
 # IBKR BROKER INTEGRATION
 # =========================================================
 
@@ -4709,73 +4829,13 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             continue
         for trade in stmt.iter("Trade"):
             try:
-                date_str  = trade.get("tradeDate") or trade.get("TradeDate", "")
-                symbol    = trade.get("symbol", "") or trade.get("Symbol", "")
-                qty       = float(trade.get("quantity", 0) or 0)
-                price     = float(trade.get("tradePrice") or trade.get("TradePrice", 0) or 0)
-                net_cash  = float(trade.get("netCash")    or trade.get("NetCash", 0) or 0)
-                buy_sell  = (trade.get("buySell") or trade.get("BuySell") or "").upper()
-
-                open_close = (trade.get("openCloseIndicator") or
-                              trade.get("OpenCloseIndicator") or "").upper()
-                if open_close == "O":
-                    open_skipped += 1
+                # Use improved parser
+                trade_data, skip_reason = parse_ibkr_trade_improved(trade)
+                if trade_data is None:
+                    if skip_reason == "opening_position":
+                        open_skipped += 1
                     continue
-
-                fifo_pnl = trade.get("fifoPnlRealized") or trade.get("FifoPnlRealized")
-                if fifo_pnl is not None:
-                    try:
-                        fifo_val = float(fifo_pnl)
-                        if abs(fifo_val) < 0.001:
-                            open_skipped += 1
-                            continue
-                        cost = abs(price * qty) if price > 0 and qty != 0 else 1
-                        pnl_frac = fifo_val / cost
-                        pnl_frac = float(np.clip(pnl_frac, -0.99, 0.99))
-                        side = "short" if (buy_sell == "BUY" or qty > 0) else "long"
-                        if open_close == "C":
-                            side = "short" if buy_sell == "BUY" else "long"
-                        trades.append({
-                            "date":   date_str,
-                            "pnl":    round(pnl_frac, 6),
-                            "ticker": symbol,
-                            "side":   side,
-                        })
-                        continue
-                    except (ValueError, ZeroDivisionError):
-                        pass
-
-                if price <= 0 or qty == 0:
-                    continue
-                cost_basis = abs(price * qty)
-                pnl_frac   = net_cash / cost_basis
-                pnl_frac   = float(np.clip(pnl_frac, -0.99, 0.99))
-
-                if qty < 0:
-                    side = "long"
-                else:
-                    side = "short"
-
-                is_opening_long  = qty > 0 and net_cash < -abs(price * qty) * 0.5
-                is_opening_short = (
-                    open_close != "C"
-                    and qty < 0
-                    and net_cash > 0
-                    and abs(net_cash) < abs(price * qty) * 0.01
-                )
-                if is_opening_long or is_opening_short:
-                    open_skipped += 1
-                    continue
-                if abs(net_cash) < 0.01:
-                    open_skipped += 1
-                    continue
-
-                trades.append({
-                    "date":   date_str,
-                    "pnl":    round(pnl_frac, 6),
-                    "ticker": symbol,
-                    "side":   side,
-                })
+                trades.append(trade_data)
             except (ValueError, ZeroDivisionError):
                 continue
 
@@ -5552,7 +5612,7 @@ def validate_tv_alerts(session_id: str, request: Request = None):
         "equity_curve": getattr(report, 'equity_curve', None),
     }
     
-    print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + "-TV"}'")
+    print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + '-TV'}'")
     _cache_validation(report.validation_hash + "-TV", _vr_cache)
     print(f"[DEBUG] TV Cache - Successfully stored in memory")
 
@@ -5564,6 +5624,10 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
 
 
 
