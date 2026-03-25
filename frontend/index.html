@@ -125,7 +125,7 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--black); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
-  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; background-position:center center; pointer-events:none; z-index:0; }
   body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px); pointer-events:none; z-index:1; }
   .container { position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:0 24px; }
   header { padding:32px 0 0; border-bottom:1px solid var(--border); margin-bottom:60px; }
@@ -3620,4 +3620,3 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
