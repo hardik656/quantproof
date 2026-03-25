@@ -2393,7 +2393,7 @@
   }
 
   async function generatePdfBlob(token) {
-    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv'));
+    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (hash.includes('-IBKR') ? 'ibkr' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv')));
     let res;
     if(src==='alpaca') {
       const validationHash = (loadToken('qp_validation_hash') || '').replace('-VERIFIED', '');
@@ -2410,6 +2410,14 @@
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'x-report-token': token},
         body: JSON.stringify({api_key: '', secret_key: '', mode: 'tradingview', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_tv_validation_data') || '{}')})
+      });
+    } else if(src==='ibkr') {
+      const validationHash = (loadToken('qp_validation_hash') || '');
+      if(!validationHash) throw new Error('IBKR validation result not found — please re-run the IBKR validation before downloading the report.');
+      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'x-report-token': token},
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'ibkr', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_ibkr_validation_data') || '{}')})
       });
     } else {
       if(!_lastValidatedFile) {
@@ -2772,7 +2780,10 @@
         return;
       }
       const result=await resp.json(); const data=result.validation;
-      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) { 
+        saveToken('qp_validation_hash',data.validation_hash); 
+        sessionStorage.setItem('qp_ibkr_validation_data', JSON.stringify(data)); 
+      }
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err) { hideLoading(true); alert('IBKR error: '+err.message); }
   }
@@ -3609,5 +3620,4 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
 
