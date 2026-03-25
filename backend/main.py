@@ -1542,6 +1542,33 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
 
 # =========================================================
+# RETRY DECORATOR FOR API CALLS
+# =========================================================
+
+import asyncio
+from functools import wraps
+
+def retry_on_failure(max_retries=3, delay=1.0):
+    """
+    Retry decorator for API calls with exponential backoff
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise e
+                    wait_time = delay * (2 ** attempt)
+                    print(f"[RETRY] API call failed (attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s: {str(e)}")
+                    await asyncio.sleep(wait_time)
+        return wrapper
+    return decorator
+
+
+# =========================================================
 # ALPACA UI EXPORT PARSER
 # =========================================================
 
@@ -2338,11 +2365,36 @@ def _normalise_pnl(net_profit: float, entry_price: float,
     return None
 
 
-def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
+def smart_parse_excel(contents: bytes) -> tuple[pd.DataFrame, str]:
     """
-    Parses CSV/TSV into a trades DataFrame for QuantProofValidator.
+    Parses Excel files (.xlsx, .xls) into a trades DataFrame for QuantProofValidator.
     Returns (df, regime_note).
     """
+    try:
+        import openpyxl
+        df = pd.read_excel(io.BytesIO(contents))
+        regime_note = ""
+        
+        if "date" in df.columns and df["date"].notna().any():
+            df, regime_note = assign_regimes(df)
+        
+        return df, regime_note
+        
+    except ImportError:
+        raise HTTPException(400, "Excel support requires openpyxl package. Please install with: pip install openpyxl")
+    except Exception as e:
+        raise HTTPException(400, f"Could not parse Excel file: {str(e)}")
+
+
+def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
+    """
+    Parses CSV/TSV/Excel into a trades DataFrame for QuantProofValidator.
+    Returns (df, regime_note).
+    """
+    # NEW: Detect Excel files by magic bytes
+    if contents.startswith(b'PK\x03\x04') or contents.startswith(b'PK\x05\x06') or contents.startswith(b'PK\x07\x08'):
+        return smart_parse_excel(contents)
+    
     raw         = contents.decode("utf-8", errors="ignore")
     regime_note = ""
 
@@ -2574,6 +2626,30 @@ def _dedup_trades(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # =========================================================
+# SEBI COMPLIANCE CONFIGURATION
+# =========================================================
+
+SEBI_CONFIG = {
+    'ops_threshold': {
+        'max_orders_per_second': 10,
+        'description': 'SEBI limit for orders per second before mandatory registration'
+    },
+    'session_logout': {
+        'market_start': '09:15',
+        'market_end': '15:30',
+        'timezone': 'Asia/Kolkata',
+        'description': 'NSE market hours for session logout verification'
+    },
+    'turnover_threshold': {
+        'daily_limit': 1000000,  # 1 crore INR
+        'description': 'Daily turnover threshold for enhanced reporting'
+    },
+    'last_updated': '2024-01-01',
+    'version': '1.0'
+}
+
+
+# =========================================================
 # SEBI COMPLIANCE CHECKS — KITE ONLY
 # =========================================================
 
@@ -2590,16 +2666,18 @@ def _compute_sebi_checks(df: pd.DataFrame, request, registered_ip: str = "") -> 
     # ── CHECK 1: OPS Threshold (<10 orders/second) ─────────────────────────
     # SEBI: strategies placing >=10 orders/second require mandatory registration
     try:
+        ops_limit = SEBI_CONFIG['ops_threshold']['max_orders_per_second']
         if "date" in df.columns and df["date"].notna().any():
             # Group by second, count orders
-            df["_ts_sec"] = pd.to_datetime(df["date"]).dt.floor("s")
-            ops_per_sec   = df.groupby("_ts_sec").size()
-            max_ops       = int(ops_per_sec.max()) if len(ops_per_sec) > 0 else 0
-            df.drop(columns=["_ts_sec"], inplace=True, errors="ignore")
+            df_copy = df.copy()
+            df_copy["second"] = df_copy["date"].dt.floor("S")
+            ops_counts = df_copy.groupby("second").size()
+            max_ops = ops_counts.max() if len(ops_counts) > 0 else 0
+            
             result["ops_threshold"] = {
-                "passed": max_ops < 10,
+                "passed": max_ops < ops_limit,
                 "value":  max_ops,
-                "note":   f"Max {max_ops} orders in any single second — {'within' if max_ops < 10 else 'exceeds'} SEBI limit of 10 OPS",
+                "note":   f"Max {max_ops} orders in any single second — {'within' if max_ops < ops_limit else 'exceeds'} SEBI limit of {ops_limit} OPS",
                 "method": "FROM_DATA",
             }
         else:
@@ -3051,8 +3129,12 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "accept":              "application/json"
         }
 
+        @retry_on_failure(max_retries=3, delay=1.0)
+        async def _fetch_alpaca_account(client, base_url, headers):
+            return await client.get(f"{base_url}/v2/account", headers=headers)
+
         async with httpx.AsyncClient(timeout=20) as client:
-            acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
+            acct_resp = await _fetch_alpaca_account(client, base_url, headers)
             if acct_resp.status_code == 401:
                 raise HTTPException(401, "Invalid Alpaca credentials. Please check your API key and secret.")
             if acct_resp.status_code == 403:
@@ -3064,14 +3146,18 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             except Exception:
                 acct_currency = "USD"
 
-            orders_resp = await client.get(
-                f"{base_url}/v2/orders",
-                headers=headers,
-                params={"status": "closed", "limit": 500, "direction": "desc"}
-            )
-            if not orders_resp.is_success:
-                raise HTTPException(400, "Could not fetch order history from Alpaca.")
-            orders = orders_resp.json()
+            @retry_on_failure(max_retries=3, delay=1.0)
+            async def _fetch_alpaca_orders(client, base_url, headers):
+                return await client.get(
+                    f"{base_url}/v2/orders",
+                    headers=headers,
+                    params={"status": "closed", "limit": 500, "direction": "desc"}
+                )
+
+        orders_resp = await _fetch_alpaca_orders(client, base_url, headers)
+        if not orders_resp.is_success:
+            raise HTTPException(400, "Could not fetch order history from Alpaca.")
+        orders = orders_resp.json()
 
         api_key = secret_key = "[DISCARDED]"
         headers = {}
@@ -4125,14 +4211,23 @@ async def generate_broker_report(
     try:
         import httpx
         headers = {"APCA-API-KEY-ID": api_key, "APCA-API-SECRET-KEY": secret_key, "accept": "application/json"}
-        async with httpx.AsyncClient(timeout=20) as client:
-            acct_resp = await client.get(f"{base_url}/v2/account", headers=headers)
-            if not acct_resp.is_success:
-                raise HTTPException(401, "Invalid Alpaca credentials.")
-            orders_resp = await client.get(
+        
+        @retry_on_failure(max_retries=3, delay=1.0)
+        async def _fetch_alpaca_account_v2(client, base_url, headers):
+            return await client.get(f"{base_url}/v2/account", headers=headers)
+        
+        @retry_on_failure(max_retries=3, delay=1.0)
+        async def _fetch_alpaca_orders_v2(client, base_url, headers):
+            return await client.get(
                 f"{base_url}/v2/orders", headers=headers,
                 params={"status": "closed", "limit": 500, "direction": "desc"}
             )
+        
+        async with httpx.AsyncClient(timeout=20) as client:
+            acct_resp = await _fetch_alpaca_account_v2(client, base_url, headers)
+            if not acct_resp.is_success:
+                raise HTTPException(401, "Invalid Alpaca credentials.")
+            orders_resp = await _fetch_alpaca_orders_v2(client, base_url, headers)
         raw_orders = orders_resp.json() if orders_resp.is_success else []
         orders     = raw_orders if isinstance(raw_orders, list) else []
 
@@ -4648,6 +4743,30 @@ async def validate_portfolio(
 
 
 # =========================================================
+# IBKR CONFIGURATION
+# =========================================================
+
+IBKR_CONFIG = {
+    'opening_detection': {
+        'long_cash_outflow_ratio': 0.8,
+        'short_cash_inflow_ratio': 0.2,
+        'description': 'Thresholds for detecting opening positions'
+    },
+    'pnl_calculation': {
+        'clip_range': 0.99,
+        'min_pnl_threshold': 0.001,
+        'description': 'P&L calculation parameters'
+    },
+    'validation': {
+        'min_trades': 10,
+        'description': 'Minimum trades required for validation'
+    },
+    'last_updated': '2024-01-01',
+    'version': '1.0'
+}
+
+
+# =========================================================
 # IBKR PARSER HELPER FUNCTIONS - Improved Logic
 # =========================================================
 
@@ -4681,15 +4800,18 @@ def is_opening_position(open_close, qty, net_cash, price):
     if trade_value == 0:
         return False  # Can't determine, assume closing
     
+    # Use configuration thresholds
+    config = IBKR_CONFIG['opening_detection']
+    
     # For long positions (qty > 0): opening requires significant cash outflow
     if qty > 0:
         cash_outflow_ratio = abs(net_cash) / trade_value if trade_value > 0 else 0
-        return cash_outflow_ratio > 0.8  # 80%+ of trade value is cash outflow
+        return cash_outflow_ratio > config['long_cash_outflow_ratio']
     
     # For short positions (qty < 0): opening requires minimal cash inflow
     else:
         cash_inflow_ratio = abs(net_cash) / trade_value if trade_value > 0 else 0
-        return cash_inflow_ratio < 0.2  # Less than 20% of trade value is cash inflow
+        return cash_inflow_ratio < config['short_cash_inflow_ratio']
 
 
 def calculate_pnl_fraction(net_cash, price, qty, fifo_pnl=None):
@@ -4698,16 +4820,21 @@ def calculate_pnl_fraction(net_cash, price, qty, fifo_pnl=None):
     """
     import numpy as np
     
+    # Use configuration
+    config = IBKR_CONFIG['pnl_calculation']
+    clip_range = config['clip_range']
+    min_threshold = config['min_pnl_threshold']
+    
     # Use FIFO P&L when available (most accurate)
     if fifo_pnl is not None:
         try:
             fifo_val = float(fifo_pnl)
-            if abs(fifo_val) < 0.001:  # Tiny P&L, likely rounding error
+            if abs(fifo_val) < min_threshold:  # Tiny P&L, likely rounding error
                 return None
             
             cost = abs(price * qty) if price > 0 and qty != 0 else 1
             pnl_frac = fifo_val / cost
-            return float(np.clip(pnl_frac, -0.99, 0.99))
+            return float(np.clip(pnl_frac, -clip_range, clip_range))
         except (ValueError, ZeroDivisionError):
             pass  # Fall back to net cash method
     
@@ -4717,7 +4844,7 @@ def calculate_pnl_fraction(net_cash, price, qty, fifo_pnl=None):
     
     cost_basis = abs(price * qty)
     pnl_frac = net_cash / cost_basis
-    return float(np.clip(pnl_frac, -0.99, 0.99))
+    return float(np.clip(pnl_frac, -clip_range, clip_range))
 
 
 def parse_ibkr_trade_improved(trade_element):
@@ -5624,6 +5751,12 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
+
+
 
 
 
