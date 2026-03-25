@@ -10,4 +10,5 @@ reportlab
 httpx
 razorpay
 yfinance
+openpyxl
 
