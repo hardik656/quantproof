@@ -3133,6 +3133,14 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         async def _fetch_alpaca_account(client, base_url, headers):
             return await client.get(f"{base_url}/v2/account", headers=headers)
 
+        @retry_on_failure(max_retries=3, delay=1.0)
+        async def _fetch_alpaca_orders(client, base_url, headers):
+            return await client.get(
+                f"{base_url}/v2/orders",
+                headers=headers,
+                params={"status": "closed", "limit": 500, "direction": "desc"}
+            )
+
         async with httpx.AsyncClient(timeout=20) as client:
             acct_resp = await _fetch_alpaca_account(client, base_url, headers)
             if acct_resp.status_code == 401:
@@ -3146,17 +3154,9 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             except Exception:
                 acct_currency = "USD"
 
-            @retry_on_failure(max_retries=3, delay=1.0)
-            async def _fetch_alpaca_orders(client, base_url, headers):
-                return await client.get(
-                    f"{base_url}/v2/orders",
-                    headers=headers,
-                    params={"status": "closed", "limit": 500, "direction": "desc"}
-                )
-
-        orders_resp = await _fetch_alpaca_orders(client, base_url, headers)
-        if not orders_resp.is_success:
-            raise HTTPException(400, "Could not fetch order history from Alpaca.")
+            orders_resp = await _fetch_alpaca_orders(client, base_url, headers)
+            if not orders_resp.is_success:
+                raise HTTPException(400, "Could not fetch order history from Alpaca.")
         orders = orders_resp.json()
 
         api_key = secret_key = "[DISCARDED]"
@@ -5751,15 +5751,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
-
-
-
-
-
-
-
 
 
 
