@@ -54,7 +54,7 @@
       "name": "What exactly does QuantProof check that my backtest software doesn't?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "QuantProof runs 44 institutional-grade checks that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers), execution reality checks, and regime robustness testing. Most backtest tools only show basic metrics like Sharpe ratio and drawdown."
+        "text": "QuantProof runs 44 institutional-grade checks that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade), execution reality checks, and regime robustness testing. Most backtest tools only show basic metrics like Sharpe ratio and drawdown."
       }
     },
     {
@@ -182,7 +182,7 @@
       "name": "What makes QuantProof's 44 checks different from standard analysis?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Standard analysis shows Sharpe ratio, max drawdown, total return. Our 44 checks include: deflated Sharpe ratio (detects overfitting), CPCV walk-forward analysis, 5 crash simulations, regime robustness testing, execution reality analysis, symbol overfitting detection, beta exposure, alpha decay testing, and prop firm-specific compliance gates. Most tools miss 80% of these critical factors."
+        "text": "Standard analysis shows Sharpe ratio, max drawdown, total return. Our 44 checks include: deflated Sharpe ratio (detects overfitting), CPCV walk-forward analysis, 5 crash simulations, regime robustness testing, execution reality analysis, symbol overfitting detection, beta exposure, alpha decay testing, and prop firm-specific compliance gates (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade). Most tools miss 80% of these critical factors."
       }
     }
   ]
@@ -296,7 +296,7 @@
           <span class="faq-icon">▼</span>
         </div>
         <div class="faq-answer">
-          <p>QuantProof runs <strong>44 institutional-grade checks</strong> that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers), execution reality checks, and regime robustness testing.</p>
+          <p>QuantProof runs <strong>44 institutional-grade checks</strong> that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade), execution reality checks, and regime robustness testing.</p>
           <p>Most backtest tools only show basic metrics like Sharpe ratio and drawdown. We analyze the <strong>quality</strong> of your results, not just the surface numbers.</p>
         </div>
       </div>
@@ -327,7 +327,7 @@
           • <strong>Symbol overfitting detection</strong><br>
           • <strong>Beta exposure</strong> and <strong>alpha decay</strong><br>
           • <strong>Prop firm-specific compliance gates</strong></p>
-          <p>Most tools miss 80% of these critical factors that determine real-world success.</p>
+          <p>Most tools miss 80% of these critical factors that determine real-world success, including <strong>firm-specific compliance gates for FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade</strong>.</p>
         </div>
       </div>
 
@@ -533,8 +533,13 @@
           <span class="faq-icon">▼</span>
         </div>
         <div class="faq-answer">
-          <p>QuantProof works for <strong>all major prop firms</strong>. We have specific compliance gates for FTMO (10% max drawdown, 5% daily loss), Topstep (similar limits with different profit targets), The5ers, and others.</p>
-          <p>Our 44 checks cover universal requirements like risk management, consistency, and overfitting detection that all prop firms evaluate.</p>
+          <p>QuantProof works for <strong>five major prop firms</strong> with firm-specific requirements:</p>
+          <p>• <strong>FTMO:</strong> 10% max drawdown, 5% daily loss, 10% profit target<br>
+          • <strong>Topstep:</strong> 4% max loss, 8% profit, 50% consistency rule<br>
+          • <strong>The5ers:</strong> 8% max drawdown, 10% profit, 4-day consistency<br>
+          • <strong>Blue Guardian:</strong> 10% DD, 5% daily loss<br>
+          • <strong>Earn2Trade:</strong> 12% DD, 6% profit</p>
+          <p>We check each firm's specific rules and report exact violations.</p>
         </div>
       </div>
 
@@ -556,7 +561,7 @@
         </div>
         <div class="faq-answer">
           <p>We monitor prop firm requirements continuously and update our compliance gates within <strong>7 days</strong> of any announced changes.</p>
-          <p>FTMO, Topstep, and others occasionally adjust drawdown limits or profit targets. Our system automatically applies the latest requirements to your analysis.</p>
+          <p>FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade occasionally adjust drawdown limits or profit targets. Our system automatically applies the latest requirements to your analysis.</p>
         </div>
       </div>
     </section>
