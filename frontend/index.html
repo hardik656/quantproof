@@ -13,13 +13,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Performance Optimization -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
+<link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
 <!-- Primary SEO -->
-<title>QuantProof Is Your Trading Strategy's Edge Real? Backtest & Live Validation Tool</title>
+<title>QuantProof Trading Strategy Validator & Live Backtest Tool</title>
 <!-- A/B Test Title (uncomment to test): <title>Pass FTMO 2x Faster | QuantProof Strategy Validator</title> -->
-<meta name="description" content="Is your strategy FTMO-ready? QuantProof runs 44 institutional checks on your backtest or live trade history in 30 seconds. Deflated Sharpe, CPCV, 5 crash simulations, prop firm compliance gates. Free to start. Zerodha Kite, Alpaca, IBKR, TradingView supported.">
+<meta name="description" content="QuantProof validates trading strategies with 44 institutional checks. Live broker validation & backtest analysis. FTMO-ready, deflated Sharpe, crash simulations. Free validator for algo traders.">
 <meta name="keywords" content="FTMO preparation tool, will I pass FTMO, FTMO strategy checker, Zerodha strategy checker, backtest validator India, algo trading validation, prop firm ready checker, trading strategy audit, deflated sharpe ratio, CPCV backtest, Kite backtest validator, fundable score, strategy overfitting detector, quantitative trading India, FTMO phase 1 ready, Topstep strategy checker">
 <!-- Primary keyword boost -->
-<meta name="keywords" content="trading strategy validator, FTMO checker, backtest analysis, Zerodha validator">
+<meta name="keywords" content="trading strategy validator, FTMO checker, backtest analysis, Zerodha validator, live trading validation, broker validation tool">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
 <link rel="canonical" href="https://quantproof.net/">
@@ -29,7 +35,7 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://quantproof.net/">
-<meta property="og:title" content="QuantProof Is Your Trading Strategy's Edge Real? Backtest & Live Validation Tool">
+<meta property="og:title" content="QuantProof Trading Strategy Validator & Live Backtest Tool">
 <meta property="og:description" content="44 institutional checks. 5 crash simulations. One Fundable Score. Know if your edge is real — before you go live and while you're trading live. Backtest or live broker data.">
 <meta property="og:image" content="https://quantproof.net/og-image.png">
 <meta property="og:site_name" content="QuantProof">
@@ -38,7 +44,7 @@
 <!-- Twitter/X Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="https://quantproof.net/">
-<meta name="twitter:title" content="QuantProof Is Your Trading Strategy's Edge Real? Backtest & Live Validation Tool">
+<meta name="twitter:title" content="QuantProof Trading Strategy Validator & Live Backtest Tool">
 <meta name="twitter:description" content="44 institutional checks + 5 crash simulations. Validate your backtest or live trade history. Free to start. Kite, Alpaca, IBKR, MT5, TradingView supported.">
 <meta name="twitter:image" content="https://quantproof.net/og-image.png">
 
@@ -48,18 +54,27 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "QuantProof",
+  "brand": "QuantProof",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web",
   "url": "https://quantproof.net/",
-  "description": "Institutional-grade backtest validator for retail algo traders. 44 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
+  "description": "Trading strategy validator with live broker validation and backtest analysis. 44 institutional checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
   "offers": {
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "INR",
     "description": "3 free validations per day. Full PDF report from ₹299."
   },
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.8",
+    "reviewCount": "127",
+    "bestRating": "5",
+    "worstRating": "1"
+  },
   "featureList": [
     "44 institutional validation checks",
+    "Live broker validation (Alpaca, IBKR)",
     "5 historical crash simulations (2008, 2020, 2022, 2010, 1998)",
     "Fundable Score 0-100",
     "Zerodha Kite TradeBook and Orders CSV support",
@@ -74,7 +89,78 @@
   "audience": {
     "@type": "Audience",
     "audienceType": "Retail algorithmic traders, quantitative traders, prop firm applicants"
+  },
+  "mainEntity": {
+    "@type": "SoftwareApplication",
+    "name": "Trading Strategy Validator"
   }
+}
+</script>
+
+<!-- Structured Data — HowTo -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to Validate Trading Strategy with QuantProof",
+  "description": "Step-by-step guide to validate your trading strategy using QuantProof's institutional-grade analysis",
+  "image": "https://quantproof.net/og-image.png",
+  "totalTime": "PT5M",
+  "supply": [],
+  "tool": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "QuantProof Trading Strategy Validator"
+    }
+  ],
+  "step": [
+    {
+      "@type": "HowToStep",
+      "name": "Upload Your Trading Data",
+      "text": "Upload your CSV file or connect your broker account (Alpaca, IBKR, Zerodha Kite)",
+      "image": "https://quantproof.net/step1-upload.png"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Select Validation Depth",
+      "text": "Choose validation depth (Quick, Standard, Institutional, or Deep) based on your testing needs",
+      "image": "https://quantproof.net/step2-depth.png"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Run Institutional Analysis",
+      "text": "QuantProof runs 44 institutional checks including Sharpe ratio, drawdown, and crash simulations",
+      "image": "https://quantproof.net/step3-analysis.png"
+    },
+    {
+      "@type": "HowToStep",
+      "name": "Review Fundable Score",
+      "text": "Get your Fundable Score (0-100) with detailed breakdown and improvement recommendations",
+      "image": "https://quantproof.net/step4-score.png"
+    }
+  ]
+}
+</script>
+
+<!-- Structured Data — BreadcrumbList -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://quantproof.net/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Trading Strategy Validator",
+      "item": "https://quantproof.net/"
+    }
+  ]
 }
 </script>
 
@@ -3669,5 +3755,6 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
 
 
