@@ -1,811 +1,1653 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
   <!-- Google tag (gtag.js) -->
+
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
+
   <script>
+
     window.dataLayer = window.dataLayer || [];
+
     function gtag(){dataLayer.push(arguments);}
+
     gtag('js', new Date());
 
+
+
     gtag('config', 'G-P8ZCZSKQSS');
+
   </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Performance Optimization -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
+  <title>QuantProof Trading Strategy Validator & Live Backtest Tool</title>
+
+<!-- Structured Data — BreadcrumbList -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://quantproof.net/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Validation Methodology",
+      "item": "https://quantproof.net/methodology.html"
+    }
+  ]
+}
+</script>
+
   <style>
+
   :root {
+
     --black:#080a0f; --deep:#0d1117; --surface:#131920; --border:#1e2d3d;
+
     --accent:#00ff88; --accent2:#ff4444; --accent3:#ffaa00;
+
     --text:#e8edf2; --muted:#5a7a8a;
+
     --mono:'Space Mono',monospace; --sans:'Syne',sans-serif;
+
     --gold:#F5B700;
+
   }
+
   *{margin:0;padding:0;box-sizing:border-box;}
+
   html{overflow-x:hidden;}
+
   body{background:var(--black);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);background-size:40px 40px;background-position:center center;pointer-events:none;z-index:0;}
+
   body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px);pointer-events:none;z-index:1;}
+
   .container{position:relative;z-index:2;max-width:1100px;width:100%;margin:0 auto;padding:0 24px;}
 
+
+
   header{padding:32px 0 0;border-bottom:1px solid var(--border);margin-bottom:56px;}
+
   .header-inner{display:flex;align-items:center;justify-content:space-between;padding-bottom:24px;}
+
   .logo{display:flex;align-items:center;gap:12px;text-decoration:none;}
+
   .logo-mark{width:36px;height:36px;border:2px solid var(--accent);display:grid;place-items:center;font-family:var(--mono);font-size:14px;color:var(--accent);}
+
   .logo-name{font-family:var(--sans);font-weight:800;font-size:22px;letter-spacing:-0.5px;color:var(--text);}
+
   .logo-name span{color:var(--accent);}
+
   .back-btn{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:6px 14px;transition:all 0.2s;}
+
   .back-btn:hover{color:var(--accent);border-color:rgba(0,255,136,0.4);}
 
+
+
   .page-hero{margin-bottom:56px;}
+
   .page-tag{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;display:block;}
+
   .page-hero h1{font-size:clamp(28px,4vw,48px);font-weight:800;letter-spacing:-1.5px;line-height:1.1;margin-bottom:16px;}
+
   .page-hero p{font-size:16px;color:var(--muted);line-height:1.7;max-width:620px;}
+
   .version-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--border);padding:5px 12px;margin-top:20px;}
+
   .version-dot{width:6px;height:6px;background:var(--accent);border-radius:50%;}
 
+
+
   .score-breakdown{background:var(--deep);border:1px solid var(--border);padding:28px 32px;margin-bottom:56px;}
+
   .breakdown-title{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;}
+
   .breakdown-row{display:flex;align-items:center;gap:16px;margin-bottom:12px;}
+
   .breakdown-label{font-size:13px;font-weight:700;width:160px;flex-shrink:0;}
+
   .breakdown-bar-wrap{flex:1;height:6px;background:var(--border);overflow:hidden;}
+
   .breakdown-bar{height:100%;background:var(--accent);}
+
   .breakdown-pct{font-family:var(--mono);font-size:12px;color:var(--accent);width:40px;text-align:right;flex-shrink:0;}
+
   .breakdown-note{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;}
 
+
+
   .category-section{margin-bottom:48px;padding-bottom:48px;border-bottom:1px solid var(--border);width:100%;}
+
   .category-section:last-of-type{border-bottom:none;}
+
   .cat-header{display:flex;align-items:flex-start;gap:20px;margin-bottom:24px;}
+
   .cat-number{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--border);padding:4px 10px;flex-shrink:0;margin-top:4px;}
+
   .cat-title{font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px;}
+
   .cat-weight{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:8px;}
+
   .cat-desc{font-size:14px;color:var(--muted);line-height:1.7;}
 
+
+
   .check-list{display:flex;flex-direction:column;gap:12px;margin-top:20px;width:100%;}
+
   .check-row{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);padding:16px 20px;width:100%;display:block;}
+
   .check-row-name{font-size:14px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;}
+
   .check-tag{font-family:var(--mono);font-size:9px;padding:2px 7px;background:rgba(0,255,136,0.1);color:var(--accent);font-weight:700;letter-spacing:1px;}
+
   .check-row-desc{font-size:13px;color:var(--muted);line-height:1.6;}
+
   .check-row-why{font-size:12px;color:var(--text);margin-top:8px;padding:8px 12px;border-left:2px solid var(--accent3);background:rgba(255,170,0,0.04);}
+
   .check-row-why::before{content:'Why it matters: ';font-family:var(--mono);font-size:10px;color:var(--accent3);font-weight:700;}
 
+
+
   /* Math block */
+
   .math-details{margin-top:12px;width:100%;}
+
   .math-summary{font-family:var(--mono);font-size:11px;color:var(--accent);cursor:pointer;list-style:none;padding:8px 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);display:flex;align-items:center;justify-content:space-between;user-select:none;}
+
   .math-summary::-webkit-details-marker{display:none;}
+
   .math-summary::after{content:'▶';font-size:9px;color:var(--muted);transition:transform 0.2s;}
+
   details[open] .math-summary::after{transform:rotate(90deg);}
+
   .math-summary:hover{background:rgba(0,255,136,0.09);border-color:rgba(0,255,136,0.4);}
+
   .math-toggle-hint{font-size:9px;color:var(--muted);font-weight:400;}
+
   details[open] .math-toggle-hint{display:none;}
+
   .math-block{background:rgba(0,0,0,0.4);border:1px solid rgba(0,255,136,0.15);padding:16px 20px;margin-top:12px;font-family:var(--mono);}
+
   .math-label{font-size:9px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+
   .math-formula{font-size:13px;color:var(--text);line-height:2.0;white-space:pre-wrap;}
+
   .math-note{font-size:10px;color:var(--muted);margin-top:8px;line-height:1.6;}
 
+
+
   .reference-block{background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.1);padding:12px 16px;margin-top:14px;}
+
   .reference-label{font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+
   .reference-list{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;}
 
+
+
   .crash-profiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;}
+
   .crash-profile{background:var(--surface);border:1px solid var(--border);padding:16px;}
+
   .crash-profile-name{font-size:13px;font-weight:700;margin-bottom:4px;}
+
   .crash-profile-year{font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:8px;}
+
   .crash-profile-desc{font-size:12px;color:var(--muted);line-height:1.5;}
 
+
+
   /* Portfolio section */
+
   .portfolio-section{background:rgba(245,183,0,0.03);border:1px solid rgba(245,183,0,0.2);padding:28px 32px;margin-bottom:32px;width:100%;}
+
   .port-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;}
+
   .port-metric{background:var(--surface);border:1px solid var(--border);padding:14px 16px;}
+
   .port-metric-name{font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.1em;margin-bottom:4px;}
+
   .port-metric-desc{font-size:12px;color:var(--muted);line-height:1.6;}
 
+
+
   /* n_trials depth */
+
   .depth-table{width:100%;border-collapse:collapse;margin-top:12px;font-family:var(--mono);font-size:12px;}
+
   .depth-table th{text-align:left;padding:8px 12px;background:var(--surface);color:var(--muted);font-size:10px;letter-spacing:0.08em;border-bottom:1px solid var(--border);}
+
   .depth-table td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);}
+
   .depth-table tr:last-child td{border-bottom:none;}
 
+
+
   .bottom-cta{background:var(--deep);border:1px solid rgba(0,255,136,0.2);padding:40px;text-align:center;margin:56px 0;}
+
   .bottom-cta h2{font-size:24px;font-weight:800;margin-bottom:12px;letter-spacing:-0.5px;}
+
   .bottom-cta p{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+
   .cta-btn{background:var(--accent);color:var(--black);border:none;padding:14px 32px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block;letter-spacing:1px;transition:background 0.2s;}
+
   .cta-btn:hover{background:#00cc6e;}
 
+
+
   .disclaimer{background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);padding:16px 20px;margin-bottom:40px;font-size:12px;color:var(--muted);line-height:1.7;font-family:var(--mono);}
+
   footer{border-top:1px solid var(--border);padding:32px 0;text-align:center;}
+
   .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted);}
+
   .footer-text a{color:var(--accent);text-decoration:none;}
 
+
+
   @media(max-width:600px){
+
     .crash-profiles{grid-template-columns:1fr;}
+
     .breakdown-label{width:100px;font-size:11px;}
+
     .cat-header{flex-direction:column;gap:10px;}
+
     .port-metric-grid{grid-template-columns:1fr;}
+
     .check-row{padding:12px 14px;}
+
     .check-row-name{font-size:13px;}
+
     .check-row-desc{font-size:12px;}
+
     .math-formula{font-size:11px;}
+
     .breakdown-row{gap:8px;}
+
     .breakdown-pct{width:30px;font-size:10px;}
+
     .depth-table{font-size:10px;}
+
     .depth-table th,.depth-table td{padding:6px 8px;}
+
     .cat-title{font-size:18px;}
+
     .score-breakdown{padding:20px 18px;}
+
     .portfolio-section{padding:18px 16px;}
+
     .page-hero h1{letter-spacing:-0.5px;}
+
     .header-inner{flex-direction:column;align-items:flex-start;gap:12px;}
+
   }
+
 </style>
+
 </head>
+
 <body>
+
 <div class="container">
+
   <header>
+
     <div class="header-inner">
+
       <a href="/" class="logo">
+
         <div class="logo-mark">QP</div>
+
         <div class="logo-name">Quant<span>Proof</span></div>
+
       </a>
+
       <a href="/" class="back-btn">← Back to Validator</a>
+
     </div>
+
   </header>
 
+
+
   <div class="page-hero">
+
     <span class="page-tag">// Validation Methodology</span>
+
     <h1>How QuantProof<br>scores your strategy</h1>
+
     <p>I built QuantProof because I got tired of backtests that looked great and fell apart in live trading. This page explains every check we run, why it exists, and the research behind it. If you're going to trust a score with real money, you deserve to know exactly how it's calculated.</p>
+
     <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Updated 2026-03-23 &nbsp;·&nbsp; 44 scored checks + 5 crash simulations + portfolio analyser</div>
+
   </div>
+
+
 
   <!-- Score Breakdown -->
+
   <div class="score-breakdown">
+
     <div class="breakdown-title">// How the Fundable Score is calculated</div>
+
     <div class="breakdown-row">
+
       <div class="breakdown-label" style="color:#ff8800">Risk Management</div>
+
       <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:38%;background:#ff8800"></div></div>
+
       <div class="breakdown-pct" style="color:#ff8800">38%</div>
+
     </div>
+
     <div class="breakdown-row">
+
       <div class="breakdown-label" style="color:var(--accent)">Overfitting Detection</div>
+
       <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:22%"></div></div>
+
       <div class="breakdown-pct">22%</div>
+
     </div>
+
     <div class="breakdown-row">
+
       <div class="breakdown-label" style="color:var(--accent3)">Compliance</div>
+
       <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:15%;background:var(--accent3)"></div></div>
+
       <div class="breakdown-pct" style="color:var(--accent3)">15%</div>
+
     </div>
+
     <div class="breakdown-row">
+
       <div class="breakdown-label" style="color:#7dd3fc">Regime Robustness</div>
+
       <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:14%;background:#7dd3fc"></div></div>
+
       <div class="breakdown-pct" style="color:#7dd3fc">14%</div>
+
     </div>
+
     <div class="breakdown-row">
+
       <div class="breakdown-label" style="color:#c084fc">Execution Reality</div>
+
       <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:11%;background:#c084fc"></div></div>
+
       <div class="breakdown-pct" style="color:#c084fc">11%</div>
+
     </div>
+
     <div class="breakdown-note" style="margin-top:16px;">
+
       The 44 scored checks feed into five weighted categories. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%). Without dates, they return score=50 informational.<br><br>
+
       Score caps: no date column → cap 60 · single-regime backtest → cap 55 · institutional compliance failure → cap 60 · Sharpe >10 → cap 30. Plausibility checks (4) flag data integrity issues and can trigger Manual Audit Required — they do not contribute to weighted score.
+
     </div>
+
   </div>
+
+
 
   <!-- n_trials / Validation Depth -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">00</div>
+
       <div>
+
         <div class="cat-title">Validation Depth (n_trials)</div>
+
         <div class="cat-weight">Controls Monte Carlo and DSR rigour — not a check category</div>
+
         <div class="cat-desc">This is one of the most important settings and most people miss it. <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">n_trials</code> tells the engine how many strategies you tested before submitting this one. The more strategies you tested, the higher your chances of finding a good-looking one by luck. A Sharpe of 1.5 means something very different if it's your first strategy vs your 50th — this parameter captures that difference.</div>
+
       </div>
+
     </div>
+
     <table class="depth-table">
+
       <thead>
+
         <tr>
+
           <th>Tier</th><th>n_trials</th><th>Who uses it</th><th>DSR correction factor</th>
+
         </tr>
+
       </thead>
+
       <tbody>
+
         <tr><td>Quick</td><td style="color:var(--muted)">n = 1</td><td>Fast scan — no selection bias correction</td><td>E[max SR] ≈ 0 (uncorrected)</td></tr>
+
         <tr><td>Standard (free)</td><td style="color:var(--accent)">n = 10</td><td>Default — typical retail trader tests ~10 strategies</td><td>E[max SR] ≈ 0.8–1.2σ</td></tr>
+
         <tr><td>Institutional (₹299)</td><td style="color:var(--gold)">n = 20</td><td>Forced for PDF reports — more realistic selection bias</td><td>E[max SR] ≈ 1.2–1.6σ</td></tr>
+
         <tr><td>Deep (₹999 Pro)</td><td style="color:var(--gold)">n = 20–50</td><td>Slider — matches prop firm / fund pre-screening depth</td><td>E[max SR] ≈ 1.6–2.2σ</td></tr>
+
       </tbody>
+
     </table>
+
     <div class="breakdown-note" style="margin-top:12px;">The same strategy, same data, can score 80/100 at n=1 and 30/100 at n=50. Both numbers are correct — they're answering different questions. n=1 asks: does this strategy have genuine edge? n=50 asks: would this edge hold up if a fund manager was screening it against 50 alternatives? If you're serious about deploying, run both.</div>
+
   </div>
 
+
+
   <!-- CATEGORY 1: Overfitting -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">01</div>
+
       <div>
+
         <div class="cat-title">Overfitting Detection</div>
+
         <div class="cat-weight">22% of Fundable Score · 11 checks</div>
+
         <div class="cat-desc">This is where most backtests die. Optimise any strategy on historical data and it will look brilliant — that's just mathematics. The question is whether it has real predictive power or just memorised noise. Every check in this category is designed to catch the difference.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Sharpe Ratio Decay</div>
+
         <div class="check-row-desc">Splits the backtest in half and compares in-sample vs out-of-sample Sharpe ratio. Also checks mean return decay independently. Uses the worse of the two as the effective decay score.</div>
+
         <div class="check-row-why">If a strategy only works on the data it was built on, it was fitted to noise. Real edge doesn't evaporate the moment you look at new data — it decays gradually. A cliff-edge drop between in-sample and out-of-sample Sharpe is one of the clearest red flags in quantitative trading.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Monte Carlo Robustness</div>
+
         <div class="check-row-desc">Three-component test: (1) bootstrap mean stability across 300 resamples, (2) sequence independence across 200 permutations, (3) worst-5th-percentile equity curve across 500 permutations.</div>
+
         <div class="check-row-why">The order your trades happened in history was partly random. If the strategy only works with that exact sequence — if shuffling the order destroys the returns — the edge isn't real. This test reshuffles thousands of times and checks whether the edge survives.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Profit / Loss Concentration</div>
+
         <div class="check-row-desc">Measures what percentage of total profit comes from the top 1% of trades and the top 2 individual trades. Removes the top trades and recalculates Sharpe.</div>
+
         <div class="check-row-why">Remove your two best trades. Is the strategy still profitable? If those two trades are holding up the entire P&L, you don't have a strategy — you got lucky twice. This is surprisingly common and surprisingly easy to miss in standard backtesting.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>CPCV Path Stability</div>
+
         <div class="check-row-desc">Combinatorial Purged Cross-Validation with 6 splits and 2 test folds. Applies embargo gaps to prevent data leakage. Generates multiple walk-forward paths and measures path Sharpe standard deviation. Thresholds: path_std &lt; 1.5 = robust, &lt; 2.5 = acceptable, ≥ 2.5 = fails.</div>
+
         <div class="check-row-why">Standard train/test splits leak information at the boundary. CPCV with purging and embargo prevents this.</div>
+
         <div class="reference-block">
+
           <div class="reference-label">Academic Reference</div>
+
           <div class="reference-list">López de Prado — "Advances in Financial Machine Learning" (2018), Ch.12</div>
+
         </div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Deflated Sharpe Ratio (DSR)</div>
+
         <div class="check-row-desc">The raw Sharpe ratio is almost always overstated. DSR corrects it for three things most people ignore: the fat tails in real trading returns (your losses are bigger than a normal distribution predicts), the fact that short backtests always look better by chance, and how many strategies you tested before finding this one. The result is the Sharpe ratio you'd need to see before being statistically confident the edge is real.</div>
+
         <div class="check-row-why">Most people don't realise how much selection bias inflates their results. Test 20 strategies and the best one will look great even if all 20 are pure noise. DSR is the only metric I know of that directly accounts for this. It's why the same strategy can score very differently depending on how many alternatives you tested first.</div>
+
         <details class="math-details"><summary class="math-summary">// DSR Formula <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
           <div class="math-label">// DSR Formula</div>
+
           <div class="math-formula">
+
 SR* = SR × √(T-1) × (1 - γ·SR + (κ/4)·SR²)^(-½)
 
+
+
 E[max SR | n] = (1 - e^(-π/2))·Φ⁻¹(1 - 1/n)
+
               + e^(-π/2)·Φ⁻¹(1 - 1/(n·e))
+
+
 
 DSR = Φ( (SR* - E[max SR | n_trials]) / σ_SR )
 
+
+
 Where:
+
   T          = number of trades
+
   γ          = skewness of returns
+
   κ          = excess kurtosis of returns
+
   n_trials   = strategies tested (our n parameter)
+
   Φ          = standard normal CDF
+
   σ_SR       = √((1 + 0.5·SR²) / (T-1))
+
 </div>
+
           <div class="math-note">DSR is a probability (0–1). We scale it to 0–100. A DSR of 95/100 means there is a 95% chance the Sharpe ratio is not the result of selection from noise. DSR is capped at 99.8 in portfolio reports — 100/100 would imply absolute certainty, which is never warranted.</div>
+
         </div></details>
+
         <div class="reference-block">
+
           <div class="reference-label">Academic Reference</div>
+
           <div class="reference-list">
+
             Bailey, Borwein, López de Prado & Zhu — "The Deflated Sharpe Ratio" (2014), J. Portfolio Management<br>
+
             Harvey, Liu & Zhu — "…and the Cross-Section of Expected Returns" (2016), Review of Financial Studies
+
           </div>
+
         </div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Sharpe Confidence Interval</div>
+
         <div class="check-row-desc">Computes the 95% CI for the annualised Sharpe using the Mertens (2002) standard error formula, corrected for skewness and kurtosis. Reports the lower CI bound — the pessimistic estimate of the real Sharpe.</div>
+
         <div class="check-row-why">A Sharpe of 1.5 on 30 trades has a CI so wide it includes zero.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Autocorrelation (Ljung-Box + Newey-West)</div>
+
         <div class="check-row-desc">Tests for serial correlation in returns using the Ljung-Box Q-statistic at lags 1, 5, and 10. If significant autocorrelation is detected, computes Newey-West HAC standard error and quantifies the inflation factor vs the IID assumption.</div>
+
         <div class="check-row-why">Serial correlation — common with look-ahead bias or return smoothing — invalidates DSR, CI, and Bootstrap tests by overstating significance.</div>
+
         <details class="math-details"><summary class="math-summary">// Ljung-Box Q-Statistic <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
           <div class="math-label">// Ljung-Box Q-Statistic</div>
+
           <div class="math-formula">
+
 Q(h) = T(T+2) × Σₖ₌₁ʰ [ ρ̂²(k) / (T-k) ]
 
+
+
 Where:
+
   T     = number of observations
+
   h     = number of lags tested (we use h = 1, 5, 10)
+
   ρ̂(k) = sample autocorrelation at lag k
 
+
+
 H��: returns are independently distributed
+
 Reject H₀ if Q(h) > χ²(h, 0.05)
 
+
+
 If rejected, Newey-West HAC correction:
+
 σ²_NW = Σₜ εₜ² + 2·Σₖ₌₁ᴸ w(k)·Σₜ εₜ·εₜ₋ₖ
+
   where w(k) = 1 - k/(L+1), L = floor(4·(T/100)^(2/9))
+
 </div>
+
           <div class="math-note">We test at lags 1, 5, and 10. A p-value below 0.05 at any lag indicates the returns are not independently distributed — the strategy may have look-ahead bias or the test statistics are inflated.</div>
+
         </div></details>
+
         <div class="reference-block">
+
           <div class="reference-label">Academic Reference</div>
+
           <div class="reference-list">
+
             Ljung & Box — "On a Measure of Lack of Fit in Time Series Models" (1978), Biometrika 65(2)<br>
+
             Newey & West — "A Simple... Heteroskedasticity and Autocorrelation Consistent Covariance Matrix" (1987), Econometrica 55(3)
+
           </div>
+
         </div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Bootstrap Stability</div>
+
         <div class="check-row-desc">500 bootstrap resamples of the trade sequence. Reports the percentage with positive mean return.</div>
+
         <div class="check-row-why">A robust edge shows positive expectancy in the vast majority of resampled universes.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CORE</span>Minimum Backtest Length</div>
+
         <div class="check-row-desc">Computes the Harvey-Liu-Zhu minimum observations required for statistical significance at the strategy's Sharpe level, adjusted for n_trials.</div>
+
         <div class="check-row-why">Short backtests always overfit. This check quantifies exactly how many trades you need before the results are credible.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Information Ratio (vs Benchmark)</div>
+
         <div class="check-row-desc">When dates are present, SPY is automatically fetched and aligned. Computes OLS beta, Jensen's alpha (annualised), tracking error, and IR. IR > 0.5 = strong alpha. Without dates, returns score=50 informational.</div>
+
         <div class="check-row-why">A strategy backtested in a bull market with high beta looks good because the market went up, not because of skill.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Beta Exposure (vs Benchmark)</div>
+
         <div class="check-row-desc">SPY inferred automatically when dates present. Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Informational only without dates.</div>
+
         <div class="check-row-why">High beta means returns are explained by market direction, not strategy skill.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- CATEGORY 2: Risk -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">02</div>
+
       <div>
+
         <div class="cat-title">Risk Management</div>
+
         <div class="cat-weight">38% of Fundable Score · 11 checks</div>
+
         <div class="cat-desc">Risk management gets the highest weight because it's where live accounts actually die. I've seen strategies with beautiful Sharpe ratios blow up accounts in three months because nobody stress-tested the drawdown. Genuine edge isn't enough if you can't survive the variance to collect it.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row">
+
         <div class="check-row-name">Max Drawdown</div>
+
         <div class="check-row-desc">Maximum peak-to-trough equity curve decline as a percentage. Institutional threshold: &lt;20%. Prop firm threshold: &lt;10%.</div>
+
         <div class="check-row-why">Every prop firm and fund has a hard number here. Exceed it and the account is closed — doesn't matter how good your average returns are. Knowing your worst case before you go live is not optional.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Calmar Ratio</div>
+
         <div class="check-row-desc">CAGR divided by Maximum Drawdown. Uses geometric annualisation. Threshold: > 1.5.</div>
+
         <div class="check-row-why">Measures return per unit of drawdown risk — a strategy with high returns but equal drawdown is not efficient.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Value at Risk (VaR 99%)</div>
+
         <div class="check-row-desc">99th percentile loss expressed as a ratio to strategy volatility (VaR/σ). Normal distribution gives VaR/σ ≈ 2.33. Ratios above 4.0σ signal extreme fat tails.</div>
+
         <div class="check-row-why">Absolute VaR without context is meaningless. Normalising by volatility reveals whether tail risk is proportional to normal behaviour.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">CVaR / Expected Shortfall</div>
+
         <div class="check-row-desc">Average loss in the worst 5% of outcomes. Uses kernel density estimation for small samples (&lt;100 trades). CVaR is the risk measure used by Basel III for bank capital requirements.</div>
+
         <div class="check-row-why">VaR tells you the door. CVaR tells you what's on the other side. Knowing the threshold is only half the picture — the average of your worst outcomes matters just as much for position sizing and risk of ruin.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Sortino Ratio</div>
+
         <div class="check-row-desc">Return divided by downside deviation only, using the correct Sortino & van der Meer (1991) formula.</div>
+
         <div class="check-row-why">Sharpe penalises upside volatility equally with downside. Sortino only penalises harmful volatility.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Max Losing Streak</div>
+
         <div class="check-row-desc">Longest consecutive losing trades. Also flags zero losing streaks over 20+ trades as implausible — a signature of look-ahead bias.</div>
+
         <div class="check-row-why">A run of consecutive losses will test you psychologically and financially. Most prop firms pull accounts after 5-8 in a row. More importantly: if you don't know your worst historical streak before going live, you'll be genuinely shocked when it happens — and that shock leads to bad decisions.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Recovery Factor</div>
+
         <div class="check-row-desc">Ratio of total gross profits to total gross losses. Threshold: > 1.5.</div>
+
         <div class="check-row-why">A strategy where wins barely cover losses has no margin for the inevitable variance.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Absolute Sharpe Ratio</div>
+
         <div class="check-row-desc">Annualised Sharpe using sample standard deviation (ddof=1) with correct annualisation for the strategy's actual trade frequency. Institutional minimum: 1.0.</div>
+
         <div class="check-row-why">The baseline risk-adjusted return measure. Required by every CTA, hedge fund, and prop firm.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Probability of Ruin</div>
+
         <div class="check-row-desc">Generalised gambler's ruin at institutional position sizing (N=50 capital units, 2% risk per trade). Uses reward-to-risk ratio in the ruin calculation, not just win rate — the asymmetric formula accounts for unequal win/loss sizes.</div>
+
         <div class="check-row-why">At 2% risk per trade, a genuinely profitable strategy should have near-zero ruin probability.</div>
+
         <div class="reference-block">
+
           <div class="reference-label">Academic Reference</div>
+
           <div class="reference-list">Vince — "The Mathematics of Money Management" (1992)</div>
+
         </div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Drawdown Duration & Recovery</div>
+
         <div class="check-row-desc">Time in maximum drawdown, scaled to backtest length. Threshold scales from 180 days up to 730 days for long backtests. Checks whether the strategy ever recovered from its worst drawdown.</div>
+
         <div class="check-row-why">Fixed thresholds penalise long backtests unfairly — thresholds scale with backtest length.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Ulcer Index</div>
+
         <div class="check-row-desc">Root mean square of all drawdown percentages throughout the backtest. Also reports the Martin Ratio (Sharpe / Ulcer Index).</div>
+
         <div class="check-row-why">Max drawdown is one number from one bad period. The Ulcer Index captures how painful the entire journey was — a strategy that spends 18 months in a slow grind down is different from one that had one sharp drop and recovered. The Ulcer Index reflects that difference.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- CATEGORY 3: Regime -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">03</div>
+
       <div>
+
         <div class="cat-title">Regime Robustness</div>
+
         <div class="cat-weight">14% of Fundable Score · 6 checks</div>
+
         <div class="cat-desc">Most retail backtests run from 2019 to 2024. That's almost entirely a bull market interrupted by a 33-day crash that recovered in months. A strategy that looks great over that period hasn't been tested — it's been lucky. These checks look for what happens when the market isn't cooperating.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row">
+
         <div class="check-row-name">Bull / Bear / Consolidation Performance</div>
+
         <div class="check-row-desc">When date data is present, classifies trades using actual market regime periods (S&P 500 bull/bear cycles from 2000–2026). Without dates, uses rolling return proxy. Computes Sharpe and win rate for each regime separately.</div>
+
         <div class="check-row-why">If your strategy only has data from 2019-2024, you've essentially backtested one market regime. The strategy hasn't seen a real bear market, a rate hiking cycle, or an extended sideways grind. This check uses actual historical regime periods to find out.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Volatility Spike Stress Test</div>
+
         <div class="check-row-desc">Simulates a 3x volatility spike using Student's t-distribution (df=3, fat tails) with AR(1) autocorrelation to model crisis momentum. Strategy-specific seed ensures different strategies get different stress paths.</div>
+
         <div class="check-row-why">Volatility doesn't change gradually — it spikes. A strategy calibrated to a 15 VIX environment can be completely destroyed when VIX hits 45. This stress test simulates that jump and measures how badly the strategy breaks.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Performance Consistency</div>
+
         <div class="check-row-desc">Percentage of rolling windows with positive mean return throughout the backtest.</div>
+
         <div class="check-row-why">A strategy profitable on average but with extended unprofitable periods is difficult to trade live.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">CONDITIONAL</span>Single-Regime Backtest Warning</div>
+
         <div class="check-row-desc">Injected only when detected: if > 85% of dated trades fall within a single market regime, this check appears with a Manual Audit Required flag and triggers a score cap at 55.</div>
+
         <div class="check-row-why">A strategy backtested entirely in one regime has never been tested in other conditions. The score cap prevents these strategies from appearing fundable.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Regime Coverage</div>
+
         <div class="check-row-desc">Checks whether the backtest includes a regime column covering multiple market conditions (BULL, BEAR, CONSOLIDATION, TRANSITION).</div>
+
         <div class="check-row-why">Explicit regime labelling enables regime-conditional position sizing in live trading.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- CATEGORY 4: Execution -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">04</div>
+
       <div>
+
         <div class="cat-title">Execution Reality</div>
+
         <div class="cat-weight">11% of Fundable Score · 6 checks</div>
+
         <div class="cat-desc">Backtests lie about execution. They assume you always get filled at the price you wanted, pay no commissions, and never move the market. None of that is true. The gap between backtest and live performance is almost always explained by execution costs — and these checks quantify exactly how much of your edge survives them.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row">
+
         <div class="check-row-name">Slippage Impact (0.1% and 0.3%)</div>
+
         <div class="check-row-desc">Two checks. 0.1% = institutional / large-cap. 0.3% = retail / small-cap / illiquid. Both scale with trade frequency.</div>
+
         <div class="check-row-why">This is the most common way apparently profitable strategies fail in live trading. The edge was real — but it was smaller than the cost of executing it. 0.1% slippage on every trade adds up faster than most people think, especially at high frequency.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Commission Drag</div>
+
         <div class="check-row-desc">Three tiers by frequency: 2bps institutional (≤252/yr), 10bps retail equity (≤2520/yr), 20bps HFT (&gt;2520/yr).</div>
+
         <div class="check-row-why">Commission cost scales with frequency — high-frequency strategies pay proportionally more.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Partial Fill Simulation</div>
+
         <div class="check-row-desc">Models 80% fill rate — common in illiquid markets and fast sessions.</div>
+
         <div class="check-row-why">Most backtests assume 100% fills. In reality, limit orders miss and fast markets leave orders partially unfilled.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Live Trading Gap Estimate</div>
+
         <div class="check-row-desc">Applies a 40% Sharpe degradation from backtest to live, based on empirical research on retail strategy performance.</div>
+
         <div class="check-row-why">Every strategy loses some edge when deployed live. A strategy needs sufficient backtest Sharpe to still be viable after this degradation.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name"><span class="check-tag">ADVANCED</span>Impact-Adjusted Capacity (Almgren-Chriss)</div>
+
         <div class="check-row-desc">Computes strategy Sharpe at $100k, $1M, $10M, and $100M AUM using the Almgren-Chriss optimal execution model. Uses the strategy's actual volatility and trade frequency to estimate market impact at each scale.</div>
+
         <div class="check-row-why">This is what nobody tells you when you start scaling up. A strategy that works beautifully with ₹50k starts to break at ₹5L and is completely destroyed at ₹5Cr — because your own orders move the market against you. The Almgren-Chriss model estimates exactly where your specific strategy starts to degrade.</div>
+
         <details class="math-details"><summary class="math-summary">// Almgren-Chriss Market Impact <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
           <div class="math-label">// Almgren-Chriss Market Impact</div>
+
           <div class="math-formula">
+
 Cost(X) = τ·γ·X²/2·σ² + η·X²/T
 
+
+
 Where:
+
   X    = total shares to trade
+
   T    = execution time horizon
+
   σ    = daily volatility of the asset
+
   γ    = permanent impact coefficient
+
   η    = temporary impact coefficient
+
   τ    = risk aversion parameter
 
+
+
 Impact-adjusted Sharpe:
+
 SR_adjusted = (μ - Cost(X)/Capital) / σ_portfolio
 
+
+
 We compute at 4 AUM levels:
+
   $100k  →  retail / prop firm challenge scale
+
   $1M    →  small fund / serious retail
+
   $10M   →  institutional small allocation
+
   $100M  →  fund-level — most retail strategies fail here
+
 </div>
+
           <div class="math-note">Strategies with high trade frequency and high AUM face multiplicative impact costs. A scalping strategy at $10M AUM can have 3–5x the effective costs of the same strategy at $100k.</div>
+
         </div></details>
+
         <div class="reference-block">
+
           <div class="reference-label">Academic Reference</div>
+
           <div class="reference-list">Almgren & Chriss — "Optimal Execution of Portfolio Transactions" (2000), J. Risk 3(2)</div>
+
         </div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- CATEGORY 5: Compliance -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">05</div>
+
       <div>
+
         <div class="cat-title">Compliance</div>
+
         <div class="cat-weight">15% of Fundable Score · 3 checks</div>
+
         <div class="cat-desc">Two very different sets of rules for two very different audiences. Prop firm rules are strict on drawdown because the firm is risking their capital on a 30-day challenge. Institutional rules care more about long-term Sharpe and Calmar because a fund allocator is thinking in years not months. A strategy can pass one and fail the other — knowing which is useful before you pay for a challenge.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row">
+
         <div class="check-row-name">Prop Firm Compliance Gate (5-gate quick check)</div>
+
         <div class="check-row-desc">Fast binary gate: positive mean return, Sharpe ≥ 1.0, max drawdown &lt; 20%, win rate &gt; 45%, trades &gt; 50. Requires 4/5 gates in standard mode, all 5 in strict mode.</div>
+
         <div class="check-row-why">Immediately identifies strategies far from prop firm eligible before running detailed per-firm analysis.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Prop Firm Compliance (FTMO / Topstep / The5ers)</div>
+
         <div class="check-row-desc">Checks all three major prop firm challenge rules: max drawdown ≤10%, profit target ≥6–10%, Sharpe ≥1.0. Reports which firms the strategy is eligible for.</div>
+
         <div class="check-row-why">Each firm has slightly different rules. Knowing which violations to fix saves time before paying for a challenge.</div>
+
       </div>
+
       <div class="check-row">
+
         <div class="check-row-name">Institutional Compliance (CTA / Fund Standard)</div>
+
         <div class="check-row-desc">Sharpe ≥1.0, max drawdown &lt;25%, Calmar ≥1.0. More appropriate than prop firm rules for long multi-year backtests.</div>
+
         <div class="check-row-why">A 5-year institutional backtest should not be judged by 30-day prop firm challenge rules.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- CRASH SIMULATIONS -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">06</div>
+
       <div>
+
         <div class="cat-title">Historical Crash Simulations</div>
+
         <div class="cat-weight">Informational — do not affect Fundable Score</div>
+
         <div class="cat-desc">These don't affect your score — they're here because I think every trader should see how their strategy would have behaved in the worst markets of the last 30 years. We simulate each crash using fat-tailed distributions because real crises have fatter tails than normal markets. Each strategy gets a unique path based on its own volatility profile — the same crash hits a high-vol strategy much harder than a low-vol one.</div>
+
       </div>
+
     </div>
+
     <div class="crash-profiles">
+
       <div class="crash-profile">
+
         <div class="crash-profile-name">2008 Global Financial Crisis</div>
+
         <div class="crash-profile-year">Sep 2008 – Mar 2009</div>
+
         <div class="crash-profile-desc">S&P 500 −56%. VIX hit 80. Correlations spiked to 1. Leverage unwinding forced selling across all asset classes simultaneously.</div>
+
       </div>
+
       <div class="crash-profile">
+
         <div class="crash-profile-name">2020 COVID Crash</div>
+
         <div class="crash-profile-year">Feb 2020 – Mar 2020</div>
+
         <div class="crash-profile-desc">Fastest 30%+ drop in history — 34% in 33 days. Circuit breakers triggered 4 times. Then one of the fastest recoveries ever.</div>
+
       </div>
+
       <div class="crash-profile">
+
         <div class="crash-profile-name">2022 Rate Hike Bear Market</div>
+
         <div class="crash-profile-year">Jan 2022 – Dec 2022</div>
+
         <div class="crash-profile-desc">Fed raised rates 425bps in 12 months. Momentum strategies destroyed. Growth stocks fell 60–90%.</div>
+
       </div>
+
       <div class="crash-profile">
+
         <div class="crash-profile-name">2010 Flash Crash</div>
+
         <div class="crash-profile-year">May 6, 2010</div>
+
         <div class="crash-profile-desc">Dow dropped 1000 points in minutes from algorithmic cascade. Liquidity vanished — many stocks traded at $0.01.</div>
+
       </div>
+
       <div class="crash-profile">
+
         <div class="crash-profile-name">1998 LTCM / Russia Default</div>
+
         <div class="crash-profile-year">Aug–Sep 1998</div>
+
         <div class="crash-profile-desc">Russia defaulted; LTCM collapsed. Correlation assumptions broke simultaneously. Strategies with similar factor exposures destroyed together.</div>
+
       </div>
+
     </div>
+
     <div style="margin-top:16px;padding:12px 16px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.1);font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.7;">
+
       Crash simulations are illustrative — they show stress exposure, not predictions. Strategies without date data receive [UNCALIBRATED] labels because market regime cannot be verified. Strategies with high AR(1) autocorrelation receive a 30% exposure multiplier.
+
     </div>
+
   </div>
 
+
+
   <!-- PORTFOLIO ANALYSER -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">07</div>
+
       <div>
+
         <div class="cat-title" style="color:var(--gold);">Portfolio Analyser</div>
+
         <div class="cat-weight" style="color:var(--gold);">Separate product — ₹199 · 2–3 strategies · institutional-grade portfolio construction</div>
+
         <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 44-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
+
       </div>
+
     </div>
 
+
+
     <div class="portfolio-section">
+
       <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:16px;">// CORRELATION METHODOLOGY</div>
+
       <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+
         We use <strong style="color:var(--text)">normalised Pearson correlation on unit-variance PnL returns</strong>, not raw PnL values. This removes scale-dependence — a ₹100-average-trade Kite strategy and a ₹10,000-average-trade IBKR strategy are compared on signal shape, not magnitude.
+
       </p>
+
       <details class="math-details"><summary class="math-summary">// Normalised Correlation <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
         <div class="math-label">// Normalised Correlation</div>
+
         <div class="math-formula">
+
 r̂ᵢ = rᵢ / σᵢ     (normalise each series to unit variance)
+
+
 
 ρ(i,j) = Σₜ r̂ᵢ(t)·r̂ⱼ(t) / √[Σ r̂ᵢ²·Σ r̂ⱼ²]
 
+
+
 Date-aligned when dates available (inner join).
+
 Positional alignment as fallback (trade 1 vs trade 1).
 
+
+
 ⚠ Positional alignment is meaningless if strategies
+
   trade at different frequencies. Upload dated CSVs
+
   for accurate correlation.
+
 </div>
+
         <div class="math-note">We use Pearson (linear) correlation. For options-heavy portfolios, non-linear tail dependence (copulas) would be more accurate — Pearson is appropriate for equity and futures strategies. All correlation matrices are verified positive semi-definite.</div>
+
       </div></details>
+
     </div>
 
+
+
     <div class="portfolio-section">
+
       <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:16px;">// RISK PARITY WEIGHTS</div>
+
       <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+
         Portfolio is weighted by <strong style="color:var(--text)">inverse volatility (risk parity)</strong>, not equal weight. Each strategy is allocated in proportion to 1/vol so that all strategies contribute equally to total portfolio variance. This is the institutional standard for multi-strategy allocation.
+
       </p>
+
       <details class="math-details"><summary class="math-summary">// Risk Parity (Inverse Volatility) <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
         <div class="math-label">// Risk Parity (Inverse Volatility)</div>
+
         <div class="math-formula">
+
 wᵢ = (1/σᵢ) / Σⱼ(1/σⱼ)
 
+
+
 Verification:
+
   wᵢ·σᵢ = constant for all i  (equal risk contribution)
+
   Σᵢ wᵢ = 1.0
 
+
+
 Combined portfolio return:
+
   rₚ(t) = Σᵢ wᵢ·rᵢ(t)  (padded with 0 for missing trades)
 
+
+
 Combined Sharpe:
+
   SR_p = E[rₚ] / σ(rₚ) · √252
 
+
+
 Where σᵢ is computed over the full historical PnL series.
+
 Note: assumes stationarity — vol regime shifts are not captured.
+
 </div>
+
         <div class="math-note">Risk parity weights assume historical volatility reflects future volatility. For live strategies, vol estimates should be recomputed periodically. For backtests, full-period vol is the appropriate baseline.</div>
+
       </div></details>
+
     </div>
 
+
+
     <div class="portfolio-section">
+
       <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:16px;">// DRAWDOWN COINCIDENCE</div>
+
       <p style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+
         The diversification score can look good while strategies still crash together. Drawdown coincidence measures what fraction of drawdown-period timesteps have 2+ strategies simultaneously in drawdown — the actual stress correlation that matters for live trading.
+
       </p>
+
       <details class="math-details"><summary class="math-summary">// Drawdown Coincidence Formula <span class="math-toggle-hint">— click to expand</span></summary><div class="math-block">
+
         <div class="math-label">// Drawdown Coincidence Formula</div>
+
         <div class="math-formula">
+
 DD_score(t) = 1 if DDᵢ(t) < threshold, 0 otherwise
+
   where DDᵢ(t) = (EQᵢ(t) - max EQᵢ(s≤t)) / max EQᵢ(s≤t)
+
   threshold = -2% (configurable)
+
+
 
 C = |{t : Σᵢ DD_score(t) ≥ 2}| / |{t : Σᵢ DD_score(t) ≥ 1}|
 
+
+
 Interpretation:
+
   C < 0.30  →  Strategies fall independently (good)
+
   C = 0.30–0.60  →  Moderate simultaneous drawdowns
+
   C > 0.60  →  High coincidence — portfolio drawdown
+
                protection is largely illusory
+
 </div>
+
         <div class="math-note">Drawdown coincidence is independent of correlation. Two strategies can have low linear correlation but high coincidence if they both fail during the same macro regimes. This is a more honest measure of real diversification than correlation alone.</div>
+
       </div></details>
+
     </div>
+
+
 
     <div class="portfolio-section">
+
       <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:16px;">// PORTFOLIO METRICS AT A GLANCE</div>
+
       <div class="port-metric-grid">
+
         <div class="port-metric">
+
           <div class="port-metric-name">Diversification Score</div>
+
           <div class="port-metric-desc">0–100 score. Per-pair scoring: near-zero corr → 82–90. Negative corr (hedge) → 96–100. Corr 0.3–0.6 → 10–40. Corr > 0.6 → near 0. Sharpe quality adds up to +8 bonus.</div>
+
         </div>
+
         <div class="port-metric">
+
           <div class="port-metric-name">Combined Sharpe</div>
+
           <div class="port-metric-desc">Risk-parity weighted combined portfolio Sharpe. Not the average of individual Sharpes — the actual portfolio return divided by portfolio volatility. Should exceed average individual Sharpe for uncorrelated strategies (Markowitz benefit).</div>
+
         </div>
+
         <div class="port-metric">
+
           <div class="port-metric-name">Combined Max Drawdown</div>
+
           <div class="port-metric-desc">Maximum drawdown computed from the actual risk-parity weighted combined equity curve — not the average of individual drawdowns. A well-diversified portfolio has a combined DD far below any individual strategy.</div>
+
         </div>
+
         <div class="port-metric">
+
           <div class="port-metric-name">Portfolio DSR</div>
+
           <div class="port-metric-desc">Deflated Sharpe applied to the combined strategy, correcting for n strategies tested. Capped at 99.8 — 100/100 would imply absolute certainty, which is never warranted. Same methodology as single-strategy DSR.</div>
+
         </div>
+
       </div>
+
     </div>
+
+
 
     <div style="padding:12px 16px;background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px;">
+
       ⚠ Known limitations: (1) Pearson is linear — options portfolios need copula-based tail dependence. (2) Risk parity weights assume stationary volatility — recompute periodically for live strategies. (3) Positional alignment (no dates) is unreliable for strategies at different frequencies. (4) n=10 per strategy in portfolio mode for latency reasons — use single-strategy validation at n=50 before adding a strategy to a portfolio.
+
     </div>
+
   </div>
+
+
 
   <!-- Operational -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">08</div>
+
       <div>
+
         <div class="cat-title">Operational Checks</div>
+
         <div class="cat-weight">Not in weighted score — always appended, always visible</div>
+
         <div class="cat-desc">These two checks don't affect your score but I always read them first. Alpha Decay tells you if the strategy is gradually losing its edge over the backtest period — which is often the most honest signal of whether it will work going forward. Symbolic Overfit catches the strategies that look statistically clean but are suspiciously too perfect compared to real noise.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row" style="border-left-color:#7dd3fc;">
+
         <div class="check-row-name">Alpha Decay (Half-Life)</div>
+
         <div class="check-row-desc">Compares first-half vs second-half Sharpe. Fits an exponential decay curve to the ACF to estimate the half-life of the alpha signal.</div>
+
         <div class="check-row-why">A strategy where performance deteriorates significantly in the second half may be losing its edge or was overfitted to the first period.</div>
+
       </div>
+
       <div class="check-row" style="border-left-color:#7dd3fc;">
+
         <div class="check-row-name">Symbolic Overfit Detection</div>
+
         <div class="check-row-desc">Compares equity curve characteristics (smoothness, entropy, kurtosis) against 50 noise baselines with the same volatility. Reports an overfit score 0–100 and adjusted Sharpe penalised for model complexity.</div>
+
         <div class="check-row-why">Complements statistical overfit checks (CPCV, DSR) with a pattern-based detector. A strategy that looks suspiciously smooth may be structurally overfitted even if statistical tests pass.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <!-- Plausibility -->
+
   <div class="category-section">
+
     <div class="cat-header">
+
       <div class="cat-number">09</div>
+
       <div>
+
         <div class="cat-title">Plausibility Checks</div>
+
         <div class="cat-weight">4 checks — flag data integrity issues, can trigger Manual Audit Required</div>
+
         <div class="cat-desc">These checks exist because people sometimes upload data that can't possibly reflect real trading — whether by accident or on purpose. A Sharpe of 15 has never been documented in any institutional strategy over a multi-year period. An equity curve that never drawdowns more than 2% over 500 trades is almost certainly look-ahead bias. These flags don't punish you — they tell you the data needs a closer look before any score means anything.</div>
+
       </div>
+
     </div>
+
     <div class="check-list">
+
       <div class="check-row" style="border-left-color:var(--accent3);">
+
         <div class="check-row-name">Sharpe Plausibility</div>
+
         <div class="check-row-desc">Sharpe > 10 triggers Manual Audit Required. Sharpe > 5 triggers Review Recommended. No documented institutional strategy has sustained Sharpe > 3.0 over 5+ years.</div>
+
       </div>
+
       <div class="check-row" style="border-left-color:var(--accent3);">
+
         <div class="check-row-name">Frequency-Return Plausibility</div>
+
         <div class="check-row-desc">HFT strategies (>20,000 trades/year) with extreme annual returns (>500%) require impossible liquidity and are flagged as implausible.</div>
+
       </div>
+
       <div class="check-row" style="border-left-color:var(--accent3);">
+
         <div class="check-row-name">Equity Curve Smoothness</div>
+
         <div class="check-row-desc">Suspiciously smooth curves with very low max drawdown (&lt;2%) are a known signature of look-ahead bias or data errors.</div>
+
       </div>
+
       <div class="check-row" style="border-left-color:var(--accent3);">
+
         <div class="check-row-name">Kelly Plausibility</div>
+
         <div class="check-row-desc">Kelly fraction > 1.0 (bet more than your entire bankroll every trade) is mathematically impossible in a real strategy.</div>
+
       </div>
+
     </div>
+
   </div>
+
+
 
   <div class="disclaimer">
+
     ⚠ &nbsp; QuantProof validates the statistical properties of backtests — it doesn't predict the future. A high score means your strategy has the right foundations. What happens in live markets depends on a hundred things this tool can't see. Not financial advice — do your own due diligence before risking real capital.
+
   </div>
+
+
 
   <div class="bottom-cta">
+
     <h2>Validate your strategy now</h2>
+
     <p>Upload your CSV and get a full score in under 30 seconds. Free to start — no account needed.<br>3 validations per day on the free tier.</p>
+
     <a href="/" class="cta-btn">← Back to Validator</a>
+
   </div>
+
 </div>
 
+
+
 <footer>
+
   <div class="container">
+
     <div class="footer-text">
+
       <span style="color:var(--accent)">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
+
     </div>
+
     <div class="footer-text" style="margin-top:10px;">
+
       Questions? <a href="/cdn-cgi/l/email-protection#cdbcb8aca3b9bdbfa2a2abaca48daaa0aca4a1e3aea2a0"><span class="__cf_email__" data-cfemail="3f4e4a5e514b4f4d5050595e567f58525e5653115c5052">[email&#160;protected]</span></a>
+
     </div>
+
   </div>
+
 </footer>
 
+
+
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+
   document.addEventListener('copy', function(e) {
+
     const selection = window.getSelection();
+
     if (!selection || selection.toString().trim().length < 20) return;
+
     const watermark = [
+
       '[ QuantProof Methodology — quantproof.net ]',
+
       '',
+
       'Engine v6.2 | 44 scored checks | Updated: 2026-03-23',
+
       '',
+
       'Full validation tool: quantproof.net',
+
       '[ Link to methodology: quantproof.net/methodology ]',
+
     ].join('\n');
+
     e.clipboardData.setData('text/plain', watermark);
+
     e.preventDefault();
+
   });
+
   document.addEventListener('contextmenu', function(e) {
+
     e.preventDefault();
+
     let t = document.getElementById('qp-toast');
+
     if (!t) {
+
       t = document.createElement('div');
+
       t.id = 'qp-toast';
+
       t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d1117;color:#00ff88;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,255,136,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s';
+
       document.body.appendChild(t);
+
     }
+
     t.textContent = '📋 Methodology copied to clipboard';
+
     t.style.opacity = '1';
+
     setTimeout(() => { t.style.opacity = '0'; }, 2000);
+
   });
+
 </script>
+
 </body>
+
 </html>
+
