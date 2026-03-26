@@ -1,32 +1,46 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-P8ZCZSKQSS');
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Primary SEO -->
 <title>QuantProof — Is Your Trading Strategy's Edge Still Real? Backtest & Live Validation</title>
+<!-- A/B Test Title (uncomment to test): <title>Pass FTMO 2x Faster | QuantProof Strategy Validator</title> -->
 <meta name="description" content="Is your strategy FTMO-ready? QuantProof runs 44 institutional checks on your backtest or live trade history in 30 seconds. Deflated Sharpe, CPCV, 5 crash simulations, prop firm compliance gates. Free to start. Zerodha Kite, Alpaca, IBKR, TradingView supported.">
 <meta name="keywords" content="FTMO preparation tool, will I pass FTMO, FTMO strategy checker, Zerodha strategy checker, backtest validator India, algo trading validation, prop firm ready checker, trading strategy audit, deflated sharpe ratio, CPCV backtest, Kite backtest validator, fundable score, strategy overfitting detector, quantitative trading India, FTMO phase 1 ready, Topstep strategy checker">
+<!-- Primary keyword boost -->
+<meta name="keywords" content="trading strategy validator, FTMO checker, backtest analysis, Zerodha validator">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
-<link rel="canonical" href="https://quantproof-frontend.onrender.com/">
+<link rel="canonical" href="https://quantproof.net/">
+<!-- India geographic targeting -->
+<link rel="alternate" hreflang="en-in" href="https://quantproof.net/">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://quantproof-frontend.onrender.com/">
+<meta property="og:url" content="https://quantproof.net/">
 <meta property="og:title" content="QuantProof — Is Your Trading Strategy's Edge Still Real?">
 <meta property="og:description" content="44 institutional checks. 5 crash simulations. One Fundable Score. Know if your edge is real — before you go live and while you're trading live. Backtest or live broker data.">
-<meta property="og:image" content="https://quantproof-frontend.onrender.com/og-image.png">
+<meta property="og:image" content="https://quantproof.net/og-image.png">
 <meta property="og:site_name" content="QuantProof">
 <meta property="og:locale" content="en_IN">
 
 <!-- Twitter/X Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://quantproof-frontend.onrender.com/">
+<meta name="twitter:url" content="https://quantproof.net/">
 <meta name="twitter:title" content="QuantProof — Is Your Strategy's Edge Still Real?">
 <meta name="twitter:description" content="44 institutional checks + 5 crash simulations. Validate your backtest or live trade history. Free to start. Kite, Alpaca, IBKR, MT5, TradingView supported.">
-<meta name="twitter:image" content="https://quantproof-frontend.onrender.com/og-image.png">
+<meta name="twitter:image" content="https://quantproof.net/og-image.png">
 
 <!-- Structured Data — SoftwareApplication -->
 <script type="application/ld+json">
@@ -36,7 +50,7 @@
   "name": "QuantProof",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web",
-  "url": "https://quantproof-frontend.onrender.com/",
+  "url": "https://quantproof.net/",
   "description": "Institutional-grade backtest validator for retail algo traders. 44 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
   "offers": {
     "@type": "Offer",
@@ -1393,7 +1407,7 @@
   // Open demo PDF
   function openDemoPDF() {
     // You can replace this URL with your actual demo PDF
-    const demoPdfUrl = 'https://quantproof-frontend.onrender.com/demo-validation-report.pdf';
+    const demoPdfUrl = 'https://quantproof.net/demo-validation-report.pdf';
     
     // Open in new tab
     window.open(demoPdfUrl, '_blank');
@@ -3616,12 +3630,12 @@
     const scoreEl = document.querySelector('.score-val') || document.querySelector('[class*="score"]');
     const score = scoreEl ? scoreEl.textContent.trim().split('\n')[0] : '—';
     const watermark = [
-      '[ QuantProof Validation Result — quantproof-frontend.onrender.com ]',
+      '[ QuantProof Validation Result — quantproof.net ]',
       '',
       'Score: ' + score + '/100',
       '',
       'Full 44-check breakdown and ranked fix plan — PDF report available at:',
-      'quantproof-frontend.onrender.com',
+      'quantproof.net',
       'PDF report: Rs.299 / $4 USD',
       '',
       '[ To share results, download the PDF report ]',
