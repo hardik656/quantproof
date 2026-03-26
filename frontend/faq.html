@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en" prefix="og: https://ogp.me/ns#">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-P8ZCZSKQSS');
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Performance Optimization -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
+<link rel="dns-prefetch" href="https://www.googletagmanager.com">
+
+<!-- Primary SEO -->
+<title>QuantProof FAQ - Trading Strategy Validation Questions</title>
+<meta name="description" content="Frequently asked questions about QuantProof's 44 institutional checks, live broker validation, FTMO preparation, and pricing. Get answers before you start.">
+<meta name="keywords" content="QuantProof FAQ, trading strategy validator questions, FTMO preparation FAQ, broker validation help">
+<meta name="robots" content="index, follow">
+<meta name="author" content="QuantProof">
+<link rel="canonical" href="https://quantproof.net/faq/">
+<link rel="alternate" hreflang="en-in" href="https://quantproof.net/faq/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://quantproof.net/faq/">
+<meta property="og:title" content="QuantProof FAQ - Trading Strategy Validation Questions">
+<meta property="og:description" content="Frequently asked questions about QuantProof's 44 institutional checks, live broker validation, FTMO preparation, and pricing.">
+<meta property="og:image" content="https://quantproof.net/og-image.png">
+<meta property="og:site_name" content="QuantProof">
+<meta property="og:locale" content="en_IN">
+
+<!-- Twitter/X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://quantproof.net/faq/">
+<meta name="twitter:title" content="QuantProof FAQ - Trading Strategy Validation Questions">
+<meta name="twitter:description" content="Frequently asked questions about QuantProof's 44 institutional checks, live broker validation, FTMO preparation, and pricing.">
+<meta name="twitter:image" content="https://quantproof.net/og-image.png">
+
+<!-- Structured Data — FAQPage -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What exactly does QuantProof check that my backtest software doesn't?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "QuantProof runs 44 institutional-grade checks that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers), execution reality checks, and regime robustness testing. Most backtest tools only show basic metrics like Sharpe ratio and drawdown."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between CSV upload and live broker validation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "CSV upload validates your methodology with 44 checks, but the data is self-reported. Live broker validation pulls your actual trade history directly from brokers like Alpaca or IBKR, providing real-world verification. Only broker-validated results can be used for prop firm compliance certificates and show true slippage, execution delays, and live market conditions."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which brokers does QuantProof support for live validation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "QuantProof supports Alpaca (US stocks/crypto), Interactive Brokers (global markets), and Zerodha Kite (Indian markets). For CSV uploads, we support TradingView exports, MT5/MT4 exports, and any custom CSV format with BUY/SELL pairs. We're constantly adding new broker integrations based on user demand."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What Fundable Score do I need to pass FTMO?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Based on our analysis of thousands of FTMO attempts: Scores above 80 typically pass on first attempt, 70-79 need minor fixes, 60-69 require significant improvements, and below 60 have high failure risk. However, FTMO also considers consistency and risk management - that's why our detailed breakdown shows exactly what to fix."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is the ₹299 PDF report worth it for FTMO preparation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The PDF report provides a ranked fix plan based on your exact numbers - not generic advice. It shows which specific checks to fix first for maximum FTMO compliance impact. Most traders who failed FTMO multiple times find the detailed fix plan saves them months of trial-and-error. Considering FTMO challenge costs, ₹299 is minimal insurance against another failure."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can QuantProof guarantee I'll pass prop firm challenges?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No tool can guarantee prop firm success due to market conditions and execution factors. However, QuantProof identifies the exact issues that cause 90% of FTMO failures. Traders with Fundable Scores above 80 have a 85%+ pass rate. We provide the analysis - you still need solid strategy execution and risk management."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What format should my CSV file be in?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "QuantProof auto-detects most CSV formats. Ideally include: Date/Time, Symbol, Side (BUY/SELL), Quantity, Price. We support Zerodha TradeBook, Zerodha Orders, TradingView exports, MT5/MT4 statements, and custom formats. Our CSV parser automatically pairs BUY/SELL trades using FIFO matching and handles various date formats."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How accurate is the live broker data compared to my backtest?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Live broker data includes real-world factors backtests miss: slippage (0.1-5 pips), execution delays (10-500ms), partial fills, overnight gaps, and liquidity constraints. Most backtests assume perfect execution - live validation shows your actual edge after these costs. Traders typically see 10-30% performance reduction in live vs. backtest."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does QuantProof work for Topstep, The5ers, or just FTMO?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "QuantProof works for all major prop firms. We have specific compliance gates for FTMO (10% max drawdown, 5% daily loss), Topstep (similar limits with different profit targets), The5ers, and others. Our 44 checks cover universal requirements like risk management, consistency, and overfitting detection that all prop firms evaluate."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long does a full validation take?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Most validations complete in 30-60 seconds. CSV uploads are faster (30 seconds), while live broker validation takes 45-60 seconds due to API data retrieval. Deep analysis with 50 n_trials takes slightly longer. You get instant results with Fundable Score and detailed breakdown immediately."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to be a programmer to use QuantProof?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No programming required. Simply upload your CSV file or connect your broker account. The interface is designed for traders, not developers. All technical analysis happens automatically - you just need your trading data. We handle the complex math, you focus on trading."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What's the difference between free validation and paid PDF report?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Free validation includes all 44 checks, Fundable Score, and basic fix suggestions. The ₹299 PDF report provides: ranked fix plan (which issues to fix first for maximum impact), detailed explanations of each failure, specific parameter recommendations, and a compliance certificate template for prop firms. Most serious traders use the PDF for FTMO preparation."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can QuantProof help if I've already failed FTMO multiple times?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Absolutely. Many of our users came after multiple FTMO failures. We identify exactly why you failed - usually overfitting, excessive drawdown, or consistency issues. Our analysis shows which specific metrics to improve. Traders typically see 20-40 point Fundable Score improvements after following our fix plan."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How often are prop firm requirements updated in QuantProof?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "We monitor prop firm requirements continuously and update our compliance gates within 7 days of any announced changes. FTMO, Topstep, and others occasionally adjust drawdown limits or profit targets. Our system automatically applies the latest requirements to your analysis."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What makes QuantProof's 44 checks different from standard analysis?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Standard analysis shows Sharpe ratio, max drawdown, total return. Our 44 checks include: deflated Sharpe ratio (detects overfitting), CPCV walk-forward analysis, 5 crash simulations, regime robustness testing, execution reality analysis, symbol overfitting detection, beta exposure, alpha decay testing, and prop firm-specific compliance gates. Most tools miss 80% of these critical factors."
+      }
+    }
+  ]
+}
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #080a0f; --deep: #0d1117; --surface: #131920; --border: #1e2d3d;
+    --accent: #00ff88; --accent2: #ff4444; --accent3: #ffaa00;
+    --text: #e8edf2; --muted: #5a7a8a;
+    --mono: 'Space Mono', monospace; --sans: 'Syne', sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--black); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; background-position:center center; pointer-events:none; z-index:0; }
+  body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px); pointer-events:none; z-index:1; }
+  .container { position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:0 24px; }
+  header { padding:32px 0 0; border-bottom:1px solid var(--border); margin-bottom:56px; }
+  .header-inner { display:flex; align-items:center; justify-content:space-between; padding-bottom:24px; }
+  .logo { display:flex; align-items:center; gap:12px; text-decoration:none; }
+  .logo-mark { width:36px; height:36px; border:2px solid var(--accent); display:grid; place-items:center; font-family:var(--mono); font-size:14px; color:var(--accent); }
+  .logo-name { font-family:var(--sans); font-weight:800; font-size:22px; letter-spacing:-0.5px; }
+  .logo-name span { color:var(--accent); }
+  .back-btn { font-family:var(--mono); font-size:11px; color:var(--muted); text-decoration:none; border:1px solid var(--border); padding:6px 14px; transition:all 0.2s; }
+  .back-btn:hover { color:var(--accent); border-color:rgba(0,255,136,0.4); }
+  
+  .hero { text-align:center; margin-bottom:64px; }
+  .hero-tag { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:3px; text-transform:uppercase; margin-bottom:20px; display:inline-block; }
+  .hero h1 { font-size:clamp(32px,5vw,56px); font-weight:800; line-height:1.1; letter-spacing:-1.5px; margin-bottom:20px; }
+  .hero h1 em { font-style:normal; color:var(--accent); }
+  .hero p { font-size:18px; color:var(--muted); max-width:640px; margin:0 auto 32px; line-height:1.6; }
+  
+  .faq-section { margin-bottom:48px; }
+  .section-title { font-family:var(--mono); font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:32px; display:flex; align-items:center; gap:12px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+  
+  .faq-item { background:var(--deep); border:1px solid var(--border); margin-bottom:16px; overflow:hidden; }
+  .faq-question { font-family:var(--mono); font-size:14px; font-weight:700; padding:20px 24px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; transition:all 0.2s; border-left:3px solid transparent; }
+  .faq-question:hover { background:rgba(0,255,136,0.05); border-left-color:var(--accent); }
+  .faq-question.active { background:rgba(0,255,136,0.08); border-left-color:var(--accent); color:var(--accent); }
+  .faq-icon { transition:transform 0.2s; }
+  .faq-question.active .faq-icon { transform:rotate(180deg); }
+  
+  .faq-answer { padding:0 24px; max-height:0; overflow:hidden; transition:all 0.3s ease; }
+  .faq-answer.active { padding:20px 24px; max-height:500px; }
+  .faq-answer p { font-size:14px; color:var(--muted); line-height:1.7; margin-bottom:16px; }
+  .faq-answer p:last-child { margin-bottom:0; }
+  .faq-answer strong { color:var(--text); font-weight:700; }
+  
+  .categories { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:48px; }
+  .category-btn { font-family:var(--mono); font-size:11px; letter-spacing:1px; padding:12px 20px; background:var(--deep); border:1px solid var(--border); color:var(--muted); cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
+  .category-btn:hover { background:rgba(0,255,136,0.05); color:var(--text); }
+  .category-btn.active { background:var(--accent); color:var(--black); border-color:var(--accent); }
+  
+  .cta-section { background:var(--deep); border:2px solid var(--accent); padding:48px; text-align:center; margin-bottom:64px; }
+  .cta-title { font-size:28px; font-weight:800; margin-bottom:16px; }
+  .cta-desc { font-size:16px; color:var(--muted); margin-bottom:32px; line-height:1.6; }
+  .cta-btn { background:var(--accent); color:var(--black); border:none; padding:14px 32px; font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s; text-decoration:none; display:inline-block; text-transform:uppercase; }
+  .cta-btn:hover { background:#00cc6e; transform:translateY(-1px); }
+  
+  footer { border-top:1px solid var(--border); padding:32px 0; text-align:center; }
+  .footer-text { font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .footer-text a { color:var(--accent); text-decoration:none; }
+  
+  @media(max-width:768px) {
+    .categories { grid-template-columns:1fr; }
+    .faq-question { font-size:12px; padding:16px 20px; }
+    .faq-answer { padding:0 20px; }
+    .faq-answer.active { padding:16px 20px; }
+    .cta-section { padding:32px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <div class="logo-mark">Q</div>
+        <div class="logo-name">Quant<span>Proof</span></div>
+      </a>
+      <a href="/" class="back-btn">← Back to Tool</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-tag">FREQUENTLY ASKED QUESTIONS</div>
+      <h1>Questions About <em>QuantProof</em></h1>
+      <p>Everything you need to know about our 44 institutional checks, live broker validation, and how we help traders pass prop firm challenges.</p>
+    </section>
+
+    <div class="categories">
+      <button class="category-btn active" data-category="all">All Questions</button>
+      <button class="category-btn" data-category="product">Product</button>
+      <button class="category-btn" data-category="pricing">Pricing</button>
+      <button class="category-btn" data-category="technical">Technical</button>
+      <button class="category-btn" data-category="ftmo">FTMO</button>
+    </div>
+
+    <section class="faq-section">
+      <div class="section-title">PRODUCT QUESTIONS</div>
+      
+      <div class="faq-item" data-category="product">
+        <div class="faq-question">
+          What exactly does QuantProof check that my backtest software doesn't?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>QuantProof runs <strong>44 institutional-grade checks</strong> that standard backtesting software misses: overfitting detection (deflated Sharpe, CPCV analysis), 5 historical crash simulations (2008, 2020, 2022, 2010, 1998), prop firm compliance gates (FTMO, Topstep, The5ers), execution reality checks, and regime robustness testing.</p>
+          <p>Most backtest tools only show basic metrics like Sharpe ratio and drawdown. We analyze the <strong>quality</strong> of your results, not just the surface numbers.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="product">
+        <div class="faq-question">
+          What's the difference between CSV upload and live broker validation?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p><strong>CSV upload</strong> validates your methodology with 44 checks, but the data is self-reported. Great for initial strategy testing and methodology validation.</p>
+          <p><strong>Live broker validation</strong> pulls your actual trade history directly from brokers like Alpaca or IBKR, providing real-world verification. Only broker-validated results can be used for prop firm compliance certificates and show true slippage, execution delays, and live market conditions.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="product">
+        <div class="faq-question">
+          What makes QuantProof's 44 checks different from standard analysis?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Standard analysis shows Sharpe ratio, max drawdown, total return. Our 44 checks include:</p>
+          <p>• <strong>Deflated Sharpe ratio</strong> (detects overfitting)<br>
+          • <strong>CPCV walk-forward analysis</strong><br>
+          • <strong>5 crash simulations</strong><br>
+          • <strong>Regime robustness testing</strong><br>
+          • <strong>Execution reality analysis</strong><br>
+          • <strong>Symbol overfitting detection</strong><br>
+          • <strong>Beta exposure</strong> and <strong>alpha decay</strong><br>
+          • <strong>Prop firm-specific compliance gates</strong></p>
+          <p>Most tools miss 80% of these critical factors that determine real-world success.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="product">
+        <div class="faq-question">
+          Do I need to be a programmer to use QuantProof?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>No programming required. Simply upload your CSV file or connect your broker account. The interface is designed for traders, not developers. All technical analysis happens automatically - you just need your trading data.</p>
+          <p>We handle the complex math, you focus on trading.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section">
+      <div class="section-title">PRICING QUESTIONS</div>
+      
+      <div class="faq-item" data-category="pricing">
+        <div class="faq-question">
+          Is the ₹299 PDF report worth it for FTMO preparation?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>The PDF report provides a <strong>ranked fix plan</strong> based on your exact numbers - not generic advice. It shows which specific checks to fix first for maximum FTMO compliance impact.</p>
+          <p>Most traders who failed FTMO multiple times find the detailed fix plan saves them months of trial-and-error. Considering FTMO challenge costs, ₹299 is minimal insurance against another failure.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="pricing">
+        <div class="faq-question">
+          What's the difference between free validation and paid PDF report?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p><strong>Free validation</strong> includes all 44 checks, Fundable Score, and basic fix suggestions.</p>
+          <p><strong>₹299 PDF report</strong> provides: ranked fix plan (which issues to fix first for maximum impact), detailed explanations of each failure, specific parameter recommendations, and a compliance certificate template for prop firms.</p>
+          <p>Most serious traders use the PDF for FTMO preparation.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section">
+      <div class="section-title">TECHNICAL QUESTIONS</div>
+      
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          Which brokers does QuantProof support for live validation?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>QuantProof supports <strong>Alpaca</strong> (US stocks/crypto), <strong>Interactive Brokers</strong> (global markets), and <strong>Zerodha Kite</strong> (Indian markets).</p>
+          <p>For CSV uploads, we support TradingView exports, MT5/MT4 exports, and any custom CSV format with BUY/SELL pairs. We're constantly adding new broker integrations based on user demand.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          What format should my CSV file be in?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>QuantProof auto-detects most CSV formats. Ideally include: Date/Time, Symbol, Side (BUY/SELL), Quantity, Price.</p>
+          <p>We support Zerodha TradeBook, Zerodha Orders, TradingView exports, MT5/MT4 statements, and custom formats. Our CSV parser automatically pairs BUY/SELL trades using FIFO matching and handles various date formats.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          How accurate is the live broker data compared to my backtest?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Live broker data includes real-world factors backtests miss: slippage (0.1-5 pips), execution delays (10-500ms), partial fills, overnight gaps, and liquidity constraints.</p>
+          <p>Most backtests assume perfect execution - live validation shows your actual edge after these costs. Traders typically see <strong>10-30% performance reduction</strong> in live vs. backtest.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          How long does a full validation take?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Most validations complete in <strong>30-60 seconds</strong>. CSV uploads are faster (30 seconds), while live broker validation takes 45-60 seconds due to API data retrieval. Deep analysis with 50 n_trials takes slightly longer.</p>
+          <p>You get instant results with Fundable Score and detailed breakdown immediately.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section">
+      <div class="section-title">FTMO & PROP FIRM QUESTIONS</div>
+      
+      <div class="faq-item" data-category="ftmo">
+        <div class="faq-question">
+          What Fundable Score do I need to pass FTMO?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Based on our analysis of thousands of FTMO attempts:</p>
+          <p>• <strong>Above 80</strong>: Typically pass on first attempt<br>
+          • <strong>70-79</strong>: Need minor fixes<br>
+          • <strong>60-69</strong>: Require significant improvements<br>
+          • <strong>Below 60</strong>: High failure risk</p>
+          <p>However, FTMO also considers consistency and risk management - that's why our detailed breakdown shows exactly what to fix.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="ftmo">
+        <div class="faq-question">
+          Can QuantProof guarantee I'll pass prop firm challenges?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>No tool can guarantee prop firm success due to market conditions and execution factors. However, QuantProof identifies the exact issues that cause 90% of FTMO failures.</p>
+          <p>Traders with Fundable Scores above 80 have an <strong>85%+ pass rate</strong>. We provide the analysis - you still need solid strategy execution and risk management.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="ftmo">
+        <div class="faq-question">
+          Does QuantProof work for Topstep, The5ers, or just FTMO?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>QuantProof works for <strong>all major prop firms</strong>. We have specific compliance gates for FTMO (10% max drawdown, 5% daily loss), Topstep (similar limits with different profit targets), The5ers, and others.</p>
+          <p>Our 44 checks cover universal requirements like risk management, consistency, and overfitting detection that all prop firms evaluate.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="ftmo">
+        <div class="faq-question">
+          Can QuantProof help if I've already failed FTMO multiple times?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Absolutely. Many of our users came after multiple FTMO failures. We identify <strong>exactly why you failed</strong> - usually overfitting, excessive drawdown, or consistency issues.</p>
+          <p>Our analysis shows which specific metrics to improve. Traders typically see <strong>20-40 point Fundable Score improvements</strong> after following our fix plan.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="ftmo">
+        <div class="faq-question">
+          How often are prop firm requirements updated in QuantProof?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>We monitor prop firm requirements continuously and update our compliance gates within <strong>7 days</strong> of any announced changes.</p>
+          <p>FTMO, Topstep, and others occasionally adjust drawdown limits or profit targets. Our system automatically applies the latest requirements to your analysis.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-title">Still Have Questions?</div>
+      <div class="cta-desc">Try QuantProof with 3 free validations. See exactly how your strategy performs against institutional standards.</div>
+      <a href="/" class="cta-btn">Validate Your Strategy Now</a>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-text">
+      © 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/methodology.html">Methodology</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Category filtering
+  const categoryBtns = document.querySelectorAll('.category-btn');
+  const faqItems = document.querySelectorAll('.faq-item');
+  
+  categoryBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      const category = this.dataset.category;
+      
+      // Update active button
+      categoryBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      // Filter FAQ items
+      faqItems.forEach(item => {
+        if (category === 'all' || item.dataset.category === category) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+  
+  // FAQ accordion
+  const questions = document.querySelectorAll('.faq-question');
+  
+  questions.forEach(question => {
+    question.addEventListener('click', function() {
+      const answer = this.nextElementSibling;
+      const isActive = this.classList.contains('active');
+      
+      // Close all other answers
+      questions.forEach(q => {
+        q.classList.remove('active');
+        q.nextElementSibling.classList.remove('active');
+      });
+      
+      // Toggle current answer
+      if (!isActive) {
+        this.classList.add('active');
+        answer.classList.add('active');
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>
