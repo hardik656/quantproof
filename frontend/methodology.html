@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>How QuantProof Works — Validation Methodology</title>
-<meta name="description" content="QuantProof runs 44 institutional checks on your trading strategy backtest. Here's exactly what we check, the math behind it, and the academic research behind each category.">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-P8ZCZSKQSS');
+  </script>
 <style>
   :root {
     --black:#080a0f; --deep:#0d1117; --surface:#131920; --border:#1e2d3d;
@@ -779,12 +783,12 @@ Interpretation:
     const selection = window.getSelection();
     if (!selection || selection.toString().trim().length < 20) return;
     const watermark = [
-      '[ QuantProof Methodology — quantproof-frontend.onrender.com ]',
+      '[ QuantProof Methodology — quantproof.net ]',
       '',
       'Engine v6.2 | 44 scored checks | Updated: 2026-03-23',
       '',
-      'Full validation tool: quantproof-frontend.onrender.com',
-      '[ Link to methodology: quantproof-frontend.onrender.com/methodology ]',
+      'Full validation tool: quantproof.net',
+      '[ Link to methodology: quantproof.net/methodology ]',
     ].join('\n');
     e.clipboardData.setData('text/plain', watermark);
     e.preventDefault();
@@ -795,4 +799,13 @@ Interpretation:
     if (!t) {
       t = document.createElement('div');
       t.id = 'qp-toast';
-      t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d1117;color:#00ff88;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,255,136,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3
+      t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0d1117;color:#00ff88;font-family:monospace;font-size:12px;padding:10px 16px;border:1px solid rgba(0,255,136,0.4);z-index:9999;pointer-events:none;transition:opacity 0.3s';
+      document.body.appendChild(t);
+    }
+    t.textContent = '📋 Methodology copied to clipboard';
+    t.style.opacity = '1';
+    setTimeout(() => { t.style.opacity = '0'; }, 2000);
+  });
+</script>
+</body>
+</html>
