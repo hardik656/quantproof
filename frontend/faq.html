@@ -163,10 +163,18 @@
     },
     {
       "@type": "Question",
-      "name": "Does QuantProof work with international brokers?",
+      "name": "Does QuantProof support TradingView webhook integration?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. We support global brokers including Alpaca (US), Interactive Brokers (140+ countries), and Zerodha Kite (India). Our platform complies with international regulations and works with brokers regulated by SEC, FCA, ASIC, MAS, and SEBI. We're constantly adding new broker integrations based on user demand."
+        "text": "Yes. QuantProof supports TradingView webhook integration for automated strategy validation. Generate unique webhook endpoint, get real-time validation on each webhook trigger, apply all 44 checks to webhook data, and receive live Fundable Score updates. Perfect for automated strategy monitoring and prop firm preparation workflows."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Where does QuantProof process my trading data?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "All processing happens client-side in your browser. Your trading data never leaves your device - all 44 checks run locally, no server storage, privacy-first approach, and session-based data deletion. This means your trading strategies remain completely private and secure."
       }
     },
     {
@@ -395,6 +403,36 @@
         <div class="faq-answer">
           <p>Live broker data includes real-world factors backtests miss: slippage (0.1-5 pips), execution delays (10-500ms), partial fills, overnight gaps, and liquidity constraints.</p>
           <p>Most backtests assume perfect execution - live validation shows your actual edge after these costs. Traders typically see <strong>10-30% performance reduction</strong> in live vs. backtest.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          Where does QuantProof process my trading data?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>All processing happens <strong>client-side in your browser</strong>. Your trading data never leaves your device:</p>
+          <p>• <strong>Local Processing:</strong> All 44 checks run in your browser<br>
+          • <strong>No Server Storage:</strong> We don't store your trading data<br>
+          • <strong>Privacy First:</strong> Strategies remain completely private<br>
+          • <strong>Session-Based:</strong> Data deleted when you close tab</p>
+          <p>This means your trading strategies are completely private and secure.</p>
+        </div>
+      </div>
+
+      <div class="faq-item" data-category="technical">
+        <div class="faq-question">
+          Does QuantProof support TradingView webhook integration?
+          <span class="faq-icon">▼</span>
+        </div>
+        <div class="faq-answer">
+          <p>Yes. QuantProof supports TradingView webhook integration for automated strategy validation:</p>
+          <p>• <strong>Webhook URL:</strong> Generate unique webhook endpoint in QuantProof<br>
+          • <strong>Real-Time Validation:</strong> Each webhook trigger validates the latest trade<br>
+          • <strong>44 Checks Applied:</strong> Full institutional validation on webhook data<br>
+          • <strong>Live Updates:</strong> Fundable Score updates with each webhook</p>
+          <p>Perfect for automated strategy monitoring and prop firm preparation workflows.</p>
         </div>
       </div>
 
