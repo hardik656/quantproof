@@ -1515,6 +1515,62 @@ def generate_pdf_report(vr: dict) -> bytes:
 
     # -- DISCLAIMER --
 
+    # Prop Firm Compliance Section
+    prop_firm_data = vr.get("prop_firm_compliance")
+    if prop_firm_data:
+        story.append(Spacer(1, 8*mm))
+        story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
+        story.append(Spacer(1, 3*mm))
+        
+        # Header
+        story.append(Paragraph("PROP FIRM COMPLIANCE", S["label"]))
+        story.append(Spacer(1, 4))
+        
+        # Summary
+        summary = prop_firm_data.get("summary", {})
+        story.append(Paragraph(
+            f"Total Firms Analyzed: {summary.get('total_firms', 0)} | "
+            f"Eligible Firms: {summary.get('eligible_firms', 0)} | "
+            f"Average Score: {summary.get('average_score', 0):.1f}/100",
+            S["body"]))
+        story.append(Spacer(1, 6))
+        
+        # Firm-by-firm breakdown
+        firms = prop_firm_data.get("firms", {})
+        for firm_name, firm_data in firms.items():
+            eligible = firm_data.get("eligible", False)
+            score = firm_data.get("score", 0)
+            violations = firm_data.get("violations", [])
+            passes = firm_data.get("passes", [])
+            
+            # Firm header
+            firm_color = C_OK if eligible else C_DANGER
+            story.append(Paragraph(
+                f"{firm_name.upper()} - {'ELIGIBLE' if eligible else 'NOT ELIGIBLE'} (Score: {score}/100)",
+                _s("label", fontSize=10, textColor=firm_color, leading=12)))
+            story.append(Spacer(1, 2))
+            
+            # Violations and passes
+            if violations:
+                story.append(Paragraph("Violations:", _s("body_sm", fontSize=9, textColor=C_DANGER)))
+                for violation in violations:
+                    story.append(Paragraph(f"• {violation}", _s("body_sm", fontSize=8, textColor=C_DARK)))
+                story.append(Spacer(1, 2))
+            
+            if passes:
+                story.append(Paragraph("Passes:", _s("body_sm", fontSize=9, textColor=C_OK)))
+                for pass_item in passes:
+                    story.append(Paragraph(f"• {pass_item}", _s("body_sm", fontSize=8, textColor=C_DARK)))
+                story.append(Spacer(1, 4))
+        
+        # Disclaimer
+        story.append(Paragraph(
+            "DISCLAIMER: Prop firm compliance analysis is based on publicly available rules and requirements. "
+            "Individual firms may have additional criteria not captured here. Always verify with the specific prop firm. "
+            "This analysis is for informational purposes only and does not guarantee acceptance.",
+            _s("sp", fontSize=8, leading=12, textColor=C_DARK)))
+        story.append(Spacer(1, 6*mm))
+
     story.append(Spacer(1, 8*mm))
     story.append(HRFlowable(width="100%", thickness=0.8, color=C_PAPER2))
     story.append(Spacer(1, 3*mm))
