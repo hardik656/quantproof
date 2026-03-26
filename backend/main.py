@@ -2772,7 +2772,7 @@ def root():
     }
 
 @app.post("/validate", response_model=ValidationResponse)
-async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_trials: int = Form(10), request: Request = None):
+async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_trials: int = Form(10), enhanced: bool = Form(False), request: Request = None):
     if request:
         ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
               or (request.client.host if request.client else "")) or "unknown"
@@ -2818,9 +2818,10 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=enhanced
         )
-        report = validator.run()
+        report = validator.run(enhanced=enhanced)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
@@ -4487,6 +4488,12 @@ def _portfolio_verdict(div_score: float, avg_corr: float, n: int) -> str:
                 "risk reduction over running just the best one.")
 
 
+@app.post("/validate/prop-firms", response_model=ValidationResponse)
+async def validate_prop_firms(file: UploadFile = File(...), currency: str = Form("USD"), n_trials: int = Form(10), request: Request = None):
+    """Enhanced validation with prop firm compliance analysis"""
+    # Reuse the same validation logic but with prop firm compliance enabled
+    return await validate(file=file, currency=currency, n_trials=n_trials, enhanced=True, request=request)
+
 @app.post("/validate/portfolio", response_model=PortfolioResponse)
 async def validate_portfolio(
     files: List[UploadFile] = File(...),
@@ -5751,8 +5758,6 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
 
 
 
