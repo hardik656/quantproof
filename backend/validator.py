@@ -32,16 +32,18 @@ F3. Crash simulation exposure model hardened.
     prop firm compliance scoring (by design).
 
 PATCH v6.1 — ADVERSARIAL AUDIT FIXES (delta from v6.0)
-═══════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════════════
+
 P1. Score cap at 50 when Sharpe > 5 AND no date column present.
 P2. Ljung-Box serial correlation test + Newey-West HAC correction.
 P3. Prop Firm Eligible suppressed when Manual Audit Required active.
 
 ORIGINAL CHANGES FROM v3.0 (complete audit log):
 
-══════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════════════════════════
+
 CRITICAL BUG FIXES
-══════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════
 
 C1. Sharpe: ddof=0→1 (population→sample std). All derivatives corrected.
 
@@ -155,6 +157,15 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 import warnings
 warnings.filterwarnings('ignore')
+
+# Import prop firm compliance module
+try:
+    from .prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
+except ImportError:
+    # Fallback if prop_firm_compliance.py doesn't exist yet
+    PropFirmComplianceEngine = None
+    PropFirmRules = None
+    QuantProofValidatorWithPropFirms = None
 
 # ── CONSTANTS ────────────────────────────────────────────────────────────────
 ENGINE_VERSION           = "v6.2"
@@ -901,33 +912,33 @@ class QuantProofValidator:
         n_trials: int = 20,
         benchmark_type: str = "spy",
         benchmark_returns: Optional[np.ndarray] = None,
+        enable_prop_firm: bool = False
     ):
         self.strict_mode = strict_mode
-        self.seed        = seed
+        self.seed = seed
         # Accept user input directly with minimal validation (>=1 only)
         try:
             self.n_trials = max(1, int(n_trials))
         except (ValueError, TypeError):
             self.n_trials = 1
-        self.rng         = np.random.default_rng(seed)
+        self.rng = np.random.default_rng(seed)
         self.benchmark_type = benchmark_type
-        self.df          = self._clean(df)
+        self.df = self._clean(df)
         self.trades_per_year, self.timeframe_info = self._detect_timeframe()
-        self.has_dates   = 'date' in self.df.columns
-        self.returns     = self._get_returns()
-
-        # F1: store benchmark; validate length if supplied
-        if benchmark_returns is not None:
-            bm = np.asarray(benchmark_returns, dtype=float)
-            if len(bm) != len(self.returns):
-                raise ValueError(
-                    f"benchmark_returns length ({len(bm)}) must match "
-                    f"strategy returns length ({len(self.returns)})."
-                )
-            self.benchmark_returns: Optional[np.ndarray] = bm
+        self.has_dates = 'date' in self.df.columns
+        self.returns = self._get_returns()
+        self.enable_prop_firm = enable_prop_firm
+        
+        # Initialize prop firm compliance engine if enabled
+        if self.enable_prop_firm:
+            try:
+                self.prop_firm_engine = PropFirmComplianceEngine(self)
+            except Exception as e:
+                print(f"Failed to initialize prop firm engine: {e}")
+                self.prop_firm_engine = None
         else:
-            self.benchmark_returns = None
-
+            self.prop_firm_engine = None
+        
         # Detect likely scale error (user submitted % not decimal)
         clipped_pct = float(np.mean(np.abs(self.returns) >= 0.499))
         self._scale_warning = clipped_pct > 0.50
@@ -2225,7 +2236,78 @@ class QuantProofValidator:
         else:             grade = "F — Do Not Deploy"
         return round(final, 1), grade
 
-    def run(self) -> ValidationReport:
+    def run(self, enhanced: bool = False) -> ValidationReport:
+        """Run validation with optional prop firm compliance"""
+        # Run standard validation
+        checks = [
+            self.check_sharpe_decay(), self.check_monte_carlo(), self.check_outlier_dependency(),
+            self.check_walk_forward(), self.check_bootstrap_stability(), self.check_deflated_sharpe(),
+            self.check_sharpe_ci_enforcement(), self.check_min_backtest_length(),
+            self.check_max_drawdown(), self.check_calmar_ratio(), self.check_var(), self.check_cvar(),
+            self.check_sortino(), self.check_consecutive_losses(), self.check_recovery_factor(),
+            self.check_absolute_sharpe(), self.check_ruin_probability(), self.check_drawdown_duration(),
+            self.check_ulcer_index(),
+            self.check_bull_performance(), self.check_bear_performance(), self.check_consolidation_performance(),
+            self.check_volatility_stress(), self.check_frequency_consistency(), self.check_regime_coverage(),
+            self.check_slippage_01(), self.check_impact_adjusted_capacity(),
+            self.check_prop_firm_compliance(), self.check_institutional_compliance()
+        ]
+        self.checks = checks
+
+        # Calculate scores and grade
+        score, grade = self._calculate_score(checks)
+        sharpe = calculate_sharpe(self.returns, self.trades_per_year)
+        dd = calculate_max_drawdown(self.returns)
+        wr = calculate_win_rate(self.returns)
+        
+        # Run crash simulations
+        crash_sims = [self.simulate_crash(key) for key in CRASH_PROFILES.keys()]
+        
+        # Generate overfit profile
+        overfit_prof = _OverfitDetector(self.returns, 
+            self.df['date'].values if self.has_dates else None).detect()
+        
+        # Generate alpha decay profile
+        alpha_decay = _analyze_alpha_decay(
+            self.returns,
+            self.df['date'].values if self.has_dates else None
+        )
+        
+        # Get equity curve for frontend
+        equity_curve_raw = None
+        if self.has_dates:
+            equity_curve_raw = (10000 * np.cumprod(1 + self.returns)).tolist()
+        
+        # Add prop firm compliance if requested
+        prop_firm_results = None
+        if enhanced and self.prop_firm_engine is not None:
+            try:
+                prop_firm_results = self.prop_firm_engine.validate_all_firms()
+            except Exception as e:
+                print(f"Prop firm compliance failed: {e}")
+                prop_firm_results = None
+        
+        # Create validation report
+        report = ValidationReport(
+            score=score, grade=grade, sharpe=sharpe, max_drawdown=dd,
+            win_rate=wr, total_trades=len(self.returns), profitable_trades=int(np.sum(self.returns > 0)),
+            checks=checks, crash_sims=crash_sims,
+            assumptions=self._get_assumptions(),
+            validation_hash=self._generate_validation_hash(),
+            validation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+            audit_flags=self._generate_audit_flags(),
+            plausibility_summary=self._generate_plausibility_summary(),
+            alpha_decay=alpha_decay, overfit_profile=overfit_prof,
+            engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
+            equity_curve=equity_curve_raw
+        )
+        
+        # Add prop firm compliance to report if available
+        if prop_firm_results:
+            report.prop_firm_compliance = prop_firm_results
+            report.enhanced = True
+        
+        return report
         checks = [
             self.check_sharpe_decay(), self.check_monte_carlo(), self.check_outlier_dependency(),
             self.check_walk_forward(), self.check_bootstrap_stability(), self.check_deflated_sharpe(),
@@ -2361,6 +2443,7 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
 
 
