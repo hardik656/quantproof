@@ -81,7 +81,7 @@
     "Alpaca broker API connection",
     "Interactive Brokers Flex API connection",
     "TradingView webhook integration",
-    "Prop firm compliance check (FTMO, Topstep, The5ers)",
+    "Prop firm compliance check (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)",
     "Deflated Sharpe Ratio",
     "CPCV walk-forward analysis",
     "Personalised fix plan based on your exact numbers"
@@ -175,7 +175,7 @@
       "name": "How do I know if my trading strategy is ready for a prop firm challenge?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Upload your backtest CSV to QuantProof. It runs 44 institutional checks including Sharpe ratio, max drawdown, FTMO and Topstep compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
+        "text": "Upload your backtest CSV to QuantProof. It runs 44 institutional checks including Sharpe ratio, max drawdown, FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
       }
     },
     {
@@ -636,7 +636,7 @@
         </div>
         <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--muted);grid-column:1/-1;">
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:3px;">COMPLIANCE — 15%</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Prop firm rules (FTMO, Topstep, The5ers) and institutional fund standards.</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Prop firm rules (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade) and institutional fund standards.</div>
         </div>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -659,8 +659,8 @@
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// PROP FIRM COMPLIANCE</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">FTMO, Topstep, and The5ers rule checks mapped directly to your trade data. Know your drawdown headroom and daily loss limits before you pay the challenge fee.</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FTMO &nbsp;·&nbsp; Topstep &nbsp;·&nbsp; The5ers &nbsp;·&nbsp; CTA Standards</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade rule checks mapped directly to your trade data. Know your drawdown headroom and daily loss limits before you pay the challenge fee.</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FTMO &nbsp;·&nbsp; Topstep &nbsp;·&nbsp; The5ers &nbsp;·&nbsp; Blue Guardian &nbsp;·&nbsp; Earn2Trade &nbsp;·&nbsp; CTA Standards</div>
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// INDIAN MARKET NATIVE</div>
@@ -1030,6 +1030,12 @@
 
         <!-- Submit -->
         <div style="padding:0 24px 20px;">
+          <div style="margin:12px 0;">
+            <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
+              <input type="checkbox" id="portfolioEnhancedValidation" style="cursor:pointer;">
+              <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
+            </label>
+          </div>
           <button onclick="handlePortfolioSubmit()"
             style="width:100%;background:var(--gold);color:#0a0a0a;border:none;padding:13px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.06em;transition:opacity 0.2s;"
             onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
@@ -1214,7 +1220,7 @@
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      © 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/methodology.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a>
+      © 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/methodology.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
       Built by <a href="https://www.linkedin.com/in/hardik-gumber-93507b98/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">Hardik Gumber</a> &nbsp;·&nbsp; Delhi, India &nbsp;·&nbsp; Algo trader since 2021
@@ -1714,6 +1720,9 @@
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
     fd.append('n_trials', String(_nTrials));
+    // Add enhanced validation parameter
+    const enhancedValidation = document.getElementById('csvEnhancedValidation');
+    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
@@ -1835,6 +1844,9 @@
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
     fd.append('n_trials', String(_nTrials));
+    // Add enhanced validation parameter
+    const enhancedValidation = document.getElementById('kiteEnhancedValidation');
+    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
     // Pass registered IP for soft check (never stored server-side)
     const _sebiIp = (window._sebiDeclaration || {}).registered_ip || '';
     if (_sebiIp) fd.append('registered_ip', _sebiIp);
@@ -1903,6 +1915,7 @@
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
     setTimeout(() => { if (data._sebi) buildSEBIPanel(data); }, 500);
+    setTimeout(() => { if (data.prop_firm_compliance) buildPropFirmPanel(data); }, 600);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
     setTimeout(() => {
       document.querySelectorAll('.check-item').forEach((el, i) => {
@@ -2070,6 +2083,73 @@
       + '</div>';
   }
 
+  function buildPropFirmPanel(data) {
+    var el = document.getElementById('propFirmPanel');
+    if (!el) return;
+    
+    if (!data.prop_firm_compliance) {
+      el.innerHTML = '<div style="padding:40px;text-align:center;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">Prop firm compliance panel available when enhanced validation is enabled.</div>';
+      return;
+    }
+    
+    var propData = data.prop_firm_compliance;
+    var summary = propData.summary || {};
+    var firms = propData.firms || {};
+    
+    function firmBadge(eligible) {
+      var col = eligible ? 'color:#00ff88;border-color:rgba(0,255,136,0.3)' : 'color:#ff4444;border-color:rgba(255,68,68,0.3)';
+      var label = eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE';
+      return '<span style="font-family:Space Mono,monospace;font-size:9px;padding:3px 8px;border:1px solid;' + col + '">' + label + '</span>';
+    }
+    
+    function firmRow(name, firmData) {
+      var eligible = firmData.eligible || false;
+      var score = firmData.score || 0;
+      var violations = firmData.violations || [];
+      var passes = firmData.passes || [];
+      
+      return '<div style="background:#0d1117;border:1px solid #1e2d3d;padding:16px;margin-bottom:12px;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+        +   '<div style="font-size:14px;font-weight:700;color:#e8edf2;">' + name + '</div>'
+        +   '<div style="display:flex;align-items:center;gap:8px;">'
+        +     '<span style="font-family:Space Mono,monospace;font-size:11px;color:' + (eligible ? '#00ff88' : '#ff4444') + ';">Score: ' + score + '/100</span>'
+        +     firmBadge(eligible)
+        +   '</div>'
+        + '</div>'
+        + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;">'
+        +   '<div style="margin-bottom:4px;"><strong>Violations:</strong> ' + (violations.length > 0 ? violations.join(', ') : 'None') + '</div>'
+        +   '<div><strong>Passes:</strong> ' + (passes.length > 0 ? passes.join(', ') : 'None') + '</div>'
+        + '</div>'
+        + '</div>';
+    }
+    
+    el.innerHTML =
+      '<div style="margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#00ff88;letter-spacing:2px;margin-bottom:4px;">PROP FIRM COMPLIANCE</div>'
+      + '<div style="font-size:16px;font-weight:800;color:#e8edf2;margin-bottom:4px;">Prop Firm Readiness Assessment</div>'
+      + '<div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;line-height:1.7;">Your strategy analyzed against 5 major prop firms. Each firm has different rules and requirements.</div>'
+      + '</div>'
+      
+      + '<div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);padding:16px 20px;margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#00ff88;margin-bottom:8px;">SUMMARY</div>'
+      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Firms Analyzed: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.total_firms || 0) + '</span></div>'
+      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Eligible Firms: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.eligible_firms || 0) + '</span></div>'
+      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:12px;">Average Score: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.average_score || 0) + '/100</span></div>'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">Eligible firms are those where your strategy meets all critical requirements.</div>'
+      + '</div>'
+      
+      + '<div style="margin-bottom:24px;">'
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;letter-spacing:1px;margin-bottom:16px;">FIRM BREAKDOWN</div>'
+      + Object.keys(firms).map(name => firmRow(name, firms[name])).join('')
+      + '</div>'
+      
+      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#2d4a5a;line-height:1.8;padding:14px;border:1px solid #1e2d3d;">'
+      + 'DISCLAIMER: Prop firm compliance analysis is based on publicly available rules and requirements.<br>'
+      + 'Individual firms may have additional criteria not captured here. Always verify with the specific prop firm.<br>'
+      + 'This analysis is for informational purposes only and does not guarantee acceptance.'
+      + '</div>';
+  }
+
   function buildAuditFlagsHTML(flags) {
     if (!flags || flags.length === 0) return '';
     const relevant = flags.filter(f => f && f.trim());
@@ -2205,6 +2285,7 @@
         <button class="result-tab active" onclick="switchResultTab(this,'tab-checks')">// ${failedCount > 0 ? failedCount + ' Issues Found' : 'All Checks'}</button>
         <button class="result-tab" onclick="switchResultTab(this,'tab-crash')">// Crash Simulations</button>
         ${data._sebi ? '<button class="result-tab" onclick="switchResultTab(this,\'tab-sebi\')">// SEBI Compliance</button>' : ''}
+        ${data.prop_firm_compliance ? '<button class="result-tab" onclick="switchResultTab(this,\'tab-prop-firm\')">// Prop Firm Compliance</button>' : ''}
         <button class="result-tab" onclick="switchResultTab(this,'tab-audit')">// Audit Trail</button>
       </div>
 
@@ -2290,6 +2371,10 @@
 
       <div id="tab-sebi" class="result-panel">
         <div id="sebi-panel-content"></div>
+      </div>
+
+      <div id="tab-prop-firm" class="result-panel">
+        <div id="propFirmPanel"></div>
       </div>
 
       <div id="tab-audit" class="result-panel">
@@ -3108,6 +3193,9 @@
     [1,2,3].forEach(n => { if (_portFiles[n]) fd.append('files', _portFiles[n]); });
     fd.append('currency', 'USD');
     fd.append('strategy_names', names);
+    // Add enhanced validation parameter
+    const enhancedValidation = document.getElementById('portfolioEnhancedValidation');
+    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
 
     try {
       showLoading();
@@ -3758,5 +3846,4 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
 
