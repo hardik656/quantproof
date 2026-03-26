@@ -830,6 +830,12 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
+        <div style="margin:12px 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
+            <input type="checkbox" id="csvEnhancedValidation" style="cursor:pointer;">
+            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
+          </label>
+        </div>
         <div id="optionsNotice" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.2);font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.6;">
           ⚠ Options detected — single-leg supported, multi-leg not modelled
         </div>
@@ -856,6 +862,12 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('kiteFileInput').click()">SELECT KITE CSV</button>
         <input type="file" id="kiteFileInput" accept=".csv">
+        <div style="margin:12px 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
+            <input type="checkbox" id="kiteEnhancedValidation" style="cursor:pointer;">
+            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
+          </label>
+        </div>
         <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;opacity:0.7;">
           Kite → Console → Reports → TradeBook or Orders
         </div>
@@ -873,6 +885,12 @@
           <span class="mode-limit-item">2000 alerts</span>
         </div>
         <div class="mode-verified-note" style="margin-top:12px;">✓ Real-time capture</div>
+        <div style="margin:12px 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
+            <input type="checkbox" id="tradingviewEnhancedValidation" style="cursor:pointer;">
+            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
+          </label>
+        </div>
         <button class="upload-btn" style="width:100%;margin-top:12px;" onclick="createTradingViewSession()">CREATE SESSION</button>
         <div id="tradingviewStatus" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);min-height:14px;line-height:1.6;"></div>
       </div>
@@ -889,6 +907,12 @@
           <span class="mode-limit-item">Compliance cert</span>
         </div>
         <div class="mode-verified-note" style="margin-top:12px;">✓ Eligible for Compliance Certificate</div>
+        <div style="margin:12px 0;">
+          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
+            <input type="checkbox" id="brokerEnhancedValidation" style="cursor:pointer;">
+            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
+          </label>
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <button class="upload-btn mode-btn-alpaca" style="width:100%;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
           <button class="upload-btn" style="width:100%;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">CONNECT IBKR</button>
@@ -2994,7 +3018,16 @@
     try { sessionStorage.setItem('qp_source','ibkr'); } catch(e) {}
     showLoading();
     try {
-      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accountId,flex_token:token,query_id:queryId,days_back:365})});
+      // Add enhanced validation parameter
+      const enhancedValidation = document.getElementById('brokerEnhancedValidation');
+      const requestBody = {
+        account_id: accountId, 
+        flex_token: token, 
+        query_id: queryId, 
+        days_back: 365,
+        enhanced: enhancedValidation ? enhancedValidation.checked : false
+      };
+      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
       if (!resp.ok) {
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -3023,7 +3056,15 @@
     showLoading();
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
+      // Add enhanced validation parameter
+      const enhancedValidation = document.getElementById('brokerEnhancedValidation');
+      const requestBody = {
+        api_key: key, 
+        secret_key: secret, 
+        mode,
+        enhanced: enhancedValidation ? enhancedValidation.checked : false
+      };
+      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
       if (cst) clearTimeout(cst);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
@@ -3088,7 +3129,12 @@
     _validationMode='tradingview'; _brokerSource=''; _isSampleRun=false;
     showLoading();
     try {
-      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST'});
+      // Add enhanced validation parameter
+      const enhancedValidation = document.getElementById('tradingviewEnhancedValidation');
+      const requestBody = {
+        enhanced: enhancedValidation ? enhancedValidation.checked : false
+      };
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
