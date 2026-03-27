@@ -2356,42 +2356,27 @@ class QuantProofValidator:
                 else:
                     # Convert numpy types to Python native types for JSON serialization
                     import json
+                    import numpy as np
                     
                     def convert_numpy_types(obj):
                         if isinstance(obj, dict):
                             return {k: convert_numpy_types(v) for k, v in obj.items()}
                         elif isinstance(obj, list):
                             return [convert_numpy_types(item) for item in obj]
-                        elif hasattr(obj, 'item'):  # numpy scalar
+                        elif isinstance(obj, np.bool_):
+                            return bool(obj)
+                        elif isinstance(obj, np.integer):
+                            return int(obj)
+                        elif isinstance(obj, np.floating):
+                            return float(obj)
+                        elif hasattr(obj, 'item'):  # numpy scalar fallback
                             return obj.item()
                         elif hasattr(obj, '__dict__'):  # custom object
                             return {k: convert_numpy_types(v) for k, v in obj.__dict__.items() if not k.startswith('_')}
                         else:
                             return obj
                     
-                    # Use JSON serialization/deserialization to convert all types
-                    json_str = json.dumps(prop_firm_results, default=str)
-                    prop_firm_results = json.loads(json_str)
-                    
-                    # Convert string representations back to proper types
-                    def fix_types(obj):
-                        if isinstance(obj, dict):
-                            return {k: fix_types(v) for k, v in obj.items()}
-                        elif isinstance(obj, list):
-                            return [fix_types(item) for item in obj]
-                        elif isinstance(obj, str):
-                            # Try to convert numeric strings back to numbers
-                            try:
-                                if '.' in obj:
-                                    return float(obj)
-                                else:
-                                    return int(obj)
-                            except ValueError:
-                                return obj
-                        else:
-                            return obj
-                    
-                    prop_firm_results = fix_types(prop_firm_results)
+                    prop_firm_results = convert_numpy_types(prop_firm_results)
                     
                     # Final validation
                     if not prop_firm_results.get('firms'):
@@ -2557,6 +2542,7 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
 
 
