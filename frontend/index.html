@@ -1734,6 +1734,12 @@
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
     _isSampleRun = false;
+    
+    // DEBUG: Log checkbox state
+    const enhancedValidation = document.getElementById('csvEnhancedValidation');
+    console.log('🔍 handleFile DEBUG: enhanced checkbox element:', enhancedValidation);
+    console.log('🔍 handleFile DEBUG: enhanced checkbox checked:', enhancedValidation ? enhancedValidation.checked : 'NOT FOUND');
+    
     try {
       const r = new FileReader();
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','csv'); };
@@ -1745,8 +1751,12 @@
     if(selCur) fd.append('currency', selCur.value);
     fd.append('n_trials', String(_nTrials));
     // Add enhanced validation parameter
-    const enhancedValidation = document.getElementById('csvEnhancedValidation');
-    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
+    if(enhancedValidation) {
+      console.log('🔍 handleFile DEBUG: Adding enhanced parameter:', enhancedValidation.checked);
+      fd.append('enhanced', enhancedValidation.checked);
+    } else {
+      console.log('🔍 handleFile DEBUG: No enhanced checkbox found');
+    }
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
