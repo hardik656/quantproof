@@ -3362,6 +3362,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             scale_warning=False,
             currency=acct_currency,
             equity_curve=getattr(r, 'equity_curve', None),
+            prop_firm_compliance=getattr(r, 'prop_firm_compliance', None),
         )
     except HTTPException:
         raise
@@ -4639,7 +4640,7 @@ async def validate_portfolio(
         _top_strengths = [f"{c['name']}" for c in _passed_chk
                           if c.get("score", 0) >= 80][:3]
         # Cast all numerics to plain Python types — numpy.int64/float64 break Pydantic
-        strategy_summaries.append({
+        strategy_summary = {
             "name":             str(names_list[i]),
             "fundable_score":   float(round(report.score, 1)),
             "grade":            report.grade.split("—")[0].strip(),
@@ -4670,7 +4671,13 @@ async def validate_portfolio(
                 }
                 for c in _checks_list[:44]
             ],
-        })
+        }
+        
+        # Add prop firm compliance data if enhanced validation is enabled
+        if enhanced and getattr(report, 'prop_firm_compliance', None):
+            strategy_summary["prop_firm_compliance"] = getattr(report, 'prop_firm_compliance', None)
+        
+        strategy_summaries.append(strategy_summary)
         dfs.append(df)
         sharpes.append(report.sharpe)
         if regime_note:
@@ -4772,6 +4779,44 @@ async def validate_portfolio(
         portfolio_dsr=portfolio_dsr,
         strategy_names=names_list,
     )
+
+    # Cache portfolio validation for PDF/AI generation with prop firm compliance data
+    portfolio_hash = f"portfolio-{'-'.join(sorted(names_list))}"
+    _vr_cache = {
+        "fundable_score": float(round(combined_sharpe * 10, 1)),  # Portfolio score from combined Sharpe
+        "grade": "Portfolio Analysis",
+        "sharpe": float(round(combined_sharpe, 2)),
+        "max_drawdown": float(round(combined_dd, 4)),
+        "win_rate": float(round(combined_wr, 1)),
+        "total_trades": int(combined_trades),
+        "date_range": "Portfolio Analysis",
+        "is_verified": False,
+        "strategies": strategy_summaries,
+        "correlation_matrix": [[float(v) for v in row] for row in corr_mat.tolist()],
+        "combined_sharpe": float(round(combined_sharpe, 2)),
+        "combined_drawdown": float(round(combined_dd, 4)),
+        "combined_win_rate": float(round(combined_wr, 1)),
+        "diversification_score": float(div_score),
+        "avg_correlation": float(round(avg_corr_signed, 3)),
+        "portfolio_verdict": str(verdict),
+        "audit_flags": [str(f) for f in audit_flags],
+        "portfolio_dsr": portfolio_dsr,
+        "combined_equity": [float(v) for v in combined_equity[:200]],
+        "portfolio_plan": portfolio_plan,
+    }
+    
+    # Add aggregated prop firm compliance data if enhanced validation is enabled
+    if enhanced:
+        prop_firm_data = {}
+        for strategy in strategy_summaries:
+            if "prop_firm_compliance" in strategy:
+                prop_firm_data[strategy["name"]] = strategy["prop_firm_compliance"]
+        
+        if prop_firm_data:
+            _vr_cache["prop_firm_compliance"] = prop_firm_data
+    
+    _cache_validation(portfolio_hash, _vr_cache)
+    _save_validation_cache()
 
     return PortfolioResponse(
         strategies=strategy_summaries,
@@ -5147,6 +5192,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         ],
         dashboard=None, ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
+        prop_firm_compliance=getattr(report, 'prop_firm_compliance', None),
     )
 
     return IBKRConnectResponse(
@@ -5375,6 +5421,7 @@ async def validate_kite(
         equity_curve=getattr(report, 'equity_curve', None),
         sebi_checks=_sebi_ch,
         sebi_declaration={"algo_id": sebi_algo_id, "box_type": sebi_box_type},
+        prop_firm_compliance=getattr(report, 'prop_firm_compliance', None),
     )
 
 
@@ -5774,6 +5821,7 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         dashboard=None,
         ai_plan=None,
         equity_curve=getattr(report, 'equity_curve', None),
+        prop_firm_compliance=getattr(report, 'prop_firm_compliance', None),
     )
 
     # CRITICAL: Always cache TV validation results, even if errors occur
@@ -5833,6 +5881,9 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
 
 
 
