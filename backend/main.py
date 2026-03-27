@@ -3083,6 +3083,7 @@ class AlpacaConnectRequest(BaseModel):
     api_key:    str
     secret_key: str
     mode:       str = "paper"
+    enhanced:    bool = False
 
 def _scrub_keys(d: dict) -> dict:
     sensitive = {"api_key", "secret_key", "key", "secret", "token", "password", "auth"}
@@ -3226,12 +3227,13 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=payload.enhanced
         )
         try:
             loop   = asyncio.get_event_loop()
             report = await asyncio.wait_for(
-                loop.run_in_executor(None, validator.run),
+                loop.run_in_executor(None, lambda: validator.run(enhanced=payload.enhanced)),
                 timeout=25.0
             )
         except asyncio.TimeoutError:
@@ -3414,6 +3416,7 @@ REPORT_PRICE_INR    = 299
 async def generate_report_endpoint(
     file: UploadFile = File(...),
     currency: str = Form("USD"),
+    enhanced: bool = Form(False),
     registered_ip: str = Form(""),
     sebi_algo_id: str = Form("unsure"),
     sebi_box_type: str = Form("white"),
@@ -3467,9 +3470,10 @@ async def generate_report_endpoint(
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=enhanced
         )
-        report    = validator.run()
+        report = validator.run(enhanced=enhanced)
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
@@ -4084,6 +4088,7 @@ class BrokerReportRequest(BaseModel):
     api_key:         str
     secret_key:      str
     mode:            str = "paper"
+    enhanced:        bool = False
     validation_hash: str = ""
     validation_data: dict = {}  # For TV mode - bypass cache
 
@@ -4499,6 +4504,7 @@ async def validate_portfolio(
     files: List[UploadFile] = File(...),
     currency: str = Form("USD"),
     strategy_names: str = Form(""),   # comma-separated names
+    enhanced: bool = Form(False),
     x_portfolio_token: str = Header(default=""),
     request: Request = None,
 ):
@@ -4551,9 +4557,9 @@ async def validate_portfolio(
             _bm, _bm_note = (get_nifty_benchmark(df)
                 if _bm_type == "nifty" else get_spy_benchmark(df))
             validator = QuantProofValidator(
-                df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=10
+                df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=10, enable_prop_firm=enhanced
             )
-            report = validator.run()
+            report = validator.run(enhanced=enhanced)
         except Exception as e:
             raise HTTPException(500, f"Validation failed for strategy {i+1}: {str(e)}")
 
@@ -4897,6 +4903,7 @@ class IBKRConnectRequest(BaseModel):
     flex_token: str
     query_id:   str
     days_back:  int = 365
+    enhanced:    bool = False
 
 class IBKRConnectResponse(BaseModel):
     source:       str
@@ -5007,9 +5014,10 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=payload.enhanced
         )
-        report    = validator.run()
+        report    = validator.run(enhanced=payload.enhanced)
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
@@ -5113,6 +5121,7 @@ async def validate_kite(
     file: UploadFile = File(...),
     currency: str = Form("INR"),
     n_trials: int = Form(10),
+    enhanced: bool = Form(False),
     registered_ip: str = Form(""),
     sebi_algo_id: str = Form("unsure"),
     sebi_box_type: str = Form("white"),
@@ -5218,9 +5227,10 @@ async def validate_kite(
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=enhanced
         )
-        report    = validator.run()
+        report    = validator.run(enhanced=enhanced)
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
@@ -5592,7 +5602,7 @@ def get_tv_status(session_id: str):
 
 
 @app.post("/webhook/tradingview/{session_id}/validate", response_model=ValidationResponse)
-def validate_tv_alerts(session_id: str, request: Request = None):
+def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: Request = None):
     """
     Validate TradingView session alerts using QuantProof.
     """
@@ -5636,14 +5646,15 @@ def validate_tv_alerts(session_id: str, request: Request = None):
             df,
             benchmark_returns=_bm,
             benchmark_type=_bm_type,
-            n_trials=n_trials
+            n_trials=n_trials,
+            enable_prop_firm=enhanced
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
 
     import sys
     try:
-        report = validator.run()
+        report = validator.run(enhanced=enhanced)
     except Exception as e:
         # Log the full traceback so we can see 
         # exactly which line is overflowing
@@ -5758,6 +5769,10 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
+
+
+
+
 
 
 
