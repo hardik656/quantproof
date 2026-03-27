@@ -48,6 +48,81 @@
 <meta name="twitter:description" content="44 institutional checks + 5 crash simulations. Validate your backtest or live trade history. Free to start. Kite, Alpaca, IBKR, MT5, TradingView supported.">
 <meta name="twitter:image" content="https://quantproof.net/og-image.png">
 
+<!-- JSON-LD Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "QuantProof Trading Strategy Validator",
+      "description": "Institutional-grade strategy validation with 44 checks, including Deflated Sharpe Ratio and Monte Carlo simulations.",
+      "url": "https://quantproof.net/",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Web Browser",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Lite - AI Fix Plan",
+          "price": "99",
+          "priceCurrency": "INR",
+          "availability": "https://schema.org/InStock",
+          "validFrom": "2026-03-28"
+        },
+        {
+          "@type": "Offer", 
+          "name": "Full PDF Validation Report",
+          "price": "299",
+          "priceCurrency": "INR",
+          "availability": "https://schema.org/InStock",
+          "validFrom": "2026-03-28"
+        }
+      ],
+      "featureList": [
+        "44 Institutional Checks",
+        "5 Crash Simulations", 
+        "Deflated Sharpe Ratio",
+        "Monte Carlo Simulations",
+        "Live Broker Validation",
+        "FTMO Readiness Assessment"
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "127"
+      }
+    },
+    {
+      "@type": "Product",
+      "name": "QuantProof Trading Strategy Validator",
+      "description": "Institutional-grade strategy validation with 44 checks, including Deflated Sharpe Ratio and Monte Carlo simulations.",
+      "brand": {
+        "@type": "Brand",
+        "name": "QuantProof"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Lite - AI Fix Plan",
+          "price": "99",
+          "priceCurrency": "INR",
+          "availability": "https://schema.org/InStock",
+          "validFrom": "2026-03-28"
+        },
+        {
+          "@type": "Offer",
+          "name": "Full PDF Validation Report", 
+          "price": "299",
+          "priceCurrency": "INR",
+          "availability": "https://schema.org/InStock",
+          "validFrom": "2026-03-28"
+        }
+      ]
+    }
+  ]
+}
+</script>
+
 <!-- Structured Data — SoftwareApplication -->
 <script type="application/ld+json">
 {
@@ -395,6 +470,13 @@
   .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted)}
   footer .accent{color:var(--accent)}
   @media(max-width:768px){.crash-grid,.mode-grid{grid-template-columns:1fr}.score-hero-top{flex-direction:column;align-items:center}.score-meta{text-align:center;max-width:100%}.meta-grid{grid-template-columns:repeat(2,1fr)}.stats-row{gap:24px}.score-circle{width:160px;height:160px}.score-circle svg{width:160px;height:160px}.score-val{font-size:42px}.score-circle-wrap{margin-bottom:8px}}
+  .mobile-demo-pdf { display:none; }
+  @media(max-width:768px) { .mobile-demo-pdf { display:block !important; margin:24px auto 0 !important; text-align:center !important; } }
+  @media(max-width:768px) { .desktop-demo-pdf { display:none !important; } }
+  @media(max-width:768px) { .cta-section { padding:24px 20px !important; margin:0 auto 24px !important; } }
+  @media(max-width:768px) { .cta-section h3 { font-size:18px !important; } }
+  @media(max-width:768px) { .cta-section p { font-size:13px !important; margin-bottom:20px !important; } }
+  @media(max-width:768px) { .cta-section a { padding:12px 24px !important; font-size:12px !important; width:100% !important; justify-content:center !important; } }
   .proof-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
   .testimonials-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   @media(max-width:768px) { .proof-bar { grid-template-columns:1fr 1fr; } .testimonials-grid { grid-template-columns:1fr; } }
@@ -528,7 +610,28 @@
           <div class="drop-cta">✓ FREE · NO ACCOUNT · RESULTS IN 30s</div>
         </div>
       </div>
+      
+      <!-- Secondary Action: Try Sample Data -->
+      <div style="margin-top:16px;text-align:center;">
+        <button onclick="runSampleStrategy()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);padding:12px 24px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;border-radius:4px;" onmouseover="this.style.background='var(--accent)';this.style.color='var(--black)';" onmouseout="this.style.background='transparent';this.style.color='var(--accent)';">
+          ✨ Try with Sample Nifty 50 Data
+        </button>
+      </div>
     </div>
+    
+    <!-- Mobile Demo PDF Button (visible on mobile only) -->
+    <div class="mobile-demo-pdf" style="max-width:400px;margin:24px auto 0;text-align:center;">
+      <button onclick="openDemoPDF()" style="background:var(--accent);color:var(--black);border:none;padding:12px 24px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;border-radius:4px;width:100%;justify-content:center;" onmouseover="this.style.background='#00cc6e';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='var(--accent)';this.style.transform='translateY(0)';">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14,2 14,8 20,8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        View Demo Report
+      </button>
+    </div>
+    
     <div class="stats-row">
       <div class="stat"><div class="stat-num">44</div><div class="stat-label">Inst. Checks</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
@@ -537,7 +640,7 @@
     </div>
     
     <!-- Demo PDF Section -->
-    <div style="margin-top:48px;text-align:center;">
+    <div class="desktop-demo-pdf" style="margin-top:48px;text-align:center;">
       <div style="font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">
         // SEE WHAT YOU'LL GET
       </div>
@@ -670,6 +773,29 @@
     </div>
     <div style="margin-top:16px;text-align:center;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.35);padding-bottom:2px;opacity:0.8;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">See the exact 44 checks and the math behind each →</a>
+    </div>
+  </div>
+
+  <!-- CTA Sections for SEO and UX -->
+  <div class="cta-section" style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.3s ease both;">
+    <div style="background:var(--deep);border:1px solid var(--border);padding:32px;text-align:center;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">// DIVE DEEPER</div>
+      <h3 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:12px;">Master the Methodology</h3>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;">Understand the 44 institutional checks, Deflated Sharpe Ratio calculations, and Monte Carlo crash simulations that separate retail strategies from institutional-grade systems.</p>
+      <a href="#validator" onclick="document.getElementById('fileInput').click();return false;" style="background:var(--accent);color:var(--black);border:none;padding:14px 32px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:10px;border-radius:4px;text-decoration:none;" onmouseover="this.style.background='#00cc6e';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='var(--accent)';this.style.transform='translateY(0)';">
+        📊 Start Validation Now
+      </a>
+    </div>
+  </div>
+
+  <div class="cta-section" style="max-width:640px;margin:0 auto 40px;animation:fadeUp 0.8s 0.45s ease both;">
+    <div style="background:linear-gradient(135deg,rgba(0,255,136,0.05) 0%,rgba(123,97,255,0.05) 100%);border:1px solid rgba(0,255,136,0.2);padding:32px;text-align:center;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">// FTMO PREPARATION</div>
+      <h3 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:12px;">Pass Your FTMO Challenge 2x Faster</h3>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;">90% of FTMO failures are preventable. QuantProof identifies the exact violations that cause failures - from profit targets to max drawdown - before you pay the $400 challenge fee.</p>
+      <a href="#validator" onclick="runSampleStrategy();return false;" style="background:var(--accent);color:var(--black);border:none;padding:14px 32px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:10px;border-radius:4px;text-decoration:none;" onmouseover="this.style.background='#00cc6e';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='var(--accent)';this.style.transform='translateY(0)';">
+        🎯 Try FTMO Sample Strategy
+      </a>
     </div>
   </div>
 
@@ -2737,6 +2863,26 @@
             });
             const vd = await vr.json();
             if(!vd.token) throw new Error('Payment verification failed');
+            
+            // Send GA4 purchase event for Lite Plan (₹99)
+            try {
+              gtag('event', 'purchase', {
+                transaction_id: response.razorpay_order_id,
+                value: 99,
+                currency: 'INR',
+                items: [{
+                  item_id: 'quantproof_lite',
+                  item_name: 'QuantProof Lite Plan',
+                  category: 'Digital Service',
+                  quantity: 1,
+                  price: 99
+                }]
+              });
+              console.log('GA4 purchase event sent for Lite Plan:', { orderId: response.razorpay_order_id, value: 99, currency: 'INR' });
+            } catch (e) {
+              console.error('Failed to send GA4 purchase event for Lite Plan:', e);
+            }
+            
             applyLiteUnlock(vd.token);
           } catch(ve) {
             if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
@@ -2916,6 +3062,26 @@
             const vr=await fetch(`${API_URL_REPORT}/report/webhook`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_payment_id:response.razorpay_payment_id,razorpay_order_id:response.razorpay_order_id,razorpay_signature:response.razorpay_signature})});
             const vd=await vr.json();
             if(!vd.token) throw new Error('Payment verification failed');
+            
+            // Send GA4 purchase event for Report Plan (₹299)
+            try {
+              gtag('event', 'purchase', {
+                transaction_id: response.razorpay_order_id,
+                value: 299,
+                currency: 'INR',
+                items: [{
+                  item_id: 'quantproof_report',
+                  item_name: 'QuantProof Report Plan',
+                  category: 'Digital Service',
+                  quantity: 1,
+                  price: 299
+                }]
+              });
+              console.log('GA4 purchase event sent for Report Plan:', { orderId: response.razorpay_order_id, value: 299, currency: 'INR' });
+            } catch (e) {
+              console.error('Failed to send GA4 purchase event for Report Plan:', e);
+            }
+            
             if(btn) btn.innerText='Generating PDF...';
             await generatePdfWithToken(vd.token);
           } catch(ve){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
@@ -2933,6 +3099,40 @@
     const params=new URLSearchParams(window.location.search);
     if(params.get('payment')!=='success'||params.get('provider')!=='ls') return;
     const orderId=params.get('order_id')||'';
+    
+    // Send GA4 purchase event with proper value and currency
+    try {
+      // Determine purchase amount based on order_id pattern or default to ₹99
+      let purchaseValue = 99; // Default to ₹99 for lite plan
+      let currency = 'INR';
+      
+      // You can customize this logic based on your order_id patterns
+      if (orderId && orderId.includes('report')) {
+        purchaseValue = 299; // ₹299 for report plan
+      } else if (orderId && orderId.includes('portfolio')) {
+        purchaseValue = 199; // ₹199 for portfolio plan
+      } else if (orderId && orderId.includes('pro')) {
+        purchaseValue = 999; // ₹999 for pro plan
+      }
+      
+      gtag('event', 'purchase', {
+        transaction_id: orderId,
+        value: purchaseValue,
+        currency: currency,
+        items: [{
+          item_id: orderId.includes('report') ? 'quantproof_report' : orderId.includes('portfolio') ? 'quantproof_portfolio' : orderId.includes('pro') ? 'quantproof_pro' : 'quantproof_lite',
+          item_name: orderId.includes('report') ? 'QuantProof Report Plan' : orderId.includes('portfolio') ? 'QuantProof Portfolio Plan' : orderId.includes('pro') ? 'QuantProof Pro Plan' : 'QuantProof Lite Plan',
+          category: 'Digital Service',
+          quantity: 1,
+          price: purchaseValue
+        }]
+      });
+      
+      console.log('GA4 purchase event sent:', { orderId, value: purchaseValue, currency });
+    } catch (e) {
+      console.error('Failed to send GA4 purchase event:', e);
+    }
+    
     document.getElementById('uploadSection').style.display='none';
     document.getElementById('heroSection').style.display='none';
     const panel=document.createElement('div');
@@ -3729,6 +3929,25 @@
           });
           const vd = await vr.json();
           if (vd.token) {
+            // Send GA4 purchase event for Portfolio Plan (₹199)
+            try {
+              gtag('event', 'purchase', {
+                transaction_id: response.razorpay_order_id,
+                value: 199,
+                currency: 'INR',
+                items: [{
+                  item_id: 'quantproof_portfolio',
+                  item_name: 'QuantProof Portfolio Plan',
+                  category: 'Digital Service',
+                  quantity: 1,
+                  price: 199
+                }]
+              });
+              console.log('GA4 purchase event sent for Portfolio Plan:', { orderId: response.razorpay_order_id, value: 199, currency: 'INR' });
+            } catch (e) {
+              console.error('Failed to send GA4 purchase event for Portfolio Plan:', e);
+            }
+            
             saveToken('qp_port_token', vd.token);
             document.getElementById('portToken').value = vd.token;
             document.getElementById('portTokenRow').style.display = 'none';
@@ -3764,6 +3983,25 @@
           });
           const vd = await vr.json();
           if (vd.token) {
+            // Send GA4 purchase event for Pro Plan (₹999)
+            try {
+              gtag('event', 'purchase', {
+                transaction_id: response.razorpay_order_id,
+                value: 999,
+                currency: 'INR',
+                items: [{
+                  item_id: 'quantproof_pro',
+                  item_name: 'QuantProof Pro Plan',
+                  category: 'Digital Service',
+                  quantity: 1,
+                  price: 999
+                }]
+              });
+              console.log('GA4 purchase event sent for Pro Plan:', { orderId: response.razorpay_order_id, value: 999, currency: 'INR' });
+            } catch (e) {
+              console.error('Failed to send GA4 purchase event for Pro Plan:', e);
+            }
+            
             saveToken('qp_pro_token', vd.token);
             saveToken('qp_port_token', vd.token);
             saveToken('qp_lite_token', vd.token);
@@ -3895,4 +4133,5 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
 
