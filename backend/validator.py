@@ -2354,27 +2354,25 @@ class QuantProofValidator:
                 elif 'summary' not in prop_firm_results:
                     prop_firm_results = None
                 else:
-                    print("🔄 STARTING NUMPY TYPE CONVERSION")
+                    print(" STARTING NUMPY TYPE CONVERSION")
                     # Convert numpy types to Python native types for JSON serialization
                     import json
                     
                     def convert_numpy_types(obj):
-                        print(f"CONVERTING: {type(obj)} = {obj}")
                         if isinstance(obj, dict):
                             return {k: convert_numpy_types(v) for k, v in obj.items()}
                         elif isinstance(obj, list):
                             return [convert_numpy_types(item) for item in obj]
+                        elif hasattr(obj, '__module__') and obj.__module__ == 'numpy':
+                            # Catch ALL numpy objects by module check
+                            return obj.item() if hasattr(obj, 'item') else float(obj)
                         elif isinstance(obj, np.bool_):
-                            print(f"CONVERTING np.bool_: {obj} -> {bool(obj)}")
                             return bool(obj)
                         elif isinstance(obj, np.integer):
-                            print(f"CONVERTING np.integer: {obj} -> {int(obj)}")
                             return int(obj)
                         elif isinstance(obj, np.floating):
-                            print(f"CONVERTING np.floating: {obj} -> {float(obj)}")
                             return float(obj)
                         elif hasattr(obj, 'item'):  # numpy scalar fallback
-                            print(f"CONVERTING numpy scalar: {obj} -> {obj.item()}")
                             return obj.item()
                         elif hasattr(obj, '__dict__'):  # custom object
                             return {k: convert_numpy_types(v) for k, v in obj.__dict__.items() if not k.startswith('_')}
@@ -2547,7 +2545,6 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
-
 
 
 
