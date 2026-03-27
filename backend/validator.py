@@ -1030,6 +1030,8 @@ class QuantProofValidator:
             'source_fingerprint': src_hash,
             'seed': self.seed,
             'n_trials': self.n_trials,
+            'enhanced': self.enable_prop_firm,  # Include enhanced mode in cache key
+            'prop_firm_engine': self.prop_firm_engine is not None,  # Include engine status
         }
         return hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:12]
 
@@ -2336,9 +2338,13 @@ class QuantProofValidator:
         # Add prop firm compliance if requested
         prop_firm_results = None
         
+        print("PROP ENGINE EXISTS:", self.prop_firm_engine is not None)
+        print("ENHANCED MODE:", enhanced)
+        
         if enhanced and self.prop_firm_engine is not None:
             try:
                 prop_firm_results = self.prop_firm_engine.validate_all_firms()
+                print("PROP ENGINE OUTPUT:", prop_firm_results)
                 
                 # Validate results structure
                 if not isinstance(prop_firm_results, dict):
@@ -2551,6 +2557,7 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
+
 
 
 
