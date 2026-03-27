@@ -158,6 +158,17 @@ from sklearn.metrics import r2_score
 import warnings
 warnings.filterwarnings('ignore')
 
+def convert_numpy(obj):
+    """Convert NumPy types to native Python types for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: convert_numpy(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy(v) for v in obj]
+    elif isinstance(obj, np.generic):
+        return obj.item()
+    else:
+        return obj
+
 # Import prop firm compliance module
 try:
     from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
@@ -2354,6 +2365,21 @@ class QuantProofValidator:
                 prop_firm_results = self.prop_firm_engine.validate_all_firms()
                 print("PROP ENGINE OUTPUT:", prop_firm_results)
                 
+                # Convert NumPy types to native Python types IMMEDIATELY
+                prop_firm_results = convert_numpy(prop_firm_results)
+                print("✅ NUMPY CONVERSION APPLIED")
+                
+                # STEP 3 — VERIFY TYPES
+                if prop_firm_results.get('summary') and 'average_score' in prop_firm_results['summary']:
+                    print("TYPE CHECK:", type(prop_firm_results['summary']['average_score']))
+                
+                # Debug: Check specific NumPy conversion
+                if prop_firm_results.get('firms') and 'FTMO' in prop_firm_results['firms']:
+                    ftmo_data = prop_firm_results['firms']['FTMO']
+                    if ftmo_data.get('violations') and len(ftmo_data['violations']) > 0:
+                        first_violation = ftmo_data['violations'][0]
+                        print("DEBUG VIOLATION TYPE:", type(first_violation.get('passed')))
+                
                 # Validate results structure
                 if not isinstance(prop_firm_results, dict):
                     prop_firm_results = None
@@ -2361,12 +2387,12 @@ class QuantProofValidator:
                     prop_firm_results = None
                 elif 'summary' not in prop_firm_results:
                     prop_firm_results = None
-                else:
-                    print(" STARTING NUMPY TYPE CONVERSION")
                 
             except Exception as e:
+                import traceback
                 print(f"Prop firm compliance failed: {e}")
-                prop_firm_results = None
+                print("TRACEBACK:", traceback.format_exc())
+                raise e
         
         # Create validation report
         report = ValidationReport(
@@ -2387,143 +2413,11 @@ class QuantProofValidator:
         if prop_firm_results:
             report.prop_firm_compliance = prop_firm_results
             report.enhanced = True
+            
+            # STEP 4 — CONFIRM FINAL OUTPUT
+            print("FINAL KEYS:", list(report.__dict__.keys()))
+            print("PROP DATA EXISTS:", hasattr(report, 'prop_firm_compliance') and report.prop_firm_compliance is not None)
         
         return report
-        checks = [
-            self.check_sharpe_decay(), self.check_monte_carlo(), self.check_outlier_dependency(),
-            self.check_walk_forward(), self.check_bootstrap_stability(), self.check_deflated_sharpe(),
-            self.check_sharpe_ci_enforcement(), self.check_min_backtest_length(),
-            self.check_max_drawdown(), self.check_calmar_ratio(), self.check_var(), self.check_cvar(),
-            self.check_sortino(), self.check_consecutive_losses(), self.check_recovery_factor(),
-            self.check_absolute_sharpe(), self.check_ruin_probability(), self.check_drawdown_duration(),
-            self.check_ulcer_index(),
-            self.check_bull_performance(), self.check_bear_performance(), self.check_consolidation_performance(),
-            self.check_volatility_stress(), self.check_frequency_consistency(), self.check_regime_coverage(),
-            self.check_slippage_01(), self.check_slippage_03(), self.check_commission_drag(),
-            self.check_partial_fills(), self.check_live_vs_backtest_gap(), self.check_impact_adjusted_capacity(),
-            # ── P2: Autocorrelation check inserted before compliance checks ──
-            self.check_autocorrelation(),
-            # ── F1: Market-neutral benchmark checks ──
-            self.check_information_ratio(), self.check_beta_exposure(),
-            self.check_prop_firm_compliance(), self.check_institutional_compliance(),
-            self.check_sharpe_plausibility(), self.check_frequency_return_plausibility(),
-            self.check_equity_smoothness_plausibility(), self.check_kelly_plausibility(),
-        ]
-        self.checks = checks
-
-        # ── P3: Suppress "Prop Firm Eligible" if any Manual Audit Required flag is active ──
-        # Runs after all checks (incl. plausibility) are in self.checks.
-        has_manual_audit = any(
-            not c.passed and "Manual Audit Required" in c.value
-            for c in checks
-            if c.category == "Plausibility"
-        )
-        if has_manual_audit:
-            for i, c in enumerate(checks):
-                if "Prop Firm Compliance" in c.name and c.passed:
-                    eligible_str = c.value.replace("Eligible: ", "")
-                    checks[i] = CheckResult(
-                        name=c.name,
-                        passed=False,
-                        score=0,
-                        value=(
-                            f"⚠ Numerically eligible ({eligible_str}) but blocked: "
-                            f"Manual Audit Required flag(s) must be resolved before prop firm submission"
-                        ),
-                        insight=(
-                            "Strategy meets prop firm numerical thresholds but has unresolved "
-                            "plausibility flags. Submitting with active Manual Audit Required "
-                            "warnings risks account termination upon review."
-                        ),
-                        fix="Resolve all Manual Audit Required flags, then re-run validation.",
-                        category="Compliance"
-                    )
-
-                
-        crash_sims = [self.simulate_crash(k) for k in CRASH_PROFILES.keys()]
-        score, grade = self._calculate_score(checks)
-
-        # FIX BUG-V4-2: inject single-regime check result into checks list
-        # so it appears in the report with a clear explanation
-        dominant_regime = self._detect_single_regime()
-        if dominant_regime is not None:
-            checks.append(CheckResult(
-                name="Single-Regime Backtest Warning",
-                passed=False,
-                score=0,
-                value=f"⚠ Manual Audit Required — >85% of trades in {dominant_regime} regime only",
-                insight=(
-                    f"All or nearly all trades occurred during a {dominant_regime} market period. "
-                    f"The strategy has never been tested in bear, consolidation, or other "
-                    f"regime conditions. Performance may be entirely explained by market tailwind "
-                    f"rather than a genuine edge. Score hard-capped at 55."
-                ),
-                fix=(
-                    "Extend backtest to cover at least one full market cycle (bull + bear + consolidation). "
-                    "Minimum: include 2022 bear or 2020 crash data."
-                ),
-                category="Regime"
-            ))
-        r      = self.returns
-        # Build equity curve normalized to 100 — must be after r = self.returns
-        try:
-            _ec = np.cumprod(1 + r)
-            equity_curve_raw = [round(float(v), 4) for v in (_ec / _ec[0] * 100).tolist()]
-        except Exception:
-            equity_curve_raw = None
-        sharpe = calculate_sharpe(r, self.trades_per_year)
-        dd     = calculate_max_drawdown(r)
-        wr     = calculate_win_rate(r)
-        if self.strict_mode:
-            if sharpe < 1.2:
-                grade = "F — Strict Mode: Sharpe below 1.2"; score = min(score, 40)
-            compliance = [c for c in checks if c.category == "Compliance"]
-            if compliance and not all(c.passed for c in compliance):
-                grade = "F — Strict Mode: Compliance failed"; score = min(score, 30)
-            if sum(1 for s in crash_sims if s.survived) < 2:
-                grade = "F — Strict Mode: Failed crash"; score = min(score, 35)
-        timestamps   = self.df['date'] if self.has_dates else None
-        alpha_decay  = _analyze_alpha_decay(r, timestamps)
-        overfit_prof = _OverfitDetector(r, timestamps).detect()
-
-        # Alpha decay: compare H1 vs H2 Sharpe — persistent strategies hold up
-        if len(r) >= 30:
-            mid_a        = len(r) // 2
-            sh1          = calculate_sharpe(r[:mid_a], self.trades_per_year)
-            sh2          = calculate_sharpe(r[mid_a:], self.trades_per_year)
-            decay_pct    = (sh1 - sh2) / (abs(sh1) + EPSILON) * 100 if sh1 > 0 else 0
-            alpha_passed = decay_pct < 60 and sh2 > -0.5   # fails if H2 Sharpe drops >60% or goes very negative
-            alpha_score  = round(max(0, min(100, 100 - max(0, decay_pct - 10))), 1)
-            alpha_val    = f"H1 Sharpe: {sh1:.2f} → H2: {sh2:.2f} ({decay_pct:.0f}% decay)"
-            alpha_fix    = "Performance deteriorating over time — strategy may be losing edge. Walk-forward test."
-            alpha_insight= "Strong strategies maintain Sharpe across both halves of the backtest period."
-        else:
-            alpha_passed, alpha_score = False, 20
-            alpha_val    = "Insufficient data for decay analysis"
-            alpha_fix    = "Extend backtest to 30+ trades."
-            alpha_insight= "Too few trades to assess alpha persistence."
-        checks.append(CheckResult(
-            name="Alpha Decay (Half-Life)", passed=alpha_passed,
-            score=alpha_score, value=alpha_val,
-            insight=alpha_insight, fix=alpha_fix, category="Operational"))
-        checks.append(CheckResult(
-            name="Symbolic Overfit Detection", passed=not overfit_prof.is_overfit,
-            score=overfit_prof.score,
-            value=f"Score {overfit_prof.score:.0f}/100 | p={overfit_prof.p_value:.3f}",
-            insight=f"{'Overfit' if overfit_prof.is_overfit else 'Not overfit'}. AdjSharpe={overfit_prof.adjusted_sharpe:.2f}",
-            fix="Simplify rules." if overfit_prof.is_overfit else "No overfit detected.", category="Operational"))
-        return ValidationReport(
-            score=score, grade=grade, sharpe=sharpe, max_drawdown=dd,
-            win_rate=wr, total_trades=len(r), profitable_trades=int(np.sum(r > 0)),
-            checks=checks, crash_sims=crash_sims,
-            assumptions=self._get_assumptions(),
-            validation_hash=self._generate_validation_hash(),
-            validation_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-            audit_flags=self._generate_audit_flags(),
-            plausibility_summary=self._generate_plausibility_summary(),
-            alpha_decay=alpha_decay, overfit_profile=overfit_prof,
-            engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
-            equity_curve=equity_curve_raw)
-
 
 
