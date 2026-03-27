@@ -236,6 +236,11 @@ async def generate_ai_plan(report, date_range: str) -> dict:
     failed = [c for c in scored if not c.passed]
     passed = [c for c in scored if c.passed]
 
+    # Get prop firm compliance data if available
+    prop_firm_data = getattr(report, 'prop_firm_compliance', None)
+    prop_firm_summary = prop_firm_data.get('summary', {}) if prop_firm_data else {}
+    prop_firm_firms = prop_firm_data.get('firms', {}) if prop_firm_data else {}
+
     if not failed:
         return {
             "summary": "Your strategy passed all checks. Focus on live execution and position sizing.",
@@ -250,12 +255,26 @@ async def generate_ai_plan(report, date_range: str) -> dict:
     ])
     passed_text = ", ".join([c.name for c in passed])
 
+    # Add prop firm compliance info to the prompt if available
+    prop_firm_section = ""
+    if prop_firm_data:
+        prop_firm_section = f"""
+PROP FIRM COMPLIANCE:
+- Total Firms Analyzed: {prop_firm_summary.get('total_firms', 0)}
+- Eligible Firms: {prop_firm_summary.get('eligible_firms', 0)}
+- Average Score: {prop_firm_summary.get('average_score', 0):.1f}/100
+- Best Firm: {prop_firm_summary.get('best_firm', 'None')}
+- Firm Breakdown: {', '.join([f"{name} ({'ELIGIBLE' if data.get('eligible') else 'NOT ELIGIBLE'}, {data.get('score', 0)}/100)" for name, data in prop_firm_firms.items()])}
+"""
+
     prompt = f"""You are a quantitative trading risk analyst reviewing a backtest validation report.
 
 STRATEGY STATS:
 - Fundable Score: {report.score}/100 ({report.grade})
 - Sharpe: {round(report.sharpe, 2)} | Max Drawdown: {round(report.max_drawdown * 100, 1)}% | Win Rate: {round(report.win_rate, 1)}%
 - Total Trades: {report.total_trades} | Date Range: {date_range}
+
+{prop_firm_section}
 
 FAILED CHECKS ({len(failed)} failures):
 {failed_text}
@@ -5790,10 +5809,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
 
 
 
