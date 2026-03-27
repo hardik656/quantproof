@@ -2356,7 +2356,6 @@ class QuantProofValidator:
                 else:
                     # Convert numpy types to Python native types for JSON serialization
                     import json
-                    import numpy as np
                     
                     def convert_numpy_types(obj):
                         if isinstance(obj, dict):
