@@ -160,7 +160,7 @@ warnings.filterwarnings('ignore')
 
 # Import prop firm compliance module
 try:
-    from .prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
+    from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
 except ImportError:
     # Fallback if prop_firm_compliance.py doesn't exist yet
     PropFirmComplianceEngine = None
@@ -281,6 +281,8 @@ class ValidationReport:
     alpha_decay: Optional[AlphaDecayProfile] = None
     overfit_profile: Optional[OverfitProfile] = None
     equity_curve: Optional[list] = None
+    prop_firm_compliance: Optional[dict] = None
+    enhanced: bool = False
 
 
 # Backward-compat stub
@@ -2280,9 +2282,62 @@ class QuantProofValidator:
         
         # Add prop firm compliance if requested
         prop_firm_results = None
+        
         if enhanced and self.prop_firm_engine is not None:
             try:
                 prop_firm_results = self.prop_firm_engine.validate_all_firms()
+                
+                # Validate results structure
+                if not isinstance(prop_firm_results, dict):
+                    prop_firm_results = None
+                elif 'firms' not in prop_firm_results:
+                    prop_firm_results = None
+                elif 'summary' not in prop_firm_results:
+                    prop_firm_results = None
+                else:
+                    # Convert numpy types to Python native types for JSON serialization
+                    import json
+                    
+                    def convert_numpy_types(obj):
+                        if isinstance(obj, dict):
+                            return {k: convert_numpy_types(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [convert_numpy_types(item) for item in obj]
+                        elif hasattr(obj, 'item'):  # numpy scalar
+                            return obj.item()
+                        elif hasattr(obj, '__dict__'):  # custom object
+                            return {k: convert_numpy_types(v) for k, v in obj.__dict__.items() if not k.startswith('_')}
+                        else:
+                            return obj
+                    
+                    # Use JSON serialization/deserialization to convert all types
+                    json_str = json.dumps(prop_firm_results, default=str)
+                    prop_firm_results = json.loads(json_str)
+                    
+                    # Convert string representations back to proper types
+                    def fix_types(obj):
+                        if isinstance(obj, dict):
+                            return {k: fix_types(v) for k, v in obj.items()}
+                        elif isinstance(obj, list):
+                            return [fix_types(item) for item in obj]
+                        elif isinstance(obj, str):
+                            # Try to convert numeric strings back to numbers
+                            try:
+                                if '.' in obj:
+                                    return float(obj)
+                                else:
+                                    return int(obj)
+                            except ValueError:
+                                return obj
+                        else:
+                            return obj
+                    
+                    prop_firm_results = fix_types(prop_firm_results)
+                    
+                    # Final validation
+                    if not prop_firm_results.get('firms'):
+                        prop_firm_results = None
+                
             except Exception as e:
                 print(f"Prop firm compliance failed: {e}")
                 prop_firm_results = None
