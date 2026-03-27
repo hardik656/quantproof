@@ -1735,11 +1735,6 @@
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
     _isSampleRun = false;
     
-    // DEBUG: Log checkbox state
-    const enhancedValidation = document.getElementById('csvEnhancedValidation');
-    console.log('🔍 handleFile DEBUG: enhanced checkbox element:', enhancedValidation);
-    console.log('🔍 handleFile DEBUG: enhanced checkbox checked:', enhancedValidation ? enhancedValidation.checked : 'NOT FOUND');
-    
     try {
       const r = new FileReader();
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','csv'); };
@@ -1751,11 +1746,9 @@
     if(selCur) fd.append('currency', selCur.value);
     fd.append('n_trials', String(_nTrials));
     // Add enhanced validation parameter
+    const enhancedValidation = document.getElementById('csvEnhancedValidation');
     if(enhancedValidation) {
-      console.log('🔍 handleFile DEBUG: Adding enhanced parameter:', enhancedValidation.checked);
       fd.append('enhanced', enhancedValidation.checked);
-    } else {
-      console.log('🔍 handleFile DEBUG: No enhanced checkbox found');
     }
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
@@ -1949,16 +1942,7 @@
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
     setTimeout(() => { if (data._sebi) buildSEBIPanel(data); }, 500);
-    setTimeout(() => { 
-      if (data.prop_firm_compliance) {
-        console.log('🔍 DEBUG: Prop firm data found:', data.prop_firm_compliance);
-        console.log('🔍 DEBUG: Total firms:', data.prop_firm_compliance.summary?.total_firms);
-        console.log('🔍 DEBUG: Firm names:', Object.keys(data.prop_firm_compliance.firms || {}));
-        buildPropFirmPanel(data);
-      } else {
-        console.log('🔍 DEBUG: No prop firm data found');
-      }
-    }, 600);
+    setTimeout(() => { if (data.prop_firm_compliance) buildPropFirmPanel(data); }, 600);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
     setTimeout(() => {
       document.querySelectorAll('.check-item').forEach((el, i) => {
@@ -2130,11 +2114,7 @@
     var el = document.getElementById('propFirmPanel');
     if (!el) return;
     
-    console.log('🔍 buildPropFirmPanel called with data:', data);
-    console.log('🔍 prop_firm_compliance:', data.prop_firm_compliance);
-    
     if (!data.prop_firm_compliance) {
-      console.log('🔍 No prop firm data - showing placeholder');
       el.innerHTML = '<div style="padding:40px;text-align:center;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">Prop firm compliance panel available when enhanced validation is enabled.</div>';
       return;
     }
@@ -2142,10 +2122,6 @@
     var propData = data.prop_firm_compliance;
     var summary = propData.summary || {};
     var firms = propData.firms || {};
-    
-    console.log('🔍 Summary:', summary);
-    console.log('🔍 Firms count:', Object.keys(firms).length);
-    console.log('🔍 Firm names:', Object.keys(firms));
     
     function firmBadge(eligible) {
       var col = eligible ? 'color:#00ff88;border-color:rgba(0,255,136,0.3)' : 'color:#ff4444;border-color:rgba(255,68,68,0.3)';
@@ -2168,8 +2144,8 @@
         +   '</div>'
         + '</div>'
         + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;">'
-        +   '<div style="margin-bottom:4px;"><strong>Violations:</strong> ' + (violations.length > 0 ? violations.join(', ') : 'None') + '</div>'
-        +   '<div><strong>Passes:</strong> ' + (passes.length > 0 ? passes.join(', ') : 'None') + '</div>'
+        +   '<div style="margin-bottom:4px;"><strong>Violations:</strong> ' + (violations.length > 0 ? violations.map(v => `${v.name} (${v.actual} vs ${v.required})`).join(', ') : 'None') + '</div>'
+        +   '<div><strong>Passes:</strong> ' + (passes.length > 0 ? passes.map(p => p.name).join(', ') : 'None') + '</div>'
         + '</div>'
         + '</div>';
     }
