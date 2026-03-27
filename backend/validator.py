@@ -1814,6 +1814,46 @@ class QuantProofValidator:
             "FTMO/Topstep reject 90% of strategies.", "Fix top 3 failing checks.", "Compliance")
 
     def check_prop_firm_compliance(self) -> CheckResult:
+        """Check prop firm compliance using the enhanced engine when available"""
+        
+        # If enhanced prop firm engine is available, use it
+        if hasattr(self, 'prop_firm_engine') and self.prop_firm_engine is not None:
+            try:
+                results = self.prop_firm_engine.validate_all_firms()
+                firms = results.get('firms', {})
+                
+                eligible = []
+                violations = []
+                
+                for firm_name, firm_data in firms.items():
+                    if firm_data.get('eligible', False):
+                        eligible.append(firm_name)
+                    else:
+                        firm_violations = firm_data.get('violations', [])
+                        if firm_violations:
+                            violation_names = [v.get('name', '') for v in firm_violations[:2]]
+                            violations.append(f"{firm_name}: {', '.join(violation_names)}")
+                
+                passed = len(eligible) >= 1
+                
+                if eligible:
+                    value_str   = f"Eligible: {', '.join(eligible)}"
+                    insight_str = f"Meets {len(eligible)}/{len(firms)} prop firms."
+                    fix_str     = "Consider submitting to eligible firms."
+                else:
+                    value_str   = "Not eligible"
+                    insight_str = f"Violations: {' | '.join(violations[:2])}"
+                    fix_str     = "Reduce DD, hit targets."
+                
+                score = len(eligible) / len(firms) * 100
+                return CheckResult("Prop Firm Compliance (5 Firms Analyzed)", passed, round(score, 1),
+                    value_str, insight_str, fix_str, "Compliance")
+                    
+            except Exception as e:
+                print(f"Prop firm engine error: {e}")
+                # Fall back to legacy method
+        
+        # Legacy fallback method (3 firms only)
         r            = self.returns
         max_dd       = calculate_max_drawdown(r)
         total_return = float(np.prod(1 + r) - 1)
@@ -2225,7 +2265,7 @@ class QuantProofValidator:
         inst_compliance = [c for c in checks if c.name == "Institutional Compliance (CTA/Fund Standard)"]
         if inst_compliance and not all(c.passed for c in inst_compliance):
             final = min(final, 60)
-        prop_compliance = [c for c in checks if c.name == "Prop Firm Compliance (FTMO/Topstep/The5ers)"]
+        prop_compliance = [c for c in checks if "Prop Firm Compliance" in c.name]
         if prop_compliance and not all(c.passed for c in prop_compliance):
             final = min(final, 75)  # soft cap only — prop firm rules ≠ institutional viability
         if 'Short backtest' in self.timeframe_info:
@@ -2394,7 +2434,7 @@ class QuantProofValidator:
         )
         if has_manual_audit:
             for i, c in enumerate(checks):
-                if c.name == "Prop Firm Compliance (FTMO/Topstep/The5ers)" and c.passed:
+                if "Prop Firm Compliance" in c.name and c.passed:
                     eligible_str = c.value.replace("Eligible: ", "")
                     checks[i] = CheckResult(
                         name=c.name,
@@ -2498,7 +2538,6 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
-
 
 
 
