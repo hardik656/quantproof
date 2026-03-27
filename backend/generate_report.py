@@ -1591,3 +1591,4 @@ def generate_pdf_report(vr: dict) -> bytes:
     return buf.getvalue()
 
 
+
