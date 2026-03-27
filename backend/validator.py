@@ -161,8 +161,13 @@ warnings.filterwarnings('ignore')
 # Import prop firm compliance module
 try:
     from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
-except ImportError:
+except ImportError as e:
     # Fallback if prop_firm_compliance.py doesn't exist yet
+    PropFirmComplianceEngine = None
+    PropFirmRules = None
+    QuantProofValidatorWithPropFirms = None
+except Exception as e:
+    # Handle any other import errors
     PropFirmComplianceEngine = None
     PropFirmRules = None
     QuantProofValidatorWithPropFirms = None
@@ -934,9 +939,17 @@ class QuantProofValidator:
         # Initialize prop firm compliance engine if enabled
         if self.enable_prop_firm:
             try:
-                self.prop_firm_engine = PropFirmComplianceEngine(self)
+                if PropFirmComplianceEngine is None:
+                    print(f"❌ PropFirmComplianceEngine is None - cannot initialize")
+                    self.prop_firm_engine = None
+                else:
+                    print(f"🔍 Initializing PropFirmComplianceEngine...")
+                    self.prop_firm_engine = PropFirmComplianceEngine(self)
+                    print(f"✅ PropFirmComplianceEngine initialized successfully")
             except Exception as e:
                 print(f"Failed to initialize prop firm engine: {e}")
+                import traceback
+                traceback.print_exc()
                 self.prop_firm_engine = None
         else:
             self.prop_firm_engine = None
