@@ -3542,6 +3542,7 @@ async def generate_report_endpoint(
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
         "equity_curve": getattr(report, 'equity_curve', None),
+        "prop_firm_compliance": getattr(report, 'prop_firm_compliance', None),
         # Compute SEBI checks for all data (function handles non-Indian data gracefully)
         "sebi_checks": _compute_sebi_checks(df, request, registered_ip),
         "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
@@ -3934,6 +3935,7 @@ async def generate_portfolio_report_endpoint(
         "top_issues": best.get("top_issues",[]),
         "top_strengths": best.get("top_strengths",[]),
         "audit_flags": audit_flags, "equity_curve": ceq[:200] or None, "ai_plan": None,
+        "prop_firm_compliance": best.get("prop_firm_compliance", None),
         "portfolio": {
             "strategies": strategy_summaries,
             "correlation_matrix": [[float(v) for v in row] for row in corr_mat.tolist()],
@@ -5788,7 +5790,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 
 
