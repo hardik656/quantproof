@@ -1834,8 +1834,16 @@ class QuantProofValidator:
         # If enhanced prop firm engine is available, use it
         if hasattr(self, 'prop_firm_engine') and self.prop_firm_engine is not None:
             try:
-                results = self.prop_firm_engine.validate_all_firms()
-                firms = results.get('firms', {})
+                prop_firm_results = self.prop_firm_engine.validate_all_firms()
+                # Convert NumPy types to native Python types for JSON serialization
+                prop_firm_results = convert_numpy(prop_firm_results)
+                print("✅ NUMPY CONVERSION APPLIED")
+                
+                # STEP 3 — VERIFY TYPES
+                if prop_firm_results.get('summary') and 'average_score' in prop_firm_results['summary']:
+                    print("TYPE CHECK:", type(prop_firm_results['summary']['average_score']))
+                
+                firms = prop_firm_results.get('firms', {})
                 
                 eligible = []
                 violations = []
@@ -2355,35 +2363,6 @@ class QuantProofValidator:
                     prop_firm_results = None
                 else:
                     print(" STARTING NUMPY TYPE CONVERSION")
-                    # Convert numpy types to Python native types for JSON serialization
-                    import json
-                    
-                    def convert_numpy_types(obj):
-                        if isinstance(obj, dict):
-                            return {k: convert_numpy_types(v) for k, v in obj.items()}
-                        elif isinstance(obj, list):
-                            return [convert_numpy_types(item) for item in obj]
-                        elif hasattr(obj, '__module__') and obj.__module__ == 'numpy':
-                            # Catch ALL numpy objects by module check
-                            return obj.item() if hasattr(obj, 'item') else float(obj)
-                        elif isinstance(obj, np.bool_):
-                            return bool(obj)
-                        elif isinstance(obj, np.integer):
-                            return int(obj)
-                        elif isinstance(obj, np.floating):
-                            return float(obj)
-                        elif hasattr(obj, 'item'):  # numpy scalar fallback
-                            return obj.item()
-                        elif hasattr(obj, '__dict__'):  # custom object
-                            return {k: convert_numpy_types(v) for k, v in obj.__dict__.items() if not k.startswith('_')}
-                        else:
-                            return obj
-                    
-                    prop_firm_results = convert_numpy_types(prop_firm_results)
-                    
-                    # Final validation
-                    if not prop_firm_results.get('firms'):
-                        prop_firm_results = None
                 
             except Exception as e:
                 print(f"Prop firm compliance failed: {e}")
@@ -2545,8 +2524,6 @@ class QuantProofValidator:
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
             equity_curve=equity_curve_raw)
-
-
 
 
 
