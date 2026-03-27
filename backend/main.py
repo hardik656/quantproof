@@ -2923,6 +2923,11 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         "audit_flags":   r.audit_flags + extra_flags,
         "equity_curve":  getattr(r, 'equity_curve', None),
     }
+    
+    # Add prop firm compliance to VR cache only when enhanced validation is triggered
+    if enhanced and getattr(r, 'prop_firm_compliance', None):
+        _vr_cache["prop_firm_compliance"] = getattr(r, 'prop_firm_compliance', None)
+    
     _cache_validation(r.validation_hash, _vr_cache)
     _save_validation_cache()
 
@@ -3315,6 +3320,11 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "equity_curve": getattr(r, 'equity_curve', None),
             "sebi_checks":  {},  # Empty for non-SEBI brokers (Alpaca is US-based)
         }
+        
+        # Add prop firm compliance to VR cache only when enhanced validation is triggered
+        if enhanced and getattr(r, 'prop_firm_compliance', None):
+            _vr_cache["prop_firm_compliance"] = getattr(r, 'prop_firm_compliance', None)
+        
         _cache_validation(r.validation_hash, _vr_cache)
         _save_validation_cache()
 
@@ -5094,6 +5104,11 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         "audit_flags":   report.audit_flags + extra_flags + audit_flags_ibkr,
         "equity_curve": getattr(report, 'equity_curve', None),
     }
+    
+    # Add prop firm compliance to VR cache only when enhanced validation is triggered
+    if payload.enhanced and getattr(report, 'prop_firm_compliance', None):
+        _vr_cache["prop_firm_compliance"] = getattr(report, 'prop_firm_compliance', None)
+    
     _cache_validation(report.validation_hash + "-IBKR", _vr_cache)
     _save_validation_cache()
 
@@ -5310,6 +5325,11 @@ async def validate_kite(
         "sebi_checks":   _sebi_ch,
         "sebi_declaration": {"algo_id": sebi_algo_id, "box_type": sebi_box_type},
     }
+    
+    # Add prop firm compliance to VR cache only when enhanced validation is triggered
+    if enhanced and getattr(report, 'prop_firm_compliance', None):
+        _vr_cache["prop_firm_compliance"] = getattr(report, 'prop_firm_compliance', None)
+    
     _cache_validation(report.validation_hash + "-KITE", _vr_cache)
     _save_validation_cache()
 
@@ -5785,6 +5805,10 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         "sebi_declaration": {},  # TV is US-based, no SEBI declaration
         "equity_curve": getattr(report, 'equity_curve', None),
     }
+    
+    # Add prop firm compliance to VR cache only when enhanced validation is triggered
+    if enhanced and getattr(report, 'prop_firm_compliance', None):
+        _vr_cache["prop_firm_compliance"] = getattr(report, 'prop_firm_compliance', None)
     
     print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + '-TV'}'")
     _cache_validation(report.validation_hash + "-TV", _vr_cache)
