@@ -3322,7 +3322,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         }
         
         # Add prop firm compliance to VR cache only when enhanced validation is triggered
-        if enhanced and getattr(r, 'prop_firm_compliance', None):
+        if payload.enhanced and getattr(r, 'prop_firm_compliance', None):
             _vr_cache["prop_firm_compliance"] = getattr(r, 'prop_firm_compliance', None)
         
         _cache_validation(r.validation_hash, _vr_cache)
@@ -5833,7 +5833,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 
 
