@@ -60,6 +60,7 @@
       "url": "https://quantproof.net/",
       "applicationCategory": "FinanceApplication",
       "operatingSystem": "Web Browser",
+      "image": "https://quantproof.net/images/quantproof-dashboard-screenshot.png",
       "offers": [
         {
           "@type": "Offer",
@@ -67,7 +68,13 @@
           "price": "99",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28"
+          "validFrom": "2026-03-28",
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 24,
+            "returnMethod": "https://schema.org/ReturnByMail"
+          }
         },
         {
           "@type": "Offer", 
@@ -75,7 +82,12 @@
           "price": "299",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28"
+          "validFrom": "2026-03-28",
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnMethod": "https://schema.org/ReturnNotPermitted"
+          }
         }
       ],
       "featureList": [
@@ -88,8 +100,10 @@
       ],
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": "4.8",
-        "ratingCount": "127"
+        "ratingValue": "5.0",
+        "ratingCount": "5",
+        "bestRating": "5.0",
+        "worstRating": "1.0"
       }
     },
     {
@@ -100,6 +114,7 @@
         "@type": "Brand",
         "name": "QuantProof"
       },
+      "image": "https://quantproof.net/images/quantproof-dashboard-screenshot.png",
       "offers": [
         {
           "@type": "Offer",
@@ -107,7 +122,19 @@
           "price": "99",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28"
+          "validFrom": "2026-03-28",
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": "0",
+            "deliveryTime": "Digital Delivery",
+            "shippingDestination": "Worldwide"
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+            "merchantReturnDays": 24,
+            "returnMethod": "https://schema.org/ReturnByMail"
+          }
         },
         {
           "@type": "Offer",
@@ -115,9 +142,27 @@
           "price": "299",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28"
+          "validFrom": "2026-03-28",
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": "0",
+            "deliveryTime": "Digital Delivery",
+            "shippingDestination": "Worldwide"
+          },
+          "hasMerchantReturnPolicy": {
+            "@type": "MerchantReturnPolicy",
+            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
+            "returnMethod": "https://schema.org/ReturnNotPermitted"
+          }
         }
-      ]
+      ],
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5.0",
+        "ratingCount": "5",
+        "bestRating": "5.0",
+        "worstRating": "1.0"
+      }
     }
   ]
 }
