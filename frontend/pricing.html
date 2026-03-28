@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-P8ZCZSKQSS');
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing Plans - QuantProof Trading Strategy Validator</title>
+  <meta name="description" content="QuantProof pricing plans: Lite (₹99), Portfolio (₹199), Report (₹299), Pro (₹999). Institutional-grade strategy validation for all levels.">
+  <style>
+    :root {
+      --black: #0d1117;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #00ff88;
+      --gold: #ffaa00;
+      --purple: #7B61FF;
+      --border: #30363d;
+      --deep: #161b22;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      --mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px);
+      background-size: 40px 40px;
+      background-position: center center;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    header {
+      padding: 48px 0;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 80px;
+    }
+
+    .pricing-card {
+      background: var(--deep);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 32px;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+    }
+
+    .pricing-card.featured {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(0,255,136,0.05) 0%, rgba(0,255,136,0.02) 100%);
+    }
+
+    .plan-badge {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: var(--black);
+      padding: 4px 16px;
+      border-radius: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .plan-name {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .plan-price {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .plan-price span {
+      font-size: 20px;
+      color: var(--muted);
+    }
+
+    .plan-description {
+      font-size: 14px;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .features-list {
+      list-style: none;
+      margin-bottom: 32px;
+    }
+
+    .features-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .features-list li:last-child {
+      border-bottom: none;
+    }
+
+    .check-icon {
+      color: var(--accent);
+      font-size: 16px;
+    }
+
+    .cta-button {
+      width: 100%;
+      background: var(--accent);
+      color: var(--black);
+      border: none;
+      padding: 16px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cta-button:hover {
+      background: #00cc6e;
+      transform: translateY(-1px);
+    }
+
+    .comparison-section {
+      background: var(--deep);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 48px;
+      margin-bottom: 80px;
+    }
+
+    .comparison-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 16px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .comparison-table th {
+      background: var(--black);
+      font-weight: 700;
+      color: var(--text);
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .comparison-table .feature-name {
+      text-align: left;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .check { color: var(--accent); font-size: 18px; }
+    .cross { color: var(--accent3); font-size: 18px; }
+    .limited { color: var(--gold); font-size: 12px; }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    .footer-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .footer-text a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer-text a:hover {
+      opacity: 0.8;
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 0 16px; }
+      h1 { font-size: 32px; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .comparison-section { padding: 24px 16px; }
+      .comparison-table { font-size: 12px; }
+      .comparison-table th,
+      .comparison-table td { padding: 12px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>QuantProof Pricing</h1>
+      <div class="subtitle">Institutional-grade strategy validation for every trader level</div>
+    </header>
+
+    <main>
+      <div class="pricing-grid">
+        <!-- Lite Plan -->
+        <div class="pricing-card">
+          <div class="plan-name">Lite Plan</div>
+          <div class="plan-price">₹99</div>
+          <div class="plan-description">Perfect for getting started with basic validation and AI-powered fixes</div>
+          <ul class="features-list">
+            <li><span class="check-icon">✓</span> Basic 44-check validation</li>
+            <li><span class="check-icon">✓</span> AI-powered fix suggestions</li>
+            <li><span class="check-icon">✓</span> 3 validations per day</li>
+            <li><span class="check-icon">✓</span> CSV upload support</li>
+            <li><span class="check-icon">✓</span> Basic risk metrics</li>
+            <li><span class="check-icon">✓</span> Email support</li>
+          </ul>
+          <button class="cta-button" onclick="window.location.href='/?plan=lite'">Choose Lite</button>
+        </div>
+
+        <!-- Portfolio Plan -->
+        <div class="pricing-card featured">
+          <div class="plan-badge">Most Popular</div>
+          <div class="plan-name">Portfolio Plan</div>
+          <div class="plan-price">₹199</div>
+          <div class="plan-description">Analyze multiple strategies together with diversification metrics</div>
+          <ul class="features-list">
+            <li><span class="check-icon">✓</span> Everything in Lite</li>
+            <li><span class="check-icon">✓</span> Multi-strategy analysis</li>
+            <li><span class="check-icon">✓</span> Diversification scoring</li>
+            <li><span class="check-icon">✓</span> Portfolio correlation matrix</li>
+            <li><span class="check-icon">✓</span> Combined risk metrics</li>
+            <li><span class="check-icon">✓</span> Risk parity optimization</li>
+          </ul>
+          <button class="cta-button" onclick="window.location.href='/?plan=portfolio'">Choose Portfolio</button>
+        </div>
+
+        <!-- Report Plan -->
+        <div class="pricing-card">
+          <div class="plan-name">Report Plan</div>
+          <div class="plan-price">₹299</div>
+          <div class="plan-description">Comprehensive PDF reports for prop firm applications and documentation</div>
+          <ul class="features-list">
+            <li><span class="check-icon">✓</span> Everything in Lite</li>
+            <li><span class="check-icon">✓</span> Professional PDF reports</li>
+            <li><span class="check-icon">✓</span> Detailed methodology explanation</li>
+            <li><span class="check-icon">✓</span> Prop firm compliance checks</li>
+            <li><span class="check-icon">✓</span> Institutional-grade presentation</li>
+            <li><span class="check-icon">✓</span> Downloadable reports</li>
+          </ul>
+          <button class="cta-button" onclick="window.location.href='/?plan=report'">Choose Report</button>
+        </div>
+
+        <!-- Pro Plan -->
+        <div class="pricing-card featured">
+          <div class="plan-badge">Professional</div>
+          <div class="plan-name">Pro Plan</div>
+          <div class="plan-price">₹999</div>
+          <div class="plan-description">Complete solution with live broker validation and priority support</div>
+          <ul class="features-list">
+            <li><span class="check-icon">✓</span> Everything in all plans</li>
+            <li><span class="check-icon">✓</span> Live broker validation</li>
+            <li><span class="check-icon">✓</span> Kite, Alpaca, IBKR support</li>
+            <li><span class="check-icon">✓</span> TradingView webhook</li>
+            <li><span class="check-icon">✓</span> Priority support (24h)</li>
+            <li><span class="check-icon">✓</span> 30-day access</li>
+          </ul>
+          <button class="cta-button" onclick="window.location.href='/?plan=pro'">Choose Pro</button>
+        </div>
+      </div>
+
+      <!-- Comparison Table -->
+      <section class="comparison-section">
+        <h2 class="comparison-title">Feature Comparison</h2>
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Lite ₹99</th>
+              <th>Portfolio ₹199</th>
+              <th>Report ₹299</th>
+              <th>Pro ₹999</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="feature-name">44-Check Validation</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">Validations per Day</td>
+              <td>3</td>
+              <td>10</td>
+              <td>5</td>
+              <td>Unlimited</td>
+            </tr>
+            <tr>
+              <td class="feature-name">AI Fix Suggestions</td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">Multi-Strategy Analysis</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">PDF Reports</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">Live Broker Validation</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">Prop Firm Compliance</td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="cross">✗</span></td>
+              <td><span class="check">✓</span></td>
+              <td><span class="check">✓</span></td>
+            </tr>
+            <tr>
+              <td class="feature-name">Support Response Time</td>
+              <td>48h</td>
+              <td>24h</td>
+              <td>24h</td>
+              <td>< 12h</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <footer>
+      <div class="footer-text">
+        <span style="color: var(--accent)">QuantProof</span> — Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
+      </div>
+      <div class="footer-text" style="margin-top: 10px;">
+        © 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodolgy.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a>
+      </div>
+      <div class="footer-text" style="margin-top: 10px;">
+        Questions? <a href="mailto:support@quantproof.net">support@quantproof.net</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
