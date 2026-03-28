@@ -12,14 +12,6 @@
     <priority>1.0</priority>
   </url>
   
-  <!-- Main Validator Page - Highest Priority -->
-  <url>
-    <loc>https://quantproof.net/</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  
   <!-- Methodology Page -->
   <url>
     <loc>https://quantproof.net/methodology</loc>
