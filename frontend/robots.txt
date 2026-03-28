@@ -1,0 +1,30 @@
+# QuantProof Robots.txt
+# Allow all major search engines to crawl the site
+
+User-agent: *
+Allow: /
+
+# Explicitly allow important directories
+Allow: /public/
+Allow: /validator
+Allow: /methodology
+Allow: /ftmo-guide
+
+# Block private and sensitive directories
+Disallow: /admin/
+Disallow: /api/
+Disallow: /private/
+Disallow: /cache/
+Disallow: /temp/
+Disallow: /*.json$
+Disallow: /_*
+
+# Block common non-content files
+Disallow: /favicon.ico
+Disallow: /*.txt$
+
+# Sitemap location
+Sitemap: https://quantproof.net/sitemap.xml
+
+# Crawl delay for respectful crawling
+Crawl-delay: 1
