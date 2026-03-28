@@ -275,6 +275,18 @@
     <header>
       <h1>QuantProof Pricing</h1>
       <div class="subtitle">Institutional-grade strategy validation for every trader level</div>
+      
+      <!-- Currency Switcher -->
+      <div style="text-align: center; margin: 24px 0;">
+        <div style="display: inline-flex; background: var(--deep); border: 1px solid var(--border); border-radius: 8px; padding: 4px; font-family: var(--mono); font-size: 12px;">
+          <button id="currencyINR" onclick="setCurrency('INR')" style="padding: 8px 16px; border: none; background: var(--accent); color: var(--black); border-radius: 6px; cursor: pointer; font-weight: 700;">₹ INR</button>
+          <button id="currencyUSD" onclick="setCurrency('USD')" style="padding: 8px 16px; border: none; background: transparent; color: var(--text); border-radius: 6px; cursor: pointer; font-weight: 700;">$ USD</button>
+          <button id="currencyEUR" onclick="setCurrency('EUR')" style="padding: 8px 16px; border: none; background: transparent; color: var(--text); border-radius: 6px; cursor: pointer; font-weight: 700;">€ EUR</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: var(--muted); font-family: var(--mono);">
+          <span id="conversionNote">Prices shown in Indian Rupees (INR)</span>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -282,7 +294,7 @@
         <!-- Lite Plan -->
         <div class="pricing-card">
           <div class="plan-name">Lite Plan</div>
-          <div class="plan-price">₹99</div>
+          <div class="plan-price" data-inr="₹99" data-usd="$1.20" data-eur="€1.10">₹99</div>
           <div class="plan-description">Perfect for getting started with basic validation and AI-powered fixes</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Basic 44-check validation</li>
@@ -299,7 +311,7 @@
         <div class="pricing-card featured">
           <div class="plan-badge">Most Popular</div>
           <div class="plan-name">Portfolio Plan</div>
-          <div class="plan-price">₹199</div>
+          <div class="plan-price" data-inr="₹199" data-usd="$2.40" data-eur="€2.20">₹199</div>
           <div class="plan-description">Analyze multiple strategies together with diversification metrics</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in Lite</li>
@@ -315,7 +327,7 @@
         <!-- Report Plan -->
         <div class="pricing-card">
           <div class="plan-name">Report Plan</div>
-          <div class="plan-price">₹299</div>
+          <div class="plan-price" data-inr="₹299" data-usd="$3.60" data-eur="€3.30">₹299</div>
           <div class="plan-description">Comprehensive PDF reports for prop firm applications and documentation</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in Lite</li>
@@ -332,7 +344,7 @@
         <div class="pricing-card featured">
           <div class="plan-badge">Professional</div>
           <div class="plan-name">Pro Plan</div>
-          <div class="plan-price">₹999</div>
+          <div class="plan-price" data-inr="₹999" data-usd="$12.00" data-eur="€11.00">₹999</div>
           <div class="plan-description">Complete solution with live broker validation and priority support</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in all plans</li>
@@ -353,10 +365,10 @@
           <thead>
             <tr>
               <th>Feature</th>
-              <th>Lite ₹99</th>
-              <th>Portfolio ₹199</th>
-              <th>Report ₹299</th>
-              <th>Pro ₹999</th>
+              <th class="currency-header" data-inr="Lite ₹99" data-usd="Lite $1.20" data-eur="Lite €1.10">Lite ₹99</th>
+              <th class="currency-header" data-inr="Portfolio ₹199" data-usd="Portfolio $2.40" data-eur="Portfolio €2.20">Portfolio ₹199</th>
+              <th class="currency-header" data-inr="Report ₹299" data-usd="Report $3.60" data-eur="Report €3.30">Report ₹299</th>
+              <th class="currency-header" data-inr="Pro ₹999" data-usd="Pro $12.00" data-eur="Pro €11.00">Pro ₹999</th>
             </tr>
           </thead>
           <tbody>
@@ -433,5 +445,73 @@
       </div>
     </footer>
   </div>
+
+<script>
+  // Currency Management
+  let currentCurrency = 'INR';
+  
+  // Detect user location and set default currency
+  function detectUserCurrency() {
+    const saved = localStorage.getItem('qp_currency');
+    if (saved) {
+      return saved;
+    }
+    
+    // Auto-detect: India = INR, others = USD
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const isIndia = timezone.includes('Kolkata') || timezone.includes('Mumbai') || timezone.includes('Delhi') || 
+                   navigator.language.includes('IN') || navigator.language.includes('en-IN');
+    
+    return isIndia ? 'INR' : 'USD';
+  }
+  
+  // Set currency and update UI
+  function setCurrency(currency) {
+    currentCurrency = currency;
+    localStorage.setItem('qp_currency', currency);
+    
+    // Update button styles
+    document.querySelectorAll('[id^="currency"]').forEach(btn => {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text)';
+    });
+    
+    const activeBtn = document.getElementById('currency' + currency);
+    activeBtn.style.background = 'var(--accent)';
+    activeBtn.style.color = 'var(--black)';
+    
+    // Update prices
+    updatePrices();
+    
+    // Update note
+    const notes = {
+      'INR': 'Prices shown in Indian Rupees (INR)',
+      'USD': 'Prices shown in US Dollars (USD)', 
+      'EUR': 'Prices shown in Euros (EUR)'
+    };
+    document.getElementById('conversionNote').textContent = notes[currency];
+  }
+  
+  // Update all price displays
+  function updatePrices() {
+    // Update pricing cards
+    document.querySelectorAll('.plan-price').forEach(elem => {
+      elem.textContent = elem.getAttribute('data-' + currentCurrency.toLowerCase());
+    });
+    
+    // Update table headers
+    document.querySelectorAll('.currency-header').forEach(elem => {
+      elem.textContent = elem.getAttribute('data-' + currentCurrency.toLowerCase());
+    });
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const defaultCurrency = detectUserCurrency();
+    setCurrency(defaultCurrency);
+  });
+</script>
+
 </body>
 </html>
+
