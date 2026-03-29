@@ -172,13 +172,18 @@ def convert_numpy(obj):
 # Import prop firm compliance module
 try:
     from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
+    print(f"✅ PropFirmComplianceEngine import successful")
 except ImportError as e:
     # Fallback if prop_firm_compliance.py doesn't exist yet
+    print(f"❌ PropFirmComplianceEngine ImportError: {e}")
     PropFirmComplianceEngine = None
     PropFirmRules = None
     QuantProofValidatorWithPropFirms = None
 except Exception as e:
     # Handle any other import errors
+    print(f"❌ PropFirmComplianceEngine Exception: {e}")
+    import traceback
+    traceback.print_exc()
     PropFirmComplianceEngine = None
     PropFirmRules = None
     QuantProofValidatorWithPropFirms = None
