@@ -55,13 +55,18 @@ from validator import QuantProofValidator, ValidationDashboard
 # Import prop firm compliance module
 try:
     from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
+    print(f"✅ main.py PropFirmComplianceEngine import successful")
 except ImportError as e:
     # Fallback if prop_firm_compliance.py doesn't exist yet
+    print(f"❌ main.py PropFirmComplianceEngine ImportError: {e}")
     PropFirmComplianceEngine = None
     PropFirmRules = None
     QuantProofValidatorWithPropFirms = None
 except Exception as e:
     # Handle any other import errors
+    print(f"❌ main.py PropFirmComplianceEngine Exception: {e}")
+    import traceback
+    traceback.print_exc()
     PropFirmComplianceEngine = None
     PropFirmRules = None
     QuantProofValidatorWithPropFirms = None
@@ -5902,10 +5907,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
 
 
 
