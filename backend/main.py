@@ -2,7 +2,7 @@
 QuantProof — FastAPI Backend v1.4
 Synced to validator v6.2
 
-CHANGES FROM v1.3:
+CHANGES FROM v1.3:  
   - Version bumped to 2.6.0
   - Root endpoint: 38 → 44 checks
   - All summary strings: '3 crash simulations' → '5 crash simulations'
@@ -51,6 +51,20 @@ import asyncio
 from collections import defaultdict
 
 from validator import QuantProofValidator, ValidationDashboard
+
+# Import prop firm compliance module
+try:
+    from prop_firm_compliance import PropFirmComplianceEngine, PropFirmRules, QuantProofValidatorWithPropFirms
+except ImportError as e:
+    # Fallback if prop_firm_compliance.py doesn't exist yet
+    PropFirmComplianceEngine = None
+    PropFirmRules = None
+    QuantProofValidatorWithPropFirms = None
+except Exception as e:
+    # Handle any other import errors
+    PropFirmComplianceEngine = None
+    PropFirmRules = None
+    QuantProofValidatorWithPropFirms = None
 
 # ================= HELPER FUNCTIONS =================
 
@@ -253,6 +267,13 @@ async def generate_ai_plan(report, date_range: str) -> dict:
         f"- {c.name} (score {c.score}/100, category {c.category}): {c.value}. {c.insight}"
         for c in sorted(failed, key=lambda x: x.score)
     ])
+    
+    # Add prop firm compliance failures to failed_text if engine is enabled
+    if prop_firm_data:
+        ineligible = [f for f, r in prop_firm_data.get('firms', {}).items() if not r.get('eligible')]
+        if ineligible:
+            failed_text += f"\n- Prop Firm Compliance: ineligible for {', '.join(ineligible)}"
+    
     passed_text = ", ".join([c.name for c in passed])
 
     # Add prop firm compliance info to the prompt if available
@@ -5881,6 +5902,7 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
