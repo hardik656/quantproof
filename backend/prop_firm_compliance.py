@@ -200,6 +200,13 @@ class PropFirmComplianceEngine:
         Initialize with existing QuantProofValidator instance
         validator: QuantProofValidator instance with loaded data
         """
+        # Validate validator has required attributes
+        if not hasattr(validator, 'returns'):
+            raise ValueError("Validator must have 'returns' attribute. Ensure validator.run() has been called.")
+        
+        print(f"validator.returns exists: {hasattr(validator, 'returns')}")
+        print(f"validator.returns shape: {len(validator.returns) if hasattr(validator, 'returns') else 'N/A'}")
+        
         self.validator = validator
         self.rules_engine = PropFirmRules()
     
@@ -556,4 +563,3 @@ class QuantProofValidatorWithPropFirms(QuantProofValidator):
         }
         
         return combined_results
-
