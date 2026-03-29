@@ -207,8 +207,7 @@ class PropFirmComplianceEngine:
         """Validate strategy against all prop firms"""
         results = {}
         
-        for firm_name in self.rules_engine.get_all_firms():
-            firm = PropFirm(firm_name)
+        for firm in self.rules_engine.get_all_firms():
             results[firm.value] = self.validate_firm(firm)
         
         return {
@@ -285,13 +284,12 @@ class PropFirmComplianceEngine:
     
     def _get_equity_curve(self) -> np.ndarray:
         """Get equity curve from validator"""
-        # Use cumulative PnL from validator
+        # Use returns from validator
         returns = self.validator.returns
-        equity_curve = np.cumsum(returns)
         
         # Start from 10000 (base equity)
         base_equity = 10000
-        equity_curve = base_equity + equity_curve * 100  # Scale to realistic values
+        equity_curve = base_equity * np.cumprod(1 + returns)
         
         return equity_curve
     
@@ -302,16 +300,11 @@ class PropFirmComplianceEngine:
         
         df = self.validator.df.copy()
         df['date'] = pd.to_datetime(df['date'])
-        df['pnl'] = df['pnl'].cumsum()
         
-        # Group by date
-        daily_data = df.groupby(df['date'].dt.date)['pnl'].agg(['first', 'last'])
-        daily_data = daily_data.reset_index()
-        
-        daily_data['daily_return'] = (daily_data['last'] - daily_data['first']) / daily_data['first']
-        
-        profits = daily_data[daily_data['daily_return'] >= 0]['daily_return'].tolist()
-        losses = daily_data[daily_data['daily_return'] < 0]['daily_return'].abs().tolist()
+        # Sum raw P&L per day
+        daily_data = df.groupby(df['date'].dt.date)['pnl'].sum()
+        profits = daily_data[daily_data > 0].tolist()
+        losses = daily_data[daily_data < 0].abs().tolist()
         
         return {"profits": profits, "losses": losses}
     
@@ -412,9 +405,9 @@ class PropFirmComplianceEngine:
         return {
             "name": rule_name,
             "description": rule["description"],
-            "value": value,
-            "threshold": threshold,
-            "passed": passed,
+            "value": float(value),
+            "threshold": float(threshold),
+            "passed": bool(passed),
             "critical": rule["critical"],
             "type": rule["type"],
             "actual": f"{(value * 100):.2f}%",
@@ -536,7 +529,7 @@ class PropFirmComplianceEngine:
         })
 
 # Integration helper for QuantProofValidator
-class QuantProofValidatorWithPropFirms:
+class QuantProofValidatorWithPropFirms(QuantProofValidator):
     """Extended QuantProofValidator with prop firm compliance"""
     
     def __init__(self, *args, **kwargs):
@@ -563,3 +556,4 @@ class QuantProofValidatorWithPropFirms:
         }
         
         return combined_results
+
