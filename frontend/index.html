@@ -2842,11 +2842,11 @@
         const input = document.getElementById('intlEmail');
         if(input){ input.disabled=true; }
       } else {
-        throw new Error(data.error || 'Submission failed');
+        throw new Error(data.error || 'Failed');
       }
     } catch(e) {
-      if(status){ status.innerText='Error — please email support@quantproof.net to join the list.'; status.style.color='#ff4444'; }
-      if(btn){ btn.disabled=false; btn.innerText='Notify Me'; }
+      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='→'; }
     }
   }
 
@@ -4230,5 +4230,4 @@
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
 
