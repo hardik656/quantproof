@@ -69,10 +69,9 @@
         "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
       },
       "publisher": {
-        "@type": "Person",
-        "name": "Hardik Gumber",
-        "url": "https://quantproof.net/",
-        "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
+        "@type": "Organization",
+        "name": "QuantProof",
+        "url": "https://quantproof.net/"
       },
       "offers": [
         {
@@ -82,11 +81,26 @@
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
           "validFrom": "2026-03-28",
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": {
+              "@type": "MonetaryAmount",
+              "value": "0",
+              "currency": "INR"
+            },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
+              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
+            }
+          },
           "hasMerchantReturnPolicy": {
             "@type": "MerchantReturnPolicy",
+            "applicableCountry": "IN",
             "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
             "merchantReturnDays": 24,
-            "returnMethod": "https://schema.org/ReturnByMail"
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/FreeReturn"
           }
         },
         {
@@ -96,8 +110,22 @@
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
           "validFrom": "2026-03-28",
+          "shippingDetails": {
+            "@type": "OfferShippingDetails",
+            "shippingRate": {
+              "@type": "MonetaryAmount",
+              "value": "0",
+              "currency": "INR"
+            },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
+              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
+            }
+          },
           "hasMerchantReturnPolicy": {
             "@type": "MerchantReturnPolicy",
+            "applicableCountry": "IN",
             "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
             "returnMethod": "https://schema.org/ReturnNotPermitted"
           }
@@ -115,6 +143,7 @@
         "@type": "AggregateRating",
         "ratingValue": "5.0",
         "ratingCount": "5",
+        "reviewCount": "5",
         "bestRating": "5.0",
         "worstRating": "1.0"
       }
@@ -124,12 +153,9 @@
       "name": "QuantProof Trading Strategy Validator",
       "description": "Institutional-grade strategy validation with 44 checks, including Deflated Sharpe Ratio and Monte Carlo simulations.",
       "brand": {
-        "@type": "Person",
-        "name": "Hardik Gumber",
-        "url": "https://quantproof.net/",
-        "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
+        "@type": "Brand",
+        "name": "QuantProof"
       },
-      "image": "https://quantproof.net/quantproof-dashboard-screenshot.png",
       "offers": [
         {
           "@type": "Offer",
@@ -137,35 +163,52 @@
           "price": "99",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28",
+          "url": "https://quantproof.net/",
           "shippingDetails": {
             "@type": "OfferShippingDetails",
-            "shippingRate": "0",
-            "deliveryTime": "Digital Delivery",
-            "shippingDestination": "Worldwide"
+            "shippingRate": {
+              "@type": "MonetaryAmount",
+              "value": "0",
+              "currency": "INR"
+            },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
+              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
+            }
           },
           "hasMerchantReturnPolicy": {
             "@type": "MerchantReturnPolicy",
+            "applicableCountry": "IN",
             "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
             "merchantReturnDays": 24,
-            "returnMethod": "https://schema.org/ReturnByMail"
+            "returnMethod": "https://schema.org/ReturnByMail",
+            "returnFees": "https://schema.org/FreeReturn"
           }
         },
         {
           "@type": "Offer",
-          "name": "Full PDF Validation Report", 
+          "name": "Full PDF Validation Report",
           "price": "299",
           "priceCurrency": "INR",
           "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28",
+          "url": "https://quantproof.net/",
           "shippingDetails": {
             "@type": "OfferShippingDetails",
-            "shippingRate": "0",
-            "deliveryTime": "Digital Delivery",
-            "shippingDestination": "Worldwide"
+            "shippingRate": {
+              "@type": "MonetaryAmount",
+              "value": "0",
+              "currency": "INR"
+            },
+            "deliveryTime": {
+              "@type": "ShippingDeliveryTime",
+              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
+              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
+            }
           },
           "hasMerchantReturnPolicy": {
             "@type": "MerchantReturnPolicy",
+            "applicableCountry": "IN",
             "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
             "returnMethod": "https://schema.org/ReturnNotPermitted"
           }
@@ -175,8 +218,7 @@
         "@type": "AggregateRating",
         "ratingValue": "5.0",
         "ratingCount": "5",
-        "bestRating": "5.0",
-        "worstRating": "1.0"
+        "reviewCount": "5"
       }
     }
   ]
