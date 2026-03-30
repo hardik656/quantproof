@@ -1187,6 +1187,13 @@ class QuantProofValidator:
             "mean_pct": mean_pct
         }
         
+        # DEBUG: Print Monte Carlo data structure
+        print(f"[DEBUG] Monte Carlo data stored:")
+        print(f"  - equity_sims length: {len(equity_curve_paths)}")
+        print(f"  - First path length: {len(equity_curve_paths[0]) if equity_curve_paths else 0}")
+        print(f"  - First path sample: {equity_curve_paths[0][:5] if equity_curve_paths else 'None'}")
+        print(f"  - _last_monte_carlo_sims keys: {list(self._last_monte_carlo_sims.keys())}")
+        
         worst_5pct  = np.percentile(equity_sims, 5)
         if not self.has_dates:
             worst_5pct_val = (worst_5pct - 1) * 100
@@ -2448,5 +2455,6 @@ class QuantProofValidator:
             print("PROP DATA EXISTS:", hasattr(report, 'prop_firm_compliance') and report.prop_firm_compliance is not None)
         
         return report
+
 
 
