@@ -548,6 +548,13 @@ const QP_Charts = (function () {
     // Use backend Monte Carlo data if available, otherwise generate synthetic
     const mc = data.monte_carlo?.equity_sims || buildMonteCarloPaths(equity, 50, rng);
 
+    // DEBUG: Print Monte Carlo data structure
+    console.log('[DEBUG] Frontend Monte Carlo data:');
+    console.log('  - data.monte_carlo:', data.monte_carlo);
+    console.log('  - mc length:', mc.length);
+    console.log('  - mc[0] length:', mc[0]?.length || 'undefined');
+    console.log('  - mc[0] sample:', mc[0]?.slice(0, 5) || 'undefined');
+
     _store.equity         = equity;
     _store.drawdown       = drawdown;
     _store.rolling        = rolling;
