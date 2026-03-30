@@ -333,11 +333,21 @@ const QP_Charts = (function () {
         datasets: datasets
       },
       options: chartOpts({
+        clip: false,
+        datasets: {
+          line: {
+            clip: false
+          }
+        },
         plugins: {
           tooltip: {
             filter: item => item.datasetIndex === mcPaths.length,
             callbacks: { label: item => ` Equity: ${item.parsed.y.toFixed(2)}` }
           }
+        },
+        scales: {
+          x: { clip: false },
+          y: { clip: false }
         }
       })
     });
@@ -608,5 +618,4 @@ const QP_Charts = (function () {
  * 5. Just before </body>:
  *    <script src="quantproof-charts.js"></script>
  * ─────────────────────────────────────────────────────────────────
- */
  */
