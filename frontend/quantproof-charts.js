@@ -320,8 +320,22 @@ const QP_Charts = (function () {
     
     const labels = actualPath.map((_, i) => `T${i + 1}`);
     const n = actualPath.length;
+    const startValue = actualPath[0]; // e.g. 10000
+
     const datasets = [
-      ...mcPaths.map(path => ({ data: path.slice(0, n), borderColor: 'rgba(0,255,136,0.45)', borderWidth: 1, fill: false, tension: 0.1, pointRadius: 0 })),
+      ...mcPaths.map(path => {
+        const trimmed = path.slice(0, n);
+        // rescale from base 100 to match actual path start value
+        const scale = startValue / trimmed[0];
+        return {
+          data: trimmed.map(v => +(v * scale).toFixed(2)),
+          borderColor: 'rgba(0,255,136,0.45)',
+          borderWidth: 1,
+          fill: false,
+          tension: 0.1,
+          pointRadius: 0
+        };
+      }),
       { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
     ];
     
