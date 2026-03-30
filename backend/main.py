@@ -140,6 +140,7 @@ class ValidationResponse(BaseModel):
     dashboard: Optional[Dict[str, Any]]
     ai_plan: Optional[Dict[str, Any]]
     equity_curve: Optional[List[float]] = None
+    monte_carlo: Optional[Dict[str, Any]] = None
     sebi_checks: Optional[Dict[str, Any]] = None
     sebi_declaration: Optional[Dict[str, Any]] = None
     prop_firm_compliance: Optional[Dict[str, Any]] = None
@@ -5912,14 +5913,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
-
-
-
 
 
 
