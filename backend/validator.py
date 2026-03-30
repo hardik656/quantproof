@@ -1166,9 +1166,22 @@ class QuantProofValidator:
         perms = [self.rng.permutation(r) for _ in range(500)]
         equity_sims = [np.prod(1 + p) for p in perms]
         
+        # Generate full equity curve paths for frontend Monte Carlo display
+        base_equity = 10000  # Starting equity
+        equity_curve_paths = []
+        for perm in perms[:200]:  # Limit for performance
+            equity_path = [base_equity]
+            cumulative = base_equity
+            for ret in perm:
+                cumulative *= (1 + ret)
+                equity_path.append(cumulative)
+            # Normalize to start at 100 for frontend compatibility
+            normalized_path = [100 * (x / base_equity) for x in equity_path]
+            equity_curve_paths.append(normalized_path)
+        
         # Store Monte Carlo data for frontend
         self._last_monte_carlo_sims = {
-            "equity_sims": [float(x) for x in equity_sims[:200]],  # Limit for performance
+            "equity_sims": equity_curve_paths,  # Full paths instead of single values
             "mean_sims": [float(x) for x in mean_sims[:100]],      # Limit for performance
             "sequence_pct": sequence_pct,
             "mean_pct": mean_pct
