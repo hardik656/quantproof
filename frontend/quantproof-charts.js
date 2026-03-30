@@ -320,7 +320,7 @@ const QP_Charts = (function () {
     
     const labels = actualPath.map((_, i) => `T${i + 1}`);
     const datasets = [
-      ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.06)', borderWidth: 1, fill: false, tension: 0.3, pointRadius: 0 })),
+      ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.25)', borderWidth: 1, fill: false, tension: 0.1, pointRadius: 0 })),
       { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
     ];
     
