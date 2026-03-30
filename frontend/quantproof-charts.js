@@ -544,7 +544,9 @@ const QP_Charts = (function () {
     const { equity, drawdown, n, isReal } = buildEquityCurve(data);
     const rolling = buildRollingSharpe(equity);
     const rng     = _seededRng(_hashToInt(data.validation_hash || 'mc') + 1);
-    const mc      = buildMonteCarloPaths(equity, 50, rng);
+    
+    // Use backend Monte Carlo data if available, otherwise generate synthetic
+    const mc = data.monte_carlo?.equity_sims || buildMonteCarloPaths(equity, 50, rng);
 
     _store.equity         = equity;
     _store.drawdown       = drawdown;
