@@ -308,15 +308,29 @@ const QP_Charts = (function () {
     _destroy(canvasId);
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
+    
+    // DEBUG: Check mcPaths structure in detail
+    console.log('[DEBUG] renderMonteCarloChart called with:');
+    console.log('  - actualPath length:', actualPath.length);
+    console.log('  - mcPaths type:', typeof mcPaths);
+    console.log('  - mcPaths length:', mcPaths.length);
+    console.log('  - mcPaths[0] type:', typeof mcPaths[0]);
+    console.log('  - mcPaths[0] length:', mcPaths[0]?.length);
+    console.log('  - mcPaths[0] sample:', mcPaths[0]?.slice(0, 5));
+    
     const labels = actualPath.map((_, i) => `T${i + 1}`);
+    const datasets = [
+      ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.06)', borderWidth: 1, fill: false, tension: 0.3, pointRadius: 0 })),
+      { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
+    ];
+    
+    console.log('[DEBUG] Chart datasets:', datasets.length, 'total datasets');
+    
     _charts[canvasId] = new Chart(ctx, {
       type: 'line',
       data: {
         labels,
-        datasets: [
-          ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.06)', borderWidth: 1, fill: false, tension: 0.3, pointRadius: 0 })),
-          { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
-        ]
+        datasets: datasets
       },
       options: chartOpts({
         plugins: {
