@@ -303,6 +303,7 @@ class ValidationReport:
     overfit_profile: Optional[OverfitProfile] = None
     equity_curve: Optional[list] = None
     prop_firm_compliance: Optional[dict] = None
+    monte_carlo: Optional[dict] = None
     enhanced: bool = False
 
 
@@ -1164,6 +1165,15 @@ class QuantProofValidator:
         sequence_pct = float(np.mean(seq_sims) * 100)
         perms = [self.rng.permutation(r) for _ in range(500)]
         equity_sims = [np.prod(1 + p) for p in perms]
+        
+        # Store Monte Carlo data for frontend
+        self._last_monte_carlo_sims = {
+            "equity_sims": [float(x) for x in equity_sims[:200]],  # Limit for performance
+            "mean_sims": [float(x) for x in mean_sims[:100]],      # Limit for performance
+            "sequence_pct": sequence_pct,
+            "mean_pct": mean_pct
+        }
+        
         worst_5pct  = np.percentile(equity_sims, 5)
         if not self.has_dates:
             worst_5pct_val = (worst_5pct - 1) * 100
@@ -2411,7 +2421,8 @@ class QuantProofValidator:
             plausibility_summary=self._generate_plausibility_summary(),
             alpha_decay=alpha_decay, overfit_profile=overfit_prof,
             engine_version=ENGINE_VERSION, methodology_version=METHODOLOGY_DATE,
-            equity_curve=equity_curve_raw
+            equity_curve=equity_curve_raw,
+            monte_carlo=getattr(self, '_last_monte_carlo_sims', None)
         )
         
         # Add prop firm compliance to report if available
