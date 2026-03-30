@@ -2948,6 +2948,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         "top_strengths": top_strengths,
         "audit_flags":   r.audit_flags + extra_flags,
         "equity_curve":  getattr(r, 'equity_curve', None),
+        "monte_carlo": getattr(r, 'monte_carlo', None),
     }
     
     # Add prop firm compliance to VR cache only when enhanced validation is triggered
@@ -2989,6 +2990,7 @@ async def validate(file: UploadFile = File(...), currency: str = Form("USD"), n_
         dashboard=dashboard_data,
         ai_plan=None,
         equity_curve=getattr(r, 'equity_curve', None),
+        monte_carlo=getattr(r, 'monte_carlo', None),
         prop_firm_compliance=getattr(r, 'prop_firm_compliance', None),
     )
 
@@ -3344,7 +3346,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "top_issues": top_issues, "top_strengths": top_strengths,
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
             "equity_curve": getattr(r, 'equity_curve', None),
-        "monte_carlo": getattr(r, 'monte_carlo', None),
+            "monte_carlo": getattr(r, 'monte_carlo', None),
             "sebi_checks":  {},  # Empty for non-SEBI brokers (Alpaca is US-based)
         }
         
@@ -3389,6 +3391,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             scale_warning=False,
             currency=acct_currency,
             equity_curve=getattr(r, 'equity_curve', None),
+            monte_carlo=getattr(r, 'monte_carlo', None),
             prop_firm_compliance=getattr(r, 'prop_firm_compliance', None),
         )
     except HTTPException:
@@ -3599,6 +3602,7 @@ async def generate_report_endpoint(
                          [regime_note] if regime_note else []),
         "plausibility_summary": getattr(report, "plausibility_summary", None),
         "equity_curve": getattr(report, 'equity_curve', None),
+        "monte_carlo": getattr(report, 'monte_carlo', None),
         "prop_firm_compliance": getattr(report, 'prop_firm_compliance', None),
         # Compute SEBI checks for all data (function handles non-Indian data gracefully)
         "sebi_checks": _compute_sebi_checks(df, request, registered_ip),
@@ -5908,6 +5912,12 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
+
+
 
 
 
