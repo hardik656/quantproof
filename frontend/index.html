@@ -1240,26 +1240,9 @@
               </button>
               <input id="portName3" type="text" placeholder="Optional third strategy" maxlength="30"
                 style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;opacity:0.6;"
-                onfocus="this.style.borderColor='var(--gold)';this.style.opacity='1'" onblur="this.style.borderColor='var(--border)';this.style.opacity='0.6'">
-            </div>
-          </div>
         </div>
 
-        <!-- Token row (only if not already unlocked) -->
-        <div id="portTokenRow" style="padding:0 24px 16px;">
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:6px;letter-spacing:0.08em;">PORTFOLIO TOKEN</div>
-          <div style="display:flex;gap:6px;">
-            <input id="portToken" type="text" placeholder="PORT-xxxx, PRO-xxxx, or your TEST_REPORT_TOKEN"
-              style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:11px;outline:none;min-width:0;"
-              onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
-            <button onclick="verifyPortToken()" title="Verify token against server"
-              style="background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:9px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;"
-              onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
-              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-              VERIFY →
-            </button>
-          </div>
-          <div id="portTokenStatus" style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:5px;min-height:12px;"></div>
+        <!-- Token row removed - Portfolio analysis now free for initial upload -->
         </div>
 
         <!-- Submit -->
@@ -2856,17 +2839,6 @@
         if(status){ status.innerText='✓ You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
         if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
         const input = document.getElementById('intlEmail');
-        if(input){ input.disabled=true; }
-      } else {
-        throw new Error(data.error || 'Submission failed');
-      }
-    } catch(e) {
-      if(status){ status.innerText='Error — please email quantproof@gmail.com to join the list.'; status.style.color='#ff4444'; }
-      if(btn){ btn.disabled=false; btn.innerText='Notify Me'; }
-    }
-  }
-
-  async function generatePdfBlob(token) {
     const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (hash.includes('-IBKR') ? 'ibkr' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv')));
     let res;
     if(src==='alpaca') {
@@ -3258,7 +3230,7 @@
         }
       }catch(e){}
     }
-    if(sEl){sEl.innerText='Timed out. Email quantproof@gmail.com with order: '+orderId;sEl.style.color='#ffaa00';}
+    if(sEl){sEl.innerText='Timed out. Email support@quantproof.net with order: '+orderId;sEl.style.color='#ffaa00';}
   }
   window.addEventListener('load', handleLSReturn);
 
@@ -3518,18 +3490,10 @@
 
   async function handlePortfolioSubmit() {
     const status = document.getElementById('portStatus');
-    const token  = (document.getElementById('portToken').value.trim()
-                || loadToken('qp_pro_token')
-                || loadToken('qp_port_token')
-                || loadToken('qp_report_token') || '').trim();
-
+    
     if (!_portFiles[1] || !_portFiles[2]) {
       status.textContent = 'Please select at least 2 strategy CSV files.';
       status.style.color = '#ff4444'; return;
-    }
-    if (!token) {
-      status.innerHTML = 'No token found. <a href="#" onclick="buyPortfolioUnlock()" style="color:#7B61FF;">Unlock Portfolio (₹199) →</a>';
-      status.style.color = '#7B61FF'; return;
     }
 
     status.textContent = 'Running portfolio analysis...';
@@ -3549,7 +3513,7 @@
       hidePortfolioPanel();
       const resp = await fetch(`${API_URL}/validate/portfolio`, {
         method: 'POST',
-        headers: { 'x-portfolio-token': token },
+        headers: {},
         body: fd
       });
       if (!resp.ok) {
@@ -3557,11 +3521,8 @@
         hideLoading(true);
         const detail = err.detail || err;
         if (detail.error === 'payment_required') {
-          const sentTok = (document.getElementById('portToken').value || '').trim();
-          status.innerHTML = sentTok
-            ? `Token not recognised: <code style="color:#ffaa00;">${sentTok.slice(0,12)}…</code> — check it matches your Render <code>TEST_REPORT_TOKEN</code> env var exactly. <a href="#" onclick="verifyPortToken()" style="color:var(--gold);">Verify →</a>`
-            : 'No token. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);">Unlock Portfolio ₹199 →</a>';
-          status.style.color = '#ffaa00';
+          status.innerHTML = '<span style="color:#7B61FF;">🔒 Full portfolio results require unlock. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;">Unlock Portfolio (₹199) →</a></span>';
+          status.style.color = '#7B61FF';
           showPortfolioUpload();
         } else {
           alert('Portfolio error: ' + (detail.message || detail));
@@ -3782,8 +3743,11 @@
             ${data.portfolio_verdict||''}
           </div>
           ${(data.combined_equity||[]).length > 5 ? buildCombinedEquityCurve(data.combined_equity, data.rp_weights, data.strategy_names) : ''}
-          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;">
-            Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}
+          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;filter:blur(8px);">
+            <div style="opacity:0.3;">Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}</div>
+            <div style="text-align:center;margin-top:8px;">
+              <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;font-size:10px;">Unlock full weights & analysis →</a>
+            </div>
           </div>` : ''}
         </div>
 
