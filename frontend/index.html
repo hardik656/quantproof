@@ -7,10 +7,12 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
+
   gtag('config', 'G-P8ZCZSKQSS');
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <!-- Performance Optimization -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -131,7 +133,7 @@
       ],
       "featureList": [
         "44 Institutional Checks",
-        "5 Crash Simulations",
+        "5 Crash Simulations", 
         "Deflated Sharpe Ratio",
         "Monte Carlo Simulations",
         "Live Broker Validation",
@@ -4204,30 +4206,102 @@
       node = node.parentNode;
     }
   });
-// Attach functions to window for global access
-  window.runSampleStrategy = runSampleStrategy;
-  window.handleDrop = handleDrop;
-  window.openDemoPDF = openDemoPDF;
-  window.toggleFundableExplainer = toggleFundableExplainer;
-  window.submitIntlWaitlist = submitIntlWaitlist;
-  window.handlePortfolioSubmit = handlePortfolioSubmit;
-  window.showPortfolioUpload = showPortfolioUpload;
-  window.hidePortfolioPanel = hidePortfolioPanel;
-  window.portFileChanged = portFileChanged;
-  window.buyPortfolioUnlock = buyPortfolioUnlock;
-  window.togglePricing = togglePricing;
-  window.setDepth = setDepth;
-  window.buyLiteUnlock = buyLiteUnlock;
-  window.buyPdfReport = buyPdfReport;
-  window.buyProPlan = buyProPlan;
-  window.unlockInstitutional = unlockInstitutional;
-  window.portTab = portTab;
-  window.buyPortfolioUnlock = buyPortfolioUnlock;
+// ============================================
+// ATTACH ALL FUNCTIONS TO WINDOW FOR GLOBAL ACCESS
+// ============================================
+
+// Core validation & file handling
+window.runSampleStrategy = runSampleStrategy;
+window.handleDrop = handleDrop;
+window.handleFile = handleFile;
+window.handleKiteFile = handleKiteFile;
+
+// UI / Navigation / Reset
+window.resetApp = resetApp;
+window.openDemoPDF = openDemoPDF;
+window.toggleFundableExplainer = toggleFundableExplainer;
+window.showInstitutionalTeaser = showInstitutionalTeaser;
+window.showRateLimitModal = showRateLimitModal;
+window.submitRateLimitEmail = submitRateLimitEmail;
+
+// Depth / Validation settings
+window.setDepth = setDepth;
+window.onSliderMove = onSliderMove;
+window.unlockInstitutional = unlockInstitutional;
+window.togglePricing = togglePricing;
+
+// Result display & interaction
+window.renderResults = renderResults;
+window.switchResultTab = switchResultTab;
+window.toggleCheck = toggleCheck;
+window.buildCategoryHTML = buildCategoryHTML;
+window.animateScore = animateScore;
+window.getScoreColor = getScoreColor;
+window.getCrashClass = getCrashClass;
+window.getCrashVerdictColor = getCrashVerdictColor;
+
+// SEBI / Compliance
+window.showSEBIPreflight = showSEBIPreflight;
+window.submitSEBIAndValidate = submitSEBIAndValidate;
+window.buildSEBIPanel = buildSEBIPanel;
+window.buildPropFirmPanel = buildPropFirmPanel;
+
+// Broker connections - THESE WERE MISSING!
+window.showAlpacaConnect = showAlpacaConnect;
+window.hideAlpacaPanel = hideAlpacaPanel;
+window.handleAlpacaConnect = handleAlpacaConnect;
+window.showIBKRConnect = showIBKRConnect;
+window.handleIBKRConnect = handleIBKRConnect;
+
+// TradingView - THESE WERE MISSING!
+window.createTradingViewSession = createTradingViewSession;
+window.checkTVStatus = checkTVStatus;
+window.validateTVSession = validateTVSession;
+window.resetTVSession = resetTVSession;
+
+// Portfolio - THESE WERE MISSING!
+window.showPortfolioUpload = showPortfolioUpload;
+window.hidePortfolioPanel = hidePortfolioPanel;
+window.portFileChanged = portFileChanged;
+window.handlePortfolioSubmit = handlePortfolioSubmit;
+window.renderPortfolioResults = renderPortfolioResults;
+window.portTab = portTab;
+window.downloadPortfolioPdf = downloadPortfolioPdf;
+window.buildPortfolioFixPlan = buildPortfolioFixPlan;
+window.buildCombinedEquityCurve = buildCombinedEquityCurve;
+window.buildMiniEquityCurve = buildMiniEquityCurve;
+window.verifyPortToken = verifyPortToken;
+
+// Payments / Unlock
+window.buyLiteUnlock = buyLiteUnlock;
+window.buyPdfReport = buyPdfReport;
+window.buyPortfolioUnlock = buyPortfolioUnlock;  // ONLY ONCE - remove duplicate!
+window.buyProPlan = buyProPlan;
+window.applyLiteUnlock = applyLiteUnlock;
+window.generatePdfWithToken = generatePdfWithToken;
+window.generatePdfBlob = generatePdfBlob;
+
+// Utilities
+window.setCurrency = setCurrency;
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
+window.coldStartWarning = coldStartWarning;
+window.submitIntlWaitlist = submitIntlWaitlist;
+
+// Dev tools - THESE WERE MISSING!
+window.applyDevToken = applyDevToken;
+window.devSetTier = devSetTier;
+window.devResetLimit = devResetLimit;
+
+// Report generation helpers
+window.buildResultsHTML = buildResultsHTML;
+window.buildAuditFlagsHTML = buildAuditFlagsHTML;
+window.buildAiTeaser = buildAiTeaser;
+window.handleLSReturn = handleLSReturn;
   
 </script>
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
 
 
