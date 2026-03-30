@@ -1,278 +1,58 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-P8ZCZSKQSS');
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Performance Optimization -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://cdnjs.cloudflare.com">
-<link rel="dns-prefetch" href="https://www.googletagmanager.com">
-
 <!-- Primary SEO -->
-<title>QuantProof Trading Strategy Validator & Live Backtest Tool</title>
-<!-- A/B Test Title (uncomment to test): <title>Pass FTMO 2x Faster | QuantProof Strategy Validator</title> -->
-<meta name="description" content="QuantProof validates trading strategies with 44 institutional checks. Live broker validation & backtest analysis. FTMO-ready, deflated Sharpe, crash simulations. Free validator for algo traders.">
+<title>QuantProof — Is Your Trading Strategy's Edge Still Real? Backtest & Live Validation</title>
+<meta name="description" content="Is your strategy FTMO-ready? QuantProof runs 44 institutional checks on your backtest or live trade history in 30 seconds. Deflated Sharpe, CPCV, 5 crash simulations, prop firm compliance gates. Free to start. Zerodha Kite, Alpaca, IBKR, TradingView supported.">
 <meta name="keywords" content="FTMO preparation tool, will I pass FTMO, FTMO strategy checker, Zerodha strategy checker, backtest validator India, algo trading validation, prop firm ready checker, trading strategy audit, deflated sharpe ratio, CPCV backtest, Kite backtest validator, fundable score, strategy overfitting detector, quantitative trading India, FTMO phase 1 ready, Topstep strategy checker">
-<!-- Primary keyword boost -->
-<meta name="keywords" content="trading strategy validator, FTMO checker, backtest analysis, Zerodha validator, live trading validation, broker validation tool">
 <meta name="robots" content="index, follow">
-<meta name="author" content="Hardik Gumber">
-<link rel="canonical" href="https://quantproof.net/">
-<!-- India geographic targeting -->
-<link rel="alternate" hreflang="en-in" href="https://quantproof.net/">
+<meta name="author" content="QuantProof">
+<link rel="canonical" href="https://quantproof-frontend.onrender.com/">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://quantproof.net/">
-<meta property="og:title" content="QuantProof Trading Strategy Validator & Live Backtest Tool">
+<meta property="og:url" content="https://quantproof-frontend.onrender.com/">
+<meta property="og:title" content="QuantProof — Is Your Trading Strategy's Edge Still Real?">
 <meta property="og:description" content="44 institutional checks. 5 crash simulations. One Fundable Score. Know if your edge is real — before you go live and while you're trading live. Backtest or live broker data.">
-<meta property="og:image" content="https://quantproof.net/quantproof-dashboard-screenshot.png">
+<meta property="og:image" content="https://quantproof-frontend.onrender.com/og-image.png">
 <meta property="og:site_name" content="QuantProof">
 <meta property="og:locale" content="en_IN">
 
 <!-- Twitter/X Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://quantproof.net/">
-<meta name="twitter:title" content="QuantProof Trading Strategy Validator & Live Backtest Tool">
+<meta name="twitter:url" content="https://quantproof-frontend.onrender.com/">
+<meta name="twitter:title" content="QuantProof — Is Your Strategy's Edge Still Real?">
 <meta name="twitter:description" content="44 institutional checks + 5 crash simulations. Validate your backtest or live trade history. Free to start. Kite, Alpaca, IBKR, MT5, TradingView supported.">
-<meta name="twitter:image" content="https://quantproof.net/quantproof-dashboard-screenshot.png">
-
-<!-- JSON-LD Structured Data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebApplication",
-      "name": "QuantProof Trading Strategy Validator",
-      "description": "Institutional-grade strategy validation with 44 checks, including Deflated Sharpe Ratio and Monte Carlo simulations.",
-      "url": "https://quantproof.net/",
-      "applicationCategory": "FinanceApplication",
-      "operatingSystem": "Any",
-      "browserRequirements": "Requires a modern web browser",
-      "image": "https://quantproof.net/quantproof-dashboard-screenshot.png",
-      "author": {
-        "@type": "Person",
-        "name": "Hardik Gumber",
-        "url": "https://quantproof.net/",
-        "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "QuantProof",
-        "url": "https://quantproof.net/"
-      },
-      "offers": [
-        {
-          "@type": "Offer",
-          "name": "Lite - AI Fix Plan",
-          "price": "99",
-          "priceCurrency": "INR",
-          "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28",
-          "shippingDetails": {
-            "@type": "OfferShippingDetails",
-            "shippingRate": {
-              "@type": "MonetaryAmount",
-              "value": "0",
-              "currency": "INR"
-            },
-            "deliveryTime": {
-              "@type": "ShippingDeliveryTime",
-              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
-              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
-            }
-          },
-          "hasMerchantReturnPolicy": {
-            "@type": "MerchantReturnPolicy",
-            "applicableCountry": "IN",
-            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-            "merchantReturnDays": 24,
-            "returnMethod": "https://schema.org/ReturnByMail",
-            "returnFees": "https://schema.org/FreeReturn"
-          }
-        },
-        {
-          "@type": "Offer", 
-          "name": "Full PDF Validation Report",
-          "price": "299",
-          "priceCurrency": "INR",
-          "availability": "https://schema.org/InStock",
-          "validFrom": "2026-03-28",
-          "shippingDetails": {
-            "@type": "OfferShippingDetails",
-            "shippingRate": {
-              "@type": "MonetaryAmount",
-              "value": "0",
-              "currency": "INR"
-            },
-            "deliveryTime": {
-              "@type": "ShippingDeliveryTime",
-              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
-              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
-            }
-          },
-          "hasMerchantReturnPolicy": {
-            "@type": "MerchantReturnPolicy",
-            "applicableCountry": "IN",
-            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
-            "returnMethod": "https://schema.org/ReturnNotPermitted"
-          }
-        }
-      ],
-      "featureList": [
-        "44 Institutional Checks",
-        "5 Crash Simulations", 
-        "Deflated Sharpe Ratio",
-        "Monte Carlo Simulations",
-        "Live Broker Validation",
-        "FTMO Readiness Assessment"
-      ],
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "5.0",
-        "ratingCount": "5",
-        "reviewCount": "5",
-        "bestRating": "5.0",
-        "worstRating": "1.0"
-      }
-    },
-    {
-      "@type": "Product",
-      "name": "QuantProof Trading Strategy Validator",
-      "description": "Institutional-grade strategy validation with 44 checks, including Deflated Sharpe Ratio and Monte Carlo simulations.",
-      "brand": {
-        "@type": "Brand",
-        "name": "QuantProof"
-      },
-      "offers": [
-        {
-          "@type": "Offer",
-          "name": "Lite - AI Fix Plan",
-          "price": "99",
-          "priceCurrency": "INR",
-          "availability": "https://schema.org/InStock",
-          "url": "https://quantproof.net/",
-          "shippingDetails": {
-            "@type": "OfferShippingDetails",
-            "shippingRate": {
-              "@type": "MonetaryAmount",
-              "value": "0",
-              "currency": "INR"
-            },
-            "deliveryTime": {
-              "@type": "ShippingDeliveryTime",
-              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
-              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
-            }
-          },
-          "hasMerchantReturnPolicy": {
-            "@type": "MerchantReturnPolicy",
-            "applicableCountry": "IN",
-            "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
-            "merchantReturnDays": 24,
-            "returnMethod": "https://schema.org/ReturnByMail",
-            "returnFees": "https://schema.org/FreeReturn"
-          }
-        },
-        {
-          "@type": "Offer",
-          "name": "Full PDF Validation Report",
-          "price": "299",
-          "priceCurrency": "INR",
-          "availability": "https://schema.org/InStock",
-          "url": "https://quantproof.net/",
-          "shippingDetails": {
-            "@type": "OfferShippingDetails",
-            "shippingRate": {
-              "@type": "MonetaryAmount",
-              "value": "0",
-              "currency": "INR"
-            },
-            "deliveryTime": {
-              "@type": "ShippingDeliveryTime",
-              "handlingTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" },
-              "transitTime": { "@type": "QuantitativeValue", "value": "0", "unitCode": "DAY" }
-            }
-          },
-          "hasMerchantReturnPolicy": {
-            "@type": "MerchantReturnPolicy",
-            "applicableCountry": "IN",
-            "returnPolicyCategory": "https://schema.org/MerchantReturnNotPermitted",
-            "returnMethod": "https://schema.org/ReturnNotPermitted",
-            "returnFees": "https://schema.org/FreeReturn"
-          }
-        }
-      ],
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "5.0",
-        "ratingCount": "5",
-        "reviewCount": "5"
-      }
-    }
-  ]
-}
-</script>
+<meta name="twitter:image" content="https://quantproof-frontend.onrender.com/og-image.png">
 
 <!-- Structured Data — SoftwareApplication -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
+  "@type": "SoftwareApplication",
   "name": "QuantProof",
-  "brand": "QuantProof",
   "applicationCategory": "FinanceApplication",
-  "operatingSystem": "Any",
-  "browserRequirements": "Requires a modern web browser",
-  "url": "https://quantproof.net/",
-  "author": {
-    "@type": "Person",
-    "name": "Hardik Gumber",
-    "url": "https://quantproof.net/",
-    "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
-  },
-  "publisher": {
-    "@type": "Person",
-    "name": "Hardik Gumber",
-    "url": "https://quantproof.net/",
-    "sameAs": "https://www.linkedin.com/in/hardik-gumber-93507b98/"
-  },
-  "description": "Trading strategy validator with live broker validation and backtest analysis. 44 institutional checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
+  "operatingSystem": "Web",
+  "url": "https://quantproof-frontend.onrender.com/",
+  "description": "Institutional-grade backtest validator for retail algo traders. 44 checks, 5 crash simulations, Fundable Score. Supports Zerodha Kite, Alpaca, IBKR, TradingView.",
   "offers": {
     "@type": "Offer",
     "price": "0",
     "priceCurrency": "INR",
     "description": "3 free validations per day. Full PDF report from ₹299."
   },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.8",
-    "reviewCount": "127",
-    "bestRating": "5",
-    "worstRating": "1"
-  },
   "featureList": [
     "44 institutional validation checks",
-    "Live broker validation (Alpaca, IBKR)",
     "5 historical crash simulations (2008, 2020, 2022, 2010, 1998)",
     "Fundable Score 0-100",
     "Zerodha Kite TradeBook and Orders CSV support",
     "Alpaca broker API connection",
     "Interactive Brokers Flex API connection",
     "TradingView webhook integration",
-    "Prop firm compliance check (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)",
+    "Prop firm compliance check (FTMO, Topstep, The5ers)",
     "Deflated Sharpe Ratio",
     "CPCV walk-forward analysis",
     "Personalised fix plan based on your exact numbers"
@@ -280,78 +60,7 @@
   "audience": {
     "@type": "Audience",
     "audienceType": "Retail algorithmic traders, quantitative traders, prop firm applicants"
-  },
-  "mainEntity": {
-    "@type": "SoftwareApplication",
-    "name": "Trading Strategy Validator"
   }
-}
-</script>
-
-<!-- Structured Data — HowTo -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  "name": "How to Validate Trading Strategy with QuantProof",
-  "description": "Step-by-step guide to validate your trading strategy using QuantProof's institutional-grade analysis",
-  "image": "https://quantproof.net/quantproof-dashboard-screenshot.png",
-  "totalTime": "PT5M",
-  "supply": [],
-  "tool": [
-    {
-      "@type": "SoftwareApplication",
-      "name": "QuantProof Trading Strategy Validator"
-    }
-  ],
-  "step": [
-    {
-      "@type": "HowToStep",
-      "name": "Upload Your Trading Data",
-      "text": "Upload your CSV file or connect your broker account (Alpaca, IBKR, Zerodha Kite)",
-      "image": "https://quantproof.net/step1-upload.png"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Select Validation Depth",
-      "text": "Choose validation depth (Quick, Standard, Institutional, or Deep) based on your testing needs",
-      "image": "https://quantproof.net/step2-depth.png"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Run Institutional Analysis",
-      "text": "QuantProof runs 44 institutional checks including Sharpe ratio, drawdown, and crash simulations",
-      "image": "https://quantproof.net/step3-analysis.png"
-    },
-    {
-      "@type": "HowToStep",
-      "name": "Review Fundable Score",
-      "text": "Get your Fundable Score (0-100) with detailed breakdown and improvement recommendations",
-      "image": "https://quantproof.net/step4-score.png"
-    }
-  ]
-}
-</script>
-
-<!-- Structured Data — BreadcrumbList -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    {
-      "@type": "ListItem",
-      "position": 1,
-      "name": "Home",
-      "item": "https://quantproof.net/"
-    },
-    {
-      "@type": "ListItem",
-      "position": 2,
-      "name": "Trading Strategy Validator",
-      "item": "https://quantproof.net/"
-    }
-  ]
 }
 </script>
 
@@ -366,7 +75,7 @@
       "name": "How do I know if my trading strategy is ready for a prop firm challenge?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Upload your backtest CSV to QuantProof. It runs 44 institutional checks including Sharpe ratio, max drawdown, FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
+        "text": "Upload your backtest CSV to QuantProof. It runs 44 institutional checks including Sharpe ratio, max drawdown, FTMO and Topstep compliance gates, and 5 historical crash simulations. You get a Fundable Score from 0-100 and a grade (A through F) showing if your strategy is prop firm ready."
       }
     },
     {
@@ -416,7 +125,7 @@
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--black); color:var(--text); font-family:var(--sans); min-height:100vh; overflow-x:hidden; }
-  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; background-position:center center; pointer-events:none; z-index:0; }
+  body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,255,136,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
   body::after { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.08) 2px,rgba(0,0,0,0.08) 4px); pointer-events:none; z-index:1; }
   .container { position:relative; z-index:2; max-width:1100px; margin:0 auto; padding:0 24px; }
   header { padding:32px 0 0; border-bottom:1px solid var(--border); margin-bottom:60px; }
@@ -440,75 +149,10 @@
   .stat-num { font-family:var(--mono); font-size:28px; color:var(--accent); font-weight:700; }
   .stat-label { font-size:12px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:1px; }
   .upload-section { margin-bottom:64px; animation:fadeUp 0.8s 0.2s ease both; }
-  #dropZone { display:block; max-width:560px; margin:0 auto; }
   .upload-btn { background:var(--accent); color:var(--black); border:none; padding:14px 32px; font-family:var(--mono); font-size:13px; font-weight:700; letter-spacing:1px; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
   .upload-btn:hover { background:#00cc6e; transform:translateY(-1px); }
-  .drop-zone { border:1.5px dashed rgba(0,255,136,0.3); padding:40px 48px; text-align:center; transition:all 0.25s cubic-bezier(0.4,0,0.2,1); background:rgba(0,255,136,0.02); position:relative; }
-  .drop-zone:hover { border-color:rgba(0,255,136,0.7); background:rgba(0,255,136,0.04); }
-  #dropZone.drag-over .drop-zone { border-color:var(--accent); background:rgba(0,255,136,0.07); transform:scale(1.01); box-shadow:0 0 40px rgba(0,255,136,0.08); }
-  .drop-icon { color:var(--accent); margin-bottom:16px; opacity:0.6; transition:opacity 0.2s,transform 0.2s; }
-  .drop-zone:hover .drop-icon { opacity:1; transform:translateY(-2px); }
-  .drop-main { font-size:18px; font-weight:800; color:var(--text); margin-bottom:8px; letter-spacing:-0.5px; }
-  .drop-sub { font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:18px; line-height:1.8; }
-  .drop-cta { font-family:var(--mono); font-size:10px; color:var(--accent); letter-spacing:2.5px; opacity:0.7; border-top:1px solid rgba(0,255,136,0.1); padding-top:14px; margin-top:4px; }
   input[type="file"] { display:none; }
   .format-hint { margin-top:16px; font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.7; }
-  .depth-selector { display:flex; gap:0; margin-bottom:8px; border:1px solid var(--border); background:var(--deep); overflow:hidden; }
-  .depth-btn { flex:1; font-family:var(--mono); font-size:11px; letter-spacing:0.05em; padding:12px 8px; cursor:pointer; background:transparent; border:none; border-right:1px solid var(--border); color:var(--muted); transition:all 0.2s; text-align:center; line-height:1.5; position:relative; }
-  .depth-btn:last-child { border-right:none; }
-  .depth-btn:hover { background:rgba(0,255,136,0.05); color:var(--text); }
-  .depth-btn.active { background:rgba(0,255,136,0.08); color:var(--accent); }
-  .depth-btn .depth-tier { font-size:10px; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:3px; }
-  .depth-btn .depth-name { font-size:12px; font-weight:700; margin-bottom:3px; }
-  .depth-btn .depth-sub { font-size:9px; color:var(--muted); line-height:1.4; }
-  .depth-btn.active .depth-sub { color:rgba(0,255,136,0.6); }
-  .depth-inst-badge { display:inline-block; background:rgba(255,170,0,0.15); color:#ffaa00; font-size:8px; padding:2px 6px; margin-top:3px; border:1px solid rgba(255,170,0,0.3); letter-spacing:0.05em; }
-  /* AI Fix Plan panel */
-  .ai-fix-panel { margin:20px 0;padding:24px 28px;background:rgba(0,255,136,0.03);border:1.5px solid rgba(0,255,136,0.2); }
-  .ai-fix-item { padding:14px 0;border-bottom:1px solid var(--border); }
-  .ai-fix-item:last-child { border-bottom:none; }
-  .ai-fix-rank { font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:4px; }
-  .ai-fix-check { font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px; }
-  .ai-fix-why { font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px; }
-  .ai-fix-action { font-size:12px;color:var(--accent3);line-height:1.6;padding:8px 12px;background:rgba(255,170,0,0.05);border-left:2px solid var(--accent3); }
-  .ai-fix-impact { font-family:var(--mono);font-size:10px;color:var(--accent);margin-top:6px; }
-  /* Portfolio — gold accent */
-  :root { --gold: #F5B700; --gold-dim: rgba(245,183,0,0.15); --gold-border: rgba(245,183,0,0.35); }
-  .mode-card-portfolio { border:1px solid var(--gold-border) !important; }
-  .mode-card-portfolio:hover { border-color:var(--gold) !important; background:rgba(245,183,0,0.03) !important; }
-  .port-gold { color: var(--gold); }
-  .port-gold-bg { background: var(--gold-dim); border: 1px solid var(--gold-border); }
-  .port-strategy-card { background:var(--surface);border:1px solid var(--border);padding:20px;transition:border-color 0.2s; }
-  .port-strategy-card:hover { border-color:var(--gold-border); }
-  .port-strategy-card.active-card { border-color:var(--gold); }
-  .port-grade-badge { display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 10px;border:1px solid; }
-  .port-check-bar { height:3px;background:var(--border);margin-top:4px; }
-  .port-check-fill { height:3px;background:var(--gold); }
-  .port-corr-cell { padding:10px 14px;text-align:center;font-family:var(--mono);font-size:12px;font-weight:700;cursor:default; }
-  .port-tabs { display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px; }
-  .port-tab { font-family:var(--mono);font-size:10px;padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);background:none;border-top:none;border-left:none;border-right:none;transition:all 0.2s; }
-  .port-tab.active { color:var(--gold);border-bottom-color:var(--gold); }
-  .port-tab:hover:not(.active) { color:var(--text); }
-  /* Portfolio results */
-  .port-matrix-cell { font-family:var(--mono);font-size:11px;text-align:center;padding:8px; }
-  .port-strat-row { display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid var(--border); }
-  /* Pricing tiers */
-  .tier-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:24px 0; }
-  @media(max-width:900px){ .tier-grid { grid-template-columns:repeat(2,1fr); } }
-  .tier-card { background:var(--deep);border:1px solid var(--border);padding:20px 16px;position:relative; }
-  .tier-card.tier-highlight { border-color:rgba(0,255,136,0.5);background:rgba(0,255,136,0.03); }
-  .tier-card.tier-pro { border-color:rgba(123,97,255,0.5);background:rgba(123,97,255,0.04); }
-  .tier-price { font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);margin:8px 0 4px; }
-  .tier-label { font-family:var(--mono);font-size:9px;letter-spacing:0.12em;color:var(--muted);text-transform:uppercase; }
-  .tier-name { font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px; }
-  .tier-features { list-style:none;margin:12px 0;font-size:11px;color:var(--muted);line-height:2; }
-  .tier-features li::before { content:"✓ ";color:var(--accent); }
-  .tier-btn { width:100%;padding:10px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;border:none;margin-top:8px;transition:all 0.2s; }
-  .depth-unlocked-row { display:none; margin-bottom:20px; padding:14px 16px; background:rgba(0,255,136,0.04); border:1px solid rgba(0,255,136,0.2); border-top:none; }
-  .depth-unlocked-row.visible { display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
-  .depth-slider { -webkit-appearance:none; width:100%; height:4px; background:var(--border); outline:none; flex:1; min-width:120px; }
-  .depth-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:0; }
-  .depth-slider::-moz-range-thumb { width:16px; height:16px; background:var(--accent); cursor:pointer; border-radius:0; border:none; }
   .loading { display:none; text-align:center; padding:80px 0; }
   .loading.active { display:block; }
   .terminal { background:var(--deep); border:1px solid var(--border); padding:24px; max-width:500px; margin:0 auto 32px; text-align:left; }
@@ -520,10 +164,10 @@
   @keyframes typeIn { from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)} }
   .results { display:none; }
   .results.active { display:block; animation:fadeUp 0.6s ease both; }
-  .score-hero { display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; background:var(--deep); border:1px solid var(--border); border-top:3px solid var(--border); padding:40px 32px 32px; transition:border-color 0.5s; }
+  .score-hero { display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; background:var(--deep); border:1px solid var(--border); padding:36px 28px 28px; }
   .score-hero-top { display:flex; align-items:center; justify-content:center; gap:48px; width:100%; margin-bottom:24px; flex-wrap:wrap; }
   .result-tabs { display:flex; gap:0; margin-bottom:32px; border-bottom:1px solid var(--border); }
-  .result-tab { font-family:var(--mono); font-size:11px; letter-spacing:0.12em; padding:12px 22px; cursor:pointer; color:var(--muted); background:transparent; border:none; border-bottom:2px solid transparent; transition:all 0.2s; text-transform:uppercase; }
+  .result-tab { font-family:var(--mono); font-size:11px; letter-spacing:0.1em; padding:10px 20px; cursor:pointer; color:var(--muted); background:transparent; border:none; border-bottom:2px solid transparent; transition:all 0.2s; text-transform:uppercase; }
   .result-tab:hover { color:var(--text); }
   .result-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
   .result-panel { display:none; }
@@ -534,7 +178,7 @@
   .score-circle-bg { fill:none; stroke:var(--border); stroke-width:9; }
   .score-circle-fill { fill:none; stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1); }
   .score-number { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .score-val { font-family:var(--mono); font-size:56px; font-weight:700; line-height:1; letter-spacing:-2px; }
+  .score-val { font-family:var(--mono); font-size:52px; font-weight:700; line-height:1; }
   .score-max { font-family:var(--mono); font-size:14px; color:var(--muted); }
   .score-grade { font-family:var(--mono); font-size:12px; text-align:center; padding:6px 16px; border:1px solid; }
   .score-meta { display:flex; flex-direction:column; justify-content:center; gap:16px; max-width:480px; text-align:left; }
@@ -568,7 +212,7 @@
   .check-item{background:var(--deep);border:1px solid var(--border);border-left:3px solid;padding:16px 20px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
   .check-item:hover{background:var(--surface)}.check-item.pass{border-left-color:var(--accent)}.check-item.fail{border-left-color:var(--accent2)}
   .check-header{display:flex;align-items:center;justify-content:space-between}
-  .check-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;letter-spacing:-0.1px}
+  .check-name{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
   .check-badge{font-family:var(--mono);font-size:10px;padding:2px 8px;font-weight:700}
   .check-badge.pass{background:rgba(0,255,136,0.15);color:var(--accent)}.check-badge.fail{background:rgba(255,68,68,0.15);color:var(--accent2)}
   .check-score-bar{display:flex;align-items:center;gap:12px}
@@ -585,16 +229,7 @@
   footer{border-top:1px solid var(--border);padding:32px 0;text-align:center}
   .footer-text{font-family:var(--mono);font-size:11px;color:var(--muted)}
   footer .accent{color:var(--accent)}
-  .social-btn{display:flex;align-items:center;gap:6px;color:var(--accent);text-decoration:none;border:1px solid rgba(0,255,136,0.2);padding:4px 8px;border-radius:4px;transition:all 0.2s;}
-  .social-btn:hover{background:rgba(0,255,136,0.1);border-color:var(--accent);transform:translateY(-1px);}
   @media(max-width:768px){.crash-grid,.mode-grid{grid-template-columns:1fr}.score-hero-top{flex-direction:column;align-items:center}.score-meta{text-align:center;max-width:100%}.meta-grid{grid-template-columns:repeat(2,1fr)}.stats-row{gap:24px}.score-circle{width:160px;height:160px}.score-circle svg{width:160px;height:160px}.score-val{font-size:42px}.score-circle-wrap{margin-bottom:8px}}
-  .mobile-demo-pdf { display:none; }
-  @media(max-width:768px) { .mobile-demo-pdf { display:block !important; margin:24px auto 0 !important; text-align:center !important; } }
-  @media(max-width:768px) { .desktop-demo-pdf { display:none !important; } }
-  @media(max-width:768px) { .cta-section { padding:24px 20px !important; margin:0 auto 24px !important; } }
-  @media(max-width:768px) { .cta-section h3 { font-size:18px !important; } }
-  @media(max-width:768px) { .cta-section p { font-size:13px !important; margin-bottom:20px !important; } }
-  @media(max-width:768px) { .cta-section a { padding:12px 24px !important; font-size:12px !important; width:100% !important; justify-content:center !important; } }
   .proof-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); }
   .testimonials-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
   @media(max-width:768px) { .proof-bar { grid-template-columns:1fr 1fr; } .testimonials-grid { grid-template-columns:1fr; } }
@@ -707,77 +342,19 @@
     <div class="hero-tag">// 92% of prop firm challenges fail. Most failures are preventable.</div>
     <h1>Know if your strategy<br>will pass <em>before</em> you pay.</h1>
     <p>90% of FTMO failures aren't bad strategy — they're preventable risk management violations. QuantProof runs 44 institutional checks on your backtest or live data in 30 seconds. Find the exact failure before a $400 challenge fee does.</p>
-    <div style="margin-top:32px;">
-      <div id="dropZone" onclick="document.getElementById('fileInput').click()"
-        ondragover="event.preventDefault();this.classList.add('drag-over')"
-        ondragleave="this.classList.remove('drag-over')"
-        ondrop="event.preventDefault();this.classList.remove('drag-over');handleDrop(event)"
-        style="cursor:pointer;">
-        <div class="drop-zone">
-          <div class="drop-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="6" width="24" height="20" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M4 11h24" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M10 16h12M10 20h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <circle cx="24" cy="22" r="5" fill="var(--black)" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M24 19.5v5M21.5 22h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div class="drop-main">Drop your CSV here</div>
-          <div class="drop-sub">or click to browse &nbsp;·&nbsp; Kite · Alpaca · MT5 · TradingView · Generic</div>
-          <div class="drop-cta">✓ FREE · NO ACCOUNT · RESULTS IN 30s</div>
-        </div>
-      </div>
-      
-      <!-- Secondary Action: Try Sample Data -->
-      <div style="margin-top:16px;text-align:center;">
-        <button onclick="runSampleStrategy()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);padding:12px 24px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;border-radius:4px;" onmouseover="this.style.background='var(--accent)';this.style.color='var(--black)';" onmouseout="this.style.background='transparent';this.style.color='var(--accent)';">
-          ✨ Try with Sample Nifty 50 Data
-        </button>
-      </div>
-    </div>
-    
-    <!-- Mobile Demo PDF Button (visible on mobile only) -->
-    <div class="mobile-demo-pdf" style="max-width:400px;margin:24px auto 0;text-align:center;">
-      <button onclick="openDemoPDF()" style="background:var(--accent);color:var(--black);border:none;padding:12px 24px;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px;border-radius:4px;width:100%;justify-content:center;" onmouseover="this.style.background='#00cc6e';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='var(--accent)';this.style.transform='translateY(0)';">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14,2 14,8 20,8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-        </svg>
-        View Demo Report
+    <div style="margin-top:32px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <button class="upload-btn" onclick="document.getElementById('fileInput').click()" style="font-size:15px;padding:16px 48px;letter-spacing:1.5px;">
+        ✓ VALIDATE FREE — NO ACCOUNT NEEDED
       </button>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);">
+        3 validations/day free &nbsp;·&nbsp; Results in &lt;30s &nbsp;·&nbsp; No data stored
+      </div>
     </div>
-    
     <div class="stats-row">
       <div class="stat"><div class="stat-num">44</div><div class="stat-label">Inst. Checks</div></div>
       <div class="stat"><div class="stat-num">5</div><div class="stat-label">Crash Sims</div></div>
       <div class="stat"><div class="stat-num">0–100</div><div class="stat-label">Fundable Score</div></div>
       <div class="stat"><div class="stat-num">&lt;30s</div><div class="stat-label">To Know</div></div>
-    </div>
-    
-    <!-- Demo PDF Section -->
-    <div class="desktop-demo-pdf" style="margin-top:48px;text-align:center;">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;">
-        // SEE WHAT YOU'LL GET
-      </div>
-      <h3 style="font-size:20px;font-weight:700;color:var(--text);margin-bottom:12px;letter-spacing:-0.5px;">
-        Sample Validation Report
-      </h3>
-      <p style="font-size:14px;color:var(--muted);max-width:400px;margin:0 auto 24px;line-height:1.6;">
-        Explore a complete QuantProof validation report with institutional-grade analysis, risk metrics, and fundability assessment.
-      </p>
-      <button onclick="openDemoPDF()" style="background:var(--accent);color:var(--black);border:none;padding:14px 32px;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.2s;text-transform:uppercase;display:inline-flex;align-items:center;gap:10px;border-radius:4px;" onmouseover="this.style.background='#00cc6e';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='var(--accent)';this.style.transform='translateY(0)';">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14,2 14,8 20,8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <polyline points="10,9 9,9 8,9"/>
-        </svg>
-        VIEW DEMO PDF
-      </button>
     </div>
   </div></main>
 
@@ -857,7 +434,7 @@
         </div>
         <div style="background:var(--surface);padding:10px 14px;border-left:2px solid var(--muted);grid-column:1/-1;">
           <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:3px;">COMPLIANCE — 15%</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Prop firm rules (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade) and institutional fund standards.</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Prop firm rules (FTMO, Topstep, The5ers) and institutional fund standards.</div>
         </div>
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -880,8 +457,8 @@
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// PROP FIRM COMPLIANCE</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">FTMO, Topstep, The5ers, Blue Guardian, and Earn2Trade rule checks mapped directly to your trade data. Know your drawdown headroom and daily loss limits before you pay the challenge fee.</div>
-        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FTMO &nbsp;·&nbsp; Topstep &nbsp;·&nbsp; The5ers &nbsp;·&nbsp; Blue Guardian &nbsp;·&nbsp; Earn2Trade &nbsp;·&nbsp; CTA Standards</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:10px;">FTMO, Topstep, and The5ers rule checks mapped directly to your trade data. Know your drawdown headroom and daily loss limits before you pay the challenge fee.</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">FTMO &nbsp;·&nbsp; Topstep &nbsp;·&nbsp; The5ers &nbsp;·&nbsp; CTA Standards</div>
       </div>
       <div style="background:var(--deep);border:1px solid var(--border);border-top:2px solid var(--accent);padding:20px;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;margin-bottom:10px;">// INDIAN MARKET NATIVE</div>
@@ -896,76 +473,18 @@
 
   </div><!-- /marketingSections -->
 
-  <!-- PRICING — collapsed by default, shown after validation -->
-  <div id="pricingSection" style="display:none;margin-bottom:32px;">
-    <div style="border:1px solid var(--border);background:var(--deep);">
+  <div class="upload-section" id="uploadSection">
 
-      <!-- Collapsed header — always visible when section is shown -->
-      <button onclick="togglePricing()" id="pricingToggleBtn"
-        style="width:100%;background:transparent;border:none;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--muted);"
-        onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
-        <span>// Unlock fix details, AI plan &amp; PDF report — one-time, no subscription</span>
-        <span id="pricingChevron" style="transition:transform 0.25s;">&#9660;</span>
+    <div class="sample-btn-wrap">
+      <button class="sample-btn" onclick="runSampleStrategy()">
+        <span class="sample-btn-play">▶</span>
+        See a real NIFTY50 strategy get scored first
       </button>
-
-      <!-- Expandable grid -->
-      <div id="pricingGrid" style="display:none;padding:0 20px 20px;">
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;">
-
-          <div style="background:var(--surface);border:1px solid var(--border);padding:16px;">
-            <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">LITE</div>
-            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;99</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
-              All fix details revealed<br>
-              AI top-3 fix plan in browser<br>
-              Personalised to your numbers
-            </div>
-            <button onclick="buyLiteUnlock()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#9889; Unlock &#8377;99</button>
-          </div>
-
-          <div style="background:var(--surface);border:1px solid rgba(0,255,136,0.3);padding:16px;position:relative;">
-            <div style="position:absolute;top:-9px;left:12px;background:var(--accent);color:var(--black);font-family:var(--mono);font-size:8px;padding:2px 8px;font-weight:700;">MOST POPULAR</div>
-            <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:0.1em;margin-bottom:6px;">FULL PDF</div>
-            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;299</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
-              Everything in Lite<br>
-              n=20 forced (institutional)<br>
-              All failures ranked in PDF
-            </div>
-            <button onclick="buyPdfReport()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128196; PDF &#8377;299</button>
-          </div>
-
-          <div style="background:var(--surface);border:1px solid rgba(245,183,0,0.3);padding:16px;">
-            <div style="font-family:var(--mono);font-size:9px;color:#F5B700;letter-spacing:0.1em;margin-bottom:6px;">PORTFOLIO</div>
-            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;199</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
-              2&#8211;3 strategies at once<br>
-              Correlation matrix<br>
-              Diversification score 0&#8211;100
-            </div>
-            <button onclick="buyPortfolioUnlock()" style="width:100%;background:rgba(245,183,0,0.9);color:#0a0a0a;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">Portfolio &#8377;199</button>
-          </div>
-
-          <div style="background:var(--surface);border:1px solid rgba(123,97,255,0.2);padding:16px;">
-            <div style="font-family:var(--mono);font-size:9px;color:#7B61FF;letter-spacing:0.1em;margin-bottom:6px;">PRO &#8212; 30 DAYS</div>
-            <div style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);margin-bottom:8px;">&#8377;999</div>
-            <div style="font-size:11px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
-              Unlimited validations<br>
-              n=50 always &amp; all PDFs free<br>
-              Portfolio included
-            </div>
-            <button onclick="buyProPlan()" style="width:100%;background:rgba(123,97,255,0.85);color:#fff;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128640; Pro &#8377;999</button>
-          </div>
-
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;opacity:0.6;">
-          All one-time purchases &nbsp;&middot;&nbsp; No recurring charges &nbsp;&middot;&nbsp; Pro valid 30 days
-        </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:11px;color:var(--muted);">
+        197 trades · 2021–2024 · Score revealed in 30 seconds &nbsp;·&nbsp;
+        <span style="color:var(--accent);">no upload needed</span>
       </div>
     </div>
-  </div>
-
-  <div class="upload-section" id="uploadSection">
 
     <div class="sample-divider"><span class="sample-divider-text">— or validate yours now —</span></div>
 
@@ -974,45 +493,6 @@
       <span style="color:var(--accent);">Alpaca / IBKR?</span> &rarr; Connect Broker &nbsp;&nbsp;
       <span style="color:var(--accent);">TradingView alerts?</span> &rarr; TV Webhook &nbsp;&nbsp;
       <span style="color:var(--accent);">Backtest CSV?</span> &rarr; Any CSV
-    </div>
-
-    <!-- VALIDATION DEPTH SELECTOR -->
-    <div style="margin-bottom:4px;">
-      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.12em;margin-bottom:10px;">// VALIDATION DEPTH &mdash; how hard should we stress-test your strategy?</div>
-      <div class="depth-selector">
-        <button class="depth-btn" id="depth-quick" onclick="setDepth('quick')">
-          <div class="depth-tier" style="color:var(--muted);">QUICK</div>
-          <div class="depth-name">n = 1</div>
-          <div class="depth-sub">Fast scan<br>Less rigorous</div>
-        </button>
-        <button class="depth-btn active" id="depth-standard" onclick="setDepth('standard')">
-          <div class="depth-tier" style="color:var(--accent);">STANDARD</div>
-          <div class="depth-name">n = 10</div>
-          <div class="depth-sub">Default &mdash; free<br>Good starting point</div>
-        </button>
-        <button class="depth-btn" id="depth-institutional" onclick="setDepth('institutional')">
-          <div class="depth-tier" style="color:#ffaa00;">INSTITUTIONAL</div>
-          <div class="depth-name" id="depth-inst-label">n = 20 &#128274;</div>
-          <div class="depth-sub">Fund-grade rigour<br>DSR typically 15&ndash;30pts lower</div>
-          <div id="depth-inst-badge-wrap"><span class="depth-inst-badge">&#8377;99 UNLOCK</span></div>
-        </button>
-      </div>
-
-      <!-- Unlocked slider row — hidden until paid -->
-      <div class="depth-unlocked-row" id="depthSliderRow">
-        <div style="font-family:var(--mono);font-size:10px;color:var(--accent);white-space:nowrap;">n = <span id="sliderVal">20</span></div>
-        <input type="range" class="depth-slider" id="depthSlider" min="11" max="50" value="20"
-          oninput="onSliderMove(this.value)">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;">max 50</div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.5;min-width:120px;">
-          Higher = harder to pass<br>
-          <span style="color:#ffaa00;" id="sliderWarnTxt">~2s extra per +10</span>
-        </div>
-      </div>
-
-      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.6;margin-bottom:20px;line-height:1.6;">
-        n = Monte Carlo simulations on your Deflated Sharpe Ratio &nbsp;&middot;&nbsp; free users: n=10 max &nbsp;&middot;&nbsp; serious traders use n=20&ndash;50 before any prop challenge
-      </div>
     </div>
 
     <div class="mode-grid">
@@ -1040,12 +520,6 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
         <input type="file" id="fileInput" accept=".csv">
-        <div style="margin:12px 0;">
-          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
-            <input type="checkbox" id="csvEnhancedValidation" style="cursor:pointer;">
-            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
-          </label>
-        </div>
         <div id="optionsNotice" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,170,0,0.06);border:1px solid rgba(255,170,0,0.2);font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.6;">
           ⚠ Options detected — single-leg supported, multi-leg not modelled
         </div>
@@ -1072,12 +546,6 @@
         </div>
         <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('kiteFileInput').click()">SELECT KITE CSV</button>
         <input type="file" id="kiteFileInput" accept=".csv">
-        <div style="margin:12px 0;">
-          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
-            <input type="checkbox" id="kiteEnhancedValidation" style="cursor:pointer;">
-            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
-          </label>
-        </div>
         <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;opacity:0.7;">
           Kite → Console → Reports → TradeBook or Orders
         </div>
@@ -1095,12 +563,6 @@
           <span class="mode-limit-item">2000 alerts</span>
         </div>
         <div class="mode-verified-note" style="margin-top:12px;">✓ Real-time capture</div>
-        <div style="margin:12px 0;">
-          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
-            <input type="checkbox" id="tradingviewEnhancedValidation" style="cursor:pointer;">
-            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
-          </label>
-        </div>
         <button class="upload-btn" style="width:100%;margin-top:12px;" onclick="createTradingViewSession()">CREATE SESSION</button>
         <div id="tradingviewStatus" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted);min-height:14px;line-height:1.6;"></div>
       </div>
@@ -1117,159 +579,12 @@
           <span class="mode-limit-item">Compliance cert</span>
         </div>
         <div class="mode-verified-note" style="margin-top:12px;">✓ Eligible for Compliance Certificate</div>
-        <div style="margin:12px 0;">
-          <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
-            <input type="checkbox" id="brokerEnhancedValidation" style="cursor:pointer;">
-            <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
-          </label>
-        </div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
           <button class="upload-btn mode-btn-alpaca" style="width:100%;" onclick="showAlpacaConnect()">CONNECT ALPACA</button>
           <button class="upload-btn" style="width:100%;background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);" onclick="showIBKRConnect()">CONNECT IBKR</button>
         </div>
       </div>
 
-      <!-- PORTFOLIO -->
-      <div class="mode-card mode-card-portfolio" id="portfolioCard">
-        <div class="mode-tag port-gold">// PORTFOLIO</div>
-        <div class="mode-icon" style="font-size:28px;margin:10px 0;">◈</div>
-        <div class="mode-title">Portfolio Analysis</div>
-        <div class="mode-desc">Upload 2–3 strategy files. Get full validation per strategy, correlation matrix, combined drawdown and diversification score.</div>
-        <div class="mode-limits" style="margin-top:10px;">
-          <span class="mode-limit-item" style="border-color:var(--gold-border);color:var(--gold);">Kite · Alpaca · MT5</span>
-          <span class="mode-limit-item" style="border-color:var(--gold-border);color:var(--gold);">Correlation matrix</span>
-        </div>
-        <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.8;">
-          Same 44-check validator per strategy &nbsp;·&nbsp; Auto-detects broker format &nbsp;·&nbsp; Diversification score 0–100
-        </div>
-        <button class="upload-btn" style="width:100%;margin-top:14px;background:rgba(245,183,0,0.12);color:var(--gold);border:1px solid var(--gold-border);font-size:11px;letter-spacing:0.05em;" onclick="showPortfolioUpload()">ANALYSE PORTFOLIO →</button>
-      </div>
-
-    </div>
-
-    <!-- PORTFOLIO PANEL -->
-    <div id="portfolioPanel" style="display:none;margin-top:20px;max-width:680px;margin-left:auto;margin-right:auto;">
-      <div style="background:var(--deep);border:1px solid var(--gold-border);">
-
-        <!-- Header -->
-        <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-family:var(--mono);font-size:10px;color:var(--gold);letter-spacing:0.12em;margin-bottom:2px;">// PORTFOLIO ANALYSIS</div>
-            <div style="font-size:11px;color:var(--muted);">Full 44-check validation per strategy · Correlation · Diversification score</div>
-          </div>
-          <button onclick="hidePortfolioPanel()" style="background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:12px;cursor:pointer;padding:4px 8px;">✕</button>
-        </div>
-
-        <!-- Format hint -->
-        <div style="padding:10px 24px;background:rgba(245,183,0,0.04);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--muted);">
-          Accepts: Zerodha Kite · Alpaca · MT5 · TradingView CSV · Generic PnL CSV &nbsp;—&nbsp; same auto-detection as single strategy
-        </div>
-
-        <!-- Limitations — shown before payment -->
-        <div style="padding:10px 24px 0;border-bottom:1px solid var(--border);">
-          <details style="font-family:var(--mono);font-size:9px;">
-            <summary style="color:var(--muted);cursor:pointer;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px;">
-              <span style="color:#ffaa00;">⚠</span> Known limitations — read before uploading
-              <span style="color:var(--muted);font-size:8px;margin-left:auto;">▶</span>
-            </summary>
-            <div style="padding:8px 0 12px;color:var(--muted);line-height:2.0;font-size:9px;">
-              <div><span style="color:#ffaa00;">MT5 multi-leg trades</span> — MT5 files with 4-leg or hedged positions may fail parsing. Use the single-strategy validator first to check your MT5 file parses correctly before uploading here.</div>
-              <div style="margin-top:4px;"><span style="color:#ffaa00;">No date column</span> — correlation is computed positionally (trade 1 vs trade 1), not by date. Meaningless if strategies trade at different frequencies. Always upload dated CSVs.</div>
-              <div style="margin-top:4px;"><span style="color:#ffaa00;">Minimum 10 trades</span> — each strategy needs at least 10 trades. Strategies below this are rejected.</div>
-              <div style="margin-top:4px;"><span style="color:#ffaa00;">Correlation is Pearson (linear)</span> — options portfolios with non-linear payoffs need copula-based analysis. Pearson underestimates tail dependence for options strategies.</div>
-              <div style="margin-top:4px;"><span style="color:#ffaa00;">n=10 per strategy</span> — portfolio runs at n=10 Monte Carlo. Run single-strategy validation at higher n first to verify each strategy individually.</div>
-            </div>
-          </details>
-        </div>
-
-        <!-- Strategy rows -->
-        <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
-          <!-- Strategy 1 -->
-          <div id="portRow1" style="background:var(--surface);border:1px solid var(--border);padding:14px 16px;transition:border-color 0.2s;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <span style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;">STRATEGY 01 — REQUIRED</span>
-              <span id="portFile1Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <input type="file" id="portFile1" accept=".csv" onchange="portFileChanged(1,this)" style="display:none;">
-              <button onclick="document.getElementById('portFile1').click()" id="portBtn1"
-                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
-                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
-                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-                SELECT FILE
-              </button>
-              <input id="portName1" type="text" placeholder="Strategy name (e.g. Momentum)" maxlength="30"
-                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;"
-                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
-            </div>
-          </div>
-
-          <!-- Strategy 2 -->
-          <div id="portRow2" style="background:var(--surface);border:1px solid var(--border);padding:14px 16px;transition:border-color 0.2s;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <span style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;">STRATEGY 02 — REQUIRED</span>
-              <span id="portFile2Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <input type="file" id="portFile2" accept=".csv" onchange="portFileChanged(2,this)" style="display:none;">
-              <button onclick="document.getElementById('portFile2').click()" id="portBtn2"
-                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;transition:all 0.2s;"
-                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'"
-                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-                SELECT FILE
-              </button>
-              <input id="portName2" type="text" placeholder="Strategy name (e.g. Mean Reversion)" maxlength="30"
-                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;"
-                onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
-            </div>
-          </div>
-
-          <!-- Strategy 3 -->
-          <div id="portRow3" style="background:var(--surface);border:1px dashed rgba(255,255,255,0.08);padding:14px 16px;transition:border-color 0.2s;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-              <span style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;">STRATEGY 03 — OPTIONAL</span>
-              <span id="portFile3Label" style="font-family:var(--mono);font-size:9px;color:var(--accent);"></span>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <input type="file" id="portFile3" accept=".csv" onchange="portFileChanged(3,this)" style="display:none;">
-              <button onclick="document.getElementById('portFile3').click()" id="portBtn3"
-                style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:7px 14px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;opacity:0.6;transition:all 0.2s;"
-                onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)';this.style.opacity='1'"
-                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)';this.style.opacity='0.6'">
-                SELECT FILE
-              </button>
-              <input id="portName3" type="text" placeholder="Optional third strategy" maxlength="30"
-                style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:10px;outline:none;opacity:0.6;"
-            </div>
-          </div>
-
-        <!-- Token row removed - Portfolio analysis now free for initial upload -->
-        </div>
-
-        <!-- Submit -->
-        <div style="padding:0 24px 20px;">
-          <div style="margin:12px 0;">
-            <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
-              <input type="checkbox" id="portfolioEnhancedValidation" style="cursor:pointer;">
-              <span>Include Prop Firm Compliance (FTMO, Topstep, The5ers, Blue Guardian, Earn2Trade)</span>
-            </label>
-          </div>
-          <button onclick="handlePortfolioSubmit()"
-            style="width:100%;background:var(--gold);color:#0a0a0a;border:none;padding:13px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.06em;transition:opacity 0.2s;"
-            onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
-            RUN PORTFOLIO ANALYSIS →
-          </button>
-          <div id="portStatus" style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;min-height:14px;line-height:1.5;"></div>
-          <div style="margin-top:10px;text-align:center;">
-            <button onclick="buyPortfolioUnlock()"
-              style="background:transparent;color:var(--gold);border:none;padding:6px;font-family:var(--mono);font-size:9px;cursor:pointer;opacity:0.7;text-decoration:underline;"
-              onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-              No token yet? Unlock Portfolio Analysis →
-            </button>
-          </div>
-        </div>
-
-      </div>
     </div>
 
     <!-- ALPACA PANEL -->
@@ -1312,7 +627,7 @@
   <div class="loading" id="loadingSection">
     <div class="terminal">
       <div class="terminal-bar"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
-      <div class="terminal-line" id="terminalCmd">$ quantproof --validate trade_log.csv --n-trials 10</div>
+      <div class="terminal-line">$ quantproof --validate trade_log.csv</div>
       <div class="terminal-line">→ Parsing trade data + auto-detecting regime...</div>
       <div class="terminal-line">→ Running overfitting detection (8 checks)...</div>
       <div class="terminal-line">→ Computing risk metrics (8 checks)...</div>
@@ -1328,80 +643,6 @@
 
   <div class="results" id="resultsSection" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;"></div>
 </div>
-
-<!-- DEV OVERRIDE PANEL — only visible at ?dev=1 -->
-<div id="devPanel" style="display:none;position:fixed;bottom:16px;right:16px;background:#0d1117;border:1px solid rgba(0,255,136,0.4);padding:16px;z-index:9999;font-family:monospace;font-size:11px;min-width:260px;">
-  <div style="color:#00ff88;margin-bottom:8px;font-weight:700;">// DEV MODE</div>
-  <div style="display:flex;gap:6px;margin-bottom:6px;">
-    <input id="devToken" type="text" placeholder="TEST_REPORT_TOKEN value"
-      style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:5px 8px;font-size:10px;font-family:monospace;">
-    <button onclick="applyDevToken()" style="background:#00ff88;color:#000;border:none;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:700;">SET</button>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-    <button onclick="devSetTier('lite')"      style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹99</button>
-    <button onclick="devSetTier('report')"    style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹299</button>
-    <button onclick="devSetTier('portfolio')" style="background:#1e2d3d;color:#7B61FF;border:1px solid rgba(123,97,255,0.4);padding:5px;cursor:pointer;font-size:9px;">Simulate ₹199</button>
-    <button onclick="devSetTier('pro')"       style="background:#1e2d3d;color:#ffaa00;border:1px solid rgba(255,170,0,0.3);padding:5px;cursor:pointer;font-size:9px;">Simulate Pro</button>
-    <button onclick="devResetLimit()" style="background:#1e2d3d;color:#ff6b6b;border:1px solid rgba(255,68,68,0.3);padding:5px;cursor:pointer;font-size:9px;grid-column:span 2;">⚡ Reset Rate Limit</button>
-  </div>
-  <div id="devStatus" style="margin-top:6px;font-size:9px;color:#5a7a8a;"></div>
-</div>
-
-<script>
-  // Show dev panel if ?dev=1 in URL
-  if (new URLSearchParams(window.location.search).get('dev') === '1') {
-    document.getElementById('devPanel').style.display = 'block';
-  }
-  async function applyDevToken() {
-    const tok = document.getElementById('devToken').value.trim();
-    if (!tok) return;
-    // Store under every token key so all endpoints see it
-    saveToken('qp_pro_token',    tok);
-    saveToken('qp_port_token',   tok);
-    saveToken('qp_lite_token',   tok);
-    saveToken('qp_report_token', tok);
-    _nTrials = 50;
-    if (typeof unlockInstitutional === 'function') unlockInstitutional();
-    // Pre-fill portfolio token field if visible
-    const pt = document.getElementById('portToken');
-    if (pt) pt.value = tok;
-    document.getElementById('devStatus').textContent = '✓ Token stored — verifying with server...';
-    document.getElementById('devStatus').style.color = '#00ff88';
-    // Auto-verify against server
-    try {
-      const vr = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
-      if (vr.ok) {
-        const vd = await vr.json();
-        if (vd.is_pro) {
-          document.getElementById('devStatus').textContent = `✓ Verified pro access · tier: ${vd.tier}`;
-        } else {
-          document.getElementById('devStatus').textContent = `⚠ Token not recognised by server (tier: ${vd.tier}) — check TEST_REPORT_TOKEN env var on Render`;
-          document.getElementById('devStatus').style.color = '#ffaa00';
-        }
-      }
-    } catch(e) {
-      document.getElementById('devStatus').textContent = '✓ Token stored (server verify failed — check /debug/token manually)';
-    }
-  }
-  function devSetTier(tier) {
-    const tok = loadToken('qp_pro_token') || 'DEV-TOKEN-MISSING';
-    if (tier === 'pro') {
-      saveToken('qp_pro_token',  tok);
-      saveToken('qp_port_token', tok);
-      saveToken('qp_lite_token', tok);
-      _nTrials = 50;
-      if (typeof unlockInstitutional === 'function') unlockInstitutional();
-    } else if (tier === 'portfolio') {
-      saveToken('qp_port_token', tok);
-    } else if (tier === 'report') {
-      saveToken('qp_lite_token', tok);
-    } else if (tier === 'lite') {
-      saveToken('qp_lite_token', tok);
-    }
-    document.getElementById('devStatus').textContent = '✓ Simulating ' + tier + ' tier';
-    document.getElementById('devStatus').style.color = '#ffaa00';
-  }
-</script>
 
 <footer>
   <div class="container">
@@ -1430,7 +671,7 @@
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;">How it works &#8594;</a>
       <span style="color:var(--border);">|</span>
-      <a href="mailto:support@quantproof.net" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;">support@quantproof.net</a>
+      <a href="/cdn-cgi/l/email-protection#b2c3c7d3dcc6c2c0ddddd4f2d5dfd3dbde9cd1dddf" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;"><span class="__cf_email__" data-cfemail="621317030c1612100d0d0422050f030b0e4c010d0f">[email&#160;protected]</span></a>
       <span style="color:var(--border);">|</span>
       <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;99 unlock &nbsp;&middot;&nbsp; &#8377;299 full report</span>
     </div>
@@ -1438,52 +679,13 @@
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      &copy; 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodology.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
-    </div>
-    <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;">
-        <a href="https://www.linkedin.com/in/hardik-gumber-93507b98/" target="_blank" rel="noopener" class="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0 0 1.448-1.12 1.448-1.12h 1.263v-3.077c0-1.252.012-3.044 1.319-3.044 1.26 0 1.872.904 1.872.904v1.33h-2.629c-2.179 0-3.916 1.737-3.916 3.88v5.561h-3.554v-11.42h3.554v1.856c.594-1.12 1.658-1.856 2.917-1.856 1.852 0 3.916 1.436 3.916 4.02v6.016z"/>
-          </svg>
-          <span>LinkedIn</span>
-        </a>
-        <a href="https://x.com/HGumber37076" target="_blank" rel="noopener" class="social-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817 L 4.99 21.75H1.68l7.73-8.835 L 1.254 2.25H8.08l4.713 6.231 zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-          </svg>
-          <span>X</span>
-        </a>
-      </div>
-      Built by Hardik Gumber &nbsp;·&nbsp; Delhi, India &nbsp;·&nbsp; Algo trader since 2021
+      Built by <a href="https://www.linkedin.com/in/hardik-gumber-93507b98/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">Hardik Gumber</a> &nbsp;·&nbsp; Delhi, India &nbsp;·&nbsp; Algo trader since 2021
     </div>
   </div>
 </footer>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
 <script>
-  // Token storage with 7-day TTL — survives tab close
-  function saveToken(key, value) {
-    const expiry = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    try { localStorage.setItem(key, JSON.stringify({value, expiry})); } catch(e) {}
-    sessionStorage.setItem(key, value); // keep session copy for speed
-  }
-  function loadToken(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        const obj = JSON.parse(raw);
-        if (obj.expiry > Date.now()) return obj.value;
-        localStorage.removeItem(key);
-      }
-    } catch(e) {}
-    return sessionStorage.getItem(key) || null;
-  }
-  function clearToken(key) {
-    try { localStorage.removeItem(key); } catch(e) {}
-    sessionStorage.removeItem(key);
-  }
-
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
@@ -1684,7 +886,7 @@
 2024-06-05,TCS,0.0153,BULL
 2024-06-13,INFY,0.0318,BULL
 2024-06-18,AXIS,-0.0122,BULL
-2024-06-24,AXIS,-0.0165,BULL';
+2024-06-24,AXIS,-0.0165,BULL`;
 
   let _isSampleRun = false;
 
@@ -1702,12 +904,9 @@
     const fd = new FormData();
     fd.append('file', file);
     fd.append('currency', 'INR');
-    fd.append('n_trials', String(_nTrials));
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _tok = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
-      const _h = _tok ? {'x-pro-token':_tok,'x-report-token':_tok,'x-lite-token':_tok} : {};
-      const resp = await fetch(API_URL + '/validate', { method: 'POST', body: fd, headers: _h });
+      const resp = await fetch(`${API_URL}/validate`, { method: 'POST', body: fd });
       if (cst) clearTimeout(cst);
       if (!resp.ok) {
         const err = await resp.json();
@@ -1721,7 +920,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
-      if (data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
+      if (data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data, true); }, 3200);
     } catch(err) {
       if (cst) clearTimeout(cst);
@@ -1731,18 +930,6 @@
     }
   }
 
-  // Open demo PDF
-  function openDemoPDF() {
-    // You can replace this URL with your actual demo PDF
-    const demoPdfUrl = 'https://quantproof.net/demo-validation-report.pdf';
-    
-    // Open in new tab
-    window.open(demoPdfUrl, '_blank');
-    
-    // Optional: Track demo PDF opens (for analytics)
-    console.log('Demo PDF opened');
-  }
-
   const CURRENCY_SYMBOLS = {
     USD:"$",GBP:"£",EUR:"€",INR:"₹",JPY:"¥",CAD:"CA$",AUD:"A$",CHF:"CHF ",
     SGD:"S$",HKD:"HK$",ZAR:"R",BRL:"R$",MXN:"MX$",AED:"AED ",SAR:"SAR ",
@@ -1750,120 +937,8 @@
   };
   let _activeCurrency = 'USD';
   function setCurrency(c) { _activeCurrency = (c||'USD').toUpperCase(); }
-
-  // Validation depth
-  let _nTrials = 10;
-  let _depthUnlocked = false;
-
-  function onSliderMove(val) {
-    _nTrials = parseInt(val);
-    document.getElementById('sliderVal').textContent = val;
-    const warn = document.getElementById('sliderWarnTxt');
-    if (warn) {
-      if (val <= 20)      warn.textContent = 'Recommended starting point';
-      else if (val <= 35) warn.textContent = '~' + Math.round((val-10)*0.2) + 's extra vs Standard';
-      else                warn.textContent = 'Serious depth — ~' + Math.round((val-10)*0.2) + 's extra';
-      warn.style.color = val > 35 ? '#00ff88' : '#ffaa00';
-    }
-  }
-
-  function togglePricing() {
-    const grid = document.getElementById('pricingGrid');
-    const chev = document.getElementById('pricingChevron');
-    if (!grid) return;
-    const open = grid.style.display !== 'none';
-    grid.style.display = open ? 'none' : 'block';
-    if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
-  }
-
-  function setDepth(tier) {
-    if (tier === 'institutional' && !_depthUnlocked) {
-      showInstitutionalTeaser();
-      return;
-    }
-    document.querySelectorAll('.depth-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.getElementById('depth-' + tier);
-    if (btn) btn.classList.add('active');
-
-    if (tier === 'quick') {
-      _nTrials = 1;
-      document.getElementById('depthSliderRow').classList.remove('visible');
-    } else if (tier === 'standard') {
-      _nTrials = 10;
-      document.getElementById('depthSliderRow').classList.remove('visible');
-    } else if (tier === 'institutional') {
-      // Already unlocked — show slider
-      _nTrials = parseInt(document.getElementById('depthSlider').value) || 20;
-      document.getElementById('depthSliderRow').classList.add('visible');
-    }
-  }
-
-  function unlockInstitutional() {
-    _depthUnlocked = true;
-    // Update button appearance
-    const btn = document.getElementById('depth-institutional');
-    if (btn) {
-      document.getElementById('depth-inst-label').textContent = 'n = custom';
-      const badge = document.getElementById('depth-inst-badge-wrap');
-      if (badge) badge.innerHTML = '<span class="depth-inst-badge" style="background:rgba(0,255,136,0.15);color:#00ff88;border-color:rgba(0,255,136,0.3);">UNLOCKED</span>';
-    }
-    // Auto-select institutional
-    setDepth('institutional');
-    // Close modal if open
-    const modal = document.getElementById('qp-inst-modal');
-    if (modal) modal.remove();
-  }
-
-  function showInstitutionalTeaser() {
-    const ex = document.getElementById('qp-inst-modal');
-    if (ex) ex.remove();
-    const m = document.createElement('div');
-    m.id = 'qp-inst-modal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    m.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:480px;width:100%;padding:36px 32px;position:relative;">
-        <button onclick="document.getElementById('qp-inst-modal').remove();"
-          style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">&#10005;</button>
-
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.12em;margin-bottom:10px;">// INSTITUTIONAL DEPTH &mdash; n=20 to 50</div>
-        <div style="font-size:20px;font-weight:700;color:#e8edf2;margin-bottom:8px;line-height:1.3;">Most strategies that look fundable at Standard fail here.</div>
-        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:20px;line-height:1.9;">
-          Standard (n=10) runs 10 Monte Carlo simulations.<br>
-          Institutional lets you run <b style="color:#e8edf2;">20 to 50</b> &mdash; you choose the depth.<br>
-          <span style="color:#ffaa00;">If your Sharpe is below 0.8 or you have under 100 trades: n=20 can drop your DSR score 30&ndash;70 pts.</span><br>
-          If your Sharpe is above 1.0: n=50 confirms the edge is real, not just lucky. Either way, you know.
-        </div>
-
-        <div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);padding:16px;margin-bottom:20px;">
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-bottom:10px;">WHAT YOU GET</div>
-          <div style="font-size:12px;color:#e8edf2;line-height:2.1;">
-            &#10003; &nbsp;Custom n slider: run 20, 30, 40, or 50 simulations<br>
-            &#10003; &nbsp;The same DSR stress test prop firm quants run<br>
-            &#10003; &nbsp;See exactly where your Sharpe inflation breaks down<br>
-            &#10003; &nbsp;Unlimited validations at any depth for 24h
-          </div>
-        </div>
-
-        <div style="background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.2);padding:12px 16px;margin-bottom:20px;font-family:'Space Mono',monospace;font-size:10px;color:#ffaa00;line-height:1.7;">
-          &#9888; Free tier is capped at n=10. If your strategy passes at n=10 but you haven't tested at n=20+, you don't actually know if it's real.
-        </div>
-
-        <button onclick="buyLiteUnlock(); document.getElementById('qp-inst-modal').remove();"
-          style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          &#9889; Unlock Institutional Depth &mdash; &#8377;99
-        </button>
-        <button onclick="document.getElementById('qp-inst-modal').remove()"
-          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
-          Continue with Standard (n=10) &mdash; free
-        </button>
-        <div style="margin-top:14px;font-family:'Space Mono',monospace;font-size:9px;color:#5a7a8a;text-align:center;">
-          One-time unlock &middot; Valid for 24h &middot; No subscription
-        </div>
-      </div>`;
-    document.body.appendChild(m);
-  }
   function currencyBadge() {
-    if (_activeCurrency === 'USD') return null;
+    if (_activeCurrency === 'USD') return '';
     return `<span style="background:#1a3a5c;color:#7dd3fc;padding:2px 7px;font-size:11px;margin-left:8px;font-weight:600">${_activeCurrency}</span>`;
   }
 
@@ -1904,10 +979,7 @@
     document.getElementById('heroSection').style.display      = 'none';
     document.getElementById('proofBar').style.display         = 'none';
     document.getElementById('marketingSections').style.display= 'none';
-
     document.getElementById('loadingSection').classList.add('active');
-    const tc = document.getElementById('terminalCmd');
-    if (tc) tc.textContent = '$ quantproof --validate trade_log.csv --n-trials ' + _nTrials;
   }
   function hideLoading(err) {
     document.getElementById('loadingSection').classList.remove('active');
@@ -1916,7 +988,6 @@
       document.getElementById('heroSection').style.display      = 'block';
       document.getElementById('proofBar').style.display         = 'block';
       document.getElementById('marketingSections').style.display= 'block';
-
     }
   }
 
@@ -1933,16 +1004,10 @@
     }, 8000);
   }
 
-  function handleDrop(e) {
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }
-
   async function handleFile(file) {
     if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
     _isSampleRun = false;
-    
     try {
       const r = new FileReader();
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','csv'); };
@@ -1952,21 +1017,10 @@
     const fd = new FormData(); fd.append('file', file);
     const selCur = document.getElementById('csvCurrency');
     if(selCur) fd.append('currency', selCur.value);
-    fd.append('n_trials', String(_nTrials));
-    // Add enhanced validation parameter
-    const enhancedValidation = document.getElementById('csvEnhancedValidation');
-    if(enhancedValidation) {
-      fd.append('enhanced', enhancedValidation.checked);
-    }
     setCurrency(selCur ? selCur.value : 'USD');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _proH = loadToken('qp_pro_token') || '';
-      const _liteH = loadToken('qp_lite_token') || '';
-      const _devHeaders = {};
-      if (_proH)  { _devHeaders['x-pro-token'] = _proH; _devHeaders['x-report-token'] = _proH; }
-      if (_liteH) { _devHeaders['x-lite-token'] = _liteH; }
-      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: _devHeaders});
+      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -1974,7 +1028,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
-      if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
   }
@@ -1988,109 +1042,14 @@
       r.onload = e => { sessionStorage.setItem('qp_filename', file.name); sessionStorage.setItem('qp_filedata', e.target.result.split(',')[1]); sessionStorage.setItem('qp_source','kite'); };
       r.readAsDataURL(file);
     } catch(e){}
-    // Show SEBI pre-flight before uploading — Kite only
-    showSEBIPreflight(file);
-  }
-
-  function showSEBIPreflight(file) {
-    const ex = document.getElementById('qp-sebi-preflight');
-    if (ex) ex.remove();
-    const m = document.createElement('div');
-    m.id = 'qp-sebi-preflight';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    m.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #ffaa00;max-width:520px;width:100%;padding:32px;">
-        <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;letter-spacing:2px;margin-bottom:16px;">SEBI ALGO FRAMEWORK — APRIL 2026</div>
-        <div style="font-size:17px;font-weight:800;color:#e8edf2;margin-bottom:8px;letter-spacing:-0.3px;">Pre-flight Compliance Check</div>
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">SEBI requires all retail algo strategies to meet 5 compliance requirements from April 1 2026. 2 of 5 require self-declaration. Your answers are not stored.</div>
-
-        <div style="margin-bottom:16px;">
-          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">1 / ALGO-ID REGISTRATION <span style="color:#5a7a8a;margin-left:6px;">SELF-DECLARED</span></div>
-          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Have you registered this strategy with Zerodha and obtained an exchange-assigned Algo-ID?</div>
-          <div style="display:flex;gap:8px;">
-            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
-              <input type="radio" name="sebi_algo_id" value="yes" style="accent-color:#00ff88;"> Yes
-            </label>
-            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
-              <input type="radio" name="sebi_algo_id" value="no" style="accent-color:#ff4444;"> No
-            </label>
-            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">
-              <input type="radio" name="sebi_algo_id" value="unsure" checked style="accent-color:#ffaa00;"> Not sure
-            </label>
-          </div>
-        </div>
-
-        <div style="margin-bottom:16px;">
-          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">2 / STRATEGY TYPE <span style="color:#5a7a8a;margin-left:6px;">SELF-DECLARED</span></div>
-          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Is your strategy logic fully transparent (white box) or proprietary/hidden (black box)?</div>
-          <div style="display:flex;gap:8px;">
-            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
-              <input type="radio" name="sebi_box_type" value="white" checked style="accent-color:#00ff88;"> White box
-            </label>
-            <label style="flex:1;background:#131920;border:1px solid #1e2d3d;padding:10px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:Space Mono,monospace;font-size:11px;color:#e8edf2;">
-              <input type="radio" name="sebi_box_type" value="black" style="accent-color:#ff4444;"> Black box
-            </label>
-          </div>
-        </div>
-
-        <div style="margin-bottom:24px;">
-          <div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:6px;">3 / REGISTERED STATIC IP <span style="color:#5a7a8a;margin-left:6px;">SOFT CHECK</span></div>
-          <div style="font-size:12px;color:#5a7a8a;margin-bottom:8px;">Enter the static IP registered with Zerodha for API access (optional). We compare it to your current IP in memory — never stored.</div>
-          <input id="sebi_ip_input" type="text" placeholder="e.g. 103.21.58.140 (optional)" style="width:100%;background:#080a0f;border:1px solid #1e2d3d;color:#e8edf2;padding:10px 12px;font-family:Space Mono,monospace;font-size:11px;outline:none;">
-        </div>
-
-        <div style="background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.15);padding:12px 14px;margin-bottom:20px;font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">
-          ⚠ OPS threshold and session logout are verified automatically from your trade timestamps.<br>
-          SEBI compliance is shown separately — it does not affect your Fundable Score today.<br>
-          When full verification infrastructure is available, failing checks could reduce your score.
-        </div>
-
-        <div style="display:flex;gap:12px;">
-          <button onclick="submitSEBIAndValidate('${file ? 'kite' : ''}')" style="flex:1;background:#ffaa00;color:#080a0f;border:none;padding:14px;font-family:Space Mono,monospace;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;">
-            CONTINUE VALIDATION →
-          </button>
-          <button onclick="document.getElementById('qp-sebi-preflight').remove()" style="background:transparent;border:1px solid #1e2d3d;color:#5a7a8a;padding:14px 20px;font-family:Space Mono,monospace;font-size:11px;cursor:pointer;">
-            Skip
-          </button>
-        </div>
-      </div>`;
-    document.body.appendChild(m);
-    // Store file reference for after modal
-    window._sebiPendingFile = file;
-  }
-
-  function submitSEBIAndValidate() {
-    // Collect self-declared answers
-    const algoId  = (document.querySelector('input[name="sebi_algo_id"]:checked') || {}).value || 'unsure';
-    const boxType = (document.querySelector('input[name="sebi_box_type"]:checked') || {}).value || 'white';
-    const ipInput = (document.getElementById('sebi_ip_input') || {}).value || '';
-    // Store for use in results rendering
-    window._sebiDeclaration = { algo_id: algoId, box_type: boxType, registered_ip: ipInput.trim() };
-    // Close modal
-    const m = document.getElementById('qp-sebi-preflight');
-    if (m) m.remove();
-    // Now actually run the validation
-    _runKiteValidation(window._sebiPendingFile);
-  }
-
-  async function _runKiteValidation(file) {
     showLoading();
     const fd = new FormData(); fd.append('file', file);
     const selCur = document.getElementById('kiteCurrency');
     if(selCur) fd.append('currency', selCur.value);
-    fd.append('n_trials', String(_nTrials));
-    // Add enhanced validation parameter
-    const enhancedValidation = document.getElementById('kiteEnhancedValidation');
-    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
-    // Pass registered IP for soft check (never stored server-side)
-    const _sebiIp = (window._sebiDeclaration || {}).registered_ip || '';
-    if (_sebiIp) fd.append('registered_ip', _sebiIp);
     setCurrency(selCur ? selCur.value : 'INR');
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      const _proHk = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
-      const _kiteHeaders = _proHk ? {'x-pro-token': _proHk, 'x-report-token': _proHk, 'x-lite-token': _proHk} : {};
-      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _kiteHeaders});
+      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -2101,9 +1060,7 @@
         throw new Error(detail.message || detail || 'Kite validation failed');
       }
       const data = await resp.json();
-      if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
-      // Attach SEBI declaration to data for rendering
-      if (window._sebiDeclaration) data._sebi = window._sebiDeclaration;
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Kite error: ${err.message}`); }
   }
@@ -2113,11 +1070,6 @@
     const section = document.getElementById('resultsSection');
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('heroSection').style.display   = 'none';
-    // Show pricing section collapsed after first validation — user has seen value first
-    if (!isSample) {
-      const ps = document.getElementById('pricingSection');
-      if (ps) ps.style.display = 'block';
-    }
     section.classList.add('active');
     section.innerHTML = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2149,17 +1101,7 @@
     }
     section.classList.add('active');
     setTimeout(() => animateScore(data.fundable_score), 100);
-    setTimeout(() => { if (data._sebi) buildSEBIPanel(data); }, 500);
-    setTimeout(() => { if (data.prop_firm_compliance) buildPropFirmPanel(data); }, 600);
     setTimeout(() => { document.querySelectorAll('.bar-fill').forEach(b => b.style.width = b.dataset.width + '%'); }, 300);
-    setTimeout(() => {
-      document.querySelectorAll('.check-item').forEach((el, i) => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateX(-8px)';
-        el.style.transition = `opacity 0.25s ease ${i*0.018}s, transform 0.25s ease ${i*0.018}s`;
-        requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateX(0)'; });
-      });
-    }, 350);
     setTimeout(() => { if (typeof QP_Charts !== 'undefined') QP_Charts.init(data); }, 200);
     setTimeout(() => {
       const failItems = document.querySelectorAll('.check-item.fail');
@@ -2189,200 +1131,10 @@
     if(!circle||!numEl) return;
     const circ = 2*Math.PI*70;
     circle.style.strokeDasharray  = circ;
+    circle.style.strokeDashoffset = circ - (score/100)*circ;
     circle.style.stroke = getScoreColor(score);
-    // Smooth easing count-up over 1.4s
-    const duration = 1400;
-    const start = performance.now();
-    const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
-    const tick = (now) => {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = easeOutCubic(progress);
-      const current = Math.round(eased * score);
-      numEl.textContent = current;
-      circle.style.strokeDashoffset = circ - (eased * score / 100) * circ;
-      if (progress < 1) requestAnimationFrame(tick);
-      else { numEl.textContent = Math.round(score); circle.style.strokeDashoffset = circ - (score/100)*circ; }
-    };
-    numEl.textContent = '0';
-    circle.style.strokeDashoffset = circ;
-    requestAnimationFrame(tick);
-  }
-
-  function buildSEBIPanel(data) {
-    var el = document.getElementById('sebi-panel-content');
-    if (!el) return;
-    if (!data._sebi) {
-      el.innerHTML = '<div style="padding:40px;text-align:center;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">SEBI compliance panel available for Kite TradeBook uploads only.</div>';
-      return;
-    }
-    var s  = data._sebi;
-    var sc = data.sebi_checks || {};
-    var ops  = sc.ops_threshold  || { passed: true,  value: 'N/A', note: 'Verified from timestamps' };
-    var sess = sc.session_logout || { passed: true,  value: '0',   note: 'No overnight sessions detected' };
-    var ip   = sc.ip_check       || { result: 'not_entered', current_ip: '', registered_ip: '' };
-
-    var baseScore   = data.fundable_score || 0;
-    var impact      = (s.algo_id === 'no' ? 8 : 0) + (s.box_type === 'black' ? 6 : 0) + (!ops.passed ? 10 : 0) + (ip.result === 'mismatch' ? 5 : 0);
-    var projLow     = Math.max(0, baseScore - impact - 5);
-    var projHigh    = Math.max(0, baseScore - impact);
-
-    function methodBadge(m) {
-      var col = m === 'FROM_DATA' ? 'color:#00ff88;border-color:rgba(0,255,136,0.3)' : m === 'SOFT_CHECK' ? 'color:#ffaa00;border-color:rgba(255,170,0,0.3)' : 'color:#5a7a8a;border-color:#1e2d3d';
-      var label = m === 'FROM_DATA' ? 'FROM DATA' : m === 'SOFT_CHECK' ? 'SOFT CHECK' : 'SELF-DECLARED';
-      return '<span style="font-family:Space Mono,monospace;font-size:9px;padding:3px 8px;border:1px solid;' + col + '">' + label + '</span>';
-    }
-
-    function statusColor(pass, warn) {
-      if (warn) return '#ffaa00';
-      return pass ? '#00ff88' : '#ff4444';
-    }
-
-    function checkRow(label, method, statusLabel, statusOk, statusWarn, detail, warning) {
-      var sc2 = statusColor(statusOk, statusWarn);
-      return '<div style="display:grid;grid-template-columns:2fr auto auto;gap:16px;border-bottom:1px solid #1e2d3d;padding:14px 0;align-items:start;">'
-        + '<div>'
-        +   '<div style="font-size:13px;font-weight:700;color:#e8edf2;margin-bottom:4px;">' + label + '</div>'
-        +   '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.6;">' + detail + '</div>'
-        +   (warning ? '<div style="font-family:Space Mono,monospace;font-size:9px;color:#ff8844;margin-top:4px;">' + warning + '</div>' : '')
-        + '</div>'
-        + '<div style="margin-top:2px;">' + methodBadge(method) + '</div>'
-        + '<div style="font-family:Space Mono,monospace;font-size:11px;font-weight:700;color:' + sc2 + ';white-space:nowrap;">' + statusLabel + '</div>'
-        + '</div>';
-    }
-
-    // Build IP status
-    var ipStatus, ipLabel, ipDetail, ipWarn;
-    if (ip.result === 'match') {
-      ipLabel = 'PASS'; ipStatus = true; ipWarn = false;
-      ipDetail = 'Current IP matches registered IP. Note: soft check only — VPN use bypasses this.';
-    } else if (ip.result === 'mismatch') {
-      ipLabel = 'MISMATCH'; ipStatus = false; ipWarn = false;
-      ipDetail = 'Current IP does not match registered IP (' + (ip.registered_ip || '') + '). Verify with Zerodha.';
-    } else {
-      ipLabel = 'NOT CHECKED'; ipStatus = true; ipWarn = true;
-      ipDetail = 'No registered IP entered. Verify directly with Zerodha that your API app has a registered static IP.';
-    }
-
-    // Algo-ID status
-    var aidLabel = s.algo_id === 'yes' ? 'DECLARED' : s.algo_id === 'no' ? 'NOT REGISTERED' : 'UNCONFIRMED';
-    var aidOk    = s.algo_id === 'yes';
-    var aidWarn  = s.algo_id === 'unsure';
-    var aidDetail = s.algo_id === 'yes'
-      ? 'You declared this strategy has an exchange-assigned Algo-ID. QuantProof cannot independently verify this.'
-      : s.algo_id === 'no'
-      ? 'You declared no Algo-ID. SEBI requires all automated strategies to carry an Algo-ID from April 2026.'
-      : 'Status unknown — contact Zerodha to confirm Algo-ID registration status.';
-    var aidWarnTxt = s.algo_id === 'no' ? 'Register with Zerodha before April 1 2026 to receive an Algo-ID.' : '';
-
-    // Box type
-    var boxLabel  = s.box_type === 'white' ? 'WHITE BOX' : 'BLACK BOX';
-    var boxOk     = s.box_type === 'white';
-    var boxDetail = s.box_type === 'white'
-      ? 'You declared transparent strategy logic. White box strategies can be registered directly through your broker.'
-      : 'You declared proprietary/hidden logic. Black box algos require a SEBI-registered Research Analyst (RA) license.';
-    var boxWarnTxt = s.box_type === 'black' ? 'Consult a SEBI-registered RA for black box compliance requirements.' : '';
-
-    el.innerHTML =
-      '<div style="margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;letter-spacing:2px;margin-bottom:4px;">SEBI ALGO FRAMEWORK — APRIL 2026</div>'
-      + '<div style="font-size:16px;font-weight:800;color:#e8edf2;margin-bottom:4px;">Compliance Pre-Check</div>'
-      + '<div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;line-height:1.7;">3 of 5 checks verified from your trade data. 2 are self-declared. This panel is separate from your Fundable Score.</div>'
-      + '</div>'
-
-      + '<div style="background:#0d1117;border:1px solid #1e2d3d;padding:20px 24px;margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;letter-spacing:1px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #1e2d3d;display:grid;grid-template-columns:2fr auto auto;gap:16px;">'
-      + '<span>CHECK</span><span>METHOD</span><span>RESULT</span></div>'
-      + checkRow('OPS Threshold (<10 orders/second)', 'FROM_DATA', ops.passed ? 'PASS' : 'FAIL', ops.passed, false,
-          ops.passed ? 'Max order frequency verified from timestamps — within SEBI 10 OPS limit.' : 'Max OPS: ' + ops.value + '. Exceeds 10/second — mandatory SEBI registration required.',
-          !ops.passed ? 'Strategies above 10 OPS require mandatory exchange registration.' : '')
-      + checkRow('Daily Session Logout', 'FROM_DATA', sess.passed ? 'PASS' : 'WARNING', sess.passed, !sess.passed,
-          sess.passed ? 'No orders detected outside NSE market hours — session appears compliant.' : sess.value + ' order(s) detected outside market hours. Verify API auto-logout.',
-          !sess.passed ? 'SEBI requires automated daily logout before the next trading day.' : '')
-      + checkRow('Static IP Registration', 'SOFT_CHECK', ipLabel, ipStatus, ipWarn, ipDetail, ip.result === 'mismatch' ? 'IP mismatch — algo orders must originate from your registered static IP.' : '')
-      + checkRow('Algo-ID Registration', 'SELF_DECLARED', aidLabel, aidOk, aidWarn, aidDetail, aidWarnTxt)
-      + checkRow('White Box / Black Box', 'SELF_DECLARED', boxLabel, boxOk, false, boxDetail, boxWarnTxt)
-      + '</div>'
-
-      + '<div style="background:rgba(255,170,0,0.04);border:1px solid rgba(255,170,0,0.15);padding:16px 20px;margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#ffaa00;margin-bottom:8px;">SCORE IMPACT — ILLUSTRATIVE ONLY</div>'
-      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Current Fundable Score: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + baseScore + '/100</span></div>'
-      + '<div style="font-size:13px;color:#5a7a8a;margin-bottom:12px;">If SEBI checks were factored in, unresolved failures could reduce score to: <span style="color:#ffaa00;font-family:Space Mono,monospace;font-weight:700;">' + projLow + '–' + projHigh + '/100</span></div>'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">This is illustrative only. SEBI compliance is not currently factored into the Fundable Score.<br>When full verification is available, these checks will use verified data only — not self-declarations.</div>'
-      + '</div>'
-
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#2d4a5a;line-height:1.8;padding:14px;border:1px solid #1e2d3d;">'
-      + 'DISCLAIMER: QuantProof is not a legal compliance tool. This panel is informational only.<br>'
-      + '3 of 5 checks verified from trade data. 2 are self-certified — QuantProof cannot independently verify them.<br>'
-      + 'Static IP is a soft comparison only — QuantProof does not store IP addresses at any point.<br>'
-      + 'Consult SEBI circulars and your broker for authoritative compliance guidance.'
-      + '</div>';
-  }
-
-  function buildPropFirmPanel(data) {
-    var el = document.getElementById('propFirmPanel');
-    if (!el) return;
-    
-    if (!data.prop_firm_compliance) {
-      el.innerHTML = '<div style="padding:40px;text-align:center;font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;">Prop firm compliance panel available when enhanced validation is enabled.</div>';
-      return;
-    }
-    
-    var propData = data.prop_firm_compliance;
-    var summary = propData.summary || {};
-    var firms = propData.firms || {};
-    
-    function firmBadge(eligible) {
-      var col = eligible ? 'color:#00ff88;border-color:rgba(0,255,136,0.3)' : 'color:#ff4444;border-color:rgba(255,68,68,0.3)';
-      var label = eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE';
-      return '<span style="font-family:Space Mono,monospace;font-size:9px;padding:3px 8px;border:1px solid;' + col + '">' + label + '</span>';
-    }
-    
-    function firmRow(name, firmData) {
-      var eligible = firmData.eligible || false;
-      var score = firmData.score || 0;
-      var violations = firmData.violations || [];
-      var passes = firmData.passes || [];
-      
-      return '<div style="background:#0d1117;border:1px solid #1e2d3d;padding:16px;margin-bottom:12px;">'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-        +   '<div style="font-size:14px;font-weight:700;color:#e8edf2;">' + name + '</div>'
-        +   '<div style="display:flex;align-items:center;gap:8px;">'
-        +     '<span style="font-family:Space Mono,monospace;font-size:11px;color:' + (eligible ? '#00ff88' : '#ff4444') + ';">Score: ' + score + '/100</span>'
-        +     firmBadge(eligible)
-        +   '</div>'
-        + '</div>'
-        + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;">'
-        +   '<div style="margin-bottom:4px;"><strong>Violations:</strong> ' + (violations.length > 0 ? violations.map(v => `${v.name} (${v.actual} vs ${v.required})`).join(', ') : 'None') + '</div>'
-        +   '<div><strong>Passes:</strong> ' + (passes.length > 0 ? passes.map(p => p.name).join(', ') : 'None') + '</div>'
-        + '</div>'
-        + '</div>';
-    }
-    
-    el.innerHTML =
-      '<div style="margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#00ff88;letter-spacing:2px;margin-bottom:4px;">PROP FIRM COMPLIANCE</div>'
-      + '<div style="font-size:16px;font-weight:800;color:#e8edf2;margin-bottom:4px;">Prop Firm Readiness Assessment</div>'
-      + '<div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;line-height:1.7;">Your strategy analyzed against 5 major prop firms. Each firm has different rules and requirements.</div>'
-      + '</div>'
-      
-      + '<div style="background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);padding:16px 20px;margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#00ff88;margin-bottom:8px;">SUMMARY</div>'
-      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Firms Analyzed: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.total_firms || 0) + '</span></div>'
-      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:6px;">Eligible Firms: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.eligible_firms || 0) + '</span></div>'
-      + '<div style="font-size:13px;color:#e8edf2;margin-bottom:12px;">Average Score: <span style="color:#00ff88;font-family:Space Mono,monospace;font-weight:700;">' + (summary.average_score || 0) + '/100</span></div>'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;line-height:1.7;">Eligible firms are those where your strategy meets all critical requirements.</div>'
-      + '</div>'
-      
-      + '<div style="margin-bottom:24px;">'
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#5a7a8a;letter-spacing:1px;margin-bottom:16px;">FIRM BREAKDOWN</div>'
-      + Object.keys(firms).map(name => firmRow(name, firms[name])).join('')
-      + '</div>'
-      
-      + '<div style="font-family:Space Mono,monospace;font-size:10px;color:#2d4a5a;line-height:1.8;padding:14px;border:1px solid #1e2d3d;">'
-      + 'DISCLAIMER: Prop firm compliance analysis is based on publicly available rules and requirements.<br>'
-      + 'Individual firms may have additional criteria not captured here. Always verify with the specific prop firm.<br>'
-      + 'This analysis is for informational purposes only and does not guarantee acceptance.'
-      + '</div>';
+    let cur = 0; const inc = score/60;
+    const t = setInterval(()=>{ cur = Math.min(cur+inc,score); numEl.textContent=Math.min(Math.round(cur),Math.round(score)); if(cur>=score)clearInterval(t); }, 25);
   }
 
   function buildAuditFlagsHTML(flags) {
@@ -2403,8 +1155,6 @@
 
   function buildResultsHTML(data, isSample) {
     const scoreColor  = getScoreColor(data.fundable_score);
-    const scoreHero = document.querySelector('.score-hero');
-    if (scoreHero) scoreHero.style.borderTopColor = scoreColor;
     const gradeLetter = data.grade.split('—')[0].trim();
     const gradeDesc   = data.grade.split('—')[1]?.trim()||'';
     const categories  = {};
@@ -2440,8 +1190,7 @@
     }
 
     return `
-      <div class="results-container">
-        <div class="score-hero">
+      <div class="score-hero">
         <div class="score-hero-top">
           <div class="score-circle-wrap">
             <div class="score-circle">
@@ -2462,15 +1211,6 @@
           </div>
           <div class="score-meta">
             <div class="score-summary">${data.summary}</div>
-            ${_nTrials < 20 ? `<div style="margin-top:10px;padding:10px 14px;background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-              <div style="font-family:var(--mono);font-size:10px;color:#ffaa00;line-height:1.6;">
-                &#9888;&nbsp; This score is at Standard depth (n=10).<br>
-                <span style="color:#5a7a8a;">At Institutional depth (n=20), DSR typically drops 15&ndash;30 pts. Your real score may be lower.</span>
-              </div>
-              <button onclick="showInstitutionalTeaser()" style="background:transparent;border:1px solid rgba(255,170,0,0.4);color:#ffaa00;padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;flex-shrink:0;" onmouseover="this.style.background='rgba(255,170,0,0.1)'" onmouseout="this.style.background='transparent'">Test at n=20 &mdash; &#8377;99 &rarr;</button>
-            </div>` : `<div style="margin-top:10px;padding:8px 14px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);font-family:var(--mono);font-size:10px;color:var(--accent);line-height:1.6;">
-              &#10003; Validated at Institutional depth (n=20) &mdash; fund-grade rigour applied
-            </div>`}
             ${data.date_range!=='No date data'
               ?`<div style="font-size:11px;color:var(--muted);font-family:var(--mono)">📅 ${data.date_range}</div>`
               :`<div style="font-size:11px;color:var(--accent3);font-family:var(--mono)">⚠ No date column — add dates for regime analysis</div>`
@@ -2520,8 +1260,6 @@
       <div class="result-tabs">
         <button class="result-tab active" onclick="switchResultTab(this,'tab-checks')">// ${failedCount > 0 ? failedCount + ' Issues Found' : 'All Checks'}</button>
         <button class="result-tab" onclick="switchResultTab(this,'tab-crash')">// Crash Simulations</button>
-        ${data._sebi ? '<button class="result-tab" onclick="switchResultTab(this,\'tab-sebi\')">// SEBI Compliance</button>' : ''}
-        ${data.prop_firm_compliance ? '<button class="result-tab" onclick="switchResultTab(this,\'tab-prop-firm\')">// Prop Firm Compliance</button>' : ''}
         <button class="result-tab" onclick="switchResultTab(this,'tab-audit')">// Audit Trail</button>
       </div>
 
@@ -2550,9 +1288,13 @@
             ✓ Validate My Strategy — Free →
           </button>
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:8px;">3 free validations/day · No account needed · Results in 30s</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7;">
-            PDF reports are generated from your real strategy — validate yours to get one.
-          </div>
+          <button id="pdfBtn" onclick="buyPdfReport()"
+            style="background:transparent;color:var(--accent);border:1.5px solid rgba(0,255,136,0.4);padding:12px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-top:10px;transition:all 0.2s;"
+            onmouseover="this.style.background='rgba(0,255,136,0.08)';this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.background='transparent';this.style.borderColor='rgba(0,255,136,0.4)'">
+            📄 Download Sample Report — Free
+          </button>
+          <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;"></div>
         </div>` : `
         <div style="margin:16px 0 32px 0;padding:24px 28px;background:rgba(0,255,136,0.04);border:1.5px solid rgba(0,255,136,0.2);">
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// GET YOUR FIX PLAN</div>
@@ -2605,14 +1347,6 @@
         <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
       </div>
 
-      <div id="tab-sebi" class="result-panel">
-        <div id="sebi-panel-content"></div>
-      </div>
-
-      <div id="tab-prop-firm" class="result-panel">
-        <div id="propFirmPanel"></div>
-      </div>
-
       <div id="tab-audit" class="result-panel">
         <div style="padding:16px 20px;border:1px solid var(--border);background:var(--deep);">
           <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em">// AUDIT TRAIL & METHODOLOGY</div>
@@ -2624,7 +1358,6 @@
           <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono)">Full methodology and verification hash in the PDF report.</div>
         </div>
         <button class="reset-btn" style="margin-top:24px;" onclick="resetApp()">← Run Another Validation</button>
-      </div>
       </div>
     `;
   }
@@ -2769,7 +1502,6 @@
     document.getElementById('heroSection').style.display      = 'block';
     document.getElementById('proofBar').style.display         = 'block';
     document.getElementById('marketingSections').style.display= 'block';
-
     document.getElementById('fileInput').value = '';
     document.getElementById('kiteFileInput').value = '';
     document.getElementById('alpacaPanel').style.display   = 'none';
@@ -2777,7 +1509,7 @@
     _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
     try {
       sessionStorage.removeItem('qp_source');
-      clearToken('qp_validation_hash');
+      sessionStorage.removeItem('qp_validation_hash');
       sessionStorage.removeItem('qp_filename');
       sessionStorage.removeItem('qp_filedata');
     } catch(e) {}
@@ -2844,40 +1576,24 @@
         const input = document.getElementById('intlEmail');
         if(input){ input.disabled=true; }
       } else {
-        throw new Error(data.error || 'Failed');
+        throw new Error(data.error || 'Submission failed');
       }
     } catch(e) {
-      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
-      if(btn){ btn.disabled=false; btn.innerText='→'; }
+      if(status){ status.innerText='Error — please email quantproof@gmail.com to join the list.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='Notify Me'; }
     }
   }
 
   async function generatePdfBlob(token) {
-    const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (hash.includes('-IBKR') ? 'ibkr' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv')));
+    const hash = sessionStorage.getItem('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv');
     let res;
     if(src==='alpaca') {
-      const validationHash = (loadToken('qp_validation_hash') || '').replace('-VERIFIED', '');
+      const validationHash = sessionStorage.getItem('qp_validation_hash') || '';
       if(!validationHash) throw new Error('Validation result not found — please re-run the Alpaca validation before downloading the report.');
       res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'x-report-token': token},
-        body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_tv_validation_data') || '{}')})
-      });
-    } else if(src==='tv') {
-      const validationHash = (loadToken('qp_validation_hash') || '');
-      if(!validationHash) throw new Error('TradingView validation result not found — please re-run the TradingView validation before downloading the report.');
-      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'x-report-token': token},
-        body: JSON.stringify({api_key: '', secret_key: '', mode: 'tradingview', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_tv_validation_data') || '{}')})
-      });
-    } else if(src==='ibkr') {
-      const validationHash = (loadToken('qp_validation_hash') || '');
-      if(!validationHash) throw new Error('IBKR validation result not found — please re-run the IBKR validation before downloading the report.');
-      res = await fetch(`${API_URL_REPORT}/report/generate-broker`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'x-report-token': token},
-        body: JSON.stringify({api_key: '', secret_key: '', mode: 'ibkr', validation_hash: validationHash, validation_data: JSON.parse(sessionStorage.getItem('qp_ibkr_validation_data') || '{}')})
+        body: JSON.stringify({api_key: '', secret_key: '', mode: 'paper', validation_hash: validationHash})
       });
     } else {
       if(!_lastValidatedFile) {
@@ -2887,11 +1603,6 @@
       }
       if(!_lastValidatedFile) throw new Error('File not found — please re-upload your CSV to generate the report');
       const fd=new FormData(); fd.append('file',_lastValidatedFile);
-      // Pass SEBI declaration if available (Kite uploads only)
-      const _sd = window._sebiDeclaration || {};
-      if (_sd.registered_ip) fd.append('registered_ip', _sd.registered_ip);
-      if (_sd.algo_id)       fd.append('sebi_algo_id',  _sd.algo_id);
-      if (_sd.box_type)      fd.append('sebi_box_type', _sd.box_type);
       res = await fetch(`${API_URL_REPORT}/report/generate`,{method:'POST',headers:{'x-report-token':token},body:fd});
     }
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.detail||e.message||`Server error ${res.status}`);}
@@ -2899,8 +1610,6 @@
   }
 
   async function generatePdfWithToken(token) {
-    // Pro token also works as report token
-    if (!token) token = loadToken('qp_pro_token') || '';
     const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
     if(btn){btn.disabled=true;btn.innerText='Generating PDF...';}
     if(status){status.innerText='Building your report...';status.style.color='var(--accent)';}
@@ -2947,26 +1656,6 @@
             });
             const vd = await vr.json();
             if(!vd.token) throw new Error('Payment verification failed');
-            
-            // Send GA4 purchase event for Lite Plan (₹99)
-            try {
-              gtag('event', 'purchase', {
-                transaction_id: response.razorpay_order_id,
-                value: 99,
-                currency: 'INR',
-                items: [{
-                  item_id: 'quantproof_lite',
-                  item_name: 'QuantProof Lite Plan',
-                  category: 'Digital Service',
-                  quantity: 1,
-                  price: 99
-                }]
-              });
-              console.log('GA4 purchase event sent for Lite Plan:', { orderId: response.razorpay_order_id, value: 99, currency: 'INR' });
-            } catch (e) {
-              console.error('Failed to send GA4 purchase event for Lite Plan:', e);
-            }
-            
             applyLiteUnlock(vd.token);
           } catch(ve) {
             if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
@@ -2995,8 +1684,8 @@
     }
   }
 
-  async function applyLiteUnlock(token) {
-    try { saveToken('qp_lite_token', token); } catch(e) {}
+  function applyLiteUnlock(token) {
+    try { sessionStorage.setItem('qp_lite_token', token); } catch(e) {}
     document.querySelectorAll('.check-item.fail .check-details').forEach(details => {
       const blurDiv = details.querySelector('[style*="blur"]');
       const gradDiv = details.querySelector('[style*="gradient"]');
@@ -3012,114 +1701,7 @@
     if(unlockBtn){ unlockBtn.innerText = '✓ Analysis Unlocked'; unlockBtn.disabled = true; unlockBtn.style.background = '#00cc6e'; }
     if(ugBtn){ ugBtn.innerText = '✓ Unlocked'; ugBtn.disabled = true; }
     if(urgencyGate){ urgencyGate.style.borderColor = 'rgba(0,255,136,0.3)'; urgencyGate.style.background = 'rgba(0,255,136,0.03)'; }
-    if(status){ status.innerText = '✓ Analysis unlocked — fetching your personalised AI fix plan...'; status.style.color = 'var(--accent)'; }
-    // Note: institutional depth NOT unlocked for ₹99 LITE tier — requires PRO/PDF token
-    // Fetch AI fix plan for ₹99 tier
-    const vHash = loadToken('qp_validation_hash');
-    if (vHash) {
-      try {
-        const aiResp = await fetch(`${API_URL}/validate/ai-fixes`, {
-          method: 'POST',
-          headers: { 'x-lite-token': token },
-          body: new URLSearchParams({ validation_hash: vHash })
-        });
-        if (aiResp.ok) {
-          const aiData = await aiResp.json();
-          renderAiFixPlan(aiData);
-          if(status) status.innerText = '✓ AI fix plan loaded — see below';
-        }
-      } catch(e) {
-        console.warn('AI fixes fetch failed:', e);
-        if(status) status.innerText = '✓ Analysis unlocked';
-      }
-    } else {
-      if(status) status.innerText = '✓ Analysis unlocked';
-    }
-  }
-
-  function renderAiFixPlan(aiData) {
-    let panel = document.getElementById('aiFixPanelLive');
-    if (!panel) {
-      panel = document.createElement('div');
-      panel.id = 'aiFixPanelLive';
-      panel.className = 'ai-fix-panel';
-      const checksSection = document.querySelector('.checks-section');
-      if (checksSection && checksSection.parentNode) {
-        checksSection.parentNode.insertBefore(panel, checksSection.nextSibling);
-      } else {
-        const rs = document.getElementById('resultsSection');
-        if (rs) rs.appendChild(panel);
-      }
-    }
-
-    const fixes        = aiData.fixes || [];
-    const failedChecks = aiData.failed_checks || [];
-    const summary      = aiData.summary || '';
-    const isPdf        = aiData.full_plan_in_pdf;
-    const total        = aiData.total_failures || fixes.length;
-
-    // Build AI top-3 section
-    const aiSection = fixes.length ? `
-      <div style="margin-bottom:20px;">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
-          // AI FIX PLAN — PERSONALISED TO YOUR EXACT NUMBERS ${isPdf ? '(top 3 shown — full ranked plan in PDF)' : ''}
-        </div>
-        ${fixes.map((fix, i) => `
-          <div class="ai-fix-item">
-            <div class="ai-fix-rank">FIX #${fix.rank || i+1} &nbsp;·&nbsp; ${fix.effort || ''} effort &nbsp;·&nbsp; ${fix.score_impact || ''}</div>
-            <div class="ai-fix-check">${fix.check || ''}</div>
-            ${fix.why_it_matters ? `<div class="ai-fix-why">${fix.why_it_matters}</div>` : ''}
-            ${fix.specific_fix ? `<div class="ai-fix-action">${fix.specific_fix}</div>` : ''}
-          </div>`).join('')}
-      </div>` : '';
-
-    // Build ALL failed checks section — every check with full insight + fix
-    const catColors = {
-      'Overfitting':'#ff6b6b','Risk':'#ffaa00','Regime':'#60a5fa',
-      'Execution':'#a78bfa','Compliance':'#f472b6','Operational':'var(--muted)'
-    };
-    const checksSection = failedChecks.length ? `
-      <div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
-          // ALL ${failedChecks.length} FAILED CHECKS — FULL DETAIL
-        </div>
-        ${failedChecks.map(c => {
-          const catCol = catColors[c.category] || 'var(--muted)';
-          return `<div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
-              <span style="font-family:var(--mono);font-size:10px;font-weight:700;color:#ff6b6b;">✗ ${c.name}</span>
-              <span style="font-family:var(--mono);font-size:8px;color:${catCol};padding:1px 6px;border:1px solid ${catCol}33;">${c.category}</span>
-              <span style="font-family:var(--mono);font-size:8px;color:var(--muted);">${c.score}/100</span>
-            </div>
-            ${c.value ? `<div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px;">${c.value}</div>` : ''}
-            ${c.insight ? `<div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px;">${c.insight}</div>` : ''}
-            ${c.fix ? `<div style="font-size:12px;color:var(--accent3,#ffaa00);line-height:1.6;padding:7px 10px;background:rgba(255,170,0,0.05);border-left:2px solid rgba(255,170,0,0.4);">↳ ${c.fix}</div>` : ''}
-          </div>`;
-        }).join('')}
-      </div>` : '';
-
-    // PDF upsell — only for ₹99 tier
-    const pdfTeaser = isPdf ? `
-      <div style="margin-top:16px;padding:12px 16px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
-          <div style="font-family:var(--mono);font-size:10px;color:var(--muted);">
-            AI plan shows top 3 of ${total} failures. PDF has all ${total} ranked with n=20 institutional depth.
-          </div>
-          <button onclick="buyPdfReport()" style="background:transparent;border:1px solid rgba(0,255,136,0.4);color:var(--accent);padding:6px 12px;font-family:var(--mono);font-size:10px;cursor:pointer;white-space:nowrap;">
-            📄 Full PDF ₹299 →
-          </button>
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);opacity:0.6;">PDF forces n=20 — your score may be lower and more accurate than what you see here</div>
-      </div>` : `
-      <div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--accent);opacity:0.7;">✓ Full ranked AI plan — all ${total} failures (Pro/Report tier)</div>`;
-
-    panel.innerHTML = `
-      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:16px;">// ANALYSIS UNLOCKED</div>
-      ${summary ? `<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);">${summary}</div>` : ''}
-      ${aiSection}
-      ${checksSection}
-      ${pdfTeaser}
-    `;
+    if(status){ status.innerText = '✓ Full analysis unlocked — upgrade to ₹299 for full PDF with ranked fix plan'; status.style.color = 'var(--accent)'; }
   }
 
   async function buyPdfReport() {
@@ -3146,26 +1728,6 @@
             const vr=await fetch(`${API_URL_REPORT}/report/webhook`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({razorpay_payment_id:response.razorpay_payment_id,razorpay_order_id:response.razorpay_order_id,razorpay_signature:response.razorpay_signature})});
             const vd=await vr.json();
             if(!vd.token) throw new Error('Payment verification failed');
-            
-            // Send GA4 purchase event for Report Plan (₹299)
-            try {
-              gtag('event', 'purchase', {
-                transaction_id: response.razorpay_order_id,
-                value: 299,
-                currency: 'INR',
-                items: [{
-                  item_id: 'quantproof_report',
-                  item_name: 'QuantProof Report Plan',
-                  category: 'Digital Service',
-                  quantity: 1,
-                  price: 299
-                }]
-              });
-              console.log('GA4 purchase event sent for Report Plan:', { orderId: response.razorpay_order_id, value: 299, currency: 'INR' });
-            } catch (e) {
-              console.error('Failed to send GA4 purchase event for Report Plan:', e);
-            }
-            
             if(btn) btn.innerText='Generating PDF...';
             await generatePdfWithToken(vd.token);
           } catch(ve){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Payment error: '+ve.message;status.style.color='#ff4444';}}
@@ -3183,40 +1745,6 @@
     const params=new URLSearchParams(window.location.search);
     if(params.get('payment')!=='success'||params.get('provider')!=='ls') return;
     const orderId=params.get('order_id')||'';
-    
-    // Send GA4 purchase event with proper value and currency
-    try {
-      // Determine purchase amount based on order_id pattern or default to ₹99
-      let purchaseValue = 99; // Default to ₹99 for lite plan
-      let currency = 'INR';
-      
-      // You can customize this logic based on your order_id patterns
-      if (orderId && orderId.includes('report')) {
-        purchaseValue = 299; // ₹299 for report plan
-      } else if (orderId && orderId.includes('portfolio')) {
-        purchaseValue = 199; // ₹199 for portfolio plan
-      } else if (orderId && orderId.includes('pro')) {
-        purchaseValue = 999; // ₹999 for pro plan
-      }
-      
-      gtag('event', 'purchase', {
-        transaction_id: orderId,
-        value: purchaseValue,
-        currency: currency,
-        items: [{
-          item_id: orderId.includes('report') ? 'quantproof_report' : orderId.includes('portfolio') ? 'quantproof_portfolio' : orderId.includes('pro') ? 'quantproof_pro' : 'quantproof_lite',
-          item_name: orderId.includes('report') ? 'QuantProof Report Plan' : orderId.includes('portfolio') ? 'QuantProof Portfolio Plan' : orderId.includes('pro') ? 'QuantProof Pro Plan' : 'QuantProof Lite Plan',
-          category: 'Digital Service',
-          quantity: 1,
-          price: purchaseValue
-        }]
-      });
-      
-      console.log('GA4 purchase event sent:', { orderId, value: purchaseValue, currency });
-    } catch (e) {
-      console.error('Failed to send GA4 purchase event:', e);
-    }
-    
     document.getElementById('uploadSection').style.display='none';
     document.getElementById('heroSection').style.display='none';
     const panel=document.createElement('div');
@@ -3244,7 +1772,7 @@
         }
       }catch(e){}
     }
-    if(sEl){sEl.innerText='Timed out. Email support@quantproof.net with order: '+orderId;sEl.style.color='#ffaa00';}
+    if(sEl){sEl.innerText='Timed out. Email quantproof@gmail.com with order: '+orderId;sEl.style.color='#ffaa00';}
   }
   window.addEventListener('load', handleLSReturn);
 
@@ -3305,16 +1833,7 @@
     try { sessionStorage.setItem('qp_source','ibkr'); } catch(e) {}
     showLoading();
     try {
-      // Add enhanced validation parameter
-      const enhancedValidation = document.getElementById('brokerEnhancedValidation');
-      const requestBody = {
-        account_id: accountId, 
-        flex_token: token, 
-        query_id: queryId, 
-        days_back: 365,
-        enhanced: enhancedValidation ? enhancedValidation.checked : false
-      };
-      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:accountId,flex_token:token,query_id:queryId,days_back:365})});
       if (!resp.ok) {
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -3323,10 +1842,7 @@
         return;
       }
       const result=await resp.json(); const data=result.validation;
-      if(data.validation_hash) { 
-        saveToken('qp_validation_hash',data.validation_hash); 
-        sessionStorage.setItem('qp_ibkr_validation_data', JSON.stringify(data)); 
-      }
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err) { hideLoading(true); alert('IBKR error: '+err.message); }
   }
@@ -3343,15 +1859,7 @@
     showLoading();
     let cst = null; try { cst = coldStartWarning(); } catch(e) { cst = null; }
     try {
-      // Add enhanced validation parameter
-      const enhancedValidation = document.getElementById('brokerEnhancedValidation');
-      const requestBody = {
-        api_key: key, 
-        secret_key: secret, 
-        mode,
-        enhanced: enhancedValidation ? enhancedValidation.checked : false
-      };
-      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key,secret_key:secret,mode})});
       if (cst) clearTimeout(cst);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
@@ -3372,7 +1880,7 @@
         throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
       const data=await resp.json();
-      if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){if (cst) clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
@@ -3416,12 +1924,7 @@
     _validationMode='tradingview'; _brokerSource=''; _isSampleRun=false;
     showLoading();
     try {
-      // Add enhanced validation parameter
-      const enhancedValidation = document.getElementById('tradingviewEnhancedValidation');
-      const requestBody = {
-        enhanced: enhancedValidation ? enhancedValidation.checked : false
-      };
-      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST'});
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -3433,10 +1936,7 @@
         return;
       }
       const data=await resp.json();
-      if(data.validation_hash) { 
-        saveToken('qp_validation_hash',data.validation_hash); 
-        sessionStorage.setItem('qp_tv_validation_data', JSON.stringify(data)); 
-      }
+      if(data.validation_hash) sessionStorage.setItem('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){hideLoading(true);alert('TradingView validation error: '+err.message);}
   }
@@ -3450,701 +1950,6 @@
       setTimeout(()=>checkTVStatus(sessionId),1500);
     } catch(err){status.innerText='Error: '+err.message;status.style.color='#ff4444';}
   }
-
-  // ── Portfolio ─────────────────────────────────────────────────────────────
-  const _portFiles = {};
-
-  function showPortfolioUpload() {
-    // Token row removed - portfolio analysis now free
-    document.getElementById('portfolioPanel').style.display = 'block';
-    document.getElementById('portfolioPanel').scrollIntoView({behavior:'smooth'});
-  }
-
-  function hidePortfolioPanel() {
-    document.getElementById('portfolioPanel').style.display = 'none';
-  }
-
-  async function verifyPortToken() {
-    const tok = (document.getElementById('portToken').value || '').trim();
-    const statusEl = document.getElementById('portTokenStatus');
-    if (!tok) { statusEl.textContent = 'Enter a token first.'; statusEl.style.color='#ff4444'; return; }
-    statusEl.textContent = 'Verifying...'; statusEl.style.color = 'var(--muted)';
-    try {
-      const resp = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
-      if (!resp.ok) { statusEl.textContent = 'Debug endpoint not available on this server.'; return; }
-      const data = await resp.json();
-      if (data.is_pro || data.tier === 'pro') {
-        statusEl.textContent = `✓ Valid — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}`;
-        statusEl.style.color = 'var(--accent)';
-      } else {
-        statusEl.innerHTML = `✗ Not recognised — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}<br>
-          <span style="opacity:0.7;">Set <code>TEST_REPORT_TOKEN</code> in Render environment to match what you typed above.</span>`;
-        statusEl.style.color = '#ffaa00';
-      }
-    } catch(e) {
-      statusEl.textContent = 'Verify failed: ' + e.message;
-      statusEl.style.color = '#ff4444';
-    }
-  }
-
-  function portFileChanged(n, input) {
-    if (input.files[0]) {
-      _portFiles[n] = input.files[0];
-      document.getElementById(`portFile${n}Label`).textContent = '✓ ' + input.files[0].name.slice(0,12);
-      if (!document.getElementById(`portName${n}`).value)
-        document.getElementById(`portName${n}`).value = input.files[0].name.replace('.csv','').slice(0,20);
-    }
-  }
-
-  async function handlePortfolioSubmit() {
-    const status = document.getElementById('portStatus');
-    
-    if (!_portFiles[1] || !_portFiles[2]) {
-      status.textContent = 'Please select at least 2 strategy CSV files.';
-      status.style.color = '#ff4444'; return;
-    }
-
-    status.textContent = 'Running portfolio analysis...';
-    status.style.color = 'var(--accent)';
-
-    const names = [1,2,3].map(n => document.getElementById(`portName${n}`).value.trim() || `Strategy ${n}`).join(',');
-    const fd = new FormData();
-    [1,2,3].forEach(n => { if (_portFiles[n]) fd.append('files', _portFiles[n]); });
-    fd.append('currency', 'USD');
-    fd.append('strategy_names', names);
-    // Add enhanced validation parameter
-    const enhancedValidation = document.getElementById('portfolioEnhancedValidation');
-    if(enhancedValidation) fd.append('enhanced', enhancedValidation.checked);
-
-    try {
-      showLoading();
-      hidePortfolioPanel();
-      const resp = await fetch(`${API_URL}/validate/portfolio`, {
-        method: 'POST',
-        headers: {},
-        body: fd
-      });
-      if (!resp.ok) {
-        const err = await resp.json();
-        hideLoading(true);
-        const detail = err.detail || err;
-        if (detail.error === 'payment_required') {
-          status.innerHTML = '<span style="color:#7B61FF;">🔒 Full portfolio results require unlock. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;">Unlock Portfolio (₹199) →</a></span>';
-          status.style.color = '#7B61FF';
-          showPortfolioUpload();
-        } else {
-          alert('Portfolio error: ' + (detail.message || detail));
-        }
-        return;
-      }
-      const data = await resp.json();
-      setTimeout(() => { hideLoading(); renderPortfolioResults(data); }, 2000);
-    } catch(e) {
-      hideLoading(true);
-      status.textContent = 'Error: ' + e.message;
-      status.style.color = '#ff4444';
-    }
-  }
-
-  function buildPortfolioFixPlan(plan, strategyNames) {
-    if (!plan) return `
-      <div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;">
-        Fix plan not available — no AI key configured on server. Rule-based plan shown below.
-      </div>`;
-
-    const fixes   = plan.portfolio_fixes || [];
-    const summary = plan.summary || '';
-    const verdict = plan.allocation_verdict || '';
-    const bestPair= plan.strongest_combination || '';
-    const catColors = {'High Drawdown Coincidence':'#ff6b6b','High Correlation':'#ffaa00',
-      'Weak Strategy':'#ff6b6b','Combined Sharpe Below Average':'#ffaa00',
-      'Portfolio is well-constructed':'var(--accent)'};
-
-    return `
-      <div style="margin-bottom:16px;padding:14px 16px;background:rgba(245,183,0,0.05);border:1px solid rgba(245,183,0,0.2);">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--gold);letter-spacing:0.1em;margin-bottom:6px;">// PORTFOLIO ASSESSMENT</div>
-        <div style="font-size:13px;color:var(--text);line-height:1.7;">${summary}</div>
-      </div>
-
-      ${verdict ? `<div style="margin-bottom:16px;padding:10px 14px;background:rgba(0,0,0,0.2);border-left:3px solid var(--gold);">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:3px;">ALLOCATION VERDICT</div>
-        <div style="font-size:12px;color:var(--text);line-height:1.6;">${verdict}</div>
-      </div>` : ''}
-
-      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:10px;">
-        // RANKED FIX PLAN — ${fixes.length} ISSUES
-      </div>
-
-      ${fixes.length === 0 ? `
-        <div style="padding:16px 0;font-family:var(--mono);font-size:11px;color:var(--accent);">
-          ✓ No portfolio-level issues detected. All strategies are well-diversified and independently viable.
-        </div>` : ''}
-
-      ${fixes.map((fix, i) => {
-        const colKey = Object.keys(catColors).find(k => fix.issue && fix.issue.includes(k));
-        const col = colKey ? catColors[colKey] : '#ffaa00';
-        const effortCol = fix.effort==='Low'?'var(--accent)':fix.effort==='High'?'#ff6b6b':'#ffaa00';
-        return `<div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-          <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:6px;flex-wrap:wrap;">
-            <span style="font-family:var(--mono);font-size:20px;font-weight:700;color:${col};min-width:28px;line-height:1;">${fix.rank}</span>
-            <div style="flex:1;">
-              <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px;">${fix.issue||''}</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
-                ${fix.effort?`<span style="font-family:var(--mono);font-size:8px;color:${effortCol};padding:1px 7px;border:1px solid ${effortCol}33;">EFFORT: ${fix.effort.toUpperCase()}</span>`:''}
-                ${fix.score_impact?`<span style="font-family:var(--mono);font-size:8px;color:var(--accent);padding:1px 7px;border:1px solid rgba(0,255,136,0.2);">${fix.score_impact}</span>`:''}
-              </div>
-              <div style="font-size:12px;color:var(--muted);line-height:1.65;margin-bottom:6px;">${fix.why_it_matters||''}</div>
-              <div style="font-size:12px;color:var(--gold);line-height:1.65;padding:8px 12px;background:rgba(245,183,0,0.06);border-left:2px solid rgba(245,183,0,0.4);">↳ ${fix.specific_fix||''}</div>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-          </div>
-        </div>`;
-      }).join('')}
-
-      ${bestPair ? `<div style="margin-top:16px;padding:10px 14px;background:rgba(0,255,136,0.04);border:1px solid rgba(0,255,136,0.15);">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-bottom:3px;">STRONGEST PAIR</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6;">${bestPair}</div>
-      </div>` : ''}
-    `;
-  }
-
-  function buildCombinedEquityCurve(equityCurve, weights, names) {
-    if (!equityCurve || equityCurve.length < 5) return '';
-    const W = 560, H = 70, pad = {l:8,r:50,t:6,b:16};
-    const pts = equityCurve;
-    const mn = Math.min(...pts), mx = Math.max(...pts), rng = mx - mn || 1;
-    const col = pts[pts.length-1] >= 100 ? 'var(--accent)' : '#ff6b6b';
-    const polyPts = pts.map((v,i) => {
-      const x = pad.l + i/(pts.length-1)*(W-pad.l-pad.r);
-      const y = H-pad.b - (v-mn)/rng*(H-pad.t-pad.b);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    // fill polygon
-    const first = `${pad.l},${H-pad.b}`;
-    const last  = `${(pad.l+(W-pad.l-pad.r)).toFixed(1)},${H-pad.b}`;
-    const fillPts = first + ' ' + polyPts + ' ' + last;
-    const ret = ((pts[pts.length-1]/100)-1)*100;
-    return `<div style="background:rgba(0,0,0,0.2);padding:8px 0 4px;border:1px solid var(--border);margin-top:4px;">
-      <div style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:0 8px 4px;letter-spacing:0.1em;">RISK-PARITY COMBINED EQUITY CURVE</div>
-      <svg width="${W}" height="${H}" style="display:block;overflow:visible;">
-        <polygon points="${fillPts}" fill="${col}" fill-opacity="0.08"/>
-        <polyline points="${polyPts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
-        <line x1="${pad.l}" y1="${H-pad.b-(100-mn)/rng*(H-pad.t-pad.b)}" x2="${W-pad.r}" y2="${H-pad.b-(100-mn)/rng*(H-pad.t-pad.b)}"
-          stroke="rgba(255,255,255,0.1)" stroke-width="0.5" stroke-dasharray="3,3"/>
-        <text x="${W-pad.r+2}" y="${(H-pad.b-(pts[pts.length-1]-mn)/rng*(H-pad.t-pad.b)).toFixed(1)}"
-          font-family="monospace" font-size="9" fill="${col}">${ret>=0?'+':''}${ret.toFixed(1)}%</text>
-        <text x="${pad.l}" y="${H}" font-family="monospace" font-size="7" fill="rgba(255,255,255,0.3)">T1</text>
-        <text x="${(W-pad.r).toFixed(0)}" y="${H}" font-family="monospace" font-size="7" fill="rgba(255,255,255,0.3)" text-anchor="end">T${pts.length}</text>
-      </svg>
-    </div>`;
-  }
-
-  function buildMiniEquityCurve(equityCurve, sharpe) {
-    // Build a mini SVG equity curve — 200x50px
-    // If no real curve, synthesise a plausible one from Sharpe
-    let pts = equityCurve && equityCurve.length > 3 ? equityCurve : null;
-    if (!pts) {
-      // Synthetic from Sharpe — deterministic seed
-      const seed = Math.abs(Math.round((sharpe || 0) * 1000)) % 9999 + 1;
-      let rng = seed; const rand = () => { rng = (rng * 1664525 + 1013904223) & 0xffffffff; return (rng >>> 0) / 0xffffffff; };
-      let eq = 100, arr = [100];
-      const mean = (sharpe || 0) * 0.012, std = Math.abs(mean / ((Math.abs(sharpe)||0.1))) + 0.01;
-      for (let i = 0; i < 59; i++) {
-        const r = (rand() - 0.5) * 2 * std + mean;
-        eq *= (1 + Math.max(-0.5, Math.min(0.5, r)));
-        arr.push(eq);
-      }
-      pts = arr;
-    }
-    const W = 200, H = 44, pad = 2;
-    const mn = Math.min(...pts), mx = Math.max(...pts), rng = mx - mn || 1;
-    const col = pts[pts.length-1] >= pts[0] ? 'var(--accent)' : '#ff6b6b';
-    const polyPts = pts.map((v, i) => {
-      const x = pad + i / (pts.length - 1) * (W - pad*2);
-      const y = H - pad - (v - mn) / rng * (H - pad*2);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    const ret = ((pts[pts.length-1] / pts[0]) - 1) * 100;
-    return `<div style="margin:8px 0 4px;">
-      <svg width="${W}" height="${H}" style="display:block;overflow:visible;">
-        <polyline points="${polyPts}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
-        <text x="${W-2}" y="${H-2}" font-family="monospace" font-size="8" fill="${col}" text-anchor="end">${ret>=0?'+':''}${ret.toFixed(1)}%</text>
-      </svg>
-    </div>`;
-  }
-
-  function renderPortfolioResults(data) {
-    const section = document.getElementById('resultsSection');
-    document.getElementById('uploadSection').style.display = 'none';
-    document.getElementById('heroSection').style.display   = 'none';
-    section.classList.add('active');
-    window.scrollTo({top:0,behavior:'smooth'});
-
-    const isPreview = data.is_preview || false;
-    const strats  = data.strategies || [];
-    const mat     = data.correlation_matrix || [];
-    const names   = data.strategy_names || strats.map(s => s.name);
-    const n       = names.length;
-    const divScore= data.diversification_score || 0;
-    const divCol  = divScore >= 70 ? '#F5B700' : divScore >= 45 ? '#ffaa00' : '#ff4444';
-
-    // Compute avgCorr FIRST — corrDisplayCol depends on it
-    let avgCorr;
-    if (data.avg_correlation !== undefined && data.avg_correlation !== null) {
-      avgCorr = Number(data.avg_correlation).toFixed(2);
-    } else {
-      const offDiag = [];
-      for (let i=0;i<n;i++) for (let j=i+1;j<n;j++) offDiag.push((mat[i]||[])[j]||0);
-      avgCorr = offDiag.length ? (offDiag.reduce((a,b)=>a+b,0)/offDiag.length).toFixed(2) : '0.00';
-    }
-    const avgCorrAbs = Math.abs(parseFloat(avgCorr) || 0);
-    const corrDisplayCol = avgCorrAbs < 0.3 ? 'var(--accent)' : avgCorrAbs < 0.6 ? '#ffaa00' : '#ff4444';
-
-    const shCol = c => c>=1.5?'var(--accent)':c>=0.8?'#F5B700':c>=0?'#ffaa00':'#ff4444';
-    const scCol = c => c>=70?'var(--accent)':c>=50?'#F5B700':'#ff4444';
-    const ddCol = d => Math.abs(d)<0.1?'var(--accent)':Math.abs(d)<0.2?'#ffaa00':'#ff4444';
-
-    section.innerHTML = `
-      <div style="background:var(--deep);border:1px solid rgba(245,183,0,0.3);margin-bottom:20px;">
-
-        <!-- Gold header bar -->
-        <div style="background:rgba(245,183,0,0.06);border-bottom:1px solid rgba(245,183,0,0.2);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-family:var(--mono);font-size:10px;color:#F5B700;letter-spacing:0.15em;margin-bottom:2px;">// PORTFOLIO ANALYSIS</div>
-            <div style="font-size:11px;color:var(--muted);">${n} strategies validated &nbsp;·&nbsp; 44 checks each &nbsp;·&nbsp; Pearson correlation on daily PnL</div>
-          </div>
-          <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:${divCol};">${divScore}<span style="font-size:14px;color:var(--muted);font-weight:400;">/100</span></div>
-        </div>
-
-        ${isPreview ? `
-        <!-- Preview banner -->
-        <div style="background:rgba(123,97,255,0.1);border-bottom:1px solid rgba(123,97,255,0.3);padding:12px 24px;text-align:center;">
-          <div style="font-family:var(--mono);font-size:10px;color:#7B61FF;letter-spacing:0.1em;">// PREVIEW MODE</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Free portfolio analysis with limited results. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;">Unlock full analysis →</a></div>
-        </div>
-        ` : ''}
-
-        <!-- 4 combined stats -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);">
-          ${[
-            ['DIVERSIFICATION', divScore+'/100', divCol, 'Higher = more independent'],
-            ['AVG CORRELATION', avgCorr, corrDisplayCol, parseFloat(avgCorr)<0?'Negative corr = hedge':'Target: < 0.30'],
-            ['COMBINED SHARPE', data.combined_sharpe, shCol(data.combined_sharpe), 'Risk-parity weighted'],
-          ].map(([lbl,val,col,sub],i)=>`
-            <div style="padding:14px 18px;${i<2?'border-right:1px solid var(--border);':''}">
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:4px;">${lbl}</div>
-              <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col};">${val}</div>
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">${sub}</div>
-            </div>`).join('')}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);">
-          ${[
-            ['COMBINED MAX DD', (Math.abs(data.combined_drawdown||0)*100).toFixed(1)+'%', ddCol(data.combined_drawdown), 'From risk-parity equity curve'],
-            ['DD COINCIDENCE',  ((data.dd_coincidence||0)*100).toFixed(0)+'%',
-              (data.dd_coincidence||0)<0.3?'var(--accent)':(data.dd_coincidence||0)<0.6?'#ffaa00':'#ff4444',
-              (data.dd_coincidence||0)<0.3?'Low — strategies fall independently':(data.dd_coincidence||0)<0.6?'Moderate overlap':'High — strategies crash together'],
-            ['PORTFOLIO DSR',
-              data.portfolio_dsr!=null?(data.portfolio_dsr.toFixed(1)+'/100'):'n/a',
-              (data.portfolio_dsr||0)>=80?'var(--accent)':(data.portfolio_dsr||0)>=50?'#ffaa00':'#ff4444',
-              data.portfolio_dsr>=99?'Capped at 99.8 — strong but never absolute':'Combined strategy deflated Sharpe (BLP 2012)'],
-          ].map(([lbl,val,col,sub],i)=>`
-            <div style="padding:14px 18px;${i<2?'border-right:1px solid var(--border);':''}">
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:0.1em;margin-bottom:4px;">${lbl}</div>
-              <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${col};">${val}</div>
-              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">${sub}</div>
-            </div>`).join('')}
-        </div>
-
-        <!-- Verdict + combined equity -->
-        <div style="padding:16px 24px;border-bottom:1px solid var(--border);">
-          <div style="font-size:13px;color:var(--muted);line-height:1.75;margin-bottom:${(data.combined_equity||[]).length>5?'12px':'0'};">
-            ${data.portfolio_verdict||''}
-          </div>
-          ${(data.combined_equity||[]).length > 5 ? buildCombinedEquityCurve(data.combined_equity, data.rp_weights, data.strategy_names) : ''}
-          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;${isPreview ? 'filter:blur(8px);' : ''}">
-            <div style="${isPreview ? 'opacity:0.3;' : ''}">Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}</div>
-            ${isPreview ? `<div style="text-align:center;margin-top:8px;">
-              <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;font-size:10px;">🔒 Unlock full weights & analysis →</a>
-            </div>` : ''}
-          </div>` : ''}
-        </div>
-
-        <!-- Tabs -->
-        <div style="padding:0 24px;">
-          <div class="port-tabs" id="portTabs">
-            <button class="port-tab active" onclick="portTab('overview')">Overview</button>
-            <button class="port-tab" onclick="portTab('fixplan')">Fix Plan</button>
-            <button class="port-tab" onclick="portTab('checks')">Checks Detail</button>
-            <button class="port-tab" onclick="portTab('correlation')">Correlation</button>
-          </div>
-        </div>
-
-        <!-- TAB: OVERVIEW -->
-        <div id="portTabOverview" style="padding:0 24px 24px;">
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            ${strats.map((s,idx)=>{
-              const sc   = s.fundable_score||0;
-              const pct  = s.checks_passed&&s.checks_total ? Math.round(s.checks_passed/s.checks_total*100) : 0;
-              const crash= (s.crash_survived!=null&&s.crash_total) ? `${s.crash_survived}/${s.crash_total} crashes` : '';
-              const fmt  = s.source_format||'CSV';
-              return `<div class="port-strategy-card">
-                <div style="display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;">
-                  <div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
-                      <div style="font-family:var(--mono);font-size:9px;color:#F5B700;letter-spacing:0.1em;">S${idx+1}</div>
-                      <div style="font-size:14px;font-weight:700;color:var(--text);">${s.name}</div>
-                      <div style="font-family:var(--mono);font-size:9px;color:var(--muted);background:var(--deep);padding:2px 7px;border:1px solid var(--border);">${fmt}</div>
-                      ${crash?`<div style="font-family:var(--mono);font-size:9px;color:var(--muted);">${crash}</div>`:''}
-                    </div>
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
-                      ${[
-                        ['SHARPE', s.sharpe, shCol(s.sharpe)],
-                        ['MAX DD', (Math.abs(s.max_drawdown||0)*100).toFixed(1)+'%', ddCol(s.max_drawdown)],
-                        ['WIN RATE', s.win_rate+'%', 'var(--text)'],
-                        ['TRADES', s.total_trades, 'var(--text)'],
-                      ].map(([l,v,c])=>`<div style="background:var(--deep);padding:8px 10px;">
-                        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-bottom:3px;">${l}</div>
-                        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:${c};">${v}</div>
-                      </div>`).join('')}
-                    </div>
-                    ${s.date_range&&s.date_range!='No date data'?`<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:8px;">${s.date_range}</div>`:''}
-                    ${buildMiniEquityCurve(s.equity_curve, s.sharpe)}
-                    ${(s.top_issues||[]).length?`<div style="font-family:var(--mono);font-size:9px;color:#ff6b6b;line-height:1.7;margin-top:6px;">${s.top_issues.slice(0,2).map(i=>'⚠ '+i).join('<br>')}</div>`:''}
-                    ${(s.top_strengths||[]).length?`<div style="font-family:var(--mono);font-size:9px;color:var(--accent);line-height:1.7;margin-top:4px;">${s.top_strengths.slice(0,2).map(i=>'✓ '+i).join('<br>')}</div>`:''}
-                  </div>
-                  <div style="text-align:center;min-width:70px;">
-                    <div style="font-family:var(--mono);font-size:36px;font-weight:700;color:${scCol(sc)};line-height:1;">${sc}</div>
-                    <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;">${s.grade||''}</div>
-                    <div class="port-check-bar" style="margin-top:8px;"><div class="port-check-fill" style="width:${pct}%;background:${scCol(sc)};"></div></div>
-                    <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:3px;">${s.checks_passed||0}/${s.checks_total||44} pass</div>
-                  </div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>
-
-        <!-- TAB: CHECKS DETAIL (hidden by default) -->
-        <div id="portTabChecks" style="display:none;padding:0 24px 24px;">
-          ${strats.map((s,idx)=>`
-            <div style="margin-bottom:20px;">
-              <div style="font-family:var(--mono);font-size:10px;color:#F5B700;letter-spacing:0.1em;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:8px;">
-                S${idx+1} — ${s.name} — Score: ${s.fundable_score}
-              </div>
-              ${(s.checks||[]).filter(c=>!c.passed).slice(0,8).map(c=>`
-                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-                    <span style="font-family:var(--mono);font-size:10px;color:#ff6b6b;">✗ ${c.name}</span>
-                    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${c.category} · ${c.score}/100</span>
-                  </div>
-                  ${c.insight?`<div style="font-size:11px;color:var(--muted);line-height:1.6;">${c.insight}</div>`:''}
-                  ${c.fix?`<div style="font-size:11px;color:#F5B700;margin-top:3px;">Fix: ${c.fix}</div>`:''}
-                </div>`).join('')}
-              ${(s.checks||[]).filter(c=>c.passed&&(c.score||0)>=80).slice(0,4).map(c=>`
-                <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);">
-                  <span style="font-family:var(--mono);font-size:10px;color:var(--accent);">✓ ${c.name}</span>
-                  <span style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-left:10px;">${c.score}/100</span>
-                </div>`).join('')}
-            </div>`).join('')}
-        </div>
-
-        <!-- TAB: CORRELATION (hidden by default) -->
-        <div id="portTabCorrelation" style="display:none;padding:0 24px 24px;">
-          <div style="overflow-x:auto;margin-bottom:16px;">
-            <table style="border-collapse:collapse;font-family:var(--mono);font-size:12px;width:100%;">
-              <thead>
-                <tr>
-                  <th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);text-align:left;font-size:9px;color:var(--muted);letter-spacing:0.08em;">STRATEGY</th>
-                  ${names.map(nm=>`<th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:9px;letter-spacing:0.06em;">${nm.slice(0,14)}</th>`).join('')}
-                </tr>
-              </thead>
-              <tbody>
-                ${mat.map((row,i)=>`<tr>
-                  <th style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);text-align:left;font-size:9px;color:var(--muted);font-weight:600;white-space:nowrap;">${(names[i]||'').slice(0,14)}</th>
-                  ${row.map((v,j)=>{
-                    const av=Math.abs(v);
-                    const isD=i===j;
-                    const bg=isD?'rgba(245,183,0,0.08)':av<0.3?'rgba(0,255,136,0.05)':av<0.6?'rgba(255,170,0,0.08)':'rgba(255,68,68,0.1)';
-                    const cl=isD?'#F5B700':v<0?'var(--accent)':av<0.3?'var(--accent)':av<0.6?'#ffaa00':'#ff4444';
-                    return `<td style="padding:12px 14px;text-align:center;background:${bg};border:1px solid var(--border);color:${cl};font-weight:700;">${Number(v).toFixed(2)}</td>`;
-                  }).join('')}
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-family:var(--mono);font-size:9px;">
-            <div style="padding:10px;background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.15);">
-              <div style="color:var(--accent);margin-bottom:3px;">GREEN — GOOD</div>
-              <div style="color:var(--muted);">Below 0.30 · Strategies move independently · Full diversification benefit</div>
-            </div>
-            <div style="padding:10px;background:rgba(255,170,0,0.05);border:1px solid rgba(255,170,0,0.15);">
-              <div style="color:#ffaa00;margin-bottom:3px;">AMBER — CAUTION</div>
-              <div style="color:var(--muted);">0.30–0.60 · Partial overlap · Some diversification but correlated drawdowns</div>
-            </div>
-            <div style="padding:10px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.15);">
-              <div style="color:#ff4444;margin-bottom:3px;">RED — HIGH CORR</div>
-              <div style="color:var(--muted);">Above 0.60 · Minimal diversification · Will drawdown together</div>
-            </div>
-          </div>
-          <div style="margin-top:12px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;">
-            Negative correlation = hedge — strategies offset each other. Institutional target: avg off-diagonal &lt; 0.30.
-          </div>
-        </div>
-
-        <!-- TAB: FIX PLAN -->
-        <div id="portTabFixplan" style="display:none;padding:0 24px 24px;">
-          ${buildPortfolioFixPlan(data.portfolio_plan, data.strategy_names)}
-        </div>
-
-        <!-- Audit flags — date warnings, regime notes etc -->
-        ${(data.audit_flags||[]).filter(f=>f.includes('⚠')).length ? `
-        <div style="padding:12px 24px;border-top:1px solid var(--border);background:rgba(255,170,0,0.03);">
-          ${(data.audit_flags||[]).filter(f=>f.includes('⚠')).map(f=>`
-            <div style="font-family:var(--mono);font-size:9px;color:#ffaa00;line-height:1.7;margin-bottom:4px;">
-              ${f}
-            </div>`).join('')}
-        </div>` : ''}
-
-        <!-- Footer -->
-        <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);">
-            Portfolio validated at n=10 · Risk-parity weighted · Normalised Pearson correlation
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button onclick="downloadPortfolioPdf()" id="portPdfBtn"
-              style="background:var(--gold);color:#0a0a0a;border:none;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">
-              📄 Download Portfolio PDF
-            </button>
-            <button onclick="resetApp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;font-family:var(--mono);font-size:10px;cursor:pointer;">← Run Another</button>
-          </div>
-        </div>
-
-      </div>`;
-
-    // Show pricing after portfolio results too
-    const ps = document.getElementById('pricingSection');
-    if (ps) ps.style.display = 'block';
-  }
-
-  async function downloadPortfolioPdf() {
-    const btn = document.getElementById('portPdfBtn');
-    const tok = (loadToken('qp_pro_token')
-              || loadToken('qp_port_token')
-              || loadToken('qp_report_token') || '').trim();
-    if (!tok) {
-      alert('No portfolio token found. Please unlock portfolio analysis first.');
-      return;
-    }
-    if (!_portFiles[1] || !_portFiles[2]) {
-      alert('Files no longer in memory — please re-upload your strategies and run analysis again.');
-      return;
-    }
-    if (btn) { btn.disabled = true; btn.textContent = 'Generating PDF...'; }
-    const names = [1,2,3].map(n => (document.getElementById(`portName${n}`)?.value||'').trim() || `Strategy ${n}`).join(',');
-    const fd = new FormData();
-    [1,2,3].forEach(n => { if (_portFiles[n]) fd.append('files', _portFiles[n]); });
-    fd.append('currency', 'USD');
-    fd.append('strategy_names', names);
-    try {
-      const resp = await fetch(`${API_URL_REPORT}/report/generate-portfolio`, {
-        method: 'POST',
-        headers: { 'x-portfolio-token': tok },
-        body: fd
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(()=>({detail:'Unknown error'}));
-        const detail = err.detail || err;
-        if (detail.error === 'payment_required') {
-          alert('Portfolio PDF requires a valid portfolio or pro token.');
-        } else {
-          alert('PDF generation failed: ' + (detail.message || JSON.stringify(detail)));
-        }
-        if (btn) { btn.disabled = false; btn.textContent = '📄 Download Portfolio PDF'; }
-        return;
-      }
-      const blob = await resp.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url;
-      a.download = `QuantProof_Portfolio_Report.pdf`;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-      if (btn) { btn.disabled = false; btn.textContent = '✓ PDF Downloaded'; btn.style.background='var(--accent)'; }
-    } catch(e) {
-      alert('PDF download failed: ' + e.message);
-      if (btn) { btn.disabled = false; btn.textContent = '📄 Download Portfolio PDF'; }
-    }
-  }
-
-  function portTab(name) {
-    ['overview','fixplan','checks','correlation'].forEach(t => {
-      const el = document.getElementById('portTab'+t.charAt(0).toUpperCase()+t.slice(1));
-      if (el) el.style.display = t===name ? 'block' : 'none';
-    });
-    document.querySelectorAll('.port-tab').forEach((btn,i)=>{
-      btn.classList.toggle('active', ['overview','fixplan','checks','correlation'][i]===name);
-    });
-  }
-
-  // ── Pro Plan ──────────────────────────────────────────────────────────────
-  async function buyPortfolioUnlock() {
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-portfolio`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.message || data.error);
-      const options = {
-        key: data.key_id, amount: data.amount, currency: data.currency,
-        name: 'QuantProof', description: 'Portfolio Analysis Unlock',
-        order_id: data.order_id, theme: {color:'#7B61FF'},
-        handler: async function(response) {
-          const vr = await fetch(`${API_URL_REPORT}/report/webhook-portfolio`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id:   response.razorpay_order_id,
-              razorpay_signature:  response.razorpay_signature
-            })
-          });
-          const vd = await vr.json();
-          if (vd.token) {
-            // Send GA4 purchase event for Portfolio Plan (₹199)
-            try {
-              gtag('event', 'purchase', {
-                transaction_id: response.razorpay_order_id,
-                value: 199,
-                currency: 'INR',
-                items: [{
-                  item_id: 'quantproof_portfolio',
-                  item_name: 'QuantProof Portfolio Plan',
-                  category: 'Digital Service',
-                  quantity: 1,
-                  price: 199
-                }]
-              });
-              console.log('GA4 purchase event sent for Portfolio Plan:', { orderId: response.razorpay_order_id, value: 199, currency: 'INR' });
-            } catch (e) {
-              console.error('Failed to send GA4 purchase event for Portfolio Plan:', e);
-            }
-            
-            saveToken('qp_port_token', vd.token);
-            document.getElementById('portToken').value = vd.token;
-            document.getElementById('portTokenRow').style.display = 'none';
-            const s = document.getElementById('portStatus');
-            if (s) { s.textContent = '✓ Portfolio unlocked — you can now analyse your strategies.'; s.style.color='var(--accent)'; }
-          }
-        },
-        modal: { ondismiss: function(){} }
-      };
-      const rzp = new Razorpay(options); rzp.open();
-    } catch(e) { alert('Portfolio unlock error: ' + e.message); }
-  }
-
-  async function buyProPlan() {
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-pro`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.message || data.error);
-      const options = {
-        key: data.key_id, amount: data.amount, currency: data.currency,
-        name: 'QuantProof', description: 'Pro Plan — 30 days unlimited',
-        order_id: data.order_id, theme: {color:'#7B61FF'},
-        handler: async function(response) {
-          const vr = await fetch(`${API_URL_REPORT}/report/webhook-pro`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id:   response.razorpay_order_id,
-              razorpay_signature:  response.razorpay_signature
-            })
-          });
-          const vd = await vr.json();
-          if (vd.token) {
-            // Send GA4 purchase event for Pro Plan (₹999)
-            try {
-              gtag('event', 'purchase', {
-                transaction_id: response.razorpay_order_id,
-                value: 999,
-                currency: 'INR',
-                items: [{
-                  item_id: 'quantproof_pro',
-                  item_name: 'QuantProof Pro Plan',
-                  category: 'Digital Service',
-                  quantity: 1,
-                  price: 999
-                }]
-              });
-              console.log('GA4 purchase event sent for Pro Plan:', { orderId: response.razorpay_order_id, value: 999, currency: 'INR' });
-            } catch (e) {
-              console.error('Failed to send GA4 purchase event for Pro Plan:', e);
-            }
-            
-            saveToken('qp_pro_token', vd.token);
-            saveToken('qp_port_token', vd.token);
-            saveToken('qp_lite_token', vd.token);
-            // Unlock everything
-            if (typeof unlockInstitutional === 'function') unlockInstitutional();
-            _nTrials = 50;
-            document.getElementById('sliderVal') && (document.getElementById('sliderVal').textContent = '50');
-            document.getElementById('depthSlider') && (document.getElementById('depthSlider').value = '50');
-            alert('✓ Pro Plan activated — 30 days of unlimited access. Reload to apply full benefits.');
-          }
-        },
-        modal: { ondismiss: function(){} }
-      };
-      const rzp = new Razorpay(options); rzp.open();
-    } catch(e) { alert('Pro plan error: ' + e.message); }
-  }
-
-  async function devResetLimit() {
-    const tok = (loadToken('qp_pro_token') || '').trim();
-    const statusEl = document.getElementById('devStatus');
-    if (!tok) { statusEl.textContent = 'Set token first'; statusEl.style.color='#ff4444'; return; }
-    statusEl.textContent = 'Resetting...'; statusEl.style.color='var(--muted)';
-    try {
-      const resp = await fetch(`${API_URL}/debug/reset-limit?t=${encodeURIComponent(tok)}`);
-      const data = await resp.json();
-      if (resp.ok) {
-        statusEl.textContent = `✓ Rate limit reset (${data.cleared_ips} IPs cleared) — validate freely now`;
-        statusEl.style.color = '#00ff88';
-      } else {
-        statusEl.textContent = `✗ ${data.detail || 'Failed'}`;
-        statusEl.style.color = '#ff4444';
-      }
-    } catch(e) {
-      statusEl.textContent = 'Reset failed: ' + e.message;
-      statusEl.style.color = '#ff4444';
-    }
-  }
-
-  // ── On load: restore tokens — verify with server before unlocking ────────
-  (function restoreTokens() {
-    const proTok  = loadToken('qp_pro_token');
-    const portTok = loadToken('qp_port_token');
-    if (proTok) {
-      // Verify token is still valid server-side before unlocking institutional depth
-      fetch(`${API_URL}/debug/token?t=${encodeURIComponent(proTok)}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(d => {
-          if (d && d.is_pro) {
-            _nTrials = 50;
-            if (typeof unlockInstitutional === 'function') unlockInstitutional();
-          } else {
-            // Token expired or invalid — clear it
-            clearToken('qp_pro_token');
-          }
-        })
-        .catch(() => {
-          // Network fail — don't unlock, be safe
-        });
-    }
-  })();
-
 </script>
 
 <script>
@@ -4176,12 +1981,12 @@
     const scoreEl = document.querySelector('.score-val') || document.querySelector('[class*="score"]');
     const score = scoreEl ? scoreEl.textContent.trim().split('\n')[0] : '—';
     const watermark = [
-      '[ QuantProof Validation Result — quantproof.net ]',
+      '[ QuantProof Validation Result — quantproof-frontend.onrender.com ]',
       '',
       'Score: ' + score + '/100',
       '',
       'Full 44-check breakdown and ranked fix plan — PDF report available at:',
-      'quantproof.net',
+      'quantproof-frontend.onrender.com',
       'PDF report: Rs.299 / $4 USD',
       '',
       '[ To share results, download the PDF report ]',
@@ -4211,103 +2016,8 @@
       node = node.parentNode;
     }
   });
-// ============================================
-// ATTACH ALL FUNCTIONS TO WINDOW FOR GLOBAL ACCESS
-// ============================================
-
-// Core validation & file handling
-window.runSampleStrategy = runSampleStrategy;
-window.handleDrop = handleDrop;
-window.handleFile = handleFile;
-window.handleKiteFile = handleKiteFile;
-
-// UI / Navigation / Reset
-window.resetApp = resetApp;
-window.openDemoPDF = openDemoPDF;
-window.toggleFundableExplainer = toggleFundableExplainer;
-window.showInstitutionalTeaser = showInstitutionalTeaser;
-window.showRateLimitModal = showRateLimitModal;
-window.submitRateLimitEmail = submitRateLimitEmail;
-
-// Depth / Validation settings
-window.setDepth = setDepth;
-window.onSliderMove = onSliderMove;
-window.unlockInstitutional = unlockInstitutional;
-window.togglePricing = togglePricing;
-
-// Result display & interaction
-window.renderResults = renderResults;
-window.switchResultTab = switchResultTab;
-window.toggleCheck = toggleCheck;
-window.buildCategoryHTML = buildCategoryHTML;
-window.animateScore = animateScore;
-window.getScoreColor = getScoreColor;
-window.getCrashClass = getCrashClass;
-window.getCrashVerdictColor = getCrashVerdictColor;
-
-// SEBI / Compliance
-window.showSEBIPreflight = showSEBIPreflight;
-window.submitSEBIAndValidate = submitSEBIAndValidate;
-window.buildSEBIPanel = buildSEBIPanel;
-window.buildPropFirmPanel = buildPropFirmPanel;
-
-// Broker connections - THESE WERE MISSING!
-window.showAlpacaConnect = showAlpacaConnect;
-window.hideAlpacaPanel = hideAlpacaPanel;
-window.handleAlpacaConnect = handleAlpacaConnect;
-window.showIBKRConnect = showIBKRConnect;
-window.handleIBKRConnect = handleIBKRConnect;
-
-// TradingView - THESE WERE MISSING!
-window.createTradingViewSession = createTradingViewSession;
-window.checkTVStatus = checkTVStatus;
-window.validateTVSession = validateTVSession;
-window.resetTVSession = resetTVSession;
-
-// Portfolio - THESE WERE MISSING!
-window.showPortfolioUpload = showPortfolioUpload;
-window.hidePortfolioPanel = hidePortfolioPanel;
-window.portFileChanged = portFileChanged;
-window.handlePortfolioSubmit = handlePortfolioSubmit;
-window.renderPortfolioResults = renderPortfolioResults;
-window.portTab = portTab;
-window.downloadPortfolioPdf = downloadPortfolioPdf;
-window.buildPortfolioFixPlan = buildPortfolioFixPlan;
-window.buildCombinedEquityCurve = buildCombinedEquityCurve;
-window.buildMiniEquityCurve = buildMiniEquityCurve;
-window.verifyPortToken = verifyPortToken;
-
-// Payments / Unlock
-window.buyLiteUnlock = buyLiteUnlock;
-window.buyPdfReport = buyPdfReport;
-window.buyPortfolioUnlock = buyPortfolioUnlock;  // ONLY ONCE - remove duplicate!
-window.buyProPlan = buyProPlan;
-window.applyLiteUnlock = applyLiteUnlock;
-window.generatePdfWithToken = generatePdfWithToken;
-window.generatePdfBlob = generatePdfBlob;
-
-// Utilities
-window.setCurrency = setCurrency;
-window.showLoading = showLoading;
-window.hideLoading = hideLoading;
-window.coldStartWarning = coldStartWarning;
-window.submitIntlWaitlist = submitIntlWaitlist;
-
-// Dev tools - THESE WERE MISSING!
-window.applyDevToken = applyDevToken;
-window.devSetTier = devSetTier;
-window.devResetLimit = devResetLimit;
-
-// Report generation helpers
-window.buildResultsHTML = buildResultsHTML;
-window.buildAuditFlagsHTML = buildAuditFlagsHTML;
-window.buildAiTeaser = buildAiTeaser;
-window.handleLSReturn = handleLSReturn;
-  
 </script>
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
-
 
