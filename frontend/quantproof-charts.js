@@ -329,7 +329,7 @@ const QP_Charts = (function () {
         const scale = startValue / trimmed[0];
         return {
           data: trimmed.map(v => +(v * scale).toFixed(2)),
-          borderColor: 'rgba(0,255,136,0.45)',
+          borderColor: 'rgba(0,255,136,0.15)',
           borderWidth: 1,
           fill: false,
           tension: 0.1,
@@ -585,13 +585,12 @@ const QP_Charts = (function () {
     const rng     = _seededRng(_hashToInt(data.validation_hash || 'mc') + 1);
     
     // Use backend Monte Carlo data if available, otherwise generate synthetic
-    const mc = data.monte_carlo?.equity_sims || buildMonteCarloPaths(equity, 50, rng);
+    const mc = (data.monte_carlo?.equity_sims || buildMonteCarloPaths(equity, 50, rng)).slice(0, 50);
 
     // DEBUG: Print Monte Carlo data structure
     console.log('[DEBUG] Frontend Monte Carlo data:');
     console.log('  - data.monte_carlo:', data.monte_carlo);
     console.log('  - mc length:', mc.length);
-    console.log('  - mc[0] length:', mc[0]?.length || 'undefined');
     console.log('  - mc[0] sample:', mc[0]?.slice(0, 5) || 'undefined');
 
     _store.equity         = equity;
@@ -634,3 +633,4 @@ const QP_Charts = (function () {
  *    <script src="quantproof-charts.js"></script>
  * ─────────────────────────────────────────────────────────────────
  */
+
