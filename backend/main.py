@@ -3344,6 +3344,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
             "top_issues": top_issues, "top_strengths": top_strengths,
             "audit_flags": r.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
             "equity_curve": getattr(r, 'equity_curve', None),
+        "monte_carlo": getattr(r, 'monte_carlo', None),
             "sebi_checks":  {},  # Empty for non-SEBI brokers (Alpaca is US-based)
         }
         
@@ -5907,6 +5908,9 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
 
 
 
