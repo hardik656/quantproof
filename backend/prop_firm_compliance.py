@@ -4,14 +4,15 @@ Python implementation for 5 major prop firms
 Compatible with existing QuantProofValidator v6.2
 """
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from enum import Enum
 
-# TYPE_CHECKING prevents circular import
-if TYPE_CHECKING:
+# Import QuantProofValidator at runtime to avoid circular import
+def _get_validator():
     from validator import QuantProofValidator
+    return QuantProofValidator
 
 class PropFirm(Enum):
     FTMO = "FTMO"
@@ -204,8 +205,8 @@ class PropFirmComplianceEngine:
         Initialize with existing QuantProofValidator instance
         validator: QuantProofValidator instance with loaded data
         """
-        # Import QuantProofValidator at runtime to avoid circular import
-        from validator import QuantProofValidator
+        # Get QuantProofValidator at runtime to avoid circular import
+        QuantProofValidator = _get_validator()
         
         # Validate validator has required attributes
         if not hasattr(validator, 'returns'):
@@ -543,12 +544,12 @@ class PropFirmComplianceEngine:
         })
 
 # Integration helper for QuantProofValidator
-class QuantProofValidatorWithPropFirms(QuantProofValidator):
+class QuantProofValidatorWithPropFirms:
     """Extended QuantProofValidator with prop firm compliance"""
     
     def __init__(self, *args, **kwargs):
-        # Import QuantProofValidator at runtime to avoid circular import
-        from validator import QuantProofValidator
+        # Get QuantProofValidator at runtime to avoid circular import
+        QuantProofValidator = _get_validator()
         super().__init__(*args, **kwargs)
         self.prop_firm_engine = PropFirmComplianceEngine(self)
     
@@ -572,5 +573,6 @@ class QuantProofValidatorWithPropFirms(QuantProofValidator):
         }
         
         return combined_results
+
 
 
