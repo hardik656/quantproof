@@ -1176,15 +1176,15 @@ class QuantProofValidator:
                 cumulative *= (1 + ret)
                 equity_path.append(cumulative)
             # Normalize to start at 100 for frontend compatibility
-            normalized_path = [100 * (x / base_equity) for x in equity_path]
+            normalized_path = [float(100 * (x / base_equity)) for x in equity_path]
             equity_curve_paths.append(normalized_path)
         
-        # Store Monte Carlo data for frontend
+        # Store Monte Carlo data for frontend - ensure all types are JSON serializable
         self._last_monte_carlo_sims = {
             "equity_sims": equity_curve_paths,  # Full paths instead of single values
             "mean_sims": [float(x) for x in mean_sims[:100]],      # Limit for performance
-            "sequence_pct": sequence_pct,
-            "mean_pct": mean_pct
+            "sequence_pct": float(sequence_pct),    # Convert to Python float
+            "mean_pct": float(mean_pct)            # Convert to Python float
         }
         
         # DEBUG: Print Monte Carlo data structure
@@ -2455,6 +2455,4 @@ class QuantProofValidator:
             print("PROP DATA EXISTS:", hasattr(report, 'prop_firm_compliance') and report.prop_firm_compliance is not None)
         
         return report
-
-
 
