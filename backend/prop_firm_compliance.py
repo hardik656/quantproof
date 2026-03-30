@@ -4,6 +4,7 @@ Python implementation for 5 major prop firms
 Compatible with existing QuantProofValidator v6.2
 """
 
+from validator import QuantProofValidator
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
@@ -563,3 +564,4 @@ class QuantProofValidatorWithPropFirms(QuantProofValidator):
         }
         
         return combined_results
+
