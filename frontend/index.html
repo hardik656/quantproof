@@ -1430,7 +1430,7 @@
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;">How it works &#8594;</a>
       <span style="color:var(--border);">|</span>
-      <a href="/cdn-cgi/l/email-protection#e5868480808c8489cacacac5a58a808c8489cb868a88" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;"><span class="__cf_email__" data-cfemail="84e7e5e1e1ede5e8aaaaaab4cbe1ede5e8aae7ebe9">[email&#160;protected]</span></a>
+      <a href="mailto:support@quantproof.net" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;">support@quantproof.net</a>
       <span style="color:var(--border);">|</span>
       <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;99 unlock &nbsp;&middot;&nbsp; &#8377;299 full report</span>
     </div>
@@ -3442,13 +3442,7 @@
   const _portFiles = {};
 
   function showPortfolioUpload() {
-    const tok = (loadToken('qp_pro_token')
-              || loadToken('qp_port_token')
-              || loadToken('qp_report_token') || '').trim();
-    const input = document.getElementById('portToken');
-    if (input && !input.value) input.value = tok;  // pre-fill only if empty
-    // Token row always visible — user must always be able to see/verify what's sent
-    document.getElementById('portTokenRow').style.display = 'block';
+    // Token row removed - portfolio analysis now free
     document.getElementById('portfolioPanel').style.display = 'block';
     document.getElementById('portfolioPanel').scrollIntoView({behavior:'smooth'});
   }
