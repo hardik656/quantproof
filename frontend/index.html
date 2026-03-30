@@ -2840,6 +2840,17 @@
         if(status){ status.innerText='✓ You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
         if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
         const input = document.getElementById('intlEmail');
+        if(input){ input.disabled=true; }
+      } else {
+        throw new Error(data.error || 'Submission failed');
+      }
+    } catch(e) {
+      if(status){ status.innerText='Error — please email support@quantproof.net to join the list.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='Notify Me'; }
+    }
+  }
+
+  async function generatePdfBlob(token) {
     const hash = loadToken('qp_validation_hash')||''; const src = hash.includes('-VERIFIED') ? 'alpaca' : (hash.includes('-TV') ? 'tv' : (hash.includes('-IBKR') ? 'ibkr' : (sessionStorage.getItem('qp_source')||_brokerSource||'csv')));
     let res;
     if(src==='alpaca') {
@@ -3666,6 +3677,7 @@
     section.classList.add('active');
     window.scrollTo({top:0,behavior:'smooth'});
 
+    const isPreview = data.is_preview || false;
     const strats  = data.strategies || [];
     const mat     = data.correlation_matrix || [];
     const names   = data.strategy_names || strats.map(s => s.name);
@@ -3700,6 +3712,14 @@
           </div>
           <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:${divCol};">${divScore}<span style="font-size:14px;color:var(--muted);font-weight:400;">/100</span></div>
         </div>
+
+        ${isPreview ? `
+        <!-- Preview banner -->
+        <div style="background:rgba(123,97,255,0.1);border-bottom:1px solid rgba(123,97,255,0.3);padding:12px 24px;text-align:center;">
+          <div style="font-family:var(--mono);font-size:10px;color:#7B61FF;letter-spacing:0.1em;">// PREVIEW MODE</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Free portfolio analysis with limited results. <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;">Unlock full analysis →</a></div>
+        </div>
+        ` : ''}
 
         <!-- 4 combined stats -->
         <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border);">
@@ -3738,11 +3758,11 @@
             ${data.portfolio_verdict||''}
           </div>
           ${(data.combined_equity||[]).length > 5 ? buildCombinedEquityCurve(data.combined_equity, data.rp_weights, data.strategy_names) : ''}
-          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;filter:blur(8px);">
-            <div style="opacity:0.3;">Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}</div>
-            <div style="text-align:center;margin-top:8px;">
-              <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;font-size:10px;">Unlock full weights & analysis →</a>
-            </div>
+          ${(data.rp_weights||[]).length ? `<div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:6px;${isPreview ? 'filter:blur(8px);' : ''}">
+            <div style="${isPreview ? 'opacity:0.3;' : ''}">Risk parity weights: ${(data.rp_weights||[]).map((w,i)=>`${(data.strategy_names||[])[i]||'S'+(i+1)}: ${(w*100).toFixed(0)}%`).join(' · ')}</div>
+            ${isPreview ? `<div style="text-align:center;margin-top:8px;">
+              <a href="#" onclick="buyPortfolioUnlock()" style="color:var(--gold);text-decoration:underline;font-size:10px;">🔒 Unlock full weights & analysis →</a>
+            </div>` : ''}
           </div>` : ''}
         </div>
 
