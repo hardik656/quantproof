@@ -319,8 +319,9 @@ const QP_Charts = (function () {
     console.log('  - mcPaths[0] sample:', mcPaths[0]?.slice(0, 5));
     
     const labels = actualPath.map((_, i) => `T${i + 1}`);
+    const n = actualPath.length;
     const datasets = [
-      ...mcPaths.map(path => ({ data: path, borderColor: 'rgba(0,255,136,0.45)', borderWidth: 1, fill: false, tension: 0.1, pointRadius: 0 })),
+      ...mcPaths.map(path => ({ data: path.slice(0, n), borderColor: 'rgba(0,255,136,0.45)', borderWidth: 1, fill: false, tension: 0.1, pointRadius: 0 })),
       { data: actualPath, borderColor: '#00ff88', borderWidth: 2.5, fill: false, tension: 0.35, pointRadius: 0 }
     ];
     
