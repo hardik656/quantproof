@@ -3038,6 +3038,7 @@ async def get_ai_fixes(
                     self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
                     self.checks = [_CR(c) for c in vr.get("checks", [])]
                     self.audit_flags = []
+                    self.prop_firm_compliance = vr.get("prop_firm_compliance")
             ai_plan = await generate_ai_plan(_Rep(cached), cached.get("date_range", ""))
             if ai_plan:
                 cached["ai_plan"] = ai_plan
@@ -4243,6 +4244,7 @@ async def generate_broker_report(
                     self.win_rate = vr["win_rate"]; self.total_trades = vr["total_trades"]
                     self.checks = [_CachedCheck(c) for c in vr.get("checks", [])]
                     self.audit_flags = []
+                    self.prop_firm_compliance = vr.get("prop_firm_compliance")
             cached_vr["ai_plan"] = await generate_ai_plan(
                 _CachedReport(cached_vr), cached_vr.get("date_range", "")
             )
@@ -5931,6 +5933,9 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
 
 
 
