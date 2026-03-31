@@ -4432,6 +4432,7 @@ class PortfolioResponse(BaseModel):
     portfolio_dsr:         Optional[float] = None  # combined strategy DSR score
     combined_equity:       List[float] = []        # normalised combined equity curve
     portfolio_plan:        Optional[Dict[str, Any]] = None  # AI fix plan
+    is_preview:            bool = False           # True = blurred results for free users
 
 
 def _normalise_pnl_series(pnl_array: np.ndarray) -> np.ndarray:
@@ -4581,18 +4582,16 @@ async def validate_portfolio(
     request: Request = None,
 ):
     """
-    Portfolio correlation analysis — ₹199 or PRO.
+    Portfolio correlation analysis — Free to try, blurred results.
     Accepts 2-3 CSV files. Returns per-strategy scores + correlation matrix
-    + combined stats + diversification score.
+    + combined stats + diversification score (blurred without payment).
     """
-    # Token check: TEST_REPORT_TOKEN, PRO, or PORT all grant access
-    if not (_is_pro_token(x_portfolio_token) or
-            _token_tier(x_portfolio_token) in ("portfolio", "pro")):
-        raise HTTPException(402, {
-            "error": "payment_required",
-            "message": "Portfolio analysis requires the ₹199 Portfolio unlock or Pro plan.",
-            "price_inr": 199,
-        })
+    # Check if user has paid access (PRO or PORT tokens)
+    has_paid_access = (_is_pro_token(x_portfolio_token) or
+                      _token_tier(x_portfolio_token) in ("portfolio", "pro"))
+    
+    # Allow free analysis but mark results as preview
+    is_preview = not has_paid_access
 
     if len(files) < 2:
         raise HTTPException(400, "Portfolio analysis requires at least 2 strategy CSV files.")
@@ -4850,6 +4849,24 @@ async def validate_portfolio(
     _cache_validation(portfolio_hash, _vr_cache)
     _save_validation_cache()
 
+    # Apply blurring for free users (preview mode)
+    if is_preview:
+        # Blur key metrics to drive conversion
+        blurred_rp_weights = [round(w, 1) if i == 0 else 0.0 for i, w in enumerate(rp_weights)]
+        # Only show first strategy's weight clearly, others as 0
+        blurred_combined_equity = combined_equity[:50] if combined_equity else []  # Show only first 50 points
+        # Blur portfolio plan details
+        blurred_plan = {
+            "summary": portfolio_plan.get("summary", "")[:100] + "..." if len(portfolio_plan.get("summary", "")) > 100 else portfolio_plan.get("summary", ""),
+            "portfolio_fixes": portfolio_plan.get("portfolio_fixes", [])[:1],  # Show only first fix
+            "allocation_verdict": "Unlock full portfolio analysis to see complete allocation verdict",
+            "strongest_combination": "Unlock full portfolio analysis to see detailed strategy combinations"
+        }
+    else:
+        blurred_rp_weights = [float(round(w, 3)) for w in rp_weights]
+        blurred_combined_equity = [float(v) for v in combined_equity[:200]]
+        blurred_plan = portfolio_plan
+
     return PortfolioResponse(
         strategies=strategy_summaries,
         correlation_matrix=[[float(v) for v in row] for row in corr_mat.tolist()],
@@ -4863,11 +4880,12 @@ async def validate_portfolio(
         portfolio_verdict=str(verdict),
         audit_flags=[str(f) for f in audit_flags],
         n_trials=10,
-        rp_weights=[float(round(w, 3)) for w in rp_weights],
+        rp_weights=blurred_rp_weights,
         dd_coincidence=float(dd_coincidence),
         portfolio_dsr=portfolio_dsr,
-        combined_equity=[float(v) for v in combined_equity[:200]],
-        portfolio_plan=portfolio_plan,
+        combined_equity=blurred_combined_equity,
+        portfolio_plan=blurred_plan,
+        is_preview=is_preview,
     )
 
 
@@ -5913,10 +5931,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
 
 
 
