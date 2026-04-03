@@ -2682,6 +2682,25 @@
 
   function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
 
+  function buildAiTeaser(data) {
+    const failed = (data.checks||[]).filter(c=>!c.passed);
+    if (failed.length === 0) return '✅ All checks passed — your strategy meets institutional standards.';
+    
+    // Top 3 critical fixes based on impact
+    const critical = failed
+      .filter(c => c.category === 'Risk' || c.category === 'Overfitting')
+      .slice(0, 2);
+    const other = failed
+      .filter(c => c.category !== 'Risk' && c.category !== 'Overfitting')
+      .slice(0, 1);
+    
+    const top3 = [...critical, ...other].slice(0, 3);
+    
+    return top3.map((check, i) => 
+      `${i+1}. ${check.name}: ${check.fix.split('.')[0]}.`
+    ).join(' ');
+  }
+
   async function buyPaddleReport() {
     try {
       const resp = await fetch('/report/create-checkout-paddle-report', {
