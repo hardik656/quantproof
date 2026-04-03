@@ -11,4 +11,4 @@ httpx
 razorpay
 yfinance
 openpyxl
-
+paddle-python-sdk
