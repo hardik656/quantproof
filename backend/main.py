@@ -285,13 +285,41 @@ async def generate_ai_plan(report, date_range: str) -> dict:
     # Add prop firm compliance info to the prompt if available
     prop_firm_section = ""
     if prop_firm_data:
+        # Format individual firm details properly
+        firm_details = []
+        for firm_name, firm_data in prop_firm_firms.items():
+            status = "ELIGIBLE" if firm_data.get('eligible') else "NOT ELIGIBLE"
+            score = firm_data.get('score', 0)
+            
+            # Format violations and passes
+            violations = firm_data.get('violations', [])
+            passes = firm_data.get('passes', [])
+            
+            violation_lines = []
+            for v in violations:
+                violation_lines.append(f"• {v.get('name', 'Unknown')}: {v.get('actual', 'N/A')} (Required: {v.get('required', 'N/A')})")
+            
+            pass_lines = []
+            for p in passes:
+                pass_lines.append(f"• {p.get('name', 'Unknown')}: {p.get('actual', 'N/A')} (Required: {p.get('required', 'N/A')})")
+            
+            firm_section = f"""
+{firm_name.upper()} - {status} (Score: {score}/100)
+Violations:
+{chr(10).join(violation_lines) if violations else '• None'}
+Passes:
+{chr(10).join(pass_lines) if passes else '• None'}"""
+            
+            firm_details.append(firm_section)
+        
         prop_firm_section = f"""
 PROP FIRM COMPLIANCE:
 - Total Firms Analyzed: {prop_firm_summary.get('total_firms', 0)}
 - Eligible Firms: {prop_firm_summary.get('eligible_firms', 0)}
 - Average Score: {prop_firm_summary.get('average_score', 0):.1f}/100
 - Best Firm: {prop_firm_summary.get('best_firm', 'None')}
-- Firm Breakdown: {', '.join([f"{name} ({'ELIGIBLE' if data.get('eligible') else 'NOT ELIGIBLE'}, {data.get('score', 0)}/100)" for name, data in prop_firm_firms.items()])}
+
+{chr(10).join(firm_details)}
 """
 
     prompt = f"""You are a quantitative trading risk analyst reviewing a backtest validation report.
@@ -3420,7 +3448,6 @@ except ImportError:
 
 REPORT_ACCESS_TOKENS = set()
 TOKENS_FILE = "/tmp/qp_report_tokens.json"
-LS_ORDER_TOKENS: dict = {}
 
 def _save_tokens():
     try:
@@ -3662,100 +3689,6 @@ async def create_checkout(payload: dict):
         raise HTTPException(500, {"error": "payment_failed", "message": str(e)})
 
 
-@app.post("/report/create-checkout-intl")
-async def create_checkout_intl(payload: dict):
-    """
-    LemonSqueezy international checkout — USD/GBP/EUR payments.
-    Stubbed pending LemonSqueezy approval. Set env vars to activate:
-      LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, LEMONSQUEEZY_VARIANT_ID
-    """
-    import httpx
-    ls_key      = os.getenv("LEMONSQUEEZY_API_KEY", "")
-    ls_store_id = os.getenv("LEMONSQUEEZY_STORE_ID", "")
-    ls_variant  = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")
-    if not ls_key or not ls_store_id or not ls_variant:
-        raise HTTPException(503, {"error": "ls_not_configured",
-            "message": "International payments not yet configured. "
-                       "Set LEMONSQUEEZY_API_KEY, LEMONSQUEEZY_STORE_ID, and "
-                       "LEMONSQUEEZY_VARIANT_ID in Render environment to activate."})
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                "https://api.lemonsqueezy.com/v1/checkouts",
-                headers={
-                    "Authorization": f"Bearer {ls_key}",
-                    "Accept":        "application/vnd.api+json",
-                    "Content-Type":  "application/vnd.api+json",
-                },
-                json={
-                    "data": {
-                        "type": "checkouts",
-                        "attributes": {
-                            "checkout_data": {"custom": {"source": "quantproof"}},
-                            "product_options": {
-                                "redirect_url": (
-                                    f"{os.getenv('BASE_URL', 'https://quantproof-frontend.onrender.com')}"
-                                    "/?payment=success&provider=ls&order_id={checkout_id}"
-                                )
-                            }
-                        },
-                        "relationships": {
-                            "store":   {"data": {"type": "stores",   "id": ls_store_id}},
-                            "variant": {"data": {"type": "variants", "id": ls_variant}},
-                        }
-                    }
-                }
-            )
-        resp.raise_for_status()
-        checkout_url = resp.json()["data"]["attributes"]["url"]
-        return {"checkout_url": checkout_url}
-    except Exception as e:
-        raise HTTPException(500, {"error": "ls_error", "message": str(e)})
-
-
-@app.post("/report/webhook-ls")
-async def lemonsqueezy_webhook(request: Request):
-    """
-    LemonSqueezy payment webhook — receives order_completed events.
-    Generates a report access token and stores in LS_ORDER_TOKENS for
-    the /report/ls-token polling endpoint to pick up.
-    Stubbed pending LemonSqueezy approval.
-    """
-    import hashlib, hmac, time, json
-    body      = await request.body()
-    ls_secret = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
-    if ls_secret:
-        sig      = request.headers.get("x-signature", "")
-        expected = hmac.new(ls_secret.encode(), body, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, sig):
-            raise HTTPException(400, "Invalid Lemon Squeezy webhook signature")
-    try:
-        event    = json.loads(body)
-        ev_name  = event.get("meta", {}).get("event_name", "")
-        if ev_name != "order_created":
-            return {"status": "ignored"}
-        order_id = str(event.get("data", {}).get("id", ""))
-        key_secret = os.getenv("RAZORPAY_KEY_SECRET", os.getenv("LEMONSQUEEZY_API_KEY", "ls"))
-        current_hour = int(time.time() // 3600)
-        token = (
-            f"RPT-{hashlib.sha256(f'ls:{current_hour}:{key_secret}:{order_id}'.encode()).hexdigest()[:40]}"
-        )
-        REPORT_ACCESS_TOKENS.add(token)
-        LS_ORDER_TOKENS[order_id] = token
-        _save_tokens()
-        return {"status": "ok"}
-    except Exception as e:
-        raise HTTPException(400, str(e))
-    return {"status": "ignored"}
-
-@app.get("/report/ls-token")
-async def get_ls_token(order_id: str = ""):
-    if order_id and order_id != "{order_id}" and order_id in LS_ORDER_TOKENS:
-        return {"status": "ready", "token": LS_ORDER_TOKENS[order_id]}
-    if LS_ORDER_TOKENS:
-        return {"status": "ready", "token": list(LS_ORDER_TOKENS.values())[-1]}
-    return {"status": "pending", "message": "Payment processing — please wait a moment"}
-
 
 @app.post("/report/webhook")
 async def payment_webhook(request: Request):
@@ -3830,7 +3763,6 @@ async def payment_webhook_lite(request: Request):
     token_next = f"LITE-{hashlib.sha256(f'lite:{current_hour+1}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
     REPORT_ACCESS_TOKENS.add(token_now)
     REPORT_ACCESS_TOKENS.add(token_next)
-    LS_ORDER_TOKENS[order_id] = token_now
     _save_tokens()
     return {"status": "ok", "token": token_now}
 
@@ -4077,7 +4009,6 @@ async def payment_webhook_portfolio(request: Request):
     token_next = f"PORT-{hashlib.sha256(f'port:{current_hour+1}:{key_secret}:{payment_id}'.encode()).hexdigest()[:32]}"
     REPORT_ACCESS_TOKENS.add(token_now)
     REPORT_ACCESS_TOKENS.add(token_next)
-    LS_ORDER_TOKENS[order_id] = token_now
     _save_tokens()
     return {"status": "ok", "token": token_now}
 
@@ -4134,10 +4065,106 @@ async def payment_webhook_pro(request: Request):
     token  = f"PRO-{hashlib.sha256(f'pro:{current_hour}:{key_secret}:{payment_id}'.encode()).hexdigest()[:36]}"
     _PRO_TOKENS[token] = expiry
     REPORT_ACCESS_TOKENS.add(token)
-    LS_ORDER_TOKENS[order_id] = token
     _save_pro_tokens()
     _save_tokens()
     return {"status": "ok", "token": token, "expires_in_days": 30}
+
+
+# =========================================================
+# PADDLE INTERNATIONAL PAYMENTS
+# =========================================================
+
+@app.post("/report/create-checkout-paddle-lite")
+async def create_checkout_paddle_lite(payload: dict):
+    import paddle_billing
+    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
+    price_id = os.getenv("PADDLE_PRICE_LITE","")
+    if not price_id:
+        raise HTTPException(503, "Paddle not configured")
+    txn = paddle.transactions.create(items=[{"price_id": price_id, "quantity": 1}])
+    return {"checkout_url": txn.checkout["url"]}
+
+@app.post("/report/create-checkout-paddle-report")
+async def create_checkout_paddle_report(payload: dict):
+    import paddle_billing
+    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
+    price_id = os.getenv("PADDLE_PRICE_REPORT","")
+    if not price_id:
+        raise HTTPException(503, "Paddle not configured")
+    txn = paddle.transactions.create(items=[{"price_id": price_id, "quantity": 1}])
+    return {"checkout_url": txn.checkout["url"]}
+
+@app.post("/report/create-checkout-paddle-portfolio")
+async def create_checkout_paddle_portfolio(payload: dict):
+    import paddle_billing
+    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
+    price_id = os.getenv("PADDLE_PRICE_PORTFOLIO","")
+    if not price_id:
+        raise HTTPException(503, "Paddle not configured")
+    txn = paddle.transactions.create(items=[{"price_id": price_id, "quantity": 1}])
+    return {"checkout_url": txn.checkout["url"]}
+
+@app.post("/report/create-checkout-paddle-pro")
+async def create_checkout_paddle_pro(payload: dict):
+    import paddle_billing
+    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
+    price_id = os.getenv("PADDLE_PRICE_PRO","")
+    if not price_id:
+        raise HTTPException(503, "Paddle not configured")
+    txn = paddle.transactions.create(items=[{"price_id": price_id, "quantity": 1}])
+    return {"checkout_url": txn.checkout["url"]}
+
+@app.post("/report/webhook-paddle")
+async def paddle_webhook(request: Request):
+    import hashlib, hmac, time, json
+    body = await request.body()
+    paddle_sig = request.headers.get("paddle-signature","")
+    secret = os.getenv("PADDLE_WEBHOOK_SECRET","")
+    
+    # Verify signature
+    if secret and paddle_sig:
+        parts = dict(p.split("=",1) for p in paddle_sig.split(";") if "=" in p)
+        ts = parts.get("ts","")
+        h1 = parts.get("h1","")
+        signed = f"{ts}:{body.decode()}"
+        expected = hmac.new(secret.encode(), signed.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, h1):
+            raise HTTPException(400, "Invalid Paddle signature")
+    
+    try:
+        event = json.loads(body)
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    
+    event_type = event.get("event_type","")
+    if event_type != "transaction.completed":
+        return {"status": "ignored"}
+    
+    txn_id = event.get("data",{}).get("id","")
+    items = event.get("data",{}).get("items",[])
+    price_id = items[0].get("price",{}).get("id","") if items else ""
+    
+    current_hour = int(time.time() // 3600)
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    
+    # Determine tier from price_id
+    if price_id == os.getenv("PADDLE_PRICE_PRO",""):
+        expiry = time.time() + 30 * 24 * 3600
+        token = f"PRO-{hashlib.sha256(f'pro:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:36]}"
+        _PRO_TOKENS[token] = expiry
+        _save_pro_tokens()
+    elif price_id == os.getenv("PADDLE_PRICE_PORTFOLIO",""):
+        token = f"PORT-{hashlib.sha256(f'port:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
+    elif price_id == os.getenv("PADDLE_PRICE_REPORT",""):
+        token = f"RPT-{hashlib.sha256(f'report:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
+    else:
+        token = f"LITE-{hashlib.sha256(f'lite:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
+    
+    token_next = token  # Paddle webhooks are reliable, one token sufficient
+    REPORT_ACCESS_TOKENS.add(token)
+    _save_tokens()
+    
+    return {"status": "ok", "token": token}
 
 
 @app.get("/report/token-status")
@@ -5933,6 +5960,10 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
 
 
 
