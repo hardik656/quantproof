@@ -1440,7 +1440,7 @@
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      &copy; 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodology.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
+      &copy; 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodology">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;">
@@ -2569,19 +2569,12 @@
             📄 Full PDF Report — ₹299
           </button>
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px;">₹99 — all fixes in browser &nbsp;·&nbsp; ₹299 — full PDF with ranked fix plan</div>
-          <button onclick="showIntlWaitlist()"
+          <button onclick="buyPaddleReport()"
             style="background:transparent;color:var(--muted);border:1px solid rgba(100,116,139,0.3);padding:11px 28px;font-family:var(--mono);font-size:12px;cursor:pointer;width:100%;transition:border-color 0.2s;"
             onmouseover="this.style.background='rgba(0,255,136,0.08)';this.style.borderColor='var(--accent)'"
             onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">
-            🌍 International (USD/GBP/EUR) — Join Waitlist
+            🌍 International (USD/GBP/EUR) — Paddle Checkout
           </button>
-          <div id="intlWaitlistBox" style="display:none;margin-top:8px;">
-            <div style="display:flex;gap:6px;">
-              <input id="intlEmail" type="email" placeholder="your@email.com" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--mono);font-size:11px;">
-              <button onclick="submitIntlWaitlist()" style="background:var(--accent);color:var(--black);border:none;padding:8px 14px;font-family:var(--mono);font-size:11px;cursor:pointer;">→</button>
-            </div>
-            <div id="intlWaitlistStatus" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;"></div>
-          </div>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time purchase · Instant download</div>
         </div>`}
         <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
@@ -2689,167 +2682,21 @@
 
   function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
 
-  function showRateLimitModal(hoursLeft) {
-    const existing = document.getElementById('qp-rl-modal');
-    if (existing) existing.remove();
-    const modal = document.createElement('div');
-    modal.id = 'qp-rl-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    modal.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:460px;width:100%;padding:36px 32px;position:relative;">
-        <button onclick="document.getElementById('qp-rl-modal').remove()"
-          style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">✕</button>
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4444;letter-spacing:0.12em;margin-bottom:10px;">// DAILY LIMIT REACHED</div>
-        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:6px;">3 free validations used today.</div>
-        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;">Resets in ~${hoursLeft}h &nbsp;·&nbsp; or unlock now and keep going</div>
-
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
-          <button onclick="document.getElementById('qp-rl-modal').remove();buyLiteUnlock();"
-            style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
-            ⚡ Unlock All Fixes Now — ₹99
-          </button>
-          <button onclick="document.getElementById('qp-rl-modal').remove();buyPdfReport();"
-            style="background:transparent;color:#00ff88;border:1px solid rgba(0,255,136,0.4);padding:12px 20px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;width:100%;">
-            📄 Full PDF Report — ₹299
-          </button>
-        </div>
-
-        <div style="border-top:1px solid #1e2d3d;padding-top:18px;">
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;letter-spacing:0.08em;">OR — EMAIL ME WHEN MY LIMIT RESETS (FREE)</div>
-          <div style="display:flex;gap:8px;">
-            <input id="rl-email" type="email" placeholder="your@email.com"
-              style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:9px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;">
-            <button onclick="submitRateLimitEmail()"
-              style="background:#1e2d3d;color:#e8edf2;border:1px solid #1e2d3d;padding:9px 14px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.2s;"
-              onmouseover="this.style.background='#2a3f55'" onmouseout="this.style.background='#1e2d3d'">
-              Notify →
-            </button>
-          </div>
-          <div id="rl-status" style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-top:6px;min-height:14px;"></div>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-  }
-
-  async function submitRateLimitEmail() {
-    const email = (document.getElementById('rl-email')||{}).value||'';
-    const status = document.getElementById('rl-status');
-    const btn = document.querySelector('#qp-rl-modal button[onclick*="submitRateLimitEmail"]');
-    if (!email || !email.includes('@')) {
-      if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
-      return;
-    }
-    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
+  async function buyPaddleReport() {
     try {
-      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
+      const resp = await fetch('/report/create-checkout-paddle-report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: email, source: 'QuantProof Rate Limit Capture' })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
       const data = await resp.json();
-      if(resp.ok) {
-        if(status){ status.innerText="✓ Got it — we'll email you when your limit resets."; status.style.color='#00ff88'; }
-        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
-        const input = document.getElementById('rl-email');
-        if(input){ input.disabled=true; }
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
       } else {
-        throw new Error(data.error || 'Failed');
+        alert('International payments not available yet. Please try Razorpay or contact support.');
       }
-    } catch(e) {
-      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
-      if(btn){ btn.disabled=false; btn.innerText='Notify →'; }
-    }
-  }
-
-  function resetApp() {
-    _isSampleRun = false;
-    document.getElementById('resultsSection').classList.remove('active');
-    document.getElementById('resultsSection').innerHTML = '';
-    if (typeof QP_Charts !== 'undefined') QP_Charts.destroy();
-    document.getElementById('uploadSection').style.display    = 'block';
-    document.getElementById('heroSection').style.display      = 'block';
-    document.getElementById('proofBar').style.display         = 'block';
-    document.getElementById('marketingSections').style.display= 'block';
-
-    document.getElementById('fileInput').value = '';
-    document.getElementById('kiteFileInput').value = '';
-    document.getElementById('alpacaPanel').style.display   = 'none';
-    document.getElementById('tradingviewStatus').innerHTML = '';
-    _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
-    try {
-      sessionStorage.removeItem('qp_source');
-      clearToken('qp_validation_hash');
-      sessionStorage.removeItem('qp_filename');
-      sessionStorage.removeItem('qp_filedata');
-    } catch(e) {}
-    window.scrollTo(0, 0);
-  }
-
-  function buildAiTeaser(data) {
-    const failed   = (data.checks || []).filter(c => !c.passed && c.category !== 'Plausibility');
-    const score    = data.fundable_score;
-    const sharpe   = data.sharpe;
-    const dd       = (data.max_drawdown * 100).toFixed(1);
-    const wr       = data.win_rate;
-    const n        = data.total_trades;
-    const cats = {};
-    failed.forEach(c => { cats[c.category] = (cats[c.category] || 0) + 1; });
-    const worstCat   = Object.entries(cats).sort((a,b) => b[1]-a[1])[0];
-    const worstName  = worstCat ? worstCat[0] : 'Risk';
-    const worstCount = worstCat ? worstCat[1] : 0;
-    const worst = failed.sort((a,b) => a.score - b.score)[0];
-    if (!worst) return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. No critical failures detected — the full report shows optimisation opportunities specific to your ${n}-trade backtest.`;
-    let s1 = '';
-    if      (worstName === 'Overfitting') s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
-    else if (worstName === 'Risk')        s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
-    else if (worstName === 'Regime')      s1 = `Your strategy's behaviour across different market conditions is the main issue — it hasn't been tested in enough regime types to be trusted live.`;
-    else if (worstName === 'Execution')   s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
-    else                                  s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
-    return s1 + ` The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
-  }
-
-  function toggleFundableExplainer() {
-    const box     = document.getElementById('fundableExplainer');
-    const chevron = document.getElementById('fundableChevron');
-    if (!box) return;
-    const isOpen = box.style.display !== 'none';
-    box.style.display = isOpen ? 'none' : 'block';
-    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-  }
-
-  function showIntlWaitlist() {
-    const box = document.getElementById('intlWaitlistBox');
-    if(box) { box.style.display = box.style.display === 'none' ? 'block' : 'none'; }
-  }
-
-  async function submitIntlWaitlist() {
-    const email  = (document.getElementById('intlEmail')||{}).value||'';
-    const status = document.getElementById('intlWaitlistStatus');
-    const btn    = document.getElementById('intlWaitlistBox') ? document.getElementById('intlWaitlistBox').querySelector('button') : null;
-    if(!email || !email.includes('@')) {
-      if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
-      return;
-    }
-    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
-    if(status){ status.innerText=''; }
-    try {
-      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: email, source: 'QuantProof International Waitlist' })
-      });
-      const data = await resp.json();
-      if(resp.ok) {
-        if(status){ status.innerText='✓ You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
-        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
-        const input = document.getElementById('intlEmail');
-        if(input){ input.disabled=true; }
-      } else {
-        throw new Error(data.error || 'Failed');
-      }
-    } catch(e) {
-      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
-      if(btn){ btn.disabled=false; btn.innerText='→'; }
+    } catch (e) {
+      alert('Payment error. Please try again or contact support.');
     }
   }
 
@@ -4274,8 +4121,9 @@ window.verifyPortToken = verifyPortToken;
 
 // Payments / Unlock
 window.buyLiteUnlock = buyLiteUnlock;
+window.buyPaddleReport = buyPaddleReport;
 window.buyPdfReport = buyPdfReport;
-window.buyPortfolioUnlock = buyPortfolioUnlock;  // ONLY ONCE - remove duplicate!
+window.buyPortfolioUnlock = buyPortfolioUnlock;  
 window.buyProPlan = buyProPlan;
 window.applyLiteUnlock = applyLiteUnlock;
 window.generatePdfWithToken = generatePdfWithToken;
@@ -4286,7 +4134,6 @@ window.setCurrency = setCurrency;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.coldStartWarning = coldStartWarning;
-window.submitIntlWaitlist = submitIntlWaitlist;
 
 // Dev tools - THESE WERE MISSING!
 window.applyDevToken = applyDevToken;
