@@ -4099,11 +4099,17 @@ async def create_checkout_paddle_report(request: dict):
     import requests
     import os
 
+    print(f"[DEBUG] Paddle checkout called with request: {request}")
+    
     PADDLE_API_KEY = os.getenv("PADDLE_API_KEY")
     price_id = os.getenv("PADDLE_PRICE_REPORT")
     user_id = request.get("user_id", "anonymous")
 
+    print(f"[DEBUG] Paddle env vars - API Key: {'*' * 10 if PADDLE_API_KEY else 'NOT SET'}, Price ID: {price_id}")
+    print(f"[DEBUG] User ID from request: {user_id}")
+
     if not PADDLE_API_KEY or not price_id:
+        print(f"[DEBUG] Missing config - API Key: {bool(PADDLE_API_KEY)}, Price ID: {bool(price_id)}")
         raise HTTPException(503, "Paddle not configured")
 
     payload = {
@@ -4118,28 +4124,52 @@ async def create_checkout_paddle_report(request: dict):
         }
     }
 
+    print(f"[DEBUG] Paddle payload: {payload}")
+
     headers = {
         "Authorization": f"Bearer {PADDLE_API_KEY}",
         "Content-Type": "application/json"
     }
 
-    res = requests.post(
-        "https://api.paddle.com/checkout",
-        json=payload,
-        headers=headers
-    )
+    try:
+        print(f"[DEBUG] Making Paddle API call...")
+        res = requests.post(
+            "https://api.paddle.com/checkout",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        
+        print(f"[DEBUG] Paddle API response - Status: {res.status_code}")
+        print(f"[DEBUG] Paddle API response - Headers: {dict(res.headers)}")
+        print(f"[DEBUG] Paddle API response - Body: {res.text[:500]}...")
 
-    if res.status_code != 201:
-        raise HTTPException(500, f"Paddle API error: {res.status_code} - {res.text}")
+        if res.status_code != 201:
+            print(f"[DEBUG] Paddle API error - Status: {res.status_code}, Response: {res.text}")
+            raise HTTPException(500, f"Paddle API error: {res.status_code} - {res.text}")
 
-    data = res.json()
+        data = res.json()
+        print(f"[DEBUG] Parsed JSON response: {data}")
 
-    if "data" not in data or "url" not in data["data"]:
-        raise HTTPException(500, "Invalid Paddle response")
+        if "data" not in data or "url" not in data["data"]:
+            print(f"[DEBUG] Invalid response structure - data key: {'data' in data}, url key: {'url' in data.get('data', {})}")
+            raise HTTPException(500, "Invalid Paddle response")
 
-    return {
-        "checkout_url": data["data"]["url"]
-    }
+        checkout_url = data["data"]["url"]
+        print(f"[DEBUG] Success! Checkout URL: {checkout_url}")
+
+        return {
+            "checkout_url": checkout_url
+        }
+        
+    except requests.exceptions.RequestException as e:
+        print(f"[DEBUG] Request exception: {e}")
+        raise HTTPException(500, f"Paddle API request failed: {str(e)}")
+    except Exception as e:
+        print(f"[DEBUG] Unexpected error: {e}")
+        import traceback
+        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
+        raise HTTPException(500, f"Paddle checkout error: {str(e)}")
 
 @app.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
@@ -6011,7 +6041,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 
 
