@@ -2703,18 +2703,22 @@
 
   async function buyPaddleReport() {
     try {
-      const resp = await fetch('/report/create-checkout-paddle-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+      // Initialize Paddle with simple approach
+      const { initializePaddle } = await import('https://cdn.paddle.com/paddle/v2/paddle.js');
+      const paddle = await initializePaddle({
+        environment: 'production',
+        token: 'live_01JH4R8J2K4M9N7P3Q5R6T8W2X'
       });
-      const data = await resp.json();
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        alert('International payments not available yet. Please try Razorpay or contact support.');
-      }
+      
+      // Open checkout
+      paddle.Checkout.open({
+        items: [{
+          priceId: 'pri_01JH4R8J2K4M9N7P3Q5R6T8W2X',
+          quantity: 1
+        }]
+      });
     } catch (e) {
+      console.error('Paddle error:', e);
       alert('Payment error. Please try again or contact support.');
     }
   }
