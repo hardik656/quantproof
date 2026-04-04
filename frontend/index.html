@@ -3190,8 +3190,37 @@
       const r = await fetch(`${API_URL_REPORT}/report/paddle-token?txn_id=${encodeURIComponent(txnId)}`);
       const d = await r.json();
       if (d.status === 'ready' && d.token) {
-        if (status) status.innerText = '✓ Payment verified — generating your PDF...';
-        await generatePdfWithToken(d.token);
+        saveToken('qp_report_token', d.token);
+        saveToken('qp_lite_token', d.token);
+        if (d.tier === 'pro') saveToken('qp_pro_token', d.token);
+        
+        // Check if we have the file to generate PDF
+        const sn = sessionStorage.getItem('qp_filename');
+        const sd = sessionStorage.getItem('qp_filedata');
+        
+        if (sd && sn && sn !== 'sample_nifty_momentum.csv') {
+          // File is in sessionStorage — recover and generate PDF
+          const ba = atob(sd);
+          const arr = new Uint8Array(ba.length);
+          for (let i = 0; i < ba.length; i++) arr[i] = ba.charCodeAt(i);
+          _lastValidatedFile = new File([arr], sn, { type: 'text/csv' });
+          if (status) status.innerText = '✓ Payment verified — generating your PDF...';
+          await generatePdfWithToken(d.token);
+        } else {
+          // File not recoverable — show instructions
+          if (status) {
+            status.innerHTML = '✓ Payment verified! Your token is saved. <strong>Re-upload your CSV file above</strong> to download your PDF — the file was cleared when you were redirected to payment.';
+            status.style.color = 'var(--accent)';
+          }
+          // Show the upload section again
+          document.getElementById('uploadSection').style.display = 'block';
+          document.getElementById('heroSection').style.display = 'block';
+          // Show a banner
+          const banner = document.createElement('div');
+          banner.style.cssText = 'background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.4);padding:16px 24px;margin-bottom:24px;font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;';
+          banner.innerHTML = '✓ Payment complete — re-upload your CSV above to download your PDF report. Your token is saved for 7 days.';
+          document.getElementById('heroSection').prepend(banner);
+        }
       } else {
         if (status) status.innerText = 'Verifying payment... (' + (attempts + 1) + '/30)';
         setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
@@ -3200,6 +3229,7 @@
       setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
     }
   }
+  window.pollPaddleToken = pollPaddleToken;
 
   function submitRateLimitEmail() {
     // stub — prevents console crash
