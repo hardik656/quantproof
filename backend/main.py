@@ -4119,14 +4119,9 @@ async def create_checkout_paddle_report(request: dict):
                 "quantity": 1
             }
         ],
+        "collection_mode": "hosted",
         "custom_data": {
             "user_id": user_id
-        },
-        "checkout": {
-            "settings": {
-                "display_mode": "hosted"
-            },
-            "return_url": "https://quantproof.net/success"
         }
     }
 
@@ -6047,13 +6042,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
-
-
 
 
 
