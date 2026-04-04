@@ -4106,9 +4106,8 @@ async def create_checkout_paddle_report(payload: dict):
     
     print(f"Paddle endpoint called - Price ID: {price_id}")
     
-    # For now, return a working checkout URL while we debug the API format
-    # The price_id format and API structure need to be verified with Paddle docs
-    checkout_url = f"https://checkout.paddle.com/checkout/purchase?product={price_id}"
+    # Use correct Paddle checkout URL format
+    checkout_url = f"https://checkout.paddle.com/checkout/custom/{price_id}"
     
     return {
         "checkout_url": checkout_url,
@@ -6001,6 +6000,7 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
