@@ -4081,7 +4081,13 @@ async def create_checkout_paddle_lite(payload: dict):
     price_id = os.getenv("PADDLE_PRICE_LITE","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create([{"price_id": price_id, "quantity": 1}])
+    txn = paddle.transactions.create({
+        "items": [{
+            "price_id": price_id,
+            "quantity": 1
+        }],
+        "status": "draft"  # Create as draft first
+    })
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-report")
@@ -4091,7 +4097,16 @@ async def create_checkout_paddle_report(payload: dict):
     price_id = os.getenv("PADDLE_PRICE_REPORT","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create([{"price_id": price_id, "quantity": 1}])
+    
+    # Create transaction with correct structure
+    txn = paddle.transactions.create({
+        "items": [{
+            "price_id": price_id,
+            "quantity": 1
+        }],
+        "status": "draft"  # Create as draft first
+    })
+    
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-portfolio")
@@ -4101,7 +4116,13 @@ async def create_checkout_paddle_portfolio(payload: dict):
     price_id = os.getenv("PADDLE_PRICE_PORTFOLIO","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create([{"price_id": price_id, "quantity": 1}])
+    txn = paddle.transactions.create({
+        "items": [{
+            "price_id": price_id,
+            "quantity": 1
+        }],
+        "status": "draft"  # Create as draft first
+    })
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-pro")
@@ -4111,7 +4132,13 @@ async def create_checkout_paddle_pro(payload: dict):
     price_id = os.getenv("PADDLE_PRICE_PRO","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create([{"price_id": price_id, "quantity": 1}])
+    txn = paddle.transactions.create({
+        "items": [{
+            "price_id": price_id,
+            "quantity": 1
+        }],
+        "status": "draft"  # Create as draft first
+    })
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/webhook-paddle")
