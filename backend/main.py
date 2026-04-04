@@ -4101,6 +4101,7 @@ async def create_checkout_paddle_report(request: dict):
 
     PADDLE_API_KEY = os.getenv("PADDLE_API_KEY")
     price_id = os.getenv("PADDLE_PRICE_REPORT")
+    user_id = request.get("user_id", "anonymous")
 
     if not PADDLE_API_KEY or not price_id:
         raise HTTPException(503, "Paddle not configured")
@@ -4111,7 +4112,10 @@ async def create_checkout_paddle_report(request: dict):
                 "price_id": price_id,
                 "quantity": 1
             }
-        ]
+        ],
+        "custom_data": {
+            "user_id": user_id
+        }
     }
 
     headers = {
@@ -4125,7 +4129,13 @@ async def create_checkout_paddle_report(request: dict):
         headers=headers
     )
 
+    if res.status_code != 201:
+        raise HTTPException(500, f"Paddle API error: {res.status_code} - {res.text}")
+
     data = res.json()
+
+    if "data" not in data or "url" not in data["data"]:
+        raise HTTPException(500, "Invalid Paddle response")
 
     return {
         "checkout_url": data["data"]["url"]
@@ -4176,6 +4186,11 @@ async def paddle_webhook(request: Request):
     import os
     import json
 
+    # Minimal webhook protection
+    paddle_sig = request.headers.get("Paddle-Signature")
+    if not paddle_sig:
+        return {"status": "ignored", "reason": "missing signature"}
+
     body = await request.json()
 
     print("PADDLE WEBHOOK:", body)
@@ -4188,16 +4203,17 @@ async def paddle_webhook(request: Request):
         
         items = data.get("items", [])
         price_id = items[0].get("price_id") if items else None
+        user_id = data.get("custom_data", {}).get("user_id", "anonymous")
 
         # 🔥 MAP PRICE → PRODUCT
         if price_id == os.getenv("PADDLE_PRICE_REPORT"):
-            print("UNLOCK REPORT")
+            print(f"UNLOCK REPORT for user: {user_id}")
 
         elif price_id == os.getenv("PADDLE_PRICE_PORTFOLIO"):
-            print("UNLOCK PORTFOLIO")
+            print(f"UNLOCK PORTFOLIO for user: {user_id}")
 
         elif price_id == os.getenv("PADDLE_PRICE_PRO"):
-            print("UNLOCK PRO")
+            print(f"UNLOCK PRO for user: {user_id}")
 
     return {"status": "ok"}
 
@@ -5995,6 +6011,8 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 
 
 
