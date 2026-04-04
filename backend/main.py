@@ -4134,7 +4134,7 @@ async def create_checkout_paddle_report(request: dict):
     try:
         print(f"[DEBUG] Making Paddle API call...")
         res = requests.post(
-            "https://api.paddle.com/checkout",
+            "https://api.paddle.com/transactions",
             json=payload,
             headers=headers,
             timeout=30
@@ -6041,6 +6041,8 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
 
 
 
