@@ -1,37 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
-<!-- Paddle.js for international payments -->
-<script src="https://cdn.paddle.com/paddle/paddle.js"></script>
-<script>
-  window.Paddle = window.Paddle || {};
-  document.addEventListener("DOMContentLoaded", function () {
-    Paddle.Setup({
-      vendor: 307732
-    });
-  });
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const params = new URLSearchParams(window.location.search);
-  const txn = params.get("_ptxn");
-
-  if (txn && window.Paddle) {
-    console.log("Opening Paddle checkout for txn:", txn);
-
-    try {
-      Paddle.Checkout.open({
-        transactionId: txn,
-        settings: {
-          displayMode: "overlay"
-        }
-      });
-    } catch (e) {
-      console.error("Paddle open error:", e);
-    }
-  }
-});
-</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
