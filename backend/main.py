@@ -4096,26 +4096,59 @@ async def create_checkout_paddle_lite(payload: dict):
 
 @app.post("/report/create-checkout-paddle-report")
 async def create_checkout_paddle_report(payload: dict):
+    import requests
     import os
     
     api_key = os.getenv("PADDLE_API_KEY","")
     price_id = os.getenv("PADDLE_PRICE_REPORT","")
     
-    # For now, return a test response to ensure the endpoint works
-    # TODO: Fix Paddle API integration after deployment testing
     if not api_key or not price_id:
         raise HTTPException(503, "Paddle not configured")
     
-    print(f"Paddle endpoint called - API Key: {'*' * 10 if api_key else 'NOT SET'}, Price ID: {price_id}")
-    
-    # Return a test URL for now to verify the flow works
-    test_url = f"https://checkout.paddle.com/checkout/test?product={price_id}"
-    
-    return {
-        "checkout_url": test_url,
-        "test_mode": True,
-        "message": "Test mode - Paddle integration needs API fixes"
-    }
+    try:
+        # Use Paddle v2 checkout passthrough API with correct format
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        transaction_data = {
+            "items": [{
+                "price_id": price_id,
+                "quantity": 1
+            }]
+        }
+        
+        print(f"Creating Paddle transaction with price_id: {price_id}")
+        
+        response = requests.post(
+            "https://api.paddle.com/transactions",
+            headers=headers,
+            json=transaction_data,
+            timeout=30
+        )
+        
+        print(f"Paddle API response status: {response.status_code}")
+        
+        if response.status_code == 201:
+            txn_data = response.json()
+            checkout_url = txn_data.get("checkout", {}).get("url")
+            if checkout_url:
+                print(f"✅ Paddle checkout URL created: {checkout_url}")
+                return {"checkout_url": checkout_url}
+            else:
+                print("❌ No checkout URL in Paddle response")
+                raise HTTPException(500, "No checkout URL returned from Paddle")
+        else:
+            print(f"❌ Paddle API error: {response.status_code} - {response.text}")
+            raise HTTPException(500, f"Paddle API error: {response.text}")
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Paddle request failed: {e}")
+        raise HTTPException(500, f"Paddle payment service unavailable: {str(e)}")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        raise HTTPException(500, f"Payment service error: {str(e)}")
 
 @app.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
@@ -6003,6 +6036,11 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
+
 
 
 
