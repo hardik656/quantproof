@@ -692,6 +692,14 @@
   .sample-ghost-category { margin-bottom:16px; }
 </style>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script>
+  window.addEventListener('load', function() {
+    if (typeof Paddle !== 'undefined') {
+      Paddle.Initialize({ token: 'live_f1e8b2ee02aafeef303d87d53fb' });
+    }
+  });
+</script>
 </head>
 <body>
 <div class="container">
@@ -3161,7 +3169,50 @@
     window.location.reload();
   }
 
-  window.addEventListener('load', handleLSReturn);
+  function handlePaddleReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const ptxn = params.get('_ptxn');
+    if (!ptxn) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    const status = document.getElementById('pdfBtnStatus');
+    if (status) {
+      status.innerText = 'Payment processing — please wait...';
+      status.style.color = 'var(--accent)';
+    }
+    pollPaddleToken(ptxn);
+  }
+
+  async function pollPaddleToken(txnId, attempts) {
+    attempts = attempts || 0;
+    if (attempts > 30) return;
+    const status = document.getElementById('pdfBtnStatus');
+    try {
+      const r = await fetch(`${API_URL_REPORT}/report/paddle-token?txn_id=${encodeURIComponent(txnId)}`);
+      const d = await r.json();
+      if (d.status === 'ready' && d.token) {
+        if (status) status.innerText = '✓ Payment verified — generating your PDF...';
+        await generatePdfWithToken(d.token);
+      } else {
+        if (status) status.innerText = 'Verifying payment... (' + (attempts + 1) + '/30)';
+        setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
+      }
+    } catch (e) {
+      setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
+    }
+  }
+
+  function submitRateLimitEmail() {
+    // stub — prevents console crash
+  }
+
+  window.handlePaddleReturn = handlePaddleReturn;
+  window.pollPaddleToken = pollPaddleToken;
+  window.submitRateLimitEmail = submitRateLimitEmail;
+
+  window.addEventListener('load', function() {
+  handleLSReturn();
+  handlePaddleReturn();
+});
 
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
   function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
@@ -4136,6 +4187,11 @@ window.openDemoPDF = openDemoPDF;
 window.toggleFundableExplainer = toggleFundableExplainer;
 window.showInstitutionalTeaser = showInstitutionalTeaser;
 window.showRateLimitModal = showRateLimitModal;
+window.submitRateLimitEmail = submitRateLimitEmail;
+
+// Paddle payments
+window.pollPaddleToken = pollPaddleToken;
+window.handlePaddleReturn = handlePaddleReturn;
 window.submitRateLimitEmail = submitRateLimitEmail;
 
 // Depth / Validation settings
