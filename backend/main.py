@@ -4214,42 +4214,108 @@ async def create_checkout_paddle_pro(payload: dict):
     ))
     return {"checkout_url": txn.checkout["url"]}
 
+@app.get("/report/paddle-token")
+async def get_paddle_token(txn_id: str = ""):
+    """Frontend polls this after Paddle payment to get the token."""
+    import hashlib, time
+    if not txn_id:
+        return {"status": "pending"}
+
+    key_secret   = os.environ.get("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    current_hour = int(time.time() // 3600)
+
+    for tier, prefix in [
+        ("report",    TOKEN_REPORT),
+        ("lite",      TOKEN_LITE),
+        ("portfolio", TOKEN_PORTFOLIO),
+        ("pro",       TOKEN_PRO),
+    ]:
+        for hour_offset in (0, -1, 1):
+            candidate = f"{prefix}{hashlib.sha256(f'{tier}:{current_hour + hour_offset}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
+            if candidate in REPORT_ACCESS_TOKENS:
+                return {"status": "ready", "token": candidate, "tier": tier}
+
+    return {"status": "pending"}
+
 @app.post("/report/webhook-paddle")
 async def paddle_webhook(request: Request):
-    import os
-    import json
+    import hashlib, hmac, time, json
 
-    # Minimal webhook protection
-    paddle_sig = request.headers.get("Paddle-Signature")
-    if not paddle_sig:
-        return {"status": "ignored", "reason": "missing signature"}
+    body = await request.body()
 
-    body = await request.json()
+    webhook_secret   = os.environ.get("PADDLE_WEBHOOK_SECRET", "")
+    paddle_signature = request.headers.get("Paddle-Signature", "")
+    if webhook_secret and paddle_signature:
+        try:
+            ts = ""
+            h1 = ""
+            for part in paddle_signature.split(";"):
+                if part.startswith("ts="):
+                    ts = part[3:]
+                elif part.startswith("h1="):
+                    h1 = part[3:]
+            signed_payload = f"{ts}:{body.decode('utf-8')}"
+            expected = hmac.new(
+                webhook_secret.encode(),
+                signed_payload.encode(),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(expected, h1):
+                raise HTTPException(status_code=400, detail="Invalid Paddle signature")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
-    print("PADDLE WEBHOOK:", body)
+    try:
+        event = json.loads(body)
+    except Exception:
+        return {"status": "ignored"}
 
-    # Extract event
-    event_type = body.get("event_type")
+    event_type = event.get("event_type", "")
+    if event_type not in ("transaction.completed", "transaction.paid"):
+        return {"status": "ignored"}
 
-    if event_type == "transaction.completed":
-        data = body.get("data", {})
-        
-        items = data.get("items", [])
-        price_id = items[0].get("price_id") if items else None
-        user_id = data.get("custom_data", {}).get("user_id", "anonymous")
+    txn      = event.get("data", {})
+    txn_id   = txn.get("id", "")
+    items    = txn.get("items", [])
+    price_id = items[0].get("price", {}).get("id", "") if items else ""
 
-        # 🔥 MAP PRICE → PRODUCT
-        if price_id == os.getenv("PADDLE_PRICE_REPORT"):
-            print(f"UNLOCK REPORT for user: {user_id}")
+    PRICE_LITE      = os.environ.get("PADDLE_PRICE_LITE", "")
+    PRICE_REPORT    = os.environ.get("PADDLE_PRICE_REPORT", "")
+    PRICE_PORTFOLIO = os.environ.get("PADDLE_PRICE_PORTFOLIO", "")
+    PRICE_PRO       = os.environ.get("PADDLE_PRICE_PRO", "")
 
-        elif price_id == os.getenv("PADDLE_PRICE_PORTFOLIO"):
-            print(f"UNLOCK PORTFOLIO for user: {user_id}")
+    if price_id == PRICE_LITE:
+        tier         = "lite"
+        token_prefix = TOKEN_LITE
+    elif price_id == PRICE_PORTFOLIO:
+        tier         = "portfolio"
+        token_prefix = TOKEN_PORTFOLIO
+    elif price_id == PRICE_PRO:
+        tier         = "pro"
+        token_prefix = TOKEN_PRO
+    else:
+        tier         = "report"
+        token_prefix = TOKEN_REPORT
 
-        elif price_id == os.getenv("PADDLE_PRICE_PRO"):
-            print(f"UNLOCK PRO for user: {user_id}")
+    key_secret   = os.environ.get("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    current_hour = int(time.time() // 3600)
+    token_now    = f"{token_prefix}{hashlib.sha256(f'{tier}:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
+    token_next   = f"{token_prefix}{hashlib.sha256(f'{tier}:{current_hour+1}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
 
-    return {"status": "ok"}
+    REPORT_ACCESS_TOKENS.add(token_now)
+    REPORT_ACCESS_TOKENS.add(token_next)
 
+    if tier == "pro":
+        expiry = time.time() + 30 * 24 * 3600
+        _PRO_TOKENS[token_now]  = expiry
+        _PRO_TOKENS[token_next] = expiry
+        _save_pro_tokens()
+
+    _save_tokens()
+    print(f"[PADDLE] tier={tier} txn={txn_id} token={token_now[:12]}...")
+    return {"status": "ok", "tier": tier, "txn_id": txn_id}
 
 @app.get("/report/token-status")
 async def token_status(x_token: str = Header(default="")):
