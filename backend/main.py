@@ -4095,23 +4095,40 @@ async def create_checkout_paddle_lite(payload: dict):
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-report")
-async def create_checkout_paddle_report(payload: dict):
+async def create_checkout_paddle_report(request: dict):
+    import requests
     import os
-    
-    api_key = os.getenv("PADDLE_API_KEY","")
-    price_id = os.getenv("PADDLE_PRICE_REPORT","")
-    
-    if not api_key or not price_id:
+
+    PADDLE_API_KEY = os.getenv("PADDLE_API_KEY")
+    price_id = os.getenv("PADDLE_PRICE_REPORT")
+
+    if not PADDLE_API_KEY or not price_id:
         raise HTTPException(503, "Paddle not configured")
-    
-    print(f"Paddle endpoint called - Price ID: {price_id}")
-    
-    # Use correct Paddle checkout URL format
-    checkout_url = f"https://checkout.paddle.com/checkout/custom/{price_id}"
-    
+
+    payload = {
+        "items": [
+            {
+                "price_id": price_id,
+                "quantity": 1
+            }
+        ]
+    }
+
+    headers = {
+        "Authorization": f"Bearer {PADDLE_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    res = requests.post(
+        "https://api.paddle.com/checkout",
+        json=payload,
+        headers=headers
+    )
+
+    data = res.json()
+
     return {
-        "checkout_url": checkout_url,
-        "note": "Direct Paddle checkout URL - API integration pending format fix"
+        "checkout_url": data["data"]["url"]
     }
 
 @app.post("/report/create-checkout-paddle-portfolio")
@@ -4156,55 +4173,33 @@ async def create_checkout_paddle_pro(payload: dict):
 
 @app.post("/report/webhook-paddle")
 async def paddle_webhook(request: Request):
-    import hashlib, hmac, time, json
-    body = await request.body()
-    paddle_sig = request.headers.get("paddle-signature","")
-    secret = os.getenv("PADDLE_WEBHOOK_SECRET","")
-    
-    # Verify signature
-    if secret and paddle_sig:
-        parts = dict(p.split("=",1) for p in paddle_sig.split(";") if "=" in p)
-        ts = parts.get("ts","")
-        h1 = parts.get("h1","")
-        signed = f"{ts}:{body.decode()}"
-        expected = hmac.new(secret.encode(), signed.encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, h1):
-            raise HTTPException(400, "Invalid Paddle signature")
-    
-    try:
-        event = json.loads(body)
-    except Exception:
-        raise HTTPException(400, "Invalid JSON")
-    
-    event_type = event.get("event_type","")
-    if event_type != "transaction.completed":
-        return {"status": "ignored"}
-    
-    txn_id = event.get("data",{}).get("id","")
-    items = event.get("data",{}).get("items",[])
-    price_id = items[0].get("price",{}).get("id","") if items else ""
-    
-    current_hour = int(time.time() // 3600)
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
-    
-    # Determine tier from price_id
-    if price_id == os.getenv("PADDLE_PRICE_PRO",""):
-        expiry = time.time() + 30 * 24 * 3600
-        token = f"PRO-{hashlib.sha256(f'pro:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:36]}"
-        _PRO_TOKENS[token] = expiry
-        _save_pro_tokens()
-    elif price_id == os.getenv("PADDLE_PRICE_PORTFOLIO",""):
-        token = f"PORT-{hashlib.sha256(f'port:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
-    elif price_id == os.getenv("PADDLE_PRICE_REPORT",""):
-        token = f"RPT-{hashlib.sha256(f'report:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
-    else:
-        token = f"LITE-{hashlib.sha256(f'lite:{current_hour}:{key_secret}:{txn_id}'.encode()).hexdigest()[:32]}"
-    
-    token_next = token  # Paddle webhooks are reliable, one token sufficient
-    REPORT_ACCESS_TOKENS.add(token)
-    _save_tokens()
-    
-    return {"status": "ok", "token": token}
+    import os
+    import json
+
+    body = await request.json()
+
+    print("PADDLE WEBHOOK:", body)
+
+    # Extract event
+    event_type = body.get("event_type")
+
+    if event_type == "transaction.completed":
+        data = body.get("data", {})
+        
+        items = data.get("items", [])
+        price_id = items[0].get("price_id") if items else None
+
+        # 🔥 MAP PRICE → PRODUCT
+        if price_id == os.getenv("PADDLE_PRICE_REPORT"):
+            print("UNLOCK REPORT")
+
+        elif price_id == os.getenv("PADDLE_PRICE_PORTFOLIO"):
+            print("UNLOCK PORTFOLIO")
+
+        elif price_id == os.getenv("PADDLE_PRICE_PRO"):
+            print("UNLOCK PRO")
+
+    return {"status": "ok"}
 
 
 @app.get("/report/token-status")
@@ -6000,8 +5995,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
 
 
 
