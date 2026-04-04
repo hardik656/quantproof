@@ -3113,6 +3113,47 @@
     }
     if(sEl){sEl.innerText='Timed out. Email support@quantproof.net with order: '+orderId;sEl.style.color='#ffaa00';}
   }
+  function toggleFundableExplainer() {
+    const el = document.getElementById('fundableExplainer');
+    const btn = document.getElementById('fundableToggleBtn');
+    const chev = document.getElementById('fundableChevron');
+    if (!el) return;
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
+    if (btn) {
+      btn.onmouseover = open ? function(){ this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'; } : null;
+    }
+  }
+
+  function showRateLimitModal(hoursLeft) {
+    const existing = document.getElementById('qp-rate-limit-modal');
+    if (existing) existing.remove();
+    const m = document.createElement('div');
+    m.id = 'qp-rate-limit-modal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    m.innerHTML = `<div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #ff4444;max-width:440px;width:100%;padding:36px 32px;position:relative;">
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4444;letter-spacing:0.12em;margin-bottom:10px;">// DAILY LIMIT REACHED</div>
+      <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:8px;">3 free validations used</div>
+      <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:20px;line-height:1.7;">Resets in ~${hoursLeft || 24}h. Unlock unlimited validations with Pro.</div>
+      <button onclick="buyProPlan();document.getElementById('qp-rate-limit-modal').remove();"
+        style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
+        🚀 Pro Plan — ₹999/30 days
+      </button>
+      <button onclick="document.getElementById('qp-rate-limit-modal').remove()"
+        style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
+        Come back tomorrow
+      </button>
+    </div>`;
+    document.body.appendChild(m);
+  }
+
+  function resetApp() {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.reload();
+  }
+
   window.addEventListener('load', handleLSReturn);
 
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
