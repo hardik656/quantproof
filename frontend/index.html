@@ -4,6 +4,11 @@
 <!-- Paddle.js for international payments -->
 <script src="https://cdn.paddle.com/paddle/paddle.js"></script>
 <script>
+  Paddle.Setup({
+    vendor: 307732
+  });
+</script>
+<script>
 (function () {
   const params = new URLSearchParams(window.location.search);
   const txn = params.get("_ptxn");
