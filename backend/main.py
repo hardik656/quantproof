@@ -4078,7 +4078,7 @@ async def payment_webhook_pro(request: Request):
 async def create_checkout_paddle_lite(payload: dict):
     import paddle_billing
     from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities.Transactions import TransactionStatus
+    from paddle_billing.Entities import TransactionStatus
     
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_LITE","")
@@ -4096,31 +4096,46 @@ async def create_checkout_paddle_lite(payload: dict):
 
 @app.post("/report/create-checkout-paddle-report")
 async def create_checkout_paddle_report(payload: dict):
-    import paddle_billing
-    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities.Transactions import TransactionStatus
+    import requests
+    import os
     
-    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
+    api_key = os.getenv("PADDLE_API_KEY","")
     price_id = os.getenv("PADDLE_PRICE_REPORT","")
-    if not price_id:
+    if not api_key or not price_id:
         raise HTTPException(503, "Paddle not configured")
     
-    # Create transaction with proper SDK structure
-    txn = paddle.transactions.create(CreateTransaction(
-        items=[{
+    # Use direct Paddle API call instead of SDK
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    transaction_data = {
+        "items": [{
             "price_id": price_id,
             "quantity": 1
         }],
-        status=TransactionStatus.Draft
-    ))
+        "status": "draft"
+    }
     
-    return {"checkout_url": txn.checkout["url"]}
+    response = requests.post(
+        "https://api.paddle.com/transactions",
+        headers=headers,
+        json=transaction_data,
+        timeout=30
+    )
+    
+    if response.status_code != 201:
+        raise HTTPException(500, f"Paddle API error: {response.text}")
+    
+    txn_data = response.json()
+    return {"checkout_url": txn_data["checkout"]["url"]}
 
 @app.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
     import paddle_billing
     from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities.Transactions import TransactionStatus
+    from paddle_billing.Entities import TransactionStatus
     
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_PORTFOLIO","")
@@ -4140,7 +4155,7 @@ async def create_checkout_paddle_portfolio(payload: dict):
 async def create_checkout_paddle_pro(payload: dict):
     import paddle_billing
     from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities.Transactions import TransactionStatus
+    from paddle_billing.Entities import TransactionStatus
     
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_PRO","")
@@ -6002,7 +6017,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 
 
