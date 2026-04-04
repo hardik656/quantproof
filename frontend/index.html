@@ -4,33 +4,33 @@
 <!-- Paddle.js for international payments -->
 <script src="https://cdn.paddle.com/paddle/paddle.js"></script>
 <script>
-  Paddle.Setup({
-    vendor: 307732
+  window.Paddle = window.Paddle || {};
+  document.addEventListener("DOMContentLoaded", function () {
+    Paddle.Setup({
+      vendor: 307732
+    });
   });
 </script>
 <script>
-(function () {
+document.addEventListener("DOMContentLoaded", function () {
   const params = new URLSearchParams(window.location.search);
   const txn = params.get("_ptxn");
 
-  if (txn && typeof Paddle !== "undefined") {
+  if (txn && window.Paddle) {
     console.log("Opening Paddle checkout for txn:", txn);
 
-    Paddle.Checkout.open({
-      transactionId: txn
-    });
-    
-    // Clean URL after opening checkout
-    window.history.replaceState({}, document.title, window.location.pathname);
+    try {
+      Paddle.Checkout.open({
+        transactionId: txn,
+        settings: {
+          displayMode: "overlay"
+        }
+      });
+    } catch (e) {
+      console.error("Paddle open error:", e);
+    }
   }
-})();
-
-// Initialize Paddle (will be ready when needed)
-if (typeof Paddle !== "undefined") {
-  Paddle.Setup({
-    vendor: parseInt(window.PADDLE_VENDOR_ID || "0")
-  });
-}
+});
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
 <script>
