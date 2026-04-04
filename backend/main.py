@@ -4077,68 +4077,83 @@ async def payment_webhook_pro(request: Request):
 @app.post("/report/create-checkout-paddle-lite")
 async def create_checkout_paddle_lite(payload: dict):
     import paddle_billing
+    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
+    from paddle_billing.Entities.Transactions import TransactionStatus
+    
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_LITE","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create({
-        "items": [{
+    
+    txn = paddle.transactions.create(CreateTransaction(
+        items=[{
             "price_id": price_id,
             "quantity": 1
         }],
-        "status": "draft"  # Create as draft first
-    })
+        status=TransactionStatus.Draft
+    ))
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-report")
 async def create_checkout_paddle_report(payload: dict):
     import paddle_billing
+    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
+    from paddle_billing.Entities.Transactions import TransactionStatus
+    
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_REPORT","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
     
-    # Create transaction with correct structure
-    txn = paddle.transactions.create({
-        "items": [{
+    # Create transaction with proper SDK structure
+    txn = paddle.transactions.create(CreateTransaction(
+        items=[{
             "price_id": price_id,
             "quantity": 1
         }],
-        "status": "draft"  # Create as draft first
-    })
+        status=TransactionStatus.Draft
+    ))
     
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
     import paddle_billing
+    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
+    from paddle_billing.Entities.Transactions import TransactionStatus
+    
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_PORTFOLIO","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create({
-        "items": [{
+    
+    txn = paddle.transactions.create(CreateTransaction(
+        items=[{
             "price_id": price_id,
             "quantity": 1
         }],
-        "status": "draft"  # Create as draft first
-    })
+        status=TransactionStatus.Draft
+    ))
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/create-checkout-paddle-pro")
 async def create_checkout_paddle_pro(payload: dict):
     import paddle_billing
+    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
+    from paddle_billing.Entities.Transactions import TransactionStatus
+    
     paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
     price_id = os.getenv("PADDLE_PRICE_PRO","")
     if not price_id:
         raise HTTPException(503, "Paddle not configured")
-    txn = paddle.transactions.create({
-        "items": [{
+    
+    txn = paddle.transactions.create(CreateTransaction(
+        items=[{
             "price_id": price_id,
             "quantity": 1
         }],
-        "status": "draft"  # Create as draft first
-    })
+        status=TransactionStatus.Draft
+    ))
     return {"checkout_url": txn.checkout["url"]}
 
 @app.post("/report/webhook-paddle")
