@@ -4151,11 +4151,11 @@ async def create_checkout_paddle_report(request: dict):
         data = res.json()
         print(f"[DEBUG] Parsed JSON response: {data}")
 
-        if "data" not in data or "url" not in data["data"]:
-            print(f"[DEBUG] Invalid response structure - data key: {'data' in data}, url key: {'url' in data.get('data', {})}")
+        if "data" not in data or "checkout" not in data["data"]:
+            print(f"[DEBUG] Invalid response structure - data key: {'data' in data}, checkout key: {'checkout' in data.get('data', {})}")
             raise HTTPException(500, "Invalid Paddle response")
 
-        checkout_url = data["data"]["url"]
+        checkout_url = data["data"]["checkout"]["url"]
         print(f"[DEBUG] Success! Checkout URL: {checkout_url}")
 
         return {
@@ -6041,7 +6041,6 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
 
 
 
