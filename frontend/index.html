@@ -1,7 +1,32 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
-<!-- Google tag (gtag.js) -->
+<!-- Paddle.js for international payments -->
+<script src="https://cdn.paddle.com/paddle/paddle.js"></script>
+<script>
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const txn = params.get("_ptxn");
+
+  if (txn && typeof Paddle !== "undefined") {
+    console.log("Opening Paddle checkout for txn:", txn);
+
+    Paddle.Checkout.open({
+      transactionId: txn
+    });
+    
+    // Clean URL after opening checkout
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+})();
+
+// Initialize Paddle (will be ready when needed)
+if (typeof Paddle !== "undefined") {
+  Paddle.Setup({
+    vendor: parseInt(window.PADDLE_VENDOR_ID || "0")
+  });
+}
+</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
