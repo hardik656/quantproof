@@ -789,36 +789,41 @@
   </div></main>
 
   <!-- PRO PLAN BANNER -->
-  <div style="background:linear-gradient(135deg,#7B61FF 0%,#6B50E6 100%);margin:0 auto 56px;max-width:1200px;margin-left:20px;margin-right:20px;border-radius:12px;padding:32px;text-align:center;position:relative;overflow:hidden;">
-    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:url('data:image/svg+xml,<svg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"><g fill=\"none\" fill-rule=\"evenodd\"><g fill=\"%23ffffff\" fill-opacity=\"0.05\"><polygon points=\"30 30 0 0 60 0\"/><polygon points=\"30 30 60 0 60 60\"/><polygon points=\"30 30 60 60 0 60\"/></g></g></svg>') repeat;opacity:0.3;"></div>
+  <div style="background:var(--deep);margin:0 auto 56px;max-width:1200px;margin-left:20px;margin-right:20px;border-radius:12px;padding:32px;text-align:center;position:relative;overflow:hidden;">
     <div style="position:relative;z-index:1;">
-      <div style="font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.8);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">// UNLIMITED INSTITUTIONAL ANALYSIS</div>
-      <h2 style="font-size:28px;font-weight:700;color:#fff;margin-bottom:16px;letter-spacing:-0.5px;">Pro Plan — Validate Without Limits</h2>
-      <p style="font-size:16px;color:rgba(255,255,255,0.9);max-width:600px;margin:0 auto 32px;line-height:1.6;">30 days of unlimited validations, n=50 Monte Carlo depth, all PDFs included, and zero rate limits. Perfect for serious traders and prop firm preparation.</p>
+      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">// UNLIMITED INSTITUTIONAL ANALYSIS</div>
+      <h2 style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:-0.5px;">Pro Plan — Validate Without Limits</h2>
+      <p style="font-size:16px;color:var(--muted);max-width:600px;margin:0 auto 32px;line-height:1.6;">
+        30 days of unlimited validations, n=50 Monte Carlo depth, all PDFs included, and zero rate limits. Perfect for serious traders and prop firm preparation.
+      </p>
       
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px;margin-bottom:32px;max-width:800px;margin-left:auto;margin-right:auto;">
         <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:4px;">∞</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:var(--mono);">Validations</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">∞</div>
+          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Validations</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:4px;">n=50</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:var(--mono);">Monte Carlo Depth</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">n=50</div>
+          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Monte Carlo Depth</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:4px;">30d</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:var(--mono);">Access Duration</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">30d</div>
+          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Access Duration</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:4px;">0</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:var(--mono);">Rate Limits</div>
+          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">0</div>
+          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Rate Limits</div>
         </div>
       </div>
       
-      <button onclick="buyProPlan()" style="background:#fff;color:#7B61FF;border:none;padding:16px 40px;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;border-radius:6px;display:inline-flex;align-items:center;gap:10px;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 25px rgba(123,97,255,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
-        🚀 UNLOCK PRO — ₹999
-      </button>
-      <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:12px;font-family:var(--mono);">Both Razorpay (₹999) and Paddle ($39 USD) available</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <button onclick="buyProPlanRazorpay()" style="background:var(--accent);color:var(--black);border:none;padding:16px 40px;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;border-radius:6px;display:inline-flex;align-items:center;gap:10px;min-width:320px;justify-content:center;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 25px rgba(0,255,136,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
+          🇮🇳 UNLOCK PRO — ₹999 (Razorpay)
+        </button>
+        <button onclick="buyProPlanPaddle()" style="background:transparent;color:var(--accent);border:1.5px solid var(--accent);padding:14px 40px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;border-radius:6px;display:inline-flex;align-items:center;gap:10px;min-width:320px;justify-content:center;" onmouseover="this.style.background='rgba(0,255,136,0.08)';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='transparent';this.style.transform='translateY(0)';">
+          🌍 UNLOCK PRO — $9.99 USD (International)
+        </button>
+      </div>
     </div>
   </div>
 
@@ -961,7 +966,8 @@
               AI top-3 fix plan in browser<br>
               Personalised to your numbers
             </div>
-            <button onclick="buyLiteUnlock()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#9889; Unlock &#8377;99</button>
+            <button onclick="buyLiteUnlockRazorpay()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Unlock ₹99</button>
+<button onclick="buyLiteUnlockPaddle()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $1.50 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(0,255,136,0.3);padding:16px;position:relative;">
@@ -973,7 +979,8 @@
               n=20 forced (institutional)<br>
               All failures ranked in PDF
             </div>
-            <button onclick="buyPdfReport()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128196; PDF &#8377;299</button>
+            <button onclick="buyPdfReportRazorpay()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 PDF ₹299</button>
+<button onclick="buyPaddleReport()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $3.99 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(245,183,0,0.3);padding:16px;">
@@ -984,7 +991,8 @@
               Correlation matrix<br>
               Diversification score 0&#8211;100
             </div>
-            <button onclick="buyPortfolioUnlock()" style="width:100%;background:rgba(245,183,0,0.9);color:#0a0a0a;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">Portfolio &#8377;199</button>
+            <button onclick="buyPortfolioUnlock()" style="width:100%;background:rgba(245,183,0,0.9);color:#0a0a0a;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Portfolio ₹199</button>
+<button onclick="buyPaddlePortfolio()" style="width:100%;background:transparent;color:#F5B700;border:1px solid rgba(245,183,0,0.6);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $2.50 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(123,97,255,0.2);padding:16px;">
@@ -994,13 +1002,6 @@
               Unlimited validations<br>
               n=50 always &amp; all PDFs free<br>
               Portfolio included
-            </div>
-            <button onclick="buyProPlan()" style="width:100%;background:rgba(123,97,255,0.85);color:#fff;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;">&#128640; Pro &#8377;999</button>
-          </div>
-
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;opacity:0.6;">
-          All one-time purchases &nbsp;&middot;&nbsp; No recurring charges &nbsp;&middot;&nbsp; Pro valid 30 days
         </div>
       </div>
     </div>
@@ -3241,6 +3242,24 @@
     }
   }
 
+  async function buyPaddlePortfolio() {
+    const status = document.getElementById('portStatus') || document.getElementById('pdfBtnStatus');
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-portfolio`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!data.checkout_url) {
+        if (status) { status.innerText = 'Use Razorpay above for INR.'; status.style.color = '#ffaa00'; }
+        return;
+      }
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      if (status) { status.innerText = 'Error: ' + e.message; status.style.color = '#ff4444'; }
+    }
+  }
+  window.buyPaddlePortfolio = buyPaddlePortfolio;
+
   async function handleLSReturn() {
     const params=new URLSearchParams(window.location.search);
     if(params.get('payment')!=='success'||params.get('provider')!=='ls') return;
@@ -4217,34 +4236,33 @@
   }
 
   async function buyProPlan() {
-    // Show payment method selection modal
-    const modal = document.createElement('div');
-    modal.id = 'pro-payment-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    modal.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #7B61FF;max-width:440px;width:100%;padding:36px 32px;position:relative;">
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#7B61FF;letter-spacing:0.12em;margin-bottom:10px;">// PRO PLAN — ₹999/30 DAYS</div>
-        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:8px;">Choose Payment Method</div>
-        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">Unlimited validations • n=50 depth • All PDFs • No rate limits</div>
-        
-        <button onclick="buyProPlanRazorpay();document.getElementById('pro-payment-modal').remove();"
-          style="background:#7B61FF;color:#fff;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🇮🇳 Pay with Razorpay (UPI/Card) — ₹999
+    // Show a simple inline choice directly — modal was unreliable
+    const existing = document.getElementById('qp-pro-choice');
+    if (existing) { existing.remove(); return; }
+    const div = document.createElement('div');
+    div.id = 'qp-pro-choice';
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    div.innerHTML = `
+      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #7B61FF;max-width:420px;width:100%;padding:36px 32px;">
+        <div style="font-family:Space Mono,monospace;font-size:10px;color:#7B61FF;letter-spacing:0.12em;margin-bottom:10px;">// PRO PLAN — 30 DAYS</div>
+        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:6px;">Unlimited Validations</div>
+        <div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">n=50 depth · All PDFs · No rate limits · Portfolio included</div>
+        <button onclick="buyProPlanRazorpay();document.getElementById('qp-pro-choice').remove();"
+          style="background:#7B61FF;color:#fff;border:none;padding:14px 20px;font-family:Space Mono,monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;border-radius:4px;">
+          🇮🇳 Pay with Razorpay — ₹999
         </button>
-        
-        <button onclick="buyProPlanPaddle();document.getElementById('pro-payment-modal').remove();"
-          style="background:transparent;color:#7B61FF;border:1px solid #7B61FF;padding:12px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🌍 Pay with Paddle (International) — $39 USD
+        <button onclick="buyProPlanPaddle();document.getElementById('qp-pro-choice').remove();"
+          style="background:transparent;color:#7B61FF;border:1.5px solid #7B61FF;padding:12px 20px;font-family:Space Mono,monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;border-radius:4px;">
+          🌍 Pay with Card/PayPal — $9.99 USD
         </button>
-        
-        <button onclick="document.getElementById('pro-payment-modal').remove();"
-          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
+        <button onclick="document.getElementById('qp-pro-choice').remove();"
+          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px;font-family:Space Mono,monospace;font-size:11px;cursor:pointer;width:100%;border-radius:4px;">
           Cancel
         </button>
-      </div>
-    `;
-    document.body.appendChild(modal);
+      </div>`;
+    document.body.appendChild(div);
   }
+  window.buyProPlan = buyProPlan;
 
   async function buyProPlanRazorpay() {
     try {
