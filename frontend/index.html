@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
+<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P8ZCZSKQSS"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -788,45 +789,6 @@
     </div>
   </div></main>
 
-  <!-- PRO PLAN BANNER -->
-  <div style="background:var(--deep);margin:0 auto 56px;max-width:1200px;margin-left:20px;margin-right:20px;border-radius:12px;padding:32px;text-align:center;position:relative;overflow:hidden;">
-    <div style="position:relative;z-index:1;">
-      <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">// UNLIMITED INSTITUTIONAL ANALYSIS</div>
-      <h2 style="font-size:28px;font-weight:700;color:var(--text);margin-bottom:16px;letter-spacing:-0.5px;">Pro Plan — Validate Without Limits</h2>
-      <p style="font-size:16px;color:var(--muted);max-width:600px;margin:0 auto 32px;line-height:1.6;">
-        30 days of unlimited validations, n=50 Monte Carlo depth, all PDFs included, and zero rate limits. Perfect for serious traders and prop firm preparation.
-      </p>
-      
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:20px;margin-bottom:32px;max-width:800px;margin-left:auto;margin-right:auto;">
-        <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">∞</div>
-          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Validations</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">n=50</div>
-          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Monte Carlo Depth</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">30d</div>
-          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Access Duration</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:24px;font-weight:700;color:var(--accent);margin-bottom:4px;">0</div>
-          <div style="font-size:12px;color:var(--muted);font-family:var(--mono);">Rate Limits</div>
-        </div>
-      </div>
-      
-      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
-        <button onclick="buyProPlanRazorpay()" style="background:var(--accent);color:var(--black);border:none;padding:16px 40px;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;border-radius:6px;display:inline-flex;align-items:center;gap:10px;min-width:320px;justify-content:center;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 25px rgba(0,255,136,0.3)';" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='none';">
-          🇮🇳 UNLOCK PRO — ₹999 (Razorpay)
-        </button>
-        <button onclick="buyProPlanPaddle()" style="background:transparent;color:var(--accent);border:1.5px solid var(--accent);padding:14px 40px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all 0.3s;text-transform:uppercase;border-radius:6px;display:inline-flex;align-items:center;gap:10px;min-width:320px;justify-content:center;" onmouseover="this.style.background='rgba(0,255,136,0.08)';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='transparent';this.style.transform='translateY(0)';">
-          🌍 UNLOCK PRO — $9.99 USD (International)
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- SOCIAL PROOF BAR -->
   <div id="proofBar" style="margin:-24px 0 56px;animation:fadeUp 0.8s 0.2s ease both;">
     <div class="proof-bar">
@@ -966,8 +928,8 @@
               AI top-3 fix plan in browser<br>
               Personalised to your numbers
             </div>
-            <button onclick="buyLiteUnlockRazorpay()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Unlock ₹99</button>
-<button onclick="buyLiteUnlockPaddle()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $1.50 USD (Intl)</button>
+            <button onclick="buyLiteUnlock()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Unlock ₹99</button>
+            <button onclick="buyLiteUnlockPaddle()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $1.50 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(0,255,136,0.3);padding:16px;position:relative;">
@@ -980,7 +942,7 @@
               All failures ranked in PDF
             </div>
             <button onclick="buyPdfReportRazorpay()" style="width:100%;background:var(--accent);color:var(--black);border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 PDF ₹299</button>
-<button onclick="buyPaddleReport()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $3.99 USD (Intl)</button>
+            <button onclick="buyPaddleReport()" style="width:100%;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $3.99 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(245,183,0,0.3);padding:16px;">
@@ -992,7 +954,7 @@
               Diversification score 0&#8211;100
             </div>
             <button onclick="buyPortfolioUnlock()" style="width:100%;background:rgba(245,183,0,0.9);color:#0a0a0a;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Portfolio ₹199</button>
-<button onclick="buyPaddlePortfolio()" style="width:100%;background:transparent;color:#F5B700;border:1px solid rgba(245,183,0,0.6);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $2.50 USD (Intl)</button>
+            <button onclick="buyPaddlePortfolio()" style="width:100%;background:transparent;color:#F5B700;border:1px solid rgba(245,183,0,0.6);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $2.50 USD (Intl)</button>
           </div>
 
           <div style="background:var(--surface);border:1px solid rgba(123,97,255,0.2);padding:16px;">
@@ -1002,6 +964,14 @@
               Unlimited validations<br>
               n=50 always &amp; all PDFs free<br>
               Portfolio included
+            </div>
+            <button onclick="buyProPlanRazorpay()" style="width:100%;background:rgba(123,97,255,0.9);color:#fff;border:none;padding:9px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">🇮🇳 Pro ₹999</button>
+            <button onclick="buyProPlanPaddle()" style="width:100%;background:transparent;color:#7B61FF;border:1px solid rgba(123,97,255,0.6);padding:8px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">🌍 $9.99 USD (Intl)</button>
+          </div>
+
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;opacity:0.6;">
+          All one-time purchases &nbsp;&middot;&nbsp; No recurring charges &nbsp;&middot;&nbsp; Pro valid 30 days
         </div>
       </div>
     </div>
@@ -1482,7 +1452,7 @@
       <span class="accent">QuantProof</span> &mdash; Built for retail quants who want institutional validation &nbsp;|&nbsp; Not financial advice
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
-      &copy; 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodology">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
+      &copy; 2026 QuantProof. <a href="/">Trading Strategy Validator</a> | <a href="/pricing.html">Pricing</a> | <a href="/methodology.html">Methodology</a> | <a href="/faq.html">FAQ</a> | <a href="/privacy-policy.html">Privacy Policy</a> | <a href="/terms-of-service.html">Terms of Service</a> | <a href="/refund-policy.html">Refund Policy</a> | <a href="/ftmo-preparation-guide.html" style="color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(0,255,136,0.3);">FTMO Preparation Guide</a>
     </div>
     <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted);">
       <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;">
@@ -2617,6 +2587,13 @@
             onmouseout="this.style.borderColor='rgba(100,116,139,0.3)';this.style.color='var(--muted)'">
             🌍 International (USD/GBP/EUR) — Paddle Checkout
           </button>
+          <div id="intlWaitlistBox" style="display:none;margin-top:8px;">
+            <div style="display:flex;gap:6px;">
+              <input id="intlEmail" type="email" placeholder="your@email.com" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:var(--mono);font-size:11px;">
+              <button onclick="submitIntlWaitlist()" style="background:var(--accent);color:var(--black);border:none;padding:8px 14px;font-family:var(--mono);font-size:11px;cursor:pointer;">→</button>
+            </div>
+            <div id="intlWaitlistStatus" style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px;"></div>
+          </div>
           <div id="pdfBtnStatus" style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px;">One-time purchase · Instant download</div>
         </div>`}
         <button class="reset-btn" onclick="resetApp()">← Run Another Validation</button>
@@ -2724,48 +2701,167 @@
 
   function toggleCheck(el) { el.querySelector('.check-details').classList.toggle('open'); }
 
-  function buildAiTeaser(data) {
-    const failed = (data.checks||[]).filter(c=>!c.passed);
-    if (failed.length === 0) return '✅ All checks passed — your strategy meets institutional standards.';
-    
-    // Top 3 critical fixes based on impact
-    const critical = failed
-      .filter(c => c.category === 'Risk' || c.category === 'Overfitting')
-      .slice(0, 2);
-    const other = failed
-      .filter(c => c.category !== 'Risk' && c.category !== 'Overfitting')
-      .slice(0, 1);
-    
-    const top3 = [...critical, ...other].slice(0, 3);
-    
-    return top3.map((check, i) => 
-      `${i+1}. ${check.name}: ${check.fix.split('.')[0]}.`
-    ).join(' ');
+  function showRateLimitModal(hoursLeft) {
+    const existing = document.getElementById('qp-rl-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'qp-rl-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
+    modal.innerHTML = `
+      <div style="background:#0d1117;border:1px solid #1e2d3d;max-width:460px;width:100%;padding:36px 32px;position:relative;">
+        <button onclick="document.getElementById('qp-rl-modal').remove()"
+          style="position:absolute;top:12px;right:16px;background:none;border:none;color:#5a7a8a;font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;">✕</button>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4444;letter-spacing:0.12em;margin-bottom:10px;">// DAILY LIMIT REACHED</div>
+        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:6px;">3 free validations used today.</div>
+        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;">Resets in ~${hoursLeft}h &nbsp;·&nbsp; or unlock now and keep going</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+          <button onclick="document.getElementById('qp-rl-modal').remove();buyLiteUnlock();"
+            style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;">
+            ⚡ Unlock All Fixes Now — ₹99
+          </button>
+          <button onclick="document.getElementById('qp-rl-modal').remove();buyPdfReport();"
+            style="background:transparent;color:#00ff88;border:1px solid rgba(0,255,136,0.4);padding:12px 20px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;cursor:pointer;width:100%;">
+            📄 Full PDF Report — ₹299
+          </button>
+        </div>
+
+        <div style="border-top:1px solid #1e2d3d;padding-top:18px;">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-bottom:8px;letter-spacing:0.08em;">OR — EMAIL ME WHEN MY LIMIT RESETS (FREE)</div>
+          <div style="display:flex;gap:8px;">
+            <input id="rl-email" type="email" placeholder="your@email.com"
+              style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:9px 12px;font-family:'Space Mono',monospace;font-size:11px;outline:none;">
+            <button onclick="submitRateLimitEmail()"
+              style="background:#1e2d3d;color:#e8edf2;border:1px solid #1e2d3d;padding:9px 14px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;white-space:nowrap;transition:background 0.2s;"
+              onmouseover="this.style.background='#2a3f55'" onmouseout="this.style.background='#1e2d3d'">
+              Notify →
+            </button>
+          </div>
+          <div id="rl-status" style="font-family:'Space Mono',monospace;font-size:10px;color:#5a7a8a;margin-top:6px;min-height:14px;"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
   }
 
-  async function buyPaddleReport() {
+  async function submitRateLimitEmail() {
+    const email = (document.getElementById('rl-email')||{}).value||'';
+    const status = document.getElementById('rl-status');
+    const btn = document.querySelector('#qp-rl-modal button[onclick*="submitRateLimitEmail"]');
+    if (!email || !email.includes('@')) {
+      if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
+      return;
+    }
+    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
     try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-report`, {
+      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'QuantProof Rate Limit Capture' })
       });
-      const data = await res.json();
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+      const data = await resp.json();
+      if(resp.ok) {
+        if(status){ status.innerText="✓ Got it — we'll email you when your limit resets."; status.style.color='#00ff88'; }
+        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
+        const input = document.getElementById('rl-email');
+        if(input){ input.disabled=true; }
       } else {
-        const status = document.getElementById('pdfBtnStatus');
-        if (status) { 
-          status.innerText = 'International payments not available. Use Razorpay (₹299) above for INR.'; 
-          status.style.color = '#ffaa00'; 
-        }
+        throw new Error(data.error || 'Failed');
       }
-    } catch (e) {
-      const status = document.getElementById('pdfBtnStatus');
-      if (status) { 
-        status.innerText = 'Payment error. Please try again.'; 
-        status.style.color = '#ff4444'; 
+    } catch(e) {
+      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='Notify →'; }
+    }
+  }
+
+  function resetApp() {
+    _isSampleRun = false;
+    document.getElementById('resultsSection').classList.remove('active');
+    document.getElementById('resultsSection').innerHTML = '';
+    if (typeof QP_Charts !== 'undefined') QP_Charts.destroy();
+    document.getElementById('uploadSection').style.display    = 'block';
+    document.getElementById('heroSection').style.display      = 'block';
+    document.getElementById('proofBar').style.display         = 'block';
+    document.getElementById('marketingSections').style.display= 'block';
+
+    document.getElementById('fileInput').value = '';
+    document.getElementById('kiteFileInput').value = '';
+    document.getElementById('alpacaPanel').style.display   = 'none';
+    document.getElementById('tradingviewStatus').innerHTML = '';
+    _validationMode = 'csv'; _brokerSource = ''; _lastValidatedFile = null;
+    try {
+      sessionStorage.removeItem('qp_source');
+      clearToken('qp_validation_hash');
+      sessionStorage.removeItem('qp_filename');
+      sessionStorage.removeItem('qp_filedata');
+    } catch(e) {}
+    window.scrollTo(0, 0);
+  }
+
+  function buildAiTeaser(data) {
+    const failed   = (data.checks || []).filter(c => !c.passed && c.category !== 'Plausibility');
+    const score    = data.fundable_score;
+    const sharpe   = data.sharpe;
+    const dd       = (data.max_drawdown * 100).toFixed(1);
+    const wr       = data.win_rate;
+    const n        = data.total_trades;
+    const cats = {};
+    failed.forEach(c => { cats[c.category] = (cats[c.category] || 0) + 1; });
+    const worstCat   = Object.entries(cats).sort((a,b) => b[1]-a[1])[0];
+    const worstName  = worstCat ? worstCat[0] : 'Risk';
+    const worstCount = worstCat ? worstCat[1] : 0;
+    const worst = failed.sort((a,b) => a.score - b.score)[0];
+    if (!worst) return `Your strategy scores ${score}/100 with Sharpe ${sharpe}. No critical failures detected — the full report shows optimisation opportunities specific to your ${n}-trade backtest.`;
+    let s1 = '';
+    if      (worstName === 'Overfitting') s1 = `With ${n} trades and Sharpe ${sharpe}, your strategy's statistical significance is the primary concern — the overfitting checks account for ${worstCount} of your ${failed.length} failures.`;
+    else if (worstName === 'Risk')        s1 = `A ${dd}% max drawdown with ${wr}% win rate means your risk profile needs work before this strategy is deployable — ${worstCount} risk check(s) failed.`;
+    else if (worstName === 'Regime')      s1 = `Your strategy's behaviour across different market conditions is the main issue — it hasn't been tested in enough regime types to be trusted live.`;
+    else if (worstName === 'Execution')   s1 = `With Sharpe ${sharpe}, your edge is thin enough that execution costs are a serious concern — ${worstCount} execution check(s) failed.`;
+    else                                  s1 = `Your score of ${score}/100 reflects ${failed.length} institutional failures, with ${worstName.toLowerCase()} being the primary issue.`;
+    return s1 + ` The highest-impact fix targets "${worst.name}" (scored ${worst.score}/100) — the full report shows exactly what to change with your specific numbers.`;
+  }
+
+  function toggleFundableExplainer() {
+    const box     = document.getElementById('fundableExplainer');
+    const chevron = document.getElementById('fundableChevron');
+    if (!box) return;
+    const isOpen = box.style.display !== 'none';
+    box.style.display = isOpen ? 'none' : 'block';
+    if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+  }
+
+  function showIntlWaitlist() {
+    const box = document.getElementById('intlWaitlistBox');
+    if(box) { box.style.display = box.style.display === 'none' ? 'block' : 'none'; }
+  }
+
+  async function submitIntlWaitlist() {
+    const email  = (document.getElementById('intlEmail')||{}).value||'';
+    const status = document.getElementById('intlWaitlistStatus');
+    const btn    = document.getElementById('intlWaitlistBox') ? document.getElementById('intlWaitlistBox').querySelector('button') : null;
+    if(!email || !email.includes('@')) {
+      if(status){ status.innerText='Please enter a valid email.'; status.style.color='#ff4444'; }
+      return;
+    }
+    if(btn){ btn.disabled=true; btn.innerText='Sending...'; }
+    if(status){ status.innerText=''; }
+    try {
+      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email: email, source: 'QuantProof International Waitlist' })
+      });
+      const data = await resp.json();
+      if(resp.ok) {
+        if(status){ status.innerText='✓ You are on the list — we will email you when international payments launch.'; status.style.color='var(--accent)'; }
+        if(btn){ btn.disabled=true; btn.innerText='✓ Done'; }
+        const input = document.getElementById('intlEmail');
+        if(input){ input.disabled=true; }
+      } else {
+        throw new Error(data.error || 'Failed');
       }
+    } catch(e) {
+      if(status){ status.innerText='Error — try again.'; status.style.color='#ff4444'; }
+      if(btn){ btn.disabled=false; btn.innerText='→'; }
     }
   }
 
@@ -2839,71 +2935,23 @@
     const btn    = document.getElementById('unlockBtn');
     const status = document.getElementById('pdfBtnStatus');
     const ugBtn = document.querySelector('.urgency-gate-btn');
-    
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '⚡ Choose Payment Method';
-    }
-    if (ugBtn) {
-      ugBtn.disabled = true;
-      ugBtn.innerHTML = '⚡ Choose Payment Method';
-    }
-    
-    // Show payment method selection modal
-    const modal = document.createElement('div');
-    modal.id = 'payment-method-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    modal.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #00ff88;max-width:440px;width:100%;padding:36px 32px;position:relative;">
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.12em;margin-bottom:10px;">// UNLOCK INSTITUTIONAL DEPTH — ₹99</div>
-        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:8px;">Choose Payment Method</div>
-        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">n=20 institutional depth + full AI fix plan</div>
-        
-        <button onclick="buyLiteUnlockRazorpay();document.getElementById('payment-method-modal').remove();"
-          style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🇮🇳 Pay with Razorpay (UPI/Card) — ₹99
-        </button>
-        
-        <button onclick="buyLiteUnlockPaddle();document.getElementById('payment-method-modal').remove();"
-          style="background:transparent;color:#00ff88;border:1px solid #00ff88;padding:12px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🌍 Pay with Paddle (International) — $4 USD
-        </button>
-        
-        <button onclick="document.getElementById('payment-method-modal').remove();if(document.getElementById('unlockBtn')){document.getElementById('unlockBtn').disabled=false;document.getElementById('unlockBtn').innerHTML='⚡ Unlock All Fixes — ₹99';}if(document.querySelector('.urgency-gate-btn')){document.querySelector('.urgency-gate-btn').disabled=false;document.querySelector('.urgency-gate-btn').innerHTML='⚡ See All Fixes — ₹99';}"
-          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
-          Cancel
-        </button>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  }
-
-  async function buyLiteUnlockRazorpay() {
-    const btn    = document.getElementById('unlockBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    const ugBtn = document.querySelector('.urgency-gate-btn');
-    
-    if (btn) btn.innerHTML = '⚡ Opening Razorpay...';
-    if (ugBtn) ugBtn.innerHTML = '⚡ Opening Razorpay...';
-    
+    if(btn) { btn.disabled = true; btn.innerText = 'Opening payment...'; }
+    if(ugBtn) { ugBtn.disabled = true; ugBtn.innerText = 'Opening...'; }
     try {
       const res = await fetch(`${API_URL_REPORT}/report/create-checkout-lite`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({})
       });
       const data = await res.json();
-      if (data.error) throw new Error(data.message || data.error);
+      if(data.error) throw new Error(data.message || data.error);
       const options = {
         key: data.key_id, amount: data.amount, currency: data.currency,
-        name: 'QuantProof', description: 'Institutional Depth — n=20 validation + AI fix plan',
-        order_id: data.order_id, theme: {color:'#00ff88'}, prefill:{},
+        name: 'QuantProof', description: 'Full Analysis Unlock — all check fixes revealed',
+        order_id: data.order_id, theme: {color: '#00ff88'}, prefill: {},
         handler: async function(response) {
-          if (status) {
-            status.innerText = '✓ Payment verified — unlocking...';
-            status.style.color = 'var(--accent)';
-          }
+          if(status){ status.innerText = 'Verifying payment...'; status.style.color = 'var(--accent)'; }
           try {
             const vr = await fetch(`${API_URL_REPORT}/report/webhook-lite`, {
-              method:'POST', headers:{'Content-Type':'application/json'},
+              method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id:   response.razorpay_order_id,
@@ -2911,7 +2959,7 @@
               })
             });
             const vd = await vr.json();
-            if (!vd.token) throw new Error('Payment verification failed');
+            if(!vd.token) throw new Error('Payment verification failed');
             
             // Send GA4 purchase event for Lite Plan (₹99)
             try {
@@ -2932,69 +2980,31 @@
               console.error('Failed to send GA4 purchase event for Lite Plan:', e);
             }
             
-            await applyLiteUnlock(vd.token);
-          } catch (ve) {
-            if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-            if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
-            if (status) { status.innerText = 'Payment error: ' + ve.message; status.style.color = '#ff4444'; }
+            applyLiteUnlock(vd.token);
+          } catch(ve) {
+            if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+            if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
+            if(status){ status.innerText = 'Payment error: ' + ve.message; status.style.color = '#ff4444'; }
           }
         },
-        modal: { ondismiss: function(){ 
-          if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-          if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+        modal: { ondismiss: function() {
+          if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+          if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
+          if(status) status.innerText = '';
         }}
       };
-      if (typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
+      if(typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
       const rzp = new Razorpay(options);
       rzp.on('payment.failed', function(r) {
-        if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-        if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
-        if (status) { status.innerText = 'Payment failed: ' + (r.error.description || 'Declined'); status.style.color = '#ff4444'; }
+        if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+        if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
+        if(status){ status.innerText = 'Payment failed: ' + (r.error.description || 'Declined'); status.style.color = '#ff4444'; }
       });
       rzp.open();
     } catch(err) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-      if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
-      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
-    }
-  }
-
-  async function buyLiteUnlockPaddle() {
-    const btn    = document.getElementById('unlockBtn');
-    const status = document.getElementById('pdfBtnStatus');
-    const ugBtn = document.querySelector('.urgency-gate-btn');
-    
-    if (btn) btn.innerHTML = '⚡ Opening Paddle...';
-    if (ugBtn) ugBtn.innerHTML = '⚡ Opening Paddle...';
-    
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-lite`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      
-      if (!data.checkout_url) {
-        if (status) {
-          status.innerText = 'International payments unavailable. Use Razorpay above.';
-          status.style.color = '#ffaa00';
-        }
-        if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-        if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
-        return;
-      }
-
-      // Redirect to Paddle checkout URL — Paddle.js will auto-open overlay
-      window.location.href = data.checkout_url;
-
-    } catch (e) {
-      if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
-      if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
-      if (status) {
-        status.innerText = 'Payment error: ' + e.message;
-        status.style.color = '#ff4444';
-      }
+      if(btn){ btn.disabled = false; btn.innerText = '⚡ Unlock All Fixes — ₹99'; }
+      if(ugBtn){ ugBtn.disabled = false; ugBtn.innerText = '⚡ See All Fixes — ₹99'; }
+      if(status){ status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
     }
   }
 
@@ -3134,41 +3144,7 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       return;
     }
-    btn.disabled=true; btn.innerText='Choose Payment Method';
-    
-    // Show payment method selection modal
-    const modal = document.createElement('div');
-    modal.id = 'pdf-payment-modal';
-    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    modal.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #00ff88;max-width:440px;width:100%;padding:36px 32px;position:relative;">
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00ff88;letter-spacing:0.12em;margin-bottom:10px;">// FULL PDF REPORT — ₹299</div>
-        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:8px;">Choose Payment Method</div>
-        <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">All failures ranked with n=20 institutional depth</div>
-        
-        <button onclick="buyPdfReportRazorpay();document.getElementById('pdf-payment-modal').remove();"
-          style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🇮🇳 Pay with Razorpay (UPI/Card) — ₹299
-        </button>
-        
-        <button onclick="buyPaddleReport();document.getElementById('pdf-payment-modal').remove();"
-          style="background:transparent;color:#00ff88;border:1px solid #00ff88;padding:12px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-          🌍 Pay with Paddle (International) — $12 USD
-        </button>
-        
-        <button onclick="document.getElementById('pdf-payment-modal').remove();if(document.getElementById('pdfBtn')){document.getElementById('pdfBtn').disabled=false;document.getElementById('pdfBtn').innerHTML='📄 Full PDF Report — ₹299';}"
-          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
-          Cancel
-        </button>
-      </div>
-    `;
-    document.body.appendChild(modal);
-  }
-
-  async function buyPdfReportRazorpay() {
-    const btn=document.getElementById('pdfBtn'), status=document.getElementById('pdfBtnStatus');
-    if(!btn) return;
-    btn.innerText='Opening Razorpay...';
+    btn.disabled=true; btn.innerText='Opening payment...';
     try {
       const res=await fetch(`${API_URL_REPORT}/report/create-checkout`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
       const data=await res.json();
@@ -3215,50 +3191,6 @@
       rzp.open();
     } catch(err){btn.disabled=false;btn.innerText='📄 Full PDF Report — ₹299';if(status){status.innerText='Error: '+err.message;status.style.color='#ff4444';}}
   }
-
-  async function buyPaddleReport() {
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        const status = document.getElementById('pdfBtnStatus');
-        if (status) { 
-          status.innerText = 'International payments not available. Use Razorpay (₹299) above for INR.'; 
-          status.style.color = '#ffaa00'; 
-        }
-      }
-    } catch (e) {
-      const status = document.getElementById('pdfBtnStatus');
-      if (status) { 
-        status.innerText = 'Payment error. Please try again.'; 
-        status.style.color = '#ff4444'; 
-      }
-    }
-  }
-
-  async function buyPaddlePortfolio() {
-    const status = document.getElementById('portStatus') || document.getElementById('pdfBtnStatus');
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-portfolio`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (!data.checkout_url) {
-        if (status) { status.innerText = 'Use Razorpay above for INR.'; status.style.color = '#ffaa00'; }
-        return;
-      }
-      window.location.href = data.checkout_url;
-    } catch (e) {
-      if (status) { status.innerText = 'Error: ' + e.message; status.style.color = '#ff4444'; }
-    }
-  }
-  window.buyPaddlePortfolio = buyPaddlePortfolio;
 
   async function handleLSReturn() {
     const params=new URLSearchParams(window.location.search);
@@ -3327,121 +3259,10 @@
     }
     if(sEl){sEl.innerText='Timed out. Email support@quantproof.net with order: '+orderId;sEl.style.color='#ffaa00';}
   }
-  function toggleFundableExplainer() {
-    const el = document.getElementById('fundableExplainer');
-    const btn = document.getElementById('fundableToggleBtn');
-    const chev = document.getElementById('fundableChevron');
-    if (!el) return;
-    const open = el.style.display !== 'none';
-    el.style.display = open ? 'none' : 'block';
-    if (chev) chev.style.transform = open ? '' : 'rotate(180deg)';
-    if (btn) {
-      btn.onmouseover = open ? function(){ this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'; } : null;
-    }
-  }
-
-  function showRateLimitModal(hoursLeft) {
-    const existing = document.getElementById('qp-rate-limit-modal');
-    if (existing) existing.remove();
-    const m = document.createElement('div');
-    m.id = 'qp-rate-limit-modal';
-    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    m.innerHTML = `<div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #ff4444;max-width:440px;width:100%;padding:36px 32px;position:relative;">
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4444;letter-spacing:0.12em;margin-bottom:10px;">// DAILY LIMIT REACHED</div>
-      <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:8px;">3 free validations used</div>
-      <div style="font-family:'Space Mono',monospace;font-size:11px;color:#5a7a8a;margin-bottom:20px;line-height:1.7;">Resets in ~${hoursLeft || 24}h. Unlock unlimited validations with Pro.</div>
-      <button onclick="buyProPlan();document.getElementById('qp-rate-limit-modal').remove();"
-        style="background:#00ff88;color:#080a0f;border:none;padding:14px 20px;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;">
-        🚀 Pro Plan — ₹999/30 days
-      </button>
-      <button onclick="document.getElementById('qp-rate-limit-modal').remove()"
-        style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px 20px;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;width:100%;">
-        Come back tomorrow
-      </button>
-    </div>`;
-    document.body.appendChild(m);
-  }
-
-  function resetApp() {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.reload();
-  }
-
-  function handlePaddleReturn() {
-    const params = new URLSearchParams(window.location.search);
-    const ptxn = params.get('_ptxn');
-    if (!ptxn) return;
-    window.history.replaceState({}, '', window.location.pathname);
-    const status = document.getElementById('pdfBtnStatus');
-    if (status) {
-      status.innerText = 'Payment processing — please wait...';
-      status.style.color = 'var(--accent)';
-    }
-    pollPaddleToken(ptxn);
-  }
-
-  async function pollPaddleToken(txnId, attempts) {
-    attempts = attempts || 0;
-    if (attempts > 30) return;
-    const status = document.getElementById('pdfBtnStatus');
-    try {
-      const r = await fetch(`${API_URL_REPORT}/report/paddle-token?txn_id=${encodeURIComponent(txnId)}`);
-      const d = await r.json();
-      if (d.status === 'ready' && d.token) {
-        saveToken('qp_report_token', d.token);
-        saveToken('qp_lite_token', d.token);
-        if (d.tier === 'pro') saveToken('qp_pro_token', d.token);
-        
-        // Check if we have the file to generate PDF
-        const sn = sessionStorage.getItem('qp_filename');
-        const sd = sessionStorage.getItem('qp_filedata');
-        
-        if (sd && sn && sn !== 'sample_nifty_momentum.csv') {
-          // File is in sessionStorage — recover and generate PDF
-          const ba = atob(sd);
-          const arr = new Uint8Array(ba.length);
-          for (let i = 0; i < ba.length; i++) arr[i] = ba.charCodeAt(i);
-          _lastValidatedFile = new File([arr], sn, { type: 'text/csv' });
-          if (status) status.innerText = '✓ Payment verified — generating your PDF...';
-          await generatePdfWithToken(d.token);
-        } else {
-          // File not recoverable — show instructions
-          if (status) {
-            status.innerHTML = '✓ Payment verified! Your token is saved. <strong>Re-upload your CSV file above</strong> to download your PDF — the file was cleared when you were redirected to payment.';
-            status.style.color = 'var(--accent)';
-          }
-          // Show the upload section again
-          document.getElementById('uploadSection').style.display = 'block';
-          document.getElementById('heroSection').style.display = 'block';
-          // Show a banner
-          const banner = document.createElement('div');
-          banner.style.cssText = 'background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.4);padding:16px 24px;margin-bottom:24px;font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;';
-          banner.innerHTML = '✓ Payment complete — re-upload your CSV above to download your PDF report. Your token is saved for 7 days.';
-          document.getElementById('heroSection').prepend(banner);
-        }
-      } else {
-        if (status) status.innerText = 'Verifying payment... (' + (attempts + 1) + '/30)';
-        setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
-      }
-    } catch (e) {
-      setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
-    }
-  }
-  window.pollPaddleToken = pollPaddleToken;
-
-  function submitRateLimitEmail() {
-    // stub — prevents console crash
-  }
-
-  window.handlePaddleReturn = handlePaddleReturn;
-  window.pollPaddleToken = pollPaddleToken;
-  window.submitRateLimitEmail = submitRateLimitEmail;
-
   window.addEventListener('load', function() {
-  handleLSReturn();
-  handlePaddleReturn();
-});
+    handleLSReturn();
+    handlePaddleReturn();
+  });
 
   function showAlpacaConnect(){document.getElementById('alpacaPanel').style.display='block';document.getElementById('alpacaPanel').scrollIntoView({behavior:'smooth',block:'center'});}
   function hideAlpacaPanel(){document.getElementById('alpacaPanel').style.display='none';}
@@ -4236,35 +4057,6 @@
   }
 
   async function buyProPlan() {
-    // Show a simple inline choice directly — modal was unreliable
-    const existing = document.getElementById('qp-pro-choice');
-    if (existing) { existing.remove(); return; }
-    const div = document.createElement('div');
-    div.id = 'qp-pro-choice';
-    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;';
-    div.innerHTML = `
-      <div style="background:#0d1117;border:1px solid #1e2d3d;border-top:3px solid #7B61FF;max-width:420px;width:100%;padding:36px 32px;">
-        <div style="font-family:Space Mono,monospace;font-size:10px;color:#7B61FF;letter-spacing:0.12em;margin-bottom:10px;">// PRO PLAN — 30 DAYS</div>
-        <div style="font-size:18px;font-weight:700;color:#e8edf2;margin-bottom:6px;">Unlimited Validations</div>
-        <div style="font-family:Space Mono,monospace;font-size:11px;color:#5a7a8a;margin-bottom:24px;line-height:1.7;">n=50 depth · All PDFs · No rate limits · Portfolio included</div>
-        <button onclick="buyProPlanRazorpay();document.getElementById('qp-pro-choice').remove();"
-          style="background:#7B61FF;color:#fff;border:none;padding:14px 20px;font-family:Space Mono,monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;border-radius:4px;">
-          🇮🇳 Pay with Razorpay — ₹999
-        </button>
-        <button onclick="buyProPlanPaddle();document.getElementById('qp-pro-choice').remove();"
-          style="background:transparent;color:#7B61FF;border:1.5px solid #7B61FF;padding:12px 20px;font-family:Space Mono,monospace;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px;border-radius:4px;">
-          🌍 Pay with Card/PayPal — $9.99 USD
-        </button>
-        <button onclick="document.getElementById('qp-pro-choice').remove();"
-          style="background:transparent;color:#5a7a8a;border:1px solid #1e2d3d;padding:10px;font-family:Space Mono,monospace;font-size:11px;cursor:pointer;width:100%;border-radius:4px;">
-          Cancel
-        </button>
-      </div>`;
-    document.body.appendChild(div);
-  }
-  window.buyProPlan = buyProPlan;
-
-  async function buyProPlanRazorpay() {
     try {
       const res = await fetch(`${API_URL_REPORT}/report/create-checkout-pro`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
@@ -4276,74 +4068,50 @@
         name: 'QuantProof', description: 'Pro Plan — 30 days unlimited',
         order_id: data.order_id, theme: {color:'#7B61FF'},
         handler: async function(response) {
-          try {
-            const vr = await fetch(`${API_URL_REPORT}/report/webhook-pro`, {
-              method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id:   response.razorpay_order_id,
-                razorpay_signature:  response.razorpay_signature
-              })
-            });
-            const vd = await vr.json();
-            if (vd.token) {
-              // Send GA4 purchase event for Pro Plan (₹999)
-              try {
-                gtag('event', 'purchase', {
-                  transaction_id: response.razorpay_order_id,
-                  value: 999,
-                  currency: 'INR',
-                  items: [{
-                    item_id: 'quantproof_pro',
-                    item_name: 'QuantProof Pro Plan',
-                    category: 'Digital Service',
-                    quantity: 1,
-                    price: 999
-                  }]
-                });
-                console.log('GA4 purchase event sent for Pro Plan:', { orderId: response.razorpay_order_id, value: 999, currency: 'INR' });
-              } catch (e) {
-                console.error('Failed to send GA4 purchase event for Pro Plan:', e);
-              }
-              
-              saveToken('qp_pro_token', vd.token);
-              saveToken('qp_port_token', vd.token);
-              saveToken('qp_lite_token', vd.token);
-              // Unlock everything
-              if (typeof unlockInstitutional === 'function') unlockInstitutional();
-              _nTrials = 50;
-              document.getElementById('sliderVal') && (document.getElementById('sliderVal').textContent = '50');
-              document.getElementById('depthSlider') && (document.getElementById('depthSlider').value = '50');
-              alert('✓ Pro Plan activated — 30 days of unlimited access. Reload to apply full benefits.');
+          const vr = await fetch(`${API_URL_REPORT}/report/webhook-pro`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_signature:  response.razorpay_signature
+            })
+          });
+          const vd = await vr.json();
+          if (vd.token) {
+            // Send GA4 purchase event for Pro Plan (₹999)
+            try {
+              gtag('event', 'purchase', {
+                transaction_id: response.razorpay_order_id,
+                value: 999,
+                currency: 'INR',
+                items: [{
+                  item_id: 'quantproof_pro',
+                  item_name: 'QuantProof Pro Plan',
+                  category: 'Digital Service',
+                  quantity: 1,
+                  price: 999
+                }]
+              });
+              console.log('GA4 purchase event sent for Pro Plan:', { orderId: response.razorpay_order_id, value: 999, currency: 'INR' });
+            } catch (e) {
+              console.error('Failed to send GA4 purchase event for Pro Plan:', e);
             }
-          } catch(e) { alert('Pro plan error: ' + e.message); }
+            
+            saveToken('qp_pro_token', vd.token);
+            saveToken('qp_port_token', vd.token);
+            saveToken('qp_lite_token', vd.token);
+            // Unlock everything
+            if (typeof unlockInstitutional === 'function') unlockInstitutional();
+            _nTrials = 50;
+            document.getElementById('sliderVal') && (document.getElementById('sliderVal').textContent = '50');
+            document.getElementById('depthSlider') && (document.getElementById('depthSlider').value = '50');
+            alert('✓ Pro Plan activated — 30 days of unlimited access. Reload to apply full benefits.');
+          }
         },
         modal: { ondismiss: function(){} }
       };
       const rzp = new Razorpay(options); rzp.open();
     } catch(e) { alert('Pro plan error: ' + e.message); }
-  }
-
-  async function buyProPlanPaddle() {
-    try {
-      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-pro`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      
-      if (!data.checkout_url) {
-        alert('International payments unavailable. Use Razorpay above.');
-        return;
-      }
-
-      // Redirect to Paddle checkout URL — Paddle.js will auto-open overlay
-      window.location.href = data.checkout_url;
-
-    } catch (e) {
-      alert('Payment error: ' + e.message);
-    }
   }
 
   async function devResetLimit() {
@@ -4454,6 +4222,255 @@
     }
   });
 // ============================================
+// ============================================================
+// PADDLE PAYMENT FUNCTIONS
+// ============================================================
+
+  function handlePaddleReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const ptxn = params.get('_ptxn');
+    if (!ptxn) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    const status = document.getElementById('pdfBtnStatus');
+    if (status) { status.innerText = 'Payment processing — please wait...'; status.style.color = 'var(--accent)'; }
+    pollPaddleToken(ptxn);
+  }
+
+  async function pollPaddleToken(txnId, attempts) {
+    attempts = attempts || 0;
+    if (attempts > 30) return;
+    const status = document.getElementById('pdfBtnStatus');
+    try {
+      const r = await fetch(`${API_URL_REPORT}/report/paddle-token?txn_id=${encodeURIComponent(txnId)}`);
+      const d = await r.json();
+      if (d.status === 'ready' && d.token) {
+        saveToken('qp_report_token', d.token);
+        saveToken('qp_lite_token', d.token);
+        if (d.tier === 'pro') saveToken('qp_pro_token', d.token);
+        const sn = sessionStorage.getItem('qp_filename');
+        const sd = sessionStorage.getItem('qp_filedata');
+        if (sd && sn && sn !== 'sample_nifty_momentum.csv') {
+          const ba = atob(sd);
+          const arr = new Uint8Array(ba.length);
+          for (let i = 0; i < ba.length; i++) arr[i] = ba.charCodeAt(i);
+          _lastValidatedFile = new File([arr], sn, { type: 'text/csv' });
+          if (status) status.innerText = '✓ Payment verified — generating your PDF...';
+          await generatePdfWithToken(d.token);
+        } else {
+          if (status) {
+            status.innerHTML = '✓ Payment verified! Your token is saved. <strong>Re-upload your CSV file above</strong> to download your PDF.';
+            status.style.color = 'var(--accent)';
+          }
+          document.getElementById('uploadSection').style.display = 'block';
+          document.getElementById('heroSection').style.display = 'block';
+          const banner = document.createElement('div');
+          banner.style.cssText = 'background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.4);padding:16px 24px;margin-bottom:24px;font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;';
+          banner.innerHTML = '✓ Payment complete — re-upload your CSV above to download your PDF report. Your token is saved for 7 days.';
+          document.getElementById('heroSection').prepend(banner);
+        }
+      } else {
+        if (status) status.innerText = 'Verifying payment... (' + (attempts + 1) + '/30)';
+        setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
+      }
+    } catch (e) {
+      setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
+    }
+  }
+
+  function submitRateLimitEmail() { /* stub — prevents console crash */ }
+
+  async function buyLiteUnlockRazorpay() {
+    const btn = document.getElementById('unlockBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    const ugBtn = document.querySelector('.urgency-gate-btn');
+    if (btn) btn.innerHTML = '⚡ Opening Razorpay...';
+    if (ugBtn) ugBtn.innerHTML = '⚡ Opening Razorpay...';
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-lite`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Institutional Depth — n=20 + AI fix plan',
+        order_id: data.order_id, theme: {color:'#00ff88'}, prefill:{},
+        handler: async function(response) {
+          if (status) { status.innerText = '✓ Payment verified — unlocking...'; status.style.color = 'var(--accent)'; }
+          try {
+            const vr = await fetch(`${API_URL_REPORT}/report/webhook-lite`, {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ razorpay_payment_id: response.razorpay_payment_id, razorpay_order_id: response.razorpay_order_id, razorpay_signature: response.razorpay_signature })
+            });
+            const vd = await vr.json();
+            if (!vd.token) throw new Error('Payment verification failed');
+            try { gtag('event','purchase',{transaction_id:response.razorpay_order_id,value:99,currency:'INR',items:[{item_id:'quantproof_lite',item_name:'QuantProof Lite Plan',category:'Digital Service',quantity:1,price:99}]}); } catch(e) {}
+            await applyLiteUnlock(vd.token);
+          } catch (ve) {
+            if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+            if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+            if (status) { status.innerText = 'Payment error: ' + ve.message; status.style.color = '#ff4444'; }
+          }
+        },
+        modal: { ondismiss: function(){
+          if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+          if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+        }}
+      };
+      if (typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function(r) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+        if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+        if (status) { status.innerText = 'Payment failed: ' + (r.error.description || 'Declined'); status.style.color = '#ff4444'; }
+      });
+      rzp.open();
+    } catch(err) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+      if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+      if (status) { status.innerText = 'Error: ' + err.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  async function buyLiteUnlockPaddle() {
+    const btn = document.getElementById('unlockBtn');
+    const status = document.getElementById('pdfBtnStatus');
+    const ugBtn = document.querySelector('.urgency-gate-btn');
+    if (btn) btn.innerHTML = '⚡ Opening Paddle...';
+    if (ugBtn) ugBtn.innerHTML = '⚡ Opening Paddle...';
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-lite`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!data.checkout_url) {
+        if (status) { status.innerText = 'International payments unavailable. Use Razorpay above.'; status.style.color = '#ffaa00'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+        if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+        return;
+      }
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
+      if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
+      if (status) { status.innerText = 'Payment error: ' + e.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  async function buyPdfReportRazorpay() {
+    const btn = document.getElementById('pdfBtn'), status = document.getElementById('pdfBtnStatus');
+    if (!btn) return;
+    btn.innerText = 'Opening Razorpay...';
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Full PDF Report — all failures ranked',
+        order_id: data.order_id, theme: {color:'#00ff88'}, prefill:{},
+        handler: async function(response) {
+          if (status) { status.innerText = 'Verifying payment...'; status.style.color = 'var(--accent)'; }
+          try {
+            const vr = await fetch(`${API_URL_REPORT}/report/webhook`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({razorpay_payment_id:response.razorpay_payment_id,razorpay_order_id:response.razorpay_order_id,razorpay_signature:response.razorpay_signature})});
+            const vd = await vr.json();
+            if (!vd.token) throw new Error('Payment verification failed');
+            try { gtag('event','purchase',{transaction_id:response.razorpay_order_id,value:299,currency:'INR',items:[{item_id:'quantproof_report',item_name:'QuantProof Report Plan',category:'Digital Service',quantity:1,price:299}]}); } catch(e) {}
+            if (btn) btn.innerText = 'Generating PDF...';
+            await generatePdfWithToken(vd.token);
+          } catch(ve) { btn.disabled=false; btn.innerText='📄 Full PDF Report — ₹299'; if(status){status.innerText='Payment error: '+ve.message; status.style.color='#ff4444';} }
+        },
+        modal: { ondismiss: function(){ btn.disabled=false; btn.innerText='📄 Full PDF Report — ₹299'; if(status) status.innerText=''; } }
+      };
+      if (typeof Razorpay === 'undefined') throw new Error('Payment system failed to load. Please refresh.');
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function(r){ btn.disabled=false; btn.innerText='📄 Full PDF Report — ₹299'; if(status){status.innerText='Payment failed: '+(r.error.description||'Declined'); status.style.color='#ff4444';} });
+      rzp.open();
+    } catch(err) { btn.disabled=false; btn.innerText='📄 Full PDF Report — ₹299'; if(status){status.innerText='Error: '+err.message; status.style.color='#ff4444';} }
+  }
+
+  async function buyPaddleReport() {
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-report`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        const status = document.getElementById('pdfBtnStatus');
+        if (status) { status.innerText = 'International payments not available. Use Razorpay (₹299) above.'; status.style.color = '#ffaa00'; }
+      }
+    } catch (e) {
+      const status = document.getElementById('pdfBtnStatus');
+      if (status) { status.innerText = 'Payment error. Please try again.'; status.style.color = '#ff4444'; }
+    }
+  }
+
+  async function buyPaddlePortfolio() {
+    const status = document.getElementById('portStatus') || document.getElementById('pdfBtnStatus');
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-portfolio`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!data.checkout_url) {
+        if (status) { status.innerText = 'Use Razorpay above for INR.'; status.style.color = '#ffaa00'; }
+        return;
+      }
+      window.location.href = data.checkout_url;
+    } catch (e) {
+      if (status) { status.innerText = 'Error: ' + e.message; status.style.color = '#ff4444'; }
+    }
+  }
+
+  async function buyProPlanRazorpay() {
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-pro`, {
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.message || data.error);
+      const options = {
+        key: data.key_id, amount: data.amount, currency: data.currency,
+        name: 'QuantProof', description: 'Pro Plan — 30 days unlimited',
+        order_id: data.order_id, theme: {color:'#7B61FF'},
+        handler: async function(response) {
+          try {
+            const vr = await fetch(`${API_URL_REPORT}/report/webhook-pro`, {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ razorpay_payment_id: response.razorpay_payment_id, razorpay_order_id: response.razorpay_order_id, razorpay_signature: response.razorpay_signature })
+            });
+            const vd = await vr.json();
+            if (vd.token) {
+              try { gtag('event','purchase',{transaction_id:response.razorpay_order_id,value:999,currency:'INR',items:[{item_id:'quantproof_pro',item_name:'QuantProof Pro Plan',category:'Digital Service',quantity:1,price:999}]}); } catch(e) {}
+              saveToken('qp_pro_token', vd.token);
+              saveToken('qp_port_token', vd.token);
+              saveToken('qp_lite_token', vd.token);
+              if (typeof unlockInstitutional === 'function') unlockInstitutional();
+              _nTrials = 50;
+              alert('✓ Pro Plan activated — 30 days of unlimited access. Reload to apply full benefits.');
+            }
+          } catch(e) { alert('Pro plan error: ' + e.message); }
+        },
+        modal: { ondismiss: function(){} }
+      };
+      const rzp = new Razorpay(options); rzp.open();
+    } catch(e) { alert('Pro plan error: ' + e.message); }
+  }
+
+  async function buyProPlanPaddle() {
+    try {
+      const res = await fetch(`${API_URL_REPORT}/report/create-checkout-paddle-pro`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!data.checkout_url) { alert('International payments unavailable. Use Razorpay above.'); return; }
+      window.location.href = data.checkout_url;
+    } catch (e) { alert('Payment error: ' + e.message); }
+  }
+
+// ============================================================
 // ATTACH ALL FUNCTIONS TO WINDOW FOR GLOBAL ACCESS
 // ============================================
 
@@ -4469,11 +4486,6 @@ window.openDemoPDF = openDemoPDF;
 window.toggleFundableExplainer = toggleFundableExplainer;
 window.showInstitutionalTeaser = showInstitutionalTeaser;
 window.showRateLimitModal = showRateLimitModal;
-window.submitRateLimitEmail = submitRateLimitEmail;
-
-// Paddle payments
-window.pollPaddleToken = pollPaddleToken;
-window.handlePaddleReturn = handlePaddleReturn;
 window.submitRateLimitEmail = submitRateLimitEmail;
 
 // Depth / Validation settings
@@ -4528,22 +4540,27 @@ window.verifyPortToken = verifyPortToken;
 window.buyLiteUnlock = buyLiteUnlock;
 window.buyLiteUnlockRazorpay = buyLiteUnlockRazorpay;
 window.buyLiteUnlockPaddle = buyLiteUnlockPaddle;
-window.buyPaddleReport = buyPaddleReport;
 window.buyPdfReport = buyPdfReport;
 window.buyPdfReportRazorpay = buyPdfReportRazorpay;
-window.buyPortfolioUnlock = buyPortfolioUnlock;  
+window.buyPaddleReport = buyPaddleReport;
+window.buyPaddlePortfolio = buyPaddlePortfolio;
+window.buyPortfolioUnlock = buyPortfolioUnlock;
 window.buyProPlan = buyProPlan;
 window.buyProPlanRazorpay = buyProPlanRazorpay;
 window.buyProPlanPaddle = buyProPlanPaddle;
 window.applyLiteUnlock = applyLiteUnlock;
 window.generatePdfWithToken = generatePdfWithToken;
 window.generatePdfBlob = generatePdfBlob;
+window.handlePaddleReturn = handlePaddleReturn;
+window.pollPaddleToken = pollPaddleToken;
+window.submitRateLimitEmail = submitRateLimitEmail;
 
 // Utilities
 window.setCurrency = setCurrency;
 window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.coldStartWarning = coldStartWarning;
+window.submitIntlWaitlist = submitIntlWaitlist;
 
 // Dev tools - THESE WERE MISSING!
 window.applyDevToken = applyDevToken;
@@ -4560,3 +4577,4 @@ window.handleLSReturn = handleLSReturn;
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
+
