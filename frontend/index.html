@@ -2571,14 +2571,24 @@
           <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.12em;margin-bottom:6px;">// GET YOUR FIX PLAN</div>
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">${failedCount > 0 ? failedCount + ' failures detected' : 'Optimise your edge'}</div>
           <button id="unlockBtn" onclick="buyLiteUnlock()"
-            style="background:var(--accent);color:var(--black);border:none;padding:14px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;transition:background 0.2s;"
+            style="background:var(--accent);color:var(--black);border:none;padding:14px 28px;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-bottom:4px;transition:background 0.2s;"
             onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">
-            ⚡ Unlock All Fixes — ₹99
+            🇮🇳 Unlock All Fixes — ₹99
+          </button>
+          <button onclick="buyLiteUnlockPaddle()"
+            style="background:transparent;color:var(--accent);border:1px solid rgba(0,255,136,0.4);padding:10px 28px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;transition:all 0.2s;"
+            onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='transparent'">
+            🌍 Unlock — $1.50 USD (International)
           </button>
           <button id="pdfBtn" onclick="buyPdfReport()"
-            style="background:transparent;color:var(--accent);border:1.5px solid rgba(0,255,136,0.4);padding:12px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;transition:all 0.2s;"
+            style="background:transparent;color:var(--accent);border:1.5px solid rgba(0,255,136,0.4);padding:12px 28px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-bottom:4px;transition:all 0.2s;"
             onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='transparent'">
-            📄 Full PDF Report — ₹299
+            🇮🇳 Full PDF Report — ₹299
+          </button>
+          <button onclick="buyPaddleReport()"
+            style="background:transparent;color:var(--accent);border:1px solid rgba(0,255,136,0.4);padding:10px 28px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;transition:all 0.2s;"
+            onmouseover="this.style.background='rgba(0,255,136,0.08)'" onmouseout="this.style.background='transparent'">
+            🌍 Full PDF — $3.99 USD (International)
           </button>
           <div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center;margin-bottom:8px;">₹99 — all fixes in browser &nbsp;·&nbsp; ₹299 — full PDF with ranked fix plan</div>
           <button onclick="buyPaddleReport()"
@@ -3927,8 +3937,12 @@
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onclick="downloadPortfolioPdf()" id="portPdfBtn"
-              style="background:var(--gold);color:#0a0a0a;border:none;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">
-              📄 Download Portfolio PDF
+              style="background:var(--gold);color:#0a0a0a;border:none;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;margin-bottom:4px;">
+              🇮🇳 Download Portfolio PDF (₹199)
+            </button>
+            <button onclick="buyPaddlePortfolio()"
+              style="background:transparent;color:var(--gold);border:1px solid rgba(245,183,0,0.6);padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;">
+              🌍 Portfolio PDF — $2.50 USD (Intl)
             </button>
             <button onclick="resetApp()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 16px;font-family:var(--mono);font-size:10px;cursor:pointer;">← Run Another</button>
           </div>
