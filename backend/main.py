@@ -4076,23 +4076,24 @@ async def payment_webhook_pro(request: Request):
 
 @app.post("/report/create-checkout-paddle-lite")
 async def create_checkout_paddle_lite(payload: dict):
-    import paddle_billing
-    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities import TransactionStatus
-    
-    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
-    price_id = os.getenv("PADDLE_PRICE_LITE","")
-    if not price_id:
+    import requests as _requests
+    api_key  = os.environ.get("PADDLE_API_KEY", "")
+    price_id = os.environ.get("PADDLE_PRICE_LITE", "")
+    if not api_key or not price_id:
         raise HTTPException(503, "Paddle not configured")
-    
-    txn = paddle.transactions.create(CreateTransaction(
-        items=[{
-            "price_id": price_id,
-            "quantity": 1
-        }],
-        status=TransactionStatus.Draft
-    ))
-    return {"checkout_url": txn.checkout["url"]}
+    res = _requests.post(
+        "https://api.paddle.com/transactions",
+        json={"items": [{"price_id": price_id, "quantity": 1}],
+              "checkout": {"return_url": "https://quantproof.net/success"},
+              "custom_data": {"user_id": "anonymous"}},
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        timeout=30
+    )
+    data = res.json()
+    url = data.get("data", {}).get("checkout", {}).get("url", "")
+    if not url:
+        raise HTTPException(500, f"Paddle error: {data}")
+    return {"checkout_url": url}
 
 @app.post("/report/create-checkout-paddle-report")
 async def create_checkout_paddle_report(request: dict):
@@ -4176,43 +4177,45 @@ async def create_checkout_paddle_report(request: dict):
 
 @app.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
-    import paddle_billing
-    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities import TransactionStatus
-    
-    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
-    price_id = os.getenv("PADDLE_PRICE_PORTFOLIO","")
-    if not price_id:
+    import requests as _requests
+    api_key  = os.environ.get("PADDLE_API_KEY", "")
+    price_id = os.environ.get("PADDLE_PRICE_PORTFOLIO", "")
+    if not api_key or not price_id:
         raise HTTPException(503, "Paddle not configured")
-    
-    txn = paddle.transactions.create(CreateTransaction(
-        items=[{
-            "price_id": price_id,
-            "quantity": 1
-        }],
-        status=TransactionStatus.Draft
-    ))
-    return {"checkout_url": txn.checkout["url"]}
+    res = _requests.post(
+        "https://api.paddle.com/transactions",
+        json={"items": [{"price_id": price_id, "quantity": 1}],
+              "checkout": {"return_url": "https://quantproof.net/success"},
+              "custom_data": {"user_id": "anonymous"}},
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        timeout=30
+    )
+    data = res.json()
+    url = data.get("data", {}).get("checkout", {}).get("url", "")
+    if not url:
+        raise HTTPException(500, f"Paddle error: {data}")
+    return {"checkout_url": url}
 
 @app.post("/report/create-checkout-paddle-pro")
 async def create_checkout_paddle_pro(payload: dict):
-    import paddle_billing
-    from paddle_billing.Resources.Transactions.Operations import CreateTransaction
-    from paddle_billing.Entities import TransactionStatus
-    
-    paddle = paddle_billing.Client(os.getenv("PADDLE_API_KEY",""))
-    price_id = os.getenv("PADDLE_PRICE_PRO","")
-    if not price_id:
+    import requests as _requests
+    api_key  = os.environ.get("PADDLE_API_KEY", "")
+    price_id = os.environ.get("PADDLE_PRICE_PRO", "")
+    if not api_key or not price_id:
         raise HTTPException(503, "Paddle not configured")
-    
-    txn = paddle.transactions.create(CreateTransaction(
-        items=[{
-            "price_id": price_id,
-            "quantity": 1
-        }],
-        status=TransactionStatus.Draft
-    ))
-    return {"checkout_url": txn.checkout["url"]}
+    res = _requests.post(
+        "https://api.paddle.com/transactions",
+        json={"items": [{"price_id": price_id, "quantity": 1}],
+              "checkout": {"return_url": "https://quantproof.net/success"},
+              "custom_data": {"user_id": "anonymous"}},
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        timeout=30
+    )
+    data = res.json()
+    url = data.get("data", {}).get("checkout", {}).get("url", "")
+    if not url:
+        raise HTTPException(500, f"Paddle error: {data}")
+    return {"checkout_url": url}
 
 @app.get("/report/paddle-token")
 async def get_paddle_token(txn_id: str = ""):
@@ -6110,6 +6113,7 @@ if __name__ == "__main__":
     print("📍 Prop Firm Compliance integration enabled")
     print("📍 Server running on: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
