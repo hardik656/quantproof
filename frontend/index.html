@@ -663,19 +663,19 @@
   .urgency-gate {
     display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
     gap:16px; padding:20px 24px; margin-bottom:32px;
-    background:rgba(255,68,68,0.04); border:1px solid rgba(255,68,68,0.25);
+    background:rgba(0,255,136,0.03); border:1px solid rgba(0,255,136,0.25);
     animation:fadeUp 0.4s ease both;
   }
   .urgency-gate-text {}
-  .urgency-gate-label { font-family:var(--mono); font-size:11px; color:var(--accent2); letter-spacing:0.1em; margin-bottom:6px; }
+  .urgency-gate-label { font-family:var(--mono); font-size:11px; color:var(--accent); letter-spacing:0.1em; margin-bottom:6px; }
   .urgency-gate-headline { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
   .urgency-gate-sub { font-size:12px; color:var(--muted); }
   .urgency-gate-btn {
-    background:var(--accent2); color:#fff; border:none; padding:13px 24px;
+    background:var(--accent); color:var(--black); border:none; padding:13px 24px;
     font-family:var(--mono); font-size:12px; font-weight:700; cursor:pointer;
     white-space:nowrap; flex-shrink:0; transition:background 0.2s;
   }
-  .urgency-gate-btn:hover { background:#cc3333; }
+  .urgency-gate-btn:hover { background:#00cc6e; }
   .sample-gate-wall {
     padding:40px 32px; text-align:center;
     border:1px solid rgba(0,255,136,0.2); background:rgba(0,255,136,0.02);
@@ -714,7 +714,7 @@
   <main id="heroSection"><div class="hero">
     <div class="hero-tag">// 92% of prop firm challenges fail. Most failures are preventable.</div>
     <h1>Know if your strategy<br>will pass <em>before</em> you pay.</h1>
-    <p>90% of FTMO failures aren't bad strategy — they're preventable risk management violations. QuantProof runs 44 institutional checks on your backtest or live data in 30 seconds. Find the exact failure before a $400 challenge fee does.</p>
+    <p>Most prop firm failures aren't bad trading — they're fixable risk violations. Upload your trade history and find out exactly what will get you disqualified, in under 30 seconds. Free.</p>
     <div style="margin-top:32px;">
       <div id="dropZone" onclick="document.getElementById('fileInput').click()"
         ondragover="event.preventDefault();this.classList.add('drag-over')"
@@ -838,9 +838,9 @@
       onmouseover="this.style.borderColor='rgba(0,255,136,0.4)';this.style.color='var(--accent)'"
       onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
       <span>// What does your Fundable Score tell you that prop firms won't?</span>
-      <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;">&#9660;</span>
+      <span id="fundableChevron" style="transition:transform 0.25s;display:inline-block;transform:rotate(180deg);">&#9660;</span>
     </button>
-    <div id="fundableExplainer" style="display:none;border:1px solid var(--border);border-top:none;background:var(--deep);padding:20px 24px;">
+    <div id="fundableExplainer" style="display:block;border:1px solid var(--border);border-top:none;background:var(--deep);padding:20px 24px;">
       <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:1.9;margin-bottom:14px;">
         A <span style="color:var(--accent);font-weight:700;">Fundable Score</span> is a 0–100 rating of whether your trading strategy has
         institutional-grade statistical foundations — the same criteria prop firms and fund managers
@@ -918,6 +918,9 @@
 
       <!-- Expandable grid -->
       <div id="pricingGrid" style="display:none;padding:0 20px 20px;">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:14px;padding:10px 14px;border-left:2px solid rgba(0,255,136,0.4);line-height:1.7;">
+          One-time payments. No subscriptions. A failed prop challenge costs ₹7,000–₹33,000. This doesn't.
+        </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;">
 
           <div style="background:var(--surface);border:1px solid var(--border);padding:16px;">
@@ -971,7 +974,7 @@
 
         </div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;opacity:0.6;">
-          All one-time purchases &nbsp;&middot;&nbsp; No recurring charges &nbsp;&middot;&nbsp; Pro valid 30 days
+          All one-time &nbsp;&middot;&nbsp; No subscription &nbsp;&middot;&nbsp; Pro valid 30 days
         </div>
       </div>
     </div>
@@ -2140,8 +2143,8 @@
       demoBanner.innerHTML = `
         <div class="demo-banner-icon">📊</div>
         <div class="demo-banner-text">
-          This is a sample Nifty momentum strategy — 197 trades, 2021–2024.
-          <span>Upload your own CSV or connect your broker to validate your real strategy.</span>
+          This is a sample Nifty momentum strategy — 197 trades, 2021–2024. Your score will likely look different.
+          <span>Upload your own CSV to see your actual results — free, takes 30 seconds.</span>
         </div>
         <button class="demo-banner-btn" onclick="resetApp()">Validate Mine →</button>
       `;
@@ -2429,11 +2432,11 @@
     const urgencyGateHTML = failedCount > 0 ? `
       <div class="urgency-gate">
         <div class="urgency-gate-text">
-          <div class="urgency-gate-label">// ${failedCount} CRITICAL FAILURE${failedCount>1?'S':''} DETECTED</div>
-          <div class="urgency-gate-headline">Your strategy fails ${failedCount} of 44 institutional checks.</div>
-          <div class="urgency-gate-sub">Each failure has a specific fix. See all of them — ₹99, instant unlock.</div>
+          <div class="urgency-gate-label">// ${failedCount} ISSUE${failedCount>1?'S':''} FOUND — HERE'S HOW TO FIX THEM</div>
+          <div class="urgency-gate-headline">Get your personalised fix plan.</div>
+          <div class="urgency-gate-sub">Exact steps based on your numbers — not generic advice. One-time, no subscription.</div>
         </div>
-        <button class="urgency-gate-btn" onclick="buyLiteUnlock()">⚡ See All Fixes — ₹99</button>
+        <button class="urgency-gate-btn" onclick="buyLiteUnlock()">See my fix plan — ₹99</button>
       </div>` : '';
     const categoryEntries = Object.entries(categories).filter(([cat]) => cat !== 'SEBI Compliance');
     let checksHTML = '';
@@ -2501,6 +2504,13 @@
             <div class="meta-item" style="border-left-color:${scoreColor}40;"><div class="meta-label">Fundable Score</div><div class="meta-value" style="color:${scoreColor}">${data.fundable_score}</div></div>
           </div>
         </div>
+        <div style="width:100%;padding-top:16px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;">
+          <button onclick="shareScoreLinkedIn(${data.fundable_score}, '${gradeLetter}')" style="background:transparent;border:1px solid rgba(0,255,136,0.35);color:var(--accent);padding:8px 18px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s;letter-spacing:0.05em;" onmouseover="this.style.background='rgba(0,255,136,0.08)';this.style.borderColor='var(--accent)'" onmouseout="this.style.background='transparent';this.style.borderColor='rgba(0,255,136,0.35)'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>
+            Share my score
+          </button>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted);">Let your network know your strategy passed institutional checks</span>
+        </div>
       </div>
 
       ${isVerified
@@ -2527,6 +2537,19 @@
             <div class="warn-link" onclick="resetApp()">Get Verified →</div>
            </div>`
       }
+
+      <div id="qp-email-capture" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 20px;margin-bottom:20px;background:rgba(0,255,136,0.03);border:1px solid rgba(0,255,136,0.18);">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:3px;">// WEEKLY PROP FIRM TIPS</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">Get the most common failure patterns we see — straight to your inbox. No spam.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+          <input type="email" id="qpEmailInput" placeholder="your@email.com" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:9px 14px;font-family:var(--mono);font-size:12px;width:200px;outline:none;" onfocus="this.style.borderColor='rgba(0,255,136,0.5)'" onblur="this.style.borderColor='var(--border)'">
+          <button onclick="submitQPEmail()" style="background:var(--accent);color:var(--black);border:none;padding:9px 18px;font-family:var(--mono);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background 0.2s;" onmouseover="this.style.background='#00cc6e'" onmouseout="this.style.background='var(--accent)'">Send me tips</button>
+          <button onclick="document.getElementById('qp-email-capture').style.display='none'" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;cursor:pointer;padding:9px 4px;" title="Dismiss">✕</button>
+        </div>
+        <div id="qpEmailStatus" style="width:100%;font-family:var(--mono);font-size:11px;display:none;"></div>
+      </div>
 
       <div id="qp-chart-section"></div>
 
@@ -4485,8 +4508,47 @@
   }
 
 // ============================================================
+// SHARE + EMAIL CAPTURE
+// ============================================================
+
+  function shareScoreLinkedIn(score, grade) {
+    const text = `I just validated my trading strategy on QuantProof and scored ${score}/100 (Grade ${grade}).\n\nIt runs 44 institutional checks — Deflated Sharpe, Monte Carlo, prop firm compliance — and flags exactly what would get you disqualified before you pay a challenge fee.\n\nFree to try: https://quantproof.net`;
+    const url = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent('https://quantproof.net') + '&summary=' + encodeURIComponent(text);
+    window.open(url, '_blank', 'width=600,height=600,noopener');
+  }
+
+  async function submitQPEmail() {
+    const input = document.getElementById('qpEmailInput');
+    const status = document.getElementById('qpEmailStatus');
+    const email = (input && input.value || '').trim();
+    if (!email || !email.includes('@')) {
+      if (status) { status.style.display = 'block'; status.style.color = '#ff4444'; status.innerText = 'Please enter a valid email address.'; }
+      return;
+    }
+    try {
+      const resp = await fetch('https://formspree.io/f/mwvrrwzz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email, _subject: 'QuantProof — Tips signup from results page', source: 'results_email_capture' })
+      });
+      if (resp.ok) {
+        if (status) { status.style.display = 'block'; status.style.color = 'var(--accent)'; status.innerText = '✓ You\'re in. First issue lands this week.'; }
+        if (input) input.style.display = 'none';
+        const btn = input && input.parentElement && input.parentElement.querySelector('button');
+      } else {
+        if (status) { status.style.display = 'block'; status.style.color = '#ff4444'; status.innerText = 'Something went wrong — try again.'; }
+      }
+    } catch(e) {
+      if (status) { status.style.display = 'block'; status.style.color = '#ff4444'; status.innerText = 'Network error — please try again.'; }
+    }
+  }
+
+// ============================================================
 // ATTACH ALL FUNCTIONS TO WINDOW FOR GLOBAL ACCESS
 // ============================================
+
+window.shareScoreLinkedIn = shareScoreLinkedIn;
+window.submitQPEmail = submitQPEmail;
 
 // Core validation & file handling
 window.runSampleStrategy = runSampleStrategy;
@@ -4591,4 +4653,3 @@ window.handleLSReturn = handleLSReturn;
 <script src="quantproof-charts.js"></script>
 </body>
 </html>
-
