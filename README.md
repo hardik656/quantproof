@@ -24,7 +24,7 @@ Frontend          Vanilla JS + HTML/CSS — single page, no framework dependency
 Backend           Python 3 / FastAPI — async, Pydantic v2, Uvicorn
 Validation        Custom QuantProofValidator engine — 44 checks, 5 crash sims
 AI Fix Plans      Groq (Llama 3.3-70B) → Anthropic Claude → OpenAI fallback chain
-Payments          Razorpay (India) · Lemon Squeezy (International)
+Payments          Razorpay (India) · paddle (International)
 Deployment        Render — backend + frontend separate services
 Cache             OrderedDict LRU (50 entries) — validation results for PDF download
 ```
@@ -198,7 +198,7 @@ LEMONSQUEEZY_STORE_ID    LS store identifier
 LEMONSQUEEZY_VARIANT_ID  LS product variant
 LEMONSQUEEZY_WEBHOOK_SECRET  LS webhook verification
 TEST_REPORT_TOKEN        Dev override — grants pro access
-```
+was changed to paddle as LEMONSQUEEZY refusal still code was written and practiced 
 
 ---
 
