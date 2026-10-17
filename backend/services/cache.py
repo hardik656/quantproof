@@ -9,7 +9,7 @@ import asyncio as _asyncio
 import collections
 
 _PDF_SEMAPHORE = _asyncio.Semaphore(2)
-VALIDATION_RESULT_CACHE: dict = collections.OrderedDict()
+VALIDATION_RESULT_CACHE: collections.OrderedDict[str, dict] = collections.OrderedDict()
 VALIDATION_CACHE_MAX = 50
 
 
