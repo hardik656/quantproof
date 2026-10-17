@@ -33,9 +33,9 @@ def app():
 def client(app):
     from fastapi.testclient import TestClient
 
-    import main
+    from services import tokens
 
-    main._validation_counts.clear()
+    tokens._validation_counts.clear()
     return TestClient(app)
 
 

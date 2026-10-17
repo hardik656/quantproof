@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import main
+from services import portfolio, tokens
 
 
 def _csv(n=120, mu=0.003, seed=1) -> bytes:
@@ -61,13 +62,13 @@ def test_debug_reset_requires_pro(client):
 def test_token_tiers(monkeypatch):
     for k in ("TEST_REPORT_TOKEN", "DEV_TOKEN", "ADMIN_TOKEN"):
         monkeypatch.delenv(k, raising=False)
-    assert main._token_tier("") == "none"
-    main.REPORT_ACCESS_TOKENS.add("LITE-abc")
-    assert main._token_tier("LITE-abc") == "lite"
-    main.REPORT_ACCESS_TOKENS.discard("LITE-abc")
+    assert tokens._token_tier("") == "none"
+    tokens.REPORT_ACCESS_TOKENS.add("LITE-abc")
+    assert tokens._token_tier("LITE-abc") == "lite"
+    tokens.REPORT_ACCESS_TOKENS.discard("LITE-abc")
     monkeypatch.setenv("DEV_TOKEN", "devtok")
-    assert main._token_tier("devtok") == "pro"
-    assert main._is_pro_token("devtok")
+    assert tokens._token_tier("devtok") == "pro"
+    assert tokens._is_pro_token("devtok")
 
 
 def test_webhook_rejects_bad_signature(client):
@@ -86,8 +87,8 @@ def test_tradingview_session_lifecycle(client):
 def test_portfolio_math():
     rng = np.random.default_rng(0)
     dfs = [pd.DataFrame({"pnl": rng.normal(0.001, 0.01, 100)}) for _ in range(3)]
-    corr = main._portfolio_correlation(dfs)
+    corr = portfolio._portfolio_correlation(dfs)
     assert corr.shape == (3, 3)
-    w = main._risk_parity_weights(dfs)
+    w = portfolio._risk_parity_weights(dfs)
     assert abs(sum(w) - 1) < 1e-6
-    assert isinstance(main._portfolio_verdict(70.0, 0.2, 3), str)
+    assert isinstance(portfolio._portfolio_verdict(70.0, 0.2, 3), str)
