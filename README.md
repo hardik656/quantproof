@@ -52,7 +52,7 @@ flowchart LR
 | Persistence | SQLAlchemy 2 + Alembic on Postgres (`DATABASE_URL`), JSON-file fallback |
 | AI fix plans | Groq (Llama 3.3-70B) → Anthropic → OpenAI fallback chain |
 | Payments | Razorpay (India) · Paddle (international), HMAC-verified webhooks |
-| Quality | pytest (66 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
+| Quality | pytest (85 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
 | Deploy | Docker / docker-compose; Render |
 
 ---
@@ -188,7 +188,7 @@ The screenshot was taken locally against Postgres plus a standalone Grafana 11.3
 ## Testing & Quality
 
 ```bash
-pytest --cov                  # 66 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
+pytest --cov                  # 85 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
 ruff check . && ruff format --check .
 mypy
 pre-commit install            # ruff + gitleaks secret scan on every commit
