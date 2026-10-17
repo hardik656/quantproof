@@ -1,8 +1,14 @@
-# QuantProof — Institutional Trading Strategy Validator
+# QuantProof — Trading Strategy Validator API
 
-**Live at [quantproof.net](https://quantproof.net)** · Built solo · Paying users · Launched Product Hunt March 2026
+[![CI](https://github.com/hardik656/quantproof/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hardik656/quantproof/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-47%25%20overall%20%7C%2070%25%20engine%20%7C%2065%25%20parsers-yellowgreen)
+![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
+![Lint](https://img.shields.io/badge/lint-ruff-informational)
+![Types](https://img.shields.io/badge/types-mypy-informational)
 
-> 44 institutional checks. 5 crash simulations. One Fundable Score.  
+**Live at [quantproof.net](https://quantproof.net)** · Built solo · Launched on Product Hunt March 2026 · 400+ users
+
+> Statistical checks + 5 crash simulations → one 0–100 Fundable Score.
 > Know if your edge is real — before you pay for a prop firm challenge.
 
 ---
@@ -19,15 +25,35 @@ Upload a CSV or connect a live broker. Get a 0–100 Fundable Score in under 30 
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    U[Browser / quantproof.net] -->|CSV, broker keys| API
+    TV[TradingView alerts] -->|webhook| API
+    subgraph API[FastAPI app · backend/main.py]
+        R1[routers/validation] --> P[services/parsers<br/>Kite · Alpaca · IBKR · MT5 · options<br/>FIFO lot matching]
+        R2[routers/brokers] --> P
+        R5[routers/tradingview] --> P
+        P --> B[services/benchmarks<br/>SPY / Nifty regimes]
+        B --> V[validator.py<br/>QuantProofValidator]
+        R1 --> AI[services/ai_plans<br/>Groq → Claude → OpenAI]
+        R3[routers/reports] --> PDF[generate_report.py]
+        R3 --> T[services/tokens<br/>tiers · rate limit]
+        R3 -->|signature-verified| PAY[(Razorpay / Paddle)]
+    end
+    T --> S[(db.store<br/>Postgres via SQLAlchemy<br/>or JSON files)]
+    R5 --> S
+    B -.-> YF[(yfinance)]
 ```
-Frontend          Vanilla JS + HTML/CSS — single page, no framework dependency
-Backend           Python 3 / FastAPI — async, Pydantic v2, Uvicorn
-Validation        Custom QuantProofValidator engine — 44 checks, 5 crash sims
-AI Fix Plans      Groq (Llama 3.3-70B) → Anthropic Claude → OpenAI fallback chain
-Payments          Razorpay (India) · paddle (International)
-Deployment        Render — backend + frontend separate services
-Cache             OrderedDict LRU (50 entries) — validation results for PDF download
-```
+
+| Layer | Tech |
+|---|---|
+| API | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
+| Engine | NumPy, pandas, SciPy, scikit-learn (`backend/validator.py`) |
+| Persistence | SQLAlchemy 2 + Alembic on Postgres (`DATABASE_URL`), JSON-file fallback |
+| AI fix plans | Groq (Llama 3.3-70B) → Anthropic → OpenAI fallback chain |
+| Payments | Razorpay (India) · Paddle (international), HMAC-verified webhooks |
+| Quality | pytest (62 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
+| Deploy | Docker / docker-compose; Render |
 
 ---
 
@@ -154,7 +180,7 @@ After every validation, results are cached by `validation_hash`. PDF generation 
 
 ## Key Technical Decisions
 
-**Why no database?** Validation results are ephemeral — traders run a validation, download a PDF, move on. An in-memory LRU cache covers the window between validation and PDF download without the complexity and cost of a DB. Token persistence uses `/tmp` JSON files — sufficient for a single-instance Render deployment.
+**Why a key-value table instead of a full schema (yet)?** Validation results are ephemeral — traders run a validation, download a PDF, move on — so they stay in an in-memory LRU cache. What must survive a restart (paid access tokens, PRO expiries, TradingView sessions) goes through `db.store`: a `kv_state` table in Postgres when `DATABASE_URL` is set, JSON files otherwise. Next step: proper `payments` / `subscriptions` tables with a unique provider id for idempotent webhooks.
 
 **Why vanilla JS frontend?** Zero build step, zero dependency drift, instant load. The validation UI is stateful but not complex enough to need a framework. This also means anyone reading the code can follow the logic without knowing React internals.
 
@@ -166,53 +192,83 @@ After every validation, results are cached by `validation_hash`. PDF generation 
 
 ## Running Locally
 
+**Docker (API + Postgres + migrations):**
+
 ```bash
-git clone https://github.com/hardik656/quantproof
-cd quantproof
-
-pip install -r requirements.txt
-
-# Set environment variables
-export RAZORPAY_KEY_ID=your_key
-export RAZORPAY_KEY_SECRET=your_secret
-export GROQ_API_KEY=your_key
-export TEST_REPORT_TOKEN=dev-test-token
-
-uvicorn main:app --reload --port 8000
+git clone https://github.com/hardik656/quantproof && cd quantproof
+cp .env.example .env        # fill in the keys you need
+docker compose up --build   # http://localhost:8000/docs
 ```
 
-Frontend: open `index.html` in browser or serve with any static server.
+**Plain Python:**
 
----
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r backend/requirements.txt -r requirements-dev.txt
+cd backend && uvicorn main:app --reload --port 8000
+```
+
+Without `DATABASE_URL` the API keeps state in JSON files under `QP_STATE_DIR` (default `/tmp`).
+With Postgres: `export DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/app && alembic upgrade head`.
+
+Frontend: open `frontend/index.html` or serve the folder with any static server.
+
+## Testing & Quality
+
+```bash
+pytest --cov                  # 62 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
+ruff check . && ruff format --check .
+mypy
+pre-commit install            # ruff + gitleaks secret scan on every commit
+```
+
+The suite covers the validator engine (determinism, score ordering, Sharpe / Deflated Sharpe / drawdown maths),
+every broker parser including FIFO lot matching and short covers, the persistence layer against both backends,
+and the main HTTP endpoints through FastAPI's `TestClient`. CI runs the same commands on Python 3.11 and 3.12,
+applies the Alembic migrations to a real Postgres service, and smoke-tests the Docker image.
 
 ## Environment Variables
 
-```
-RAZORPAY_KEY_ID          Razorpay payment key
-RAZORPAY_KEY_SECRET      Razorpay webhook verification
-GROQ_API_KEY             Primary LLM (Llama 3.3-70B)
-ANTHROPIC_API_KEY        Fallback LLM (Claude)
-OPENAI_API_KEY           Fallback LLM (GPT-4o-mini)
-LEMONSQUEEZY_API_KEY     International payments
-LEMONSQUEEZY_STORE_ID    LS store identifier
-LEMONSQUEEZY_VARIANT_ID  LS product variant
-LEMONSQUEEZY_WEBHOOK_SECRET  LS webhook verification
-TEST_REPORT_TOKEN        Dev override — grants pro access
-was changed to paddle as LEMONSQUEEZY refusal still code was written and practiced 
+See [`.env.example`](.env.example) for the full list. Key ones:
 
----
+```
+DATABASE_URL             Postgres URL (optional; enables SQL persistence)
+RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET     India payments + webhook HMAC
+PADDLE_API_KEY / PADDLE_WEBHOOK_SECRET    International payments
+PADDLE_PRICE_{LITE,REPORT,PORTFOLIO,PRO}  Paddle price ids
+GROQ_API_KEY             Primary LLM (Llama 3.3-70B)
+ANTHROPIC_API_KEY        Fallback LLM
+OPENAI_API_KEY           Fallback LLM
+TEST_REPORT_TOKEN        Dev override — grants pro access (never set in prod)
+```
 
 ## Project Structure
 
 ```
-quantproof/
-├── main.py              FastAPI app — all endpoints, parsers, payment webhooks
-├── validator.py         QuantProofValidator — 44 checks, crash sims, scoring
-├── generate_report.py   PDF generation from validation results
-├── prop_firm_compliance.py  FTMO/Topstep/The5ers/Blue Guardian/Earn2Trade rules
-├── index.html           Frontend — single page application
-├── methodology.html     Public methodology documentation
-├── requirements.txt     Python dependencies
+backend/
+├── main.py                  app factory: middleware + router registration
+├── config.py                API version, request helpers
+├── schemas.py               Pydantic response models
+├── db.py                    SQLAlchemy model + state store (Postgres / JSON)
+├── migrations/              Alembic
+├── routers/
+│   ├── validation.py        /validate, /validate/ai-fixes, /validate/prop-firms, /validate/portfolio
+│   ├── brokers.py           /validate/alpaca, /connect/ibkr, /validate/kite
+│   ├── reports.py           /report/* — PDFs, checkout, Razorpay/Paddle webhooks
+│   ├── tradingview.py       /webhook/tradingview/*
+│   └── system.py            /, /health, /ping, /debug/*
+├── services/
+│   ├── parsers.py           broker export parsers, FIFO lot matching
+│   ├── benchmarks.py        SPY / Nifty alignment, regime assignment
+│   ├── ai_plans.py          LLM fix plans with provider fallback
+│   ├── tokens.py            token tiers, rate limiting
+│   ├── portfolio.py         correlation, risk parity, diversification
+│   ├── sebi.py · ibkr.py · cache.py
+├── validator.py             QuantProofValidator — checks, crash sims, scoring
+├── generate_report.py       PDF generation
+└── prop_firm_compliance.py  FTMO/Topstep/The5ers/... rules
+tests/                       pytest suite
+frontend/                    static site (vanilla JS)
 ```
 
 ---
