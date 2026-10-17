@@ -1,56 +1,41 @@
 """Rate limiting, access-token tiers and token persistence.
 
-Extracted verbatim from main.py (behaviour unchanged).
+Token state is persisted through ``db.store`` (JSON files by default,
+Postgres when DATABASE_URL is set).
 """
 
 from __future__ import annotations
 
-import io
 import os
 import time
-import asyncio
-import hashlib
-import json
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
 
-import numpy as np
-import pandas as pd
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
-from pydantic import BaseModel
+from db import store
 
 # ── Rate limiting & token tiers ─────────────────────────────────────────────
 _validation_counts: dict = defaultdict(lambda: {"count": 0, "reset": 0})
 FREE_DAILY_LIMIT = 3
 
 # Token prefixes
-TOKEN_LITE      = "LITE-"   # ₹99  — fixes + AI top-3 in browser
-TOKEN_REPORT    = "RPT-"    # ₹299 — PDF + forced n=20 + full AI
-TOKEN_PORTFOLIO = "PORT-"   # ₹199 — portfolio correlation endpoint
-TOKEN_PRO       = "PRO-"    # ₹999 — 30-day: unlimited + n=50 + all
+TOKEN_LITE = "LITE-"  # ₹99  — fixes + AI top-3 in browser
+TOKEN_REPORT = "RPT-"  # ₹299 — PDF + forced n=20 + full AI
+TOKEN_PORTFOLIO = "PORT-"  # ₹199 — portfolio correlation endpoint
+TOKEN_PRO = "PRO-"  # ₹999 — 30-day: unlimited + n=50 + all
 
 # Pro token store: token -> expiry_timestamp
 _PRO_TOKENS: dict = {}
-_PRO_TOKENS_FILE = "/tmp/qp_pro_tokens.json"
 
-def _load_pro_tokens():
-    try:
-        import json
-        if os.path.exists(_PRO_TOKENS_FILE):
-            with open(_PRO_TOKENS_FILE) as f:
-                _PRO_TOKENS.update(json.load(f))
-    except Exception:
-        pass
 
-def _save_pro_tokens():
-    try:
-        import json
-        with open(_PRO_TOKENS_FILE, "w") as f:
-            json.dump(_PRO_TOKENS, f)
-    except Exception:
-        pass
+def _load_pro_tokens() -> None:
+    _PRO_TOKENS.update(store.load("pro_tokens"))
+
+
+def _save_pro_tokens() -> None:
+    store.save("pro_tokens", _PRO_TOKENS)
+
 
 _load_pro_tokens()
+
 
 def _is_pro_token(token: str) -> bool:
     """
@@ -71,6 +56,7 @@ def _is_pro_token(token: str) -> bool:
     expiry = _PRO_TOKENS.get(token, 0)
     return time.time() < expiry
 
+
 def _token_tier(token: str) -> str:
     """Return the tier of a token: 'pro', 'report', 'portfolio', 'lite', or 'none'."""
     # Check all dev override env vars (same as _is_pro_token)
@@ -78,14 +64,20 @@ def _token_tier(token: str) -> str:
         _test = os.getenv(_env_key, "").strip()
         if _test and token.strip() == _test:
             return "pro"
-    if _is_pro_token(token):     return "pro"
+    if _is_pro_token(token):
+        return "pro"
     if token in REPORT_ACCESS_TOKENS:
-        if token.startswith(TOKEN_PRO):      return "pro"
-        if token.startswith(TOKEN_REPORT):   return "report"
-        if token.startswith(TOKEN_PORTFOLIO):return "portfolio"
-        if token.startswith(TOKEN_LITE):     return "lite"
+        if token.startswith(TOKEN_PRO):
+            return "pro"
+        if token.startswith(TOKEN_REPORT):
+            return "report"
+        if token.startswith(TOKEN_PORTFOLIO):
+            return "portfolio"
+        if token.startswith(TOKEN_LITE):
+            return "lite"
         return "report"  # legacy tokens without prefix = RPT
     return "none"
+
 
 def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
     # Pro tokens bypass rate limit entirely AND clear any existing counter for this IP
@@ -105,25 +97,16 @@ def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
     rec["count"] += 1
     return True, FREE_DAILY_LIMIT - rec["count"]
 
-REPORT_ACCESS_TOKENS = set()
-TOKENS_FILE = "/tmp/qp_report_tokens.json"
 
-def _save_tokens():
-    try:
-        import json
-        with open(TOKENS_FILE, "w") as f:
-            json.dump(list(REPORT_ACCESS_TOKENS), f)
-    except Exception:
-        pass
+REPORT_ACCESS_TOKENS: set[str] = set()
 
-def _load_tokens():
-    try:
-        import json
-        if os.path.exists(TOKENS_FILE):
-            with open(TOKENS_FILE, "r") as f:
-                tokens = json.load(f)
-                REPORT_ACCESS_TOKENS.update(set(tokens))
-    except Exception:
-        pass
+
+def _save_tokens() -> None:
+    store.save("report_tokens", {t: True for t in REPORT_ACCESS_TOKENS})
+
+
+def _load_tokens() -> None:
+    REPORT_ACCESS_TOKENS.update(store.load("report_tokens").keys())
+
 
 _load_tokens()

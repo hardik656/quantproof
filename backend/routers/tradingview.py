@@ -5,26 +5,26 @@ Extracted verbatim from main.py (behaviour unchanged).
 
 from __future__ import annotations
 
-import io
+import logging
 import os
 import time
-import asyncio
-import hashlib
-import json
+import uuid
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Form, HTTPException, Request
 from pydantic import BaseModel
-from validator import QuantProofValidator
-import uuid
+
 from config import extract_n_trials
+from db import store
 from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation
+from validator import QuantProofValidator
 
+log = logging.getLogger("quantproof.tradingview")
 router = APIRouter()
 
 # =========================================================
@@ -32,54 +32,44 @@ router = APIRouter()
 # =========================================================
 
 TV_SESSIONS: dict = {}
-TV_SESSION_TTL_SECONDS      = 7 * 24 * 3600
-TV_MAX_ALERTS_PER_SESSION   = 2000
-TV_SESSIONS_FILE            = "/tmp/qp_tv_sessions.json"
+TV_SESSION_TTL_SECONDS = 7 * 24 * 3600
+TV_MAX_ALERTS_PER_SESSION = 2000
+
 
 def _tv_save_sessions():
-    try:
-        import json
-        serialisable = {}
-        for sid, sess in TV_SESSIONS.items():
-            s = dict(sess)
-            alerts_clean = []
-            for a in s.get("alerts", []):
-                ac = dict(a)
-                if hasattr(ac.get("timestamp"), "isoformat"):
-                    ac["timestamp"] = ac["timestamp"].isoformat()
-                alerts_clean.append(ac)
-            s["alerts"] = alerts_clean
-            serialisable[sid] = s
-        with open(TV_SESSIONS_FILE, "w") as f:
-            json.dump(serialisable, f)
-    except Exception as e:
-        print(f"[tv_save] Warning: could not persist sessions: {e}")
+    serialisable = {}
+    for sid, sess in TV_SESSIONS.items():
+        s = dict(sess)
+        alerts_clean = []
+        for a in s.get("alerts", []):
+            ac = dict(a)
+            if hasattr(ac.get("timestamp"), "isoformat"):
+                ac["timestamp"] = ac["timestamp"].isoformat()
+            alerts_clean.append(ac)
+        s["alerts"] = alerts_clean
+        serialisable[sid] = s
+    store.save("tv_sessions", serialisable)
+
 
 def _tv_load_sessions():
-    try:
-        import json
-        if not os.path.exists(TV_SESSIONS_FILE):
-            return
-        with open(TV_SESSIONS_FILE) as f:
-            saved = json.load(f)
-        now = time.time()
-        loaded = 0
-        for sid, sess in saved.items():
-            if now > sess.get("expires_at", 0):
-                continue
-            TV_SESSIONS[sid] = sess
-            loaded += 1
-        print(f"[tv_load] Restored {loaded} TV session(s) from disk")
-    except Exception as e:
-        print(f"[tv_load] Warning: could not load sessions: {e}")
+    now = time.time()
+    loaded = 0
+    for sid, sess in store.load("tv_sessions").items():
+        if now > sess.get("expires_at", 0):
+            continue
+        TV_SESSIONS[sid] = sess
+        loaded += 1
+    log.info("restored %d TradingView session(s)", loaded)
+
 
 _tv_load_sessions()
 
 
 def _tv_cleanup():
-    now     = time.time()
-    expired = [sid for sid, data in TV_SESSIONS.items()
-               if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS]
+    now = time.time()
+    expired = [
+        sid for sid, data in TV_SESSIONS.items() if now - data.get("created_at", 0) > TV_SESSION_TTL_SECONDS
+    ]
     for sid in expired:
         del TV_SESSIONS[sid]
     if expired:
@@ -111,18 +101,17 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
 
     sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
 
-    lots         = defaultdict(list)
-    trades       = []
-    audit_flags  = []
-    orphan_sells = []
+    lots = defaultdict(list)
+    trades = []
+    audit_flags = []
 
     for alert in sorted_alerts:
         symbol = str(alert.get("symbol", "UNKNOWN"))
         action = str(alert.get("action", "")).upper().strip()
-        price  = float(alert.get("price", 0))
-        qty    = float(alert.get("quantity", 1))
-        ts     = _parse_ts(alert.get("timestamp"))
-        date   = _ts_to_datetime(ts)
+        price = float(alert.get("price", 0))
+        qty = float(alert.get("quantity", 1))
+        ts = _parse_ts(alert.get("timestamp"))
+        date = _ts_to_datetime(ts)
 
         if price <= 0:
             continue
@@ -131,7 +120,7 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
             if lots[symbol] and lots[symbol][0]["side"] == "short":
                 remaining = qty
                 while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
+                    lot = lots[symbol][0]
                     close_qty = min(remaining, lot["qty"])
                     try:
                         pnl_pct = (lot["price"] - price) / lot["price"]
@@ -139,10 +128,11 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                         lots[symbol].pop(0)
                         continue
                     row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": "short"}
-                    if date: row["date"] = date
+                    if date:
+                        row["date"] = date
                     trades.append(row)
                     lot["qty"] -= close_qty
-                    remaining  -= close_qty
+                    remaining -= close_qty
                     if lot["qty"] == 0:
                         lots[symbol].pop(0)
                 if remaining > 0:
@@ -161,7 +151,7 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
 
             remaining = qty
             while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
+                lot = lots[symbol][0]
                 close_qty = min(remaining, lot["qty"])
                 try:
                     pnl_pct = (price - lot["price"]) / lot["price"]
@@ -169,10 +159,11 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                     lots[symbol].pop(0)
                     continue
                 row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": "long"}
-                if date: row["date"] = date
+                if date:
+                    row["date"] = date
                 trades.append(row)
                 lot["qty"] -= close_qty
-                remaining  -= close_qty
+                remaining -= close_qty
                 if lot["qty"] == 0:
                     lots[symbol].pop(0)
 
@@ -181,29 +172,28 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
                 lot = lots[symbol][0]
                 try:
                     pnl_pct = (
-                        (price - lot["price"]) / lot["price"] if lot["side"] == "long"
+                        (price - lot["price"]) / lot["price"]
+                        if lot["side"] == "long"
                         else (lot["price"] - price) / lot["price"]
                     )
                 except ZeroDivisionError:
                     lots[symbol].clear()
                     continue
                 row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": lot["side"]}
-                if date: row["date"] = date
+                if date:
+                    row["date"] = date
                 trades.append(row)
                 lots[symbol].clear()
 
-    open_positions = {s: (sum(l["qty"] for l in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
+    open_positions = {s: (sum(lot["qty"] for lot in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
     if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6]
-        )
+        sym_list = ", ".join(f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6])
         audit_flags.append(
-            f" {len(open_positions)} position(s) still open "
-            f"(no closing alert yet): {sym_list}"
+            f" {len(open_positions)} position(s) still open (no closing alert yet): {sym_list}"
         )
 
     total_alerts = len(alerts)
-    completed    = len(trades)
+    completed = len(trades)
     audit_flags.append(
         f"📊 {total_alerts} alert(s) → {completed} completed trade(s) | "
         f"{len(open_positions)} position(s) open"
@@ -213,41 +203,42 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
 
 
 class TVSessionResponse(BaseModel):
-    session_id:  str
+    session_id: str
     webhook_url: str
-    max_alerts:  int
-    ttl_hours:   int
+    max_alerts: int
+    ttl_hours: int
+
 
 class TVAlert(BaseModel):
-    symbol:    str
-    action:    str
-    price:     float
-    quantity:  Optional[float] = 1.0
+    symbol: str
+    action: str
+    price: float
+    quantity: Optional[float] = 1.0
     timestamp: Optional[float] = None
 
+
 class TVStatusResponse(BaseModel):
-    session_id:      str
+    session_id: str
     alerts_received: int
-    trades_paired:   int
-    status:          str
-    created_at:      float
-    expires_at:      float
+    trades_paired: int
+    status: str
+    created_at: float
+    expires_at: float
 
 
 @router.get("/webhook/tradingview/new-session", response_model=TVSessionResponse)
 def create_tv_session():
     _tv_cleanup()
-    session_id  = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
     webhook_url = (
-        f"{os.getenv('BASE_URL', 'https://quantproof-backend.onrender.com')}"
-        f"/webhook/tradingview/{session_id}"
+        f"{os.getenv('BASE_URL', 'https://quantproof-backend.onrender.com')}/webhook/tradingview/{session_id}"
     )
     TV_SESSIONS[session_id] = {
-        "session_id":  session_id,
+        "session_id": session_id,
         "webhook_url": webhook_url,
-        "alerts":      [],
-        "created_at":  time.time(),
-        "expires_at":  time.time() + TV_SESSION_TTL_SECONDS,
+        "alerts": [],
+        "created_at": time.time(),
+        "expires_at": time.time() + TV_SESSION_TTL_SECONDS,
     }
     _tv_save_sessions()
     return TVSessionResponse(
@@ -282,9 +273,9 @@ def get_tv_status(session_id: str):
     if session_id not in TV_SESSIONS:
         raise HTTPException(404, "Session not found or expired")
     session = TV_SESSIONS[session_id]
-    alerts  = session["alerts"]
+    alerts = session["alerts"]
     trades, _ = _tv_pair_alerts(alerts)
-    status  = "active"
+    status = "active"
     if time.time() > session["expires_at"]:
         status = "expired"
     elif len(alerts) >= TV_MAX_ALERTS_PER_SESSION:
@@ -309,13 +300,13 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         raise HTTPException(404, "Session not found or expired")
 
     session = TV_SESSIONS[session_id]
-    alerts  = session["alerts"]
+    alerts = session["alerts"]
 
     if len(alerts) < 10:
         raise HTTPException(
             400,
             f"Need at least 10 alerts for validation, only have {len(alerts)}. "
-            "Keep sending webhook alerts and try again."
+            "Keep sending webhook alerts and try again.",
         )
 
     trades, tv_flags = _tv_pair_alerts(alerts)
@@ -325,7 +316,7 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
             400,
             f"Only paired {len(trades)} completed trade(s) from {len(alerts)} alert(s). "
             "Need at least 10 completed round-trips (BUY + SELL pairs). "
-            "Keep sending alerts and validate again when you have more trades."
+            "Keep sending alerts and validate again when you have more trades.",
         )
 
     df = pd.DataFrame(trades)
@@ -336,35 +327,29 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
 
     try:
         _bm_type = get_benchmark_type(df, None)
-        _bm, _bm_note = (get_nifty_benchmark(df) 
-            if _bm_type == "nifty" 
-            else get_spy_benchmark(df))
+        _bm, _bm_note = get_nifty_benchmark(df) if _bm_type == "nifty" else get_spy_benchmark(df)
         n_trials = extract_n_trials(request)
         validator = QuantProofValidator(
-            df,
-            benchmark_returns=_bm,
-            benchmark_type=_bm_type,
-            n_trials=n_trials,
-            enable_prop_firm=enhanced
+            df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials, enable_prop_firm=enhanced
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
 
     import sys
+
     try:
         report = validator.run(enhanced=enhanced)
     except Exception as e:
-        # Log the full traceback so we can see 
+        # Log the full traceback so we can see
         # exactly which line is overflowing
         import traceback
-        tb = traceback.format_exc()
-        print(f"[TV_VALIDATE_ERROR] {tb}", 
-              file=sys.stderr, flush=True)
-        raise HTTPException(400, 
-            f"Validation failed: {str(e)}")
 
-    scored        = [c for c in report.checks if c.category != "Plausibility"]
-    top_issues    = [c.fix  for c in sorted(scored, key=lambda x: x.score)[:3]]
+        tb = traceback.format_exc()
+        print(f"[TV_VALIDATE_ERROR] {tb}", file=sys.stderr, flush=True)
+        raise HTTPException(400, f"Validation failed: {str(e)}")
+
+    scored = [c for c in report.checks if c.category != "Plausibility"]
+    top_issues = [c.fix for c in sorted(scored, key=lambda x: x.score)[:3]]
     top_strengths = [c.name for c in sorted(scored, key=lambda x: x.score, reverse=True)[:3]]
     visible_checks = [c for c in report.checks if c.category != "Plausibility"]
 
@@ -376,9 +361,8 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         except Exception:
             pass
 
-    audit_note = (
-        f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades"
-        + (f" | {regime_note}" if regime_note else "")
+    audit_note = f"📊 {len(alerts)} TradingView alerts → {len(trades)} paired trades" + (
+        f" | {regime_note}" if regime_note else ""
     )
     extra_tv_flags = [f for f in tv_flags if f.strip() not in audit_note]
 
@@ -392,14 +376,18 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         checks=[CheckResultResponse(**vars(c)) for c in visible_checks],
-        crash_sims=[CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=s.market_drop,
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in report.crash_sims],
+        crash_sims=[
+            CrashSimResponse(
+                crash_name=s.crash_name,
+                year=s.year,
+                description=s.description,
+                market_drop=s.market_drop,
+                strategy_drop=s.strategy_drop,
+                survived=s.survived,
+                emotional_verdict=s.emotional_verdict,
+            )
+            for s in report.crash_sims
+        ],
         total_trades=report.total_trades,
         profitable_trades=report.profitable_trades,
         date_range=date_range,
@@ -413,17 +401,18 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         engine_version=report.engine_version,
         audit_flags=report.audit_flags + [audit_note] + extra_tv_flags,
         plausibility_summary=report.plausibility_summary,
-        scale_warning=getattr(report, '_scale_warning', False),
+        scale_warning=getattr(report, "_scale_warning", False),
         currency="USD",
-        assumptions=report.assumptions + [
+        assumptions=report.assumptions
+        + [
             "Trade data sourced from TradingView webhook alerts — self-reported",
             "Trades constructed by pairing BUY/SELL alerts in chronological order",
             "Not broker-verified — cannot be used for prop firm compliance submissions",
         ],
         dashboard=None,
         ai_plan=None,
-        equity_curve=getattr(report, 'equity_curve', None),
-        prop_firm_compliance=getattr(report, 'prop_firm_compliance', None),
+        equity_curve=getattr(report, "equity_curve", None),
+        prop_firm_compliance=getattr(report, "prop_firm_compliance", None),
     )
 
     # CRITICAL: Always cache TV validation results, even if errors occur
@@ -437,32 +426,36 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
             f"Fundable Score: {report.score}/100 ({report.grade.split('—')[0].strip()})."
         ),
         "checks": [CheckResultResponse(**vars(c)) for c in visible_checks],
-        "crash_sims": [CrashSimResponse(
-            crash_name=s.crash_name, year=s.year,
-            description=s.description,
-            market_drop=s.market_drop,
-            strategy_drop=s.strategy_drop,
-            survived=s.survived,
-            emotional_verdict=s.emotional_verdict
-        ) for s in report.crash_sims],
+        "crash_sims": [
+            CrashSimResponse(
+                crash_name=s.crash_name,
+                year=s.year,
+                description=s.description,
+                market_drop=s.market_drop,
+                strategy_drop=s.strategy_drop,
+                survived=s.survived,
+                emotional_verdict=s.emotional_verdict,
+            )
+            for s in report.crash_sims
+        ],
         "top_issues": top_issues,
         "top_strengths": top_strengths,
         "regime_note": regime_note,
         "audit_flags": report.audit_flags + [audit_note] + extra_tv_flags,
         "plausibility_summary": report.plausibility_summary,
-        "scale_warning": getattr(report, '_scale_warning', False),
+        "scale_warning": getattr(report, "_scale_warning", False),
         "sebi_checks": {},  # TV is US-based, no SEBI checks
         "sebi_declaration": {},  # TV is US-based, no SEBI declaration
-        "equity_curve": getattr(report, 'equity_curve', None),
+        "equity_curve": getattr(report, "equity_curve", None),
     }
-    
+
     # Add prop firm compliance to VR cache only when enhanced validation is triggered
-    if enhanced and getattr(report, 'prop_firm_compliance', None):
-        _vr_cache["prop_firm_compliance"] = getattr(report, 'prop_firm_compliance', None)
-    
+    if enhanced and getattr(report, "prop_firm_compliance", None):
+        _vr_cache["prop_firm_compliance"] = getattr(report, "prop_firm_compliance", None)
+
     print(f"[DEBUG] TV Cache - Saving validation hash: '{report.validation_hash + '-TV'}'")
     _cache_validation(report.validation_hash + "-TV", _vr_cache)
-    print(f"[DEBUG] TV Cache - Successfully stored in memory")
+    print("[DEBUG] TV Cache - Successfully stored in memory")
 
 
 @router.post("/webhook/tradingview/{session_id}/reset")
@@ -472,5 +465,3 @@ def reset_tv_session(session_id: str):
         raise HTTPException(404, "Session not found or expired")
     TV_SESSIONS[session_id]["alerts"] = []
     return {"status": "reset", "message": "Alerts cleared, session remains active"}
-
-
