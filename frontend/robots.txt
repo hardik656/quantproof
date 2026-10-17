@@ -5,10 +5,9 @@ User-agent: *
 Allow: /
 
 # Explicitly allow important directories
-Allow: /public/
-Allow: /validator
 Allow: /methodology
-Allow: /ftmo-guide
+Allow: /pricing
+Allow: /ftmo-preparation-guide.html
 
 # Block private and sensitive directories
 Disallow: /admin/

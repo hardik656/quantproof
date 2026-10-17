@@ -495,7 +495,7 @@ def footer_canvas(canvas, doc):
     canvas.drawCentredString(
         PAGE_W / 2,
         10 * mm,
-        f"QuantProof Institutional Analysis  |  quantproof-frontend.onrender.com  |  "
+        f"QuantProof Institutional Analysis  |  quantproof.net  |  "
         f"{datetime.date.today().strftime('%d %B %Y')}  |  {depth_str}  |  Page {doc.page}",
     )
     canvas.restoreState()
