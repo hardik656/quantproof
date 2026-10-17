@@ -695,9 +695,25 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
+  // Paddle Billing: the backend creates a transaction whose checkout link is
+  // https://quantproof.net/?_ptxn=<txn>. We open the overlay for that transaction
+  // explicitly and only start polling for the access token once payment completes.
+  window._qpPtxn = new URLSearchParams(window.location.search).get('_ptxn');
   window.addEventListener('load', function() {
-    if (typeof Paddle !== 'undefined') {
-      Paddle.Initialize({ token: 'live_f1e8b2ee02aafeef303d87d53fb' });
+    if (typeof Paddle === 'undefined') {
+      if (window._qpPtxn) { var s = document.getElementById('pdfBtnStatus'); if (s) s.innerText = 'Payment window failed to load (blocked script?). Disable ad-block or email support@quantproof.net.'; }
+      return;
+    }
+    Paddle.Initialize({
+      token: 'live_f1e8b2ee02aafeef303d87d53fb',
+      eventCallback: function(ev) {
+        if (ev && ev.name === 'checkout.completed' && window._qpPtxn && window.pollPaddleToken) {
+          window.pollPaddleToken(window._qpPtxn);
+        }
+      }
+    });
+    if (window._qpPtxn) {
+      try { Paddle.Checkout.open({ transactionId: window._qpPtxn }); } catch (e) { console.error('Paddle open failed', e); }
     }
   });
 </script>
@@ -1447,7 +1463,7 @@
     <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:16px;margin-bottom:16px;">
       <a href="/methodology" style="font-family:var(--mono);font-size:11px;color:var(--accent);text-decoration:none;">How it works &#8594;</a>
       <span style="color:var(--border);">|</span>
-      <a href="/cdn-cgi/l/email-protection#fe8d8b8e8e918c8abe8f8b9f908a8e8c919198d0909b8a" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;"><span class="__cf_email__" data-cfemail="a6d5d3d6d6c9d4d2e6d7d3c7c8d2d6d4c9c9c088c8c3d2">[email&#160;protected]</span></a>
+      <a href="mailto:support@quantproof.net" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;">support@quantproof.net</a>
       <span style="color:var(--border);">|</span>
       <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">3 free validations/day &nbsp;&middot;&nbsp; &#8377;99 unlock &nbsp;&middot;&nbsp; &#8377;299 full report</span>
     </div>
@@ -1476,7 +1492,7 @@
     </div>
   </div>
 </footer>
-<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
+
 <script>
   // Token storage with 7-day TTL — survives tab close
   function saveToken(key, value) {
@@ -4269,13 +4285,17 @@
     if (!ptxn) return;
     window.history.replaceState({}, '', window.location.pathname);
     const status = document.getElementById('pdfBtnStatus');
-    if (status) { status.innerText = 'Payment processing — please wait...'; status.style.color = 'var(--accent)'; }
-    pollPaddleToken(ptxn);
+    if (status) { status.innerText = 'Complete your payment in the Paddle window. Your access unlocks automatically afterwards.'; status.style.color = 'var(--accent)'; }
+    // Polling starts from Paddle's checkout.completed event (see Paddle.Initialize).
   }
 
   async function pollPaddleToken(txnId, attempts) {
     attempts = attempts || 0;
-    if (attempts > 30) return;
+    if (attempts > 40) {
+      const st = document.getElementById('pdfBtnStatus');
+      if (st) { st.innerText = 'Payment received but access is taking longer than usual. Email support@quantproof.net with transaction ' + txnId; st.style.color = '#ffaa00'; }
+      return;
+    }
     const status = document.getElementById('pdfBtnStatus');
     try {
       const r = await fetch(`${API_URL_REPORT}/report/paddle-token?txn_id=${encodeURIComponent(txnId)}`);
@@ -4312,6 +4332,15 @@
     } catch (e) {
       setTimeout(function() { pollPaddleToken(txnId, attempts + 1); }, 3000);
     }
+  }
+
+  function openPaddleCheckout(data) {
+    // Open the overlay in place (keeps the user's results on screen); fall back to the hosted link.
+    if (data && data.transaction_id && typeof Paddle !== 'undefined' && Paddle.Checkout) {
+      window._qpPtxn = data.transaction_id;
+      try { Paddle.Checkout.open({ transactionId: data.transaction_id }); return; } catch (e) { console.error('Paddle open failed', e); }
+    }
+    window.location.href = data.checkout_url;
   }
 
   function submitRateLimitEmail() { /* stub — prevents console crash */ }
@@ -4386,7 +4415,7 @@
         if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
         return;
       }
-      window.location.href = data.checkout_url;
+      openPaddleCheckout(data);
     } catch (e) {
       if (btn) { btn.disabled = false; btn.innerHTML = '⚡ Unlock All Fixes — ₹99'; }
       if (ugBtn) { ugBtn.disabled = false; ugBtn.innerHTML = '⚡ See All Fixes — ₹99'; }
@@ -4433,7 +4462,7 @@
       });
       const data = await res.json();
       if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+        openPaddleCheckout(data);
       } else {
         const status = document.getElementById('pdfBtnStatus');
         if (status) { status.innerText = 'International payments not available. Use Razorpay (₹299) above.'; status.style.color = '#ffaa00'; }
@@ -4455,7 +4484,7 @@
         if (status) { status.innerText = 'Use Razorpay above for INR.'; status.style.color = '#ffaa00'; }
         return;
       }
-      window.location.href = data.checkout_url;
+      openPaddleCheckout(data);
     } catch (e) {
       if (status) { status.innerText = 'Error: ' + e.message; status.style.color = '#ff4444'; }
     }
@@ -4503,7 +4532,7 @@
       });
       const data = await res.json();
       if (!data.checkout_url) { alert('International payments unavailable. Use Razorpay above.'); return; }
-      window.location.href = data.checkout_url;
+      openPaddleCheckout(data);
     } catch (e) { alert('Payment error: ' + e.message); }
   }
 

@@ -114,7 +114,7 @@ async def generate_report_endpoint(
                 "error": "payment_required",
                 "message": "Purchase required to download the full analysis report.",
                 "price_inr": REPORT_PRICE_INR,
-                "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade",
+                "upgrade_url": "https://quantproof.net/pricing",
             },
         )
 
@@ -826,147 +826,94 @@ async def payment_webhook_pro(request: Request):
 # =========================================================
 
 
-@router.post("/report/create-checkout-paddle-lite")
-async def create_checkout_paddle_lite(payload: dict):
-    import requests as _requests
+_PADDLE_API = "https://api.paddle.com/transactions"
+_PADDLE_PRICE_ENV = {
+    "lite": "PADDLE_PRICE_LITE",
+    "report": "PADDLE_PRICE_REPORT",
+    "portfolio": "PADDLE_PRICE_PORTFOLIO",
+    "pro": "PADDLE_PRICE_PRO",
+}
+
+
+def _create_paddle_checkout(tier: str, user_id: str = "anonymous") -> dict:
+    """Create a Paddle Billing transaction and return its hosted checkout link.
+
+    ``checkout.url`` must be an approved domain in Paddle (or omitted to use the
+    default payment link). Paddle appends ``?_ptxn=<txn_id>``; the frontend opens
+    the overlay for that transaction and polls /report/paddle-token afterwards.
+    """
+    import requests
 
     api_key = os.environ.get("PADDLE_API_KEY", "")
-    price_id = os.environ.get("PADDLE_PRICE_LITE", "")
+    price_id = os.environ.get(_PADDLE_PRICE_ENV[tier], "")
     if not api_key or not price_id:
-        raise HTTPException(503, "Paddle not configured")
-    res = _requests.post(
-        "https://api.paddle.com/transactions",
-        json={
-            "items": [{"price_id": price_id, "quantity": 1}],
-            "checkout": {"return_url": "https://quantproof.net/success"},
-            "custom_data": {"user_id": "anonymous"},
-        },
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=30,
-    )
-    data = res.json()
-    url = data.get("data", {}).get("checkout", {}).get("url", "")
-    if not url:
-        raise HTTPException(500, f"Paddle error: {data}")
-    return {"checkout_url": url}
+        raise HTTPException(503, "International payments are not configured.")
+    checkout_url = os.environ.get("PADDLE_CHECKOUT_URL", "https://quantproof.net/")
+    payload = {
+        "items": [{"price_id": price_id, "quantity": 1}],
+        "checkout": {"url": checkout_url},
+        "custom_data": {"user_id": str(user_id or "anonymous")[:64], "tier": tier},
+    }
+    try:
+        res = requests.post(
+            _PADDLE_API,
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            timeout=30,
+        )
+    except requests.exceptions.RequestException as e:
+        print(f"[PADDLE] tier={tier} request failed: {type(e).__name__}")
+        raise HTTPException(502, "Payment provider unreachable. Please try again.")
+    try:
+        data = res.json()
+    except ValueError:
+        data = {}
+    url = (data.get("data") or {}).get("checkout", {}).get("url") if isinstance(data, dict) else None
+    if res.status_code >= 300 or not url:
+        err = (data.get("error") or {}) if isinstance(data, dict) else {}
+        print(
+            f"[PADDLE] tier={tier} status={res.status_code} code={err.get('code')} "
+            f"detail={err.get('detail')} request_id={(data.get('meta') or {}).get('request_id') if isinstance(data, dict) else None}"
+        )
+        raise HTTPException(
+            502, "International checkout is temporarily unavailable. Please use Razorpay or try later."
+        )
+    return {"checkout_url": url, "transaction_id": data["data"].get("id", "")}
+
+
+@router.post("/report/create-checkout-paddle-lite")
+async def create_checkout_paddle_lite(payload: dict):
+    return _create_paddle_checkout("lite", (payload or {}).get("user_id", "anonymous"))
 
 
 @router.post("/report/create-checkout-paddle-report")
-async def create_checkout_paddle_report(request: dict):
-    import os
-
-    import requests
-
-    print(f"[DEBUG] Paddle checkout called with request: {request}")
-
-    PADDLE_API_KEY = os.getenv("PADDLE_API_KEY")
-    price_id = os.getenv("PADDLE_PRICE_REPORT")
-    user_id = request.get("user_id", "anonymous")
-
-    print(
-        f"[DEBUG] Paddle env vars - API Key: {'*' * 10 if PADDLE_API_KEY else 'NOT SET'}, Price ID: {price_id}"
-    )
-    print(f"[DEBUG] User ID from request: {user_id}")
-
-    if not PADDLE_API_KEY or not price_id:
-        print(f"[DEBUG] Missing config - API Key: {bool(PADDLE_API_KEY)}, Price ID: {bool(price_id)}")
-        raise HTTPException(503, "Paddle not configured")
-
-    payload = {
-        "items": [{"price_id": price_id, "quantity": 1}],
-        "checkout": {"return_url": "https://quantproof.net/success"},
-        "custom_data": {"user_id": user_id},
-    }
-
-    print(f"[DEBUG] Paddle payload: {payload}")
-
-    headers = {"Authorization": f"Bearer {PADDLE_API_KEY}", "Content-Type": "application/json"}
-
-    try:
-        print("[DEBUG] Making Paddle API call...")
-        res = requests.post("https://api.paddle.com/transactions", json=payload, headers=headers, timeout=30)
-
-        print(f"[DEBUG] Paddle API response - Status: {res.status_code}")
-        print(f"[DEBUG] Paddle API response - Headers: {dict(res.headers)}")
-        print(f"[DEBUG] Paddle API response - Body: {res.text[:500]}...")
-
-        if res.status_code != 201:
-            print(f"[DEBUG] Paddle API error - Status: {res.status_code}, Response: {res.text}")
-            raise HTTPException(500, f"Paddle API error: {res.status_code} - {res.text}")
-
-        data = res.json()
-        print(f"[DEBUG] Parsed JSON response: {data}")
-
-        if "data" not in data or "checkout" not in data["data"]:
-            print(
-                f"[DEBUG] Invalid response structure - data key: {'data' in data}, checkout key: {'checkout' in data.get('data', {})}"
-            )
-            raise HTTPException(500, "Invalid Paddle response")
-
-        checkout_url = data["data"]["checkout"]["url"]
-        print(f"[DEBUG] Success! Checkout URL: {checkout_url}")
-
-        return {"checkout_url": checkout_url}
-
-    except requests.exceptions.RequestException as e:
-        print(f"[DEBUG] Request exception: {e}")
-        raise HTTPException(500, f"Paddle API request failed: {str(e)}")
-    except Exception as e:
-        print(f"[DEBUG] Unexpected error: {e}")
-        import traceback
-
-        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
-        raise HTTPException(500, f"Paddle checkout error: {str(e)}")
+async def create_checkout_paddle_report(payload: dict):
+    return _create_paddle_checkout("report", (payload or {}).get("user_id", "anonymous"))
 
 
 @router.post("/report/create-checkout-paddle-portfolio")
 async def create_checkout_paddle_portfolio(payload: dict):
-    import requests as _requests
-
-    api_key = os.environ.get("PADDLE_API_KEY", "")
-    price_id = os.environ.get("PADDLE_PRICE_PORTFOLIO", "")
-    if not api_key or not price_id:
-        raise HTTPException(503, "Paddle not configured")
-    res = _requests.post(
-        "https://api.paddle.com/transactions",
-        json={
-            "items": [{"price_id": price_id, "quantity": 1}],
-            "checkout": {"return_url": "https://quantproof.net/success"},
-            "custom_data": {"user_id": "anonymous"},
-        },
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=30,
-    )
-    data = res.json()
-    url = data.get("data", {}).get("checkout", {}).get("url", "")
-    if not url:
-        raise HTTPException(500, f"Paddle error: {data}")
-    return {"checkout_url": url}
+    return _create_paddle_checkout("portfolio", (payload or {}).get("user_id", "anonymous"))
 
 
 @router.post("/report/create-checkout-paddle-pro")
 async def create_checkout_paddle_pro(payload: dict):
-    import requests as _requests
+    return _create_paddle_checkout("pro", (payload or {}).get("user_id", "anonymous"))
 
-    api_key = os.environ.get("PADDLE_API_KEY", "")
-    price_id = os.environ.get("PADDLE_PRICE_PRO", "")
-    if not api_key or not price_id:
-        raise HTTPException(503, "Paddle not configured")
-    res = _requests.post(
-        "https://api.paddle.com/transactions",
-        json={
-            "items": [{"price_id": price_id, "quantity": 1}],
-            "checkout": {"return_url": "https://quantproof.net/success"},
-            "custom_data": {"user_id": "anonymous"},
-        },
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=30,
-    )
-    data = res.json()
-    url = data.get("data", {}).get("checkout", {}).get("url", "")
-    if not url:
-        raise HTTPException(500, f"Paddle error: {data}")
-    return {"checkout_url": url}
+
+def _verify_paddle_signature(body: bytes, header: str, secret: str, tolerance_s: int = 3600) -> bool:
+    """Paddle Billing signature: header ``ts=<unix>;h1=<hex hmac-sha256(secret, f"{ts}:{body}")>``."""
+    import hmac
+    import time
+
+    parts = dict(p.split("=", 1) for p in header.split(";") if "=" in p)
+    ts, h1 = parts.get("ts", ""), parts.get("h1", "")
+    if not ts.isdigit() or not h1:
+        return False
+    if abs(time.time() - int(ts)) > tolerance_s:
+        return False
+    expected = hmac.new(secret.encode(), f"{ts}:".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, h1)
 
 
 @router.get("/report/paddle-token")
@@ -996,30 +943,15 @@ async def get_paddle_token(txn_id: str = ""):
 
 @router.post("/report/webhook-paddle")
 async def paddle_webhook(request: Request):
-    import hmac
     import time
 
     body = await request.body()
 
     webhook_secret = os.environ.get("PADDLE_WEBHOOK_SECRET", "")
-    paddle_signature = request.headers.get("Paddle-Signature", "")
-    if webhook_secret and paddle_signature:
-        try:
-            ts = ""
-            h1 = ""
-            for part in paddle_signature.split(";"):
-                if part.startswith("ts="):
-                    ts = part[3:]
-                elif part.startswith("h1="):
-                    h1 = part[3:]
-            signed_payload = f"{ts}:{body.decode('utf-8')}"
-            expected = hmac.new(webhook_secret.encode(), signed_payload.encode(), hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(expected, h1):
-                raise HTTPException(status_code=400, detail="Invalid Paddle signature")
-        except HTTPException:
-            raise
-        except Exception:
-            pass
+    if not webhook_secret:
+        raise HTTPException(status_code=503, detail="Paddle webhook not configured")
+    if not _verify_paddle_signature(body, request.headers.get("Paddle-Signature", ""), webhook_secret):
+        raise HTTPException(status_code=400, detail="Invalid Paddle signature")
 
     try:
         event = json.loads(body)
@@ -1036,7 +968,6 @@ async def paddle_webhook(request: Request):
     price_id = items[0].get("price", {}).get("id", "") if items else ""
 
     PRICE_LITE = os.environ.get("PADDLE_PRICE_LITE", "")
-    os.environ.get("PADDLE_PRICE_REPORT", "")
     PRICE_PORTFOLIO = os.environ.get("PADDLE_PRICE_PORTFOLIO", "")
     PRICE_PRO = os.environ.get("PADDLE_PRICE_PRO", "")
 
@@ -1126,7 +1057,7 @@ async def generate_broker_report(
                 "error": "payment_required",
                 "message": "Purchase required to download the full analysis report.",
                 "price_inr": REPORT_PRICE_INR,
-                "upgrade_url": "https://quantproof-frontend.onrender.com/#upgrade",
+                "upgrade_url": "https://quantproof.net/pricing",
             },
         )
 
