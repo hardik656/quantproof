@@ -170,6 +170,21 @@ With Postgres: `export DATABASE_URL=postgresql+psycopg://app:app@localhost:5432/
 
 Frontend: open `frontend/index.html` or serve the folder with any static server.
 
+## Monitoring (optional)
+
+`monitoring/` is a self-contained, opt-in Grafana stack for looking at the state QuantProof persists in Postgres (the `kv_state` table: paid report/lite tokens, PRO subscription expiries, TradingView sessions and alerts). It is **not** used by the deployed app: nothing in `backend/` or `render.yaml` references it.
+
+```bash
+docker compose -f monitoring/docker-compose.yml up --build
+# Grafana: http://localhost:3000  (admin / admin, local only)
+```
+
+The compose file starts Postgres 16, runs `alembic upgrade head` from the repo image, loads clearly labelled demo rows (`monitoring/demo-data.sql`) and starts Grafana 11.3 with a provisioned Postgres datasource and the **QuantProof: persisted state** dashboard (`monitoring/grafana/dashboards/quantproof-state.json`). To point it at real data, run the backend with `DATABASE_URL` set to the same database.
+
+![Grafana dashboard](monitoring/grafana-dashboard.png)
+
+The screenshot was taken locally against Postgres plus a standalone Grafana 11.3.0, with the same provisioning files. The demo rows and one session created through the live API were shown, and all 8 panel queries were checked through Grafana's `/api/ds/query`.
+
 ## Testing & Quality
 
 ```bash

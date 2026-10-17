@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: QuantProof
+    folder: QuantProof
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
