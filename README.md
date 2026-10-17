@@ -52,7 +52,7 @@ flowchart LR
 | Persistence | SQLAlchemy 2 + Alembic on Postgres (`DATABASE_URL`), JSON-file fallback |
 | AI fix plans | Groq (Llama 3.3-70B) → Anthropic → OpenAI fallback chain |
 | Payments | Razorpay (India) · Paddle (international), HMAC-verified webhooks |
-| Quality | pytest (62 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
+| Quality | pytest (66 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
 | Deploy | Docker / docker-compose; Render |
 
 ---
@@ -216,7 +216,7 @@ Frontend: open `frontend/index.html` or serve the folder with any static server.
 ## Testing & Quality
 
 ```bash
-pytest --cov                  # 62 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
+pytest --cov                  # 66 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
 ruff check . && ruff format --check .
 mypy
 pre-commit install            # ruff + gitleaks secret scan on every commit

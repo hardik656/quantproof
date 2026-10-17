@@ -53,6 +53,15 @@ from validator import QuantProofValidator
 
 router = APIRouter()
 
+
+def _razorpay_secret() -> str:
+    """Webhook HMAC secret. Refuse to verify with a guessable default."""
+    secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not secret:
+        raise HTTPException(503, "Payments are not configured")
+    return secret
+
+
 # =========================================================
 # PDF REPORT — PAYWALL ENDPOINT
 # =========================================================
@@ -317,7 +326,7 @@ async def payment_webhook(request: Request):
     payment_id = data.get("razorpay_payment_id", "")
     order_id = data.get("razorpay_order_id", "")
     signature = data.get("razorpay_signature", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    key_secret = _razorpay_secret()
     if not payment_id or not order_id or not signature:
         raise HTTPException(400, "Missing payment fields")
     expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
@@ -390,7 +399,7 @@ async def payment_webhook_lite(request: Request):
     payment_id = data.get("razorpay_payment_id", "")
     order_id = data.get("razorpay_order_id", "")
     signature = data.get("razorpay_signature", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    key_secret = _razorpay_secret()
     if not payment_id or not order_id or not signature:
         raise HTTPException(400, "Missing payment fields")
     expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
@@ -722,7 +731,7 @@ async def payment_webhook_portfolio(request: Request):
     payment_id = data.get("razorpay_payment_id", "")
     order_id = data.get("razorpay_order_id", "")
     signature = data.get("razorpay_signature", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    key_secret = _razorpay_secret()
     if not payment_id or not order_id or not signature:
         raise HTTPException(400, "Missing payment fields")
     expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
@@ -795,7 +804,7 @@ async def payment_webhook_pro(request: Request):
     payment_id = data.get("razorpay_payment_id", "")
     order_id = data.get("razorpay_order_id", "")
     signature = data.get("razorpay_signature", "")
-    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "quantproof-fallback")
+    key_secret = _razorpay_secret()
     if not payment_id or not order_id or not signature:
         raise HTTPException(400, "Missing payment fields")
     expected = hmac.new(key_secret.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()

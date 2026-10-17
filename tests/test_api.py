@@ -75,7 +75,7 @@ def test_token_tiers(monkeypatch):
 
 def test_webhook_rejects_bad_signature(client):
     r = client.post("/report/webhook", content=b"{}", headers={"x-razorpay-signature": "bad"})
-    assert r.status_code in (400, 401, 403, 500)
+    assert r.status_code in (400, 401, 403, 503)
 
 
 def test_tradingview_session_lifecycle(client):
@@ -94,3 +94,37 @@ def test_portfolio_math():
     w = portfolio._risk_parity_weights(dfs)
     assert abs(sum(w) - 1) < 1e-6
     assert isinstance(portfolio._portfolio_verdict(70.0, 0.2, 3), str)
+
+
+def _rzp_body(secret, order="order_1", payment="pay_1"):
+    import hashlib
+    import hmac
+    import json
+
+    sig = hmac.new(secret.encode(), f"{order}|{payment}".encode(), hashlib.sha256).hexdigest()
+    return json.dumps({"razorpay_order_id": order, "razorpay_payment_id": payment, "razorpay_signature": sig})
+
+
+def test_razorpay_webhook_accepts_valid_signature(client, monkeypatch):
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "s3cret")
+    r = client.post("/report/webhook", content=_rzp_body("s3cret"))
+    assert r.status_code == 200, r.text
+
+
+def test_razorpay_webhook_rejects_forged_signature(client, monkeypatch):
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "s3cret")
+    r = client.post("/report/webhook", content=_rzp_body("attacker-guess"))
+    assert r.status_code == 400
+
+
+def test_razorpay_webhook_refuses_without_secret(client, monkeypatch):
+    """Previously fell back to a hard-coded secret, letting anyone mint report tokens."""
+    monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
+    r = client.post("/report/webhook", content=_rzp_body("quantproof-fallback"))
+    assert r.status_code == 503
+
+
+def test_razorpay_webhook_rejects_missing_fields(client, monkeypatch):
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "s3cret")
+    assert client.post("/report/webhook", content=b'{"razorpay_order_id": "x"}').status_code == 400
+    assert client.post("/report/webhook", content=b"not json").status_code == 400
