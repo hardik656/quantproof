@@ -823,12 +823,19 @@ def _analyze_alpha_decay(returns: np.ndarray, timestamps=None, max_lags: int = 4
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+def _stable_seed(data: bytes) -> int:
+    """Process-independent 32-bit seed. Python's hash() of bytes/str is salted per
+    process (PYTHONHASHSEED), so it made crash sims and stress tests differ between
+    server restarts for the same upload."""
+    return int.from_bytes(hashlib.sha256(data).digest()[:4], "little")
+
+
 class _OverfitDetector:
     def __init__(self, returns: np.ndarray, timestamps=None):
         self.returns = returns
         self.n = len(returns)
         self.timestamps = timestamps
-        _seed = int(abs(hash(self.returns.tobytes())) % (2**32))
+        _seed = _stable_seed(self.returns.tobytes())
         self._rng = np.random.default_rng(_seed)
 
     def _noise_baselines(self, n: int = 50) -> List[np.ndarray]:
@@ -1654,6 +1661,7 @@ class QuantProofValidator:
                 f"(expected ~{min_expected_losses} losses at 5% loss rate)",
                 "A real strategy should have some losing trades. Zero losses suggests "
                 "lookahead bias, synthetic data, or data processing errors.",
+                "Check the export for missing losing trades or a look-ahead bug in the backtest.",
                 "Risk",
             )
 
@@ -1921,7 +1929,7 @@ class QuantProofValidator:
         mean_r = float(np.mean(r))
         # FIX BUG-V4-4: seed from strategy returns hash, not fixed string
         # Prevents same stressed sequence rewarding/punishing all strategies identically
-        rng = np.random.default_rng(int(abs(hash(self.returns.tobytes() + b"vol_stress_v4")) % (2**32)))
+        rng = np.random.default_rng(_stable_seed(self.returns.tobytes() + b"vol_stress_v4"))
         autocorr = 0.30
         innov = rng.standard_t(3, 60) * vol * 3.0 / np.sqrt(3)
         stressed = np.zeros(60)
@@ -2556,9 +2564,9 @@ class QuantProofValidator:
         calibrated = self.has_dates
         # ─────────────────────────────────────────────────────────────────────
 
-        crash_seed = int(
-            (abs(hash(crash_key)) ^ int.from_bytes(self.returns.tobytes()[:8], "little")) % (2**31)
-        )
+        crash_seed = (
+            _stable_seed(crash_key.encode()) ^ int.from_bytes(self.returns.tobytes()[:8], "little")
+        ) % (2**31)
         rng = np.random.default_rng(crash_seed)
         vol_mult = min(profile["vol_multiplier"], 4.0)
         df_t = profile.get("fat_tail_df", 4)
