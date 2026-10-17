@@ -9,7 +9,9 @@ from services import portfolio, tokens
 
 def _csv(n=120, mu=0.003, seed=1) -> bytes:
     rng = np.random.default_rng(seed)
-    df = pd.DataFrame({"date": pd.date_range("2023-01-02", periods=n, freq="B"), "pnl": rng.normal(mu, 0.01, n)})
+    df = pd.DataFrame(
+        {"date": pd.date_range("2023-01-02", periods=n, freq="B"), "pnl": rng.normal(mu, 0.01, n)}
+    )
     return df.to_csv(index=False).encode()
 
 
@@ -40,7 +42,7 @@ def test_validate_happy_path(client):
 
 
 def test_validate_rate_limit(client):
-    for _ in range(main.FREE_DAILY_LIMIT):
+    for _ in range(tokens.FREE_DAILY_LIMIT):
         client.post("/validate", files={"file": ("t.csv", io.BytesIO(_csv()), "text/csv")})
     r = client.post("/validate", files={"file": ("t.csv", io.BytesIO(_csv()), "text/csv")})
     assert r.status_code == 429

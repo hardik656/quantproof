@@ -5,21 +5,12 @@ Extracted verbatim from main.py (behaviour unchanged).
 
 from __future__ import annotations
 
-import io
-import os
-import time
-import asyncio
-import hashlib
-import json
-from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
-import numpy as np
-import pandas as pd
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 # ================= RESPONSE MODELS =================
+
 
 class CheckResultResponse(BaseModel):
     name: str
@@ -78,4 +69,3 @@ class ValidationResponse(BaseModel):
     sebi_checks: Optional[Dict[str, Any]] = None
     sebi_declaration: Optional[Dict[str, Any]] = None
     prop_firm_compliance: Optional[Dict[str, Any]] = None
-

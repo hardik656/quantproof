@@ -5,29 +5,26 @@ Extracted verbatim from main.py (behaviour unchanged).
 
 from __future__ import annotations
 
-import io
-import os
-import time
 import asyncio
-import hashlib
-import json
+import io
+import re as _re
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from functools import wraps
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
-from pydantic import BaseModel
-import re as _re
+from fastapi import HTTPException
+
 from services.benchmarks import assign_regimes, get_benchmark_type
 
 # =========================================================
 # KITE TRADEBOOK PARSER
 # =========================================================
 
+
 def _is_kite_csv(df: pd.DataFrame) -> bool:
     cols = {c.lower().strip() for c in df.columns}
-    required     = {"trade_date", "trade_type", "quantity", "price"}
+    required = {"trade_date", "trade_type", "quantity", "price"}
     kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
     return required.issubset(cols) and bool(kite_signals & cols)
 
@@ -40,7 +37,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df.columns = [c.lower().strip() for c in df.columns]
 
     required = {"trade_date", "trade_type", "quantity", "price"}
-    missing  = required - set(df.columns)
+    missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Kite CSV missing required columns: {missing}. "
@@ -52,7 +49,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     # NOTE: 'series' is excluded — it's a segment identifier (EQ/FO/CDS),
     # not an instrument name. Using it as a ticker key buckets ALL equity
     # trades under 'EQ' and ALL F&O trades under 'FO', breaking FIFO matching.
-    for candidate in ['tradingsymbol', 'symbol', 'instrument', 'scrip']:
+    for candidate in ["tradingsymbol", "symbol", "instrument", "scrip"]:
         if candidate in df.columns:
             ticker_col = candidate
             break
@@ -60,25 +57,33 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
     df = df.dropna(subset=["trade_date"])
 
-    sort_cols = ([ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns
-                 else ["trade_date"])
+    sort_cols = [ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns else ["trade_date"]
     df = df.sort_values(sort_cols).reset_index(drop=True)
 
-    lots         = defaultdict(list)
-    trades       = []
-    audit_flags  = []
+    lots = defaultdict(list)
+    trades = []
+    audit_flags = []
     orphan_sells = []
 
     for _, row in df.iterrows():
-        symbol     = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
-        qty        = float(row["quantity"])
-        price      = float(row["price"])
+        symbol = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
+        qty = float(row["quantity"])
+        price = float(row["price"])
         trade_type = str(row["trade_type"]).upper().strip()
-        date       = row["trade_date"]
-        segment    = str(row.get("segment", "EQ")).upper().strip()
-        is_fo      = (segment in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF",
-                          "NFO", "BCD", "MCX", "NCO")
-                         or str(row.get("series", "")).upper().strip() in ("FO", "CD"))
+        date = row["trade_date"]
+        segment = str(row.get("segment", "EQ")).upper().strip()
+        is_fo = segment in (
+            "FO",
+            "F&O",
+            "FUTURES",
+            "OPTIONS",
+            "CDS",
+            "MF",
+            "NFO",
+            "BCD",
+            "MCX",
+            "NCO",
+        ) or str(row.get("series", "")).upper().strip() in ("FO", "CD")
 
         # FIX: skip zero/negative qty rows — prevents phantom trades and div-by-zero
         if qty <= 0 or price <= 0:
@@ -92,20 +97,22 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             if lots[symbol] and lots[symbol][0]["side"] == "short":
                 remaining_qty = qty
                 while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
+                    lot = lots[symbol][0]
                     close_qty = min(remaining_qty, lot["qty"])
                     try:
                         pnl_pct = (lot["price"] - price) / lot["price"]
                     except ZeroDivisionError:
                         lots[symbol].pop(0)
                         continue
-                    trades.append({
-                        "pnl":    round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                        "ticker": symbol,
-                        "side":   "short",
-                        "date":   date,
-                    })
-                    lot["qty"]    -= close_qty
+                    trades.append(
+                        {
+                            "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
+                            "ticker": symbol,
+                            "side": "short",
+                            "date": date,
+                        }
+                    )
+                    lot["qty"] -= close_qty
                     remaining_qty -= close_qty
                     if lot["qty"] == 0:
                         lots[symbol].pop(0)
@@ -127,20 +134,22 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
             remaining_qty = qty
             while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
+                lot = lots[symbol][0]
                 close_qty = min(remaining_qty, lot["qty"])
                 try:
                     pnl_pct = (price - lot["price"]) / lot["price"]
                 except ZeroDivisionError:
                     lots[symbol].pop(0)
                     continue
-                trades.append({
-                    "pnl":    round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                    "ticker": symbol,
-                    "side":   "long",
-                    "date":   date,
-                })
-                lot["qty"]    -= close_qty
+                trades.append(
+                    {
+                        "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
+                        "ticker": symbol,
+                        "side": "long",
+                        "date": date,
+                    }
+                )
+                lot["qty"] -= close_qty
                 remaining_qty -= close_qty
                 if lot["qty"] == 0:
                     lots[symbol].pop(0)
@@ -160,14 +169,11 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
     if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
+        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
         audit_flags.append(
-            f" {len(open_positions)} position(s) still open "
-            f"(no closing trade yet): {sym_list}"
+            f" {len(open_positions)} position(s) still open (no closing trade yet): {sym_list}"
         )
 
     if not trades:
@@ -186,6 +192,7 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 # KITE ORDERS CSV PARSER
 # =========================================================
 
+
 def _is_kite_orders_csv(df: pd.DataFrame) -> bool:
     cols = {c.lower().strip() for c in df.columns}
     required = {"transaction_type", "order_execution_time", "tradingsymbol", "filled_quantity"}
@@ -199,8 +206,13 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df = pd.read_csv(io.StringIO(raw))
     df.columns = [c.lower().strip() for c in df.columns]
 
-    required = {"transaction_type", "order_execution_time", "tradingsymbol",
-                "filled_quantity", "average_price"}
+    required = {
+        "transaction_type",
+        "order_execution_time",
+        "tradingsymbol",
+        "filled_quantity",
+        "average_price",
+    }
     missing = required - set(df.columns)
     if missing:
         raise ValueError(
@@ -212,7 +224,7 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df = df[df["status"] == "COMPLETE"].copy()
 
     df["filled_quantity"] = pd.to_numeric(df["filled_quantity"], errors="coerce")
-    df["average_price"]   = pd.to_numeric(df["average_price"],   errors="coerce")
+    df["average_price"] = pd.to_numeric(df["average_price"], errors="coerce")
     df = df.dropna(subset=["filled_quantity", "average_price"])
     df = df[(df["filled_quantity"] > 0) & (df["average_price"] > 0)]
 
@@ -228,52 +240,51 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     df = df.sort_values(["tradingsymbol", "order_execution_time"]).reset_index(drop=True)
     df["segment"] = df.get("segment", pd.Series(["EQ"] * len(df))).str.upper().str.strip()
 
-    lots         = defaultdict(list)
-    trades       = []
-    audit_flags  = []
+    lots = defaultdict(list)
+    trades = []
+    audit_flags = []
     orphan_sells = []
 
     for _, row in df.iterrows():
         symbol = str(row["tradingsymbol"])
-        side   = row["transaction_type"]
-        qty    = float(row["filled_quantity"])
-        price  = float(row["average_price"])
-        date   = row["order_execution_time"]
-        is_fo  = row["segment"] in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS")
+        side = row["transaction_type"]
+        qty = float(row["filled_quantity"])
+        price = float(row["average_price"])
+        date = row["order_execution_time"]
+        is_fo = row["segment"] in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS")
 
         if side == "BUY":
             if lots[symbol] and lots[symbol][0]["side"] == "short":
                 remaining = qty
                 while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot       = lots[symbol][0]
+                    lot = lots[symbol][0]
                     close_qty = min(remaining, lot["qty"])
                     try:
                         pnl_pct = (lot["price"] - price) / lot["price"]
                     except ZeroDivisionError:
                         lots[symbol].pop(0)
                         continue
-                    trades.append({
-                        "pnl":    round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                        "ticker": symbol,
-                        "side":   "short",
-                        "date":   date,
-                    })
-                    lot["qty"]  -= close_qty
-                    remaining   -= close_qty
+                    trades.append(
+                        {
+                            "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
+                            "ticker": symbol,
+                            "side": "short",
+                            "date": date,
+                        }
+                    )
+                    lot["qty"] -= close_qty
+                    remaining -= close_qty
                     if lot["qty"] == 0:
                         lots[symbol].pop(0)
                 if remaining > 0:
-                    lots[symbol].append({"qty": remaining, "price": price,
-                                         "date": date, "side": "long"})
+                    lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
             else:
-                lots[symbol].append({"qty": qty, "price": price,
-                                     "date": date, "side": "long"})
+                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
 
         elif side == "SELL":
             if not lots[symbol]:
                 if is_fo:
-                    lots[symbol].append({"qty": qty, "price": price,
-                                         "date": date, "side": "short"})
+                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
                 else:
                     orphan_sells.append(
                         f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
@@ -283,40 +294,38 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
             remaining = qty
             while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot       = lots[symbol][0]
+                lot = lots[symbol][0]
                 close_qty = min(remaining, lot["qty"])
                 try:
                     pnl_pct = (price - lot["price"]) / lot["price"]
                 except ZeroDivisionError:
                     lots[symbol].pop(0)
                     continue
-                trades.append({
-                    "pnl":    round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                    "ticker": symbol,
-                    "side":   "long",
-                    "date":   date,
-                })
-                lot["qty"]  -= close_qty
-                remaining   -= close_qty
+                trades.append(
+                    {
+                        "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
+                        "ticker": symbol,
+                        "side": "long",
+                        "date": date,
+                    }
+                )
+                lot["qty"] -= close_qty
+                remaining -= close_qty
                 if lot["qty"] == 0:
                     lots[symbol].pop(0)
 
     if orphan_sells:
         audit_flags.append(
-            f"⚠️ {len(orphan_sells)} sell(s) had no matching BUY "
-            f"(position predates Orders history) excluded"
+            f"⚠️ {len(orphan_sells)} sell(s) had no matching BUY (position predates Orders history) excluded"
         )
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
     if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
+        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
         audit_flags.append(
-            f" {len(open_positions)} position(s) still open "
-            f"(no closing trade yet): {sym_list}"
+            f" {len(open_positions)} position(s) still open (no closing trade yet): {sym_list}"
         )
 
     if not trades:
@@ -339,13 +348,12 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 # RETRY DECORATOR FOR API CALLS
 # =========================================================
 
-import asyncio
-from functools import wraps
 
 def retry_on_failure(max_retries=3, delay=1.0):
     """
     Retry decorator for API calls with exponential backoff
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -355,10 +363,14 @@ def retry_on_failure(max_retries=3, delay=1.0):
                 except Exception as e:
                     if attempt == max_retries - 1:
                         raise e
-                    wait_time = delay * (2 ** attempt)
-                    print(f"[RETRY] API call failed (attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s: {str(e)}")
+                    wait_time = delay * (2**attempt)
+                    print(
+                        f"[RETRY] API call failed (attempt {attempt + 1}/{max_retries}), retrying in {wait_time}s: {str(e)}"
+                    )
                     await asyncio.sleep(wait_time)
+
         return wrapper
+
     return decorator
 
 
@@ -366,13 +378,10 @@ def retry_on_failure(max_retries=3, delay=1.0):
 # ALPACA UI EXPORT PARSER
 # =========================================================
 
+
 def _is_alpaca_ui_export(df: pd.DataFrame) -> bool:
     cols = {c.lower().strip().replace(".", "") for c in df.columns}
-    return (
-        ("avg fill price" in cols or "avg  fill price" in cols)
-        and "filled at" in cols
-        and "side" in cols
-    )
+    return ("avg fill price" in cols or "avg  fill price" in cols) and "filled at" in cols and "side" in cols
 
 
 def _parse_alpaca_ui_date(s) -> pd.Timestamp | None:
@@ -391,7 +400,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
     audit_flags = []
 
     sample = raw[:4096]
-    delim  = "\t" if sample.count("\t") > sample.count(",") else ","
+    delim = "\t" if sample.count("\t") > sample.count(",") else ","
 
     try:
         df = pd.read_csv(io.StringIO(raw), sep=delim, dtype=str)
@@ -404,19 +413,19 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
     df.columns = [_norm_col(c) for c in df.columns]
 
     col_map = {
-        "asset":          "symbol_raw",
-        "side":           "side",
-        "qty":            "qty",
-        "filled qty":     "filled_qty",
+        "asset": "symbol_raw",
+        "side": "side",
+        "qty": "qty",
+        "filled qty": "filled_qty",
         "avg fill price": "avg_fill_price",
-        "status":         "status",
-        "filled at":      "filled_at",
-        "submitted at":   "submitted_at",
+        "status": "status",
+        "filled at": "filled_at",
+        "submitted at": "submitted_at",
     }
     df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
 
     required = {"symbol_raw", "side", "filled_qty", "avg_fill_price", "status", "filled_at"}
-    missing  = required - set(df.columns)
+    missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Alpaca UI export missing columns: {missing}. "
@@ -426,7 +435,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
     df["status"] = df["status"].str.lower().str.strip()
     df = df[df["status"] == "filled"].copy()
 
-    df["filled_qty"]     = pd.to_numeric(df["filled_qty"],     errors="coerce")
+    df["filled_qty"] = pd.to_numeric(df["filled_qty"], errors="coerce")
     df["avg_fill_price"] = pd.to_numeric(df["avg_fill_price"], errors="coerce")
     df = df.dropna(subset=["filled_qty", "avg_fill_price"])
     df = df[(df["filled_qty"] > 0) & (df["avg_fill_price"] > 0)]
@@ -442,7 +451,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
         return m.group(1) if m else s.split()[0]
 
     df["symbol"] = df["symbol_raw"].apply(_clean_ticker)
-    df["side"]   = df["side"].str.lower().str.strip()
+    df["side"] = df["side"].str.lower().str.strip()
     df = df[df["side"].isin(["buy", "sell"])]
 
     if df.empty:
@@ -454,49 +463,49 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     df = df.sort_values("filled_at").reset_index(drop=True)
 
-    lots         = defaultdict(list)
-    completed    = []
+    lots = defaultdict(list)
+    completed = []
     orphan_sells = []
 
     for _, row in df.iterrows():
-        sym   = row["symbol"]
-        side  = row["side"]
-        qty   = float(row["filled_qty"])
+        sym = row["symbol"]
+        side = row["side"]
+        qty = float(row["filled_qty"])
         price = float(row["avg_fill_price"])
-        ts    = row["filled_at"]
+        ts = row["filled_at"]
 
         if side == "buy":
             if lots[sym] and lots[sym][0]["side"] == "short":
                 remaining = qty
                 while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
-                    lot       = lots[sym][0]
+                    lot = lots[sym][0]
                     close_qty = min(remaining, lot["qty"])
                     try:
                         pnl_pct = (lot["price"] - price) / lot["price"]
                     except ZeroDivisionError:
                         lots[sym].pop(0)
                         continue
-                    completed.append({
-                        "pnl":        round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                        "date":       ts,
-                        "entry_date": lot["entry_date"],
-                        "ticker":     sym,
-                        "buy_price":  price,
-                        "sell_price": lot["price"],
-                        "qty":        close_qty,
-                        "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                        "side":       "short",
-                    })
-                    lot["qty"]  -= close_qty
-                    remaining   -= close_qty
+                    completed.append(
+                        {
+                            "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
+                            "date": ts,
+                            "entry_date": lot["entry_date"],
+                            "ticker": sym,
+                            "buy_price": price,
+                            "sell_price": lot["price"],
+                            "qty": close_qty,
+                            "hold_days": max(0, (ts - lot["entry_date"]).days),
+                            "side": "short",
+                        }
+                    )
+                    lot["qty"] -= close_qty
+                    remaining -= close_qty
                     if lot["qty"] == 0:
                         lots[sym].pop(0)
                 if remaining > 0:
-                    lots[sym].append({"price": price, "qty": remaining,
-                                      "entry_date": ts, "side": "long"})
+                    lots[sym].append({"price": price, "qty": remaining, "entry_date": ts, "side": "long"})
             else:
-                lots[sym].append({"price": price, "qty": qty,
-                                  "entry_date": ts, "side": "long"})
+                lots[sym].append({"price": price, "qty": qty, "entry_date": ts, "side": "long"})
 
         elif side == "sell":
             if not lots[sym]:
@@ -508,64 +517,56 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
 
             remaining = qty
             while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
-                lot       = lots[sym][0]
+                lot = lots[sym][0]
                 close_qty = min(remaining, lot["qty"])
                 try:
                     pnl_pct = (price - lot["price"]) / lot["price"]
                 except ZeroDivisionError:
                     lots[sym].pop(0)
                     continue
-                completed.append({
-                    "pnl":        round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                    "date":       ts,
-                    "entry_date": lot["entry_date"],
-                    "ticker":     sym,
-                    "buy_price":  lot["price"],
-                    "sell_price": price,
-                    "qty":        close_qty,
-                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                    "side":       "long",
-                })
-                lot["qty"]  -= close_qty
-                remaining   -= close_qty
+                completed.append(
+                    {
+                        "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
+                        "date": ts,
+                        "entry_date": lot["entry_date"],
+                        "ticker": sym,
+                        "buy_price": lot["price"],
+                        "sell_price": price,
+                        "qty": close_qty,
+                        "hold_days": max(0, (ts - lot["entry_date"]).days),
+                        "side": "long",
+                    }
+                )
+                lot["qty"] -= close_qty
+                remaining -= close_qty
                 if lot["qty"] == 0:
                     lots[sym].pop(0)
 
     if orphan_sells:
         audit_flags.append(
-            f"⚠️ {len(orphan_sells)} sell(s) had no matching buy "
-            f"(position predates window) excluded"
+            f"⚠️ {len(orphan_sells)} sell(s) had no matching buy (position predates window) excluded"
         )
         for s in orphan_sells[:3]:
             audit_flags.append(f"   └ {s}")
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
     if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
+        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
         audit_flags.append(
-            f" {len(open_positions)} open position(s) not included "
-            f"(no closing trade yet): {sym_list}"
+            f" {len(open_positions)} open position(s) not included (no closing trade yet): {sym_list}"
         )
 
     if not completed:
         return (
             pd.DataFrame(),
             "No completed round-trip trades found in Alpaca UI export.",
-            audit_flags + [
-                "All sells may predate the visible order history, "
-                "or all positions are still open."
-            ],
+            audit_flags
+            + ["All sells may predate the visible order history, or all positions are still open."],
         )
 
-    result_df = (
-        pd.DataFrame(completed)
-        .sort_values("date")
-        .reset_index(drop=True)
-    )
+    result_df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
 
-    total_filled  = len(df)
+    total_filled = len(df)
     paired_trades = len(completed)
     note = (
         f"📊 Parsed {paired_trades} completed trade(s) from Alpaca UI export "
@@ -578,6 +579,7 @@ def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
 # =========================================================
 # ALPACA ORDER PAIRING — position-state tracker
 # =========================================================
+
 
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     """
@@ -599,12 +601,7 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
         if qty <= 0:
             return None
 
-        price_raw = (
-            o.get("filled_avg_price")
-            or o.get("avg_fill_price")
-            or o.get("price")
-            or 0
-        )
+        price_raw = o.get("filled_avg_price") or o.get("avg_fill_price") or o.get("price") or 0
         try:
             price_str = str(price_raw).replace(",", ".").strip()
             if price_str in ("-", "", "nan", "None"):
@@ -654,65 +651,63 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     if not filled:
         return pd.DataFrame(), ["No filled orders found"]
 
-    df_orders = (
-        pd.DataFrame(filled)
-        .sort_values("filled_at")
-        .reset_index(drop=True)
-    )
+    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
 
-    lots         = defaultdict(list)
-    completed    = []
+    lots = defaultdict(list)
+    completed = []
     orphan_sells = []
 
     for _, row in df_orders.iterrows():
-        sym   = row["symbol"]
-        side  = row["side"]
-        qty   = row["qty"]
+        sym = row["symbol"]
+        side = row["side"]
+        qty = row["qty"]
         price = row["price"]
-        ts    = row["filled_at"]
+        ts = row["filled_at"]
 
         if side == "buy":
             if lots[sym] and lots[sym][0]["side"] == "short":
                 remaining = qty
                 while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
-                    lot       = lots[sym][0]
+                    lot = lots[sym][0]
                     close_qty = min(remaining, lot["qty"])
                     try:
                         pnl_pct = (lot["price"] - price) / lot["price"]
                     except ZeroDivisionError:
                         lots[sym].pop(0)
                         continue
-                    completed.append({
-                        "pnl":        round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                        "date":       ts,
-                        "entry_date": lot["entry_date"],
-                        "ticker":     sym,
-                        "buy_price":  price,
-                        "sell_price": lot["price"],
-                        "qty":        close_qty,
-                        "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                        "side":       "short",
-                    })
-                    lot["qty"]  -= close_qty
-                    remaining   -= close_qty
+                    completed.append(
+                        {
+                            "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
+                            "date": ts,
+                            "entry_date": lot["entry_date"],
+                            "ticker": sym,
+                            "buy_price": price,
+                            "sell_price": lot["price"],
+                            "qty": close_qty,
+                            "hold_days": max(0, (ts - lot["entry_date"]).days),
+                            "side": "short",
+                        }
+                    )
+                    lot["qty"] -= close_qty
+                    remaining -= close_qty
                     if lot["qty"] == 0:
                         lots[sym].pop(0)
                 if remaining > 0:
-                    lots[sym].append({"price": price, "qty": remaining,
-                                      "entry_date": ts, "side": "long"})
+                    lots[sym].append({"price": price, "qty": remaining, "entry_date": ts, "side": "long"})
             else:
-                lots[sym].append({"price": price, "qty": qty,
-                                  "entry_date": ts, "side": "long"})
+                lots[sym].append({"price": price, "qty": qty, "entry_date": ts, "side": "long"})
 
         elif side == "sell":
             if not lots[sym]:
                 # No open long position — this SELL opens a short position
-                lots[sym].append({
-                    "price":      price,
-                    "qty":        qty,
-                    "entry_date": ts,
-                    "side":       "short",
-                })
+                lots[sym].append(
+                    {
+                        "price": price,
+                        "qty": qty,
+                        "entry_date": ts,
+                        "side": "short",
+                    }
+                )
                 # FIX: message now accurately describes behaviour (short entry, not excluded)
                 orphan_sells.append(
                     f"{sym} sell@{price:.2f} on {ts.date()} "
@@ -721,36 +716,40 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
                 continue
 
             if lots[sym] and lots[sym][0]["side"] == "short":
-                lots[sym].append({
-                    "price":      price,
-                    "qty":        qty,
-                    "entry_date": ts,
-                    "side":       "short",
-                })
+                lots[sym].append(
+                    {
+                        "price": price,
+                        "qty": qty,
+                        "entry_date": ts,
+                        "side": "short",
+                    }
+                )
                 continue
 
             remaining = qty
             while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
-                lot       = lots[sym][0]
+                lot = lots[sym][0]
                 close_qty = min(remaining, lot["qty"])
                 try:
                     pnl_pct = (price - lot["price"]) / lot["price"]
                 except ZeroDivisionError:
                     lots[sym].pop(0)
                     continue
-                completed.append({
-                    "pnl":        round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                    "date":       ts,
-                    "entry_date": lot["entry_date"],
-                    "ticker":     sym,
-                    "buy_price":  lot["price"],
-                    "sell_price": price,
-                    "qty":        close_qty,
-                    "hold_days":  max(0, (ts - lot["entry_date"]).days),
-                    "side":       "long",
-                })
-                lot["qty"]  -= close_qty
-                remaining   -= close_qty
+                completed.append(
+                    {
+                        "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
+                        "date": ts,
+                        "entry_date": lot["entry_date"],
+                        "ticker": sym,
+                        "buy_price": lot["price"],
+                        "sell_price": price,
+                        "qty": close_qty,
+                        "hold_days": max(0, (ts - lot["entry_date"]).days),
+                        "side": "long",
+                    }
+                )
+                lot["qty"] -= close_qty
+                remaining -= close_qty
                 if lot["qty"] == 0:
                     lots[sym].pop(0)
 
@@ -761,16 +760,13 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
             f"(buy predates history window - sell price used as cost basis)"
         )
         for s in orphan_sells[:3]:
-            audit_flags.append(f"   \"{s}\"")
+            audit_flags.append(f'   "{s}"')
 
-    open_positions = {s: sum(l["qty"] for l in ls) for s, ls in lots.items() if ls}
+    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
     if open_positions:
-        sym_list = ", ".join(
-            f"{s}({int(q)})" for s, q in list(open_positions.items())[:6]
-        )
+        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
         audit_flags.append(
-            f" {len(open_positions)} open position(s) not included "
-            f"(no closing trade yet): {sym_list}"
+            f" {len(open_positions)} open position(s) not included (no closing trade yet): {sym_list}"
         )
 
     if not completed:
@@ -791,33 +787,57 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
 # OPTIONS CSV PARSER
 # =========================================================
 
+
 def _is_options_csv(df: pd.DataFrame) -> bool:
     cols = [c.lower().strip().replace(" ", "_") for c in df.columns]
-    options_signals = ["strike", "expiry", "expiration", "option_type",
-                       "call_put", "put_call", "premium", "underlying",
-                       "contract", "iv", "delta", "gamma", "theta"]
+    options_signals = [
+        "strike",
+        "expiry",
+        "expiration",
+        "option_type",
+        "call_put",
+        "put_call",
+        "premium",
+        "underlying",
+        "contract",
+        "iv",
+        "delta",
+        "gamma",
+        "theta",
+    ]
     return sum(1 for s in options_signals if any(s in c for c in cols)) >= 2
 
 
 def _has_overlapping_positions(df: pd.DataFrame) -> bool:
-    df_cols = [c.lower().strip() for c in df.columns]
+    [c.lower().strip() for c in df.columns]
+
     def _is_open_date_col(c):
         cl = c.lower()
-        return (cl in ["date", "trade_date", "open_date", "entry_date"] or
-                any(cl.endswith(x) for x in ["_date", "_time", "date"]) and
-                not any(x in cl for x in ["close","exit","expir","end"]))
+        return (
+            cl in ["date", "trade_date", "open_date", "entry_date"]
+            or any(cl.endswith(x) for x in ["_date", "_time", "date"])
+            and not any(x in cl for x in ["close", "exit", "expir", "end"])
+        )
 
-    open_col  = next((c for c in df.columns if _is_open_date_col(c)), None)
-    close_col = next((c for c in df.columns if any(x in c.lower()
-                      for x in ["close_date", "exit_date", "close_time",
-                                 "end_date", "expiry", "expiration"])), None)
+    open_col = next((c for c in df.columns if _is_open_date_col(c)), None)
+    close_col = next(
+        (
+            c
+            for c in df.columns
+            if any(
+                x in c.lower()
+                for x in ["close_date", "exit_date", "close_time", "end_date", "expiry", "expiration"]
+            )
+        ),
+        None,
+    )
 
     if not open_col or not close_col:
         return False
 
     try:
-        opens  = pd.to_datetime(df[open_col],  errors="coerce").dropna()
-        closes = pd.to_datetime(df[close_col],  errors="coerce").dropna()
+        opens = pd.to_datetime(df[open_col], errors="coerce").dropna()
+        closes = pd.to_datetime(df[close_col], errors="coerce").dropna()
         if len(opens) < 2 or len(closes) < 2:
             return False
         if opens.min().year < 2000 or closes.min().year < 2000:
@@ -827,14 +847,11 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
         # Two positions overlap iff a new open starts before any prior close
         if len(opens) > 500:
             return False  # guard: too many rows to check, assume non-overlapping
-        opens_sorted  = opens.sort_values().reset_index(drop=True)
+        opens_sorted = opens.sort_values().reset_index(drop=True)
         closes_sorted = closes.sort_values().reset_index(drop=True)
 
         # Merge events: +1 for open, -1 for close, sorted by time
-        events = (
-            [(t, 1) for t in opens_sorted] +
-            [(t, -1) for t in closes_sorted]
-        )
+        events = [(t, 1) for t in opens_sorted] + [(t, -1) for t in closes_sorted]
         events.sort(key=lambda x: (x[0], x[1]))  # close before open on same timestamp
         active = 0
         for _, delta in events:
@@ -852,7 +869,7 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     sample = raw[:2048]
     counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim  = max(counts, key=counts.get)
+    delim = max(counts, key=counts.get)
 
     df = pd.read_csv(_io.StringIO(raw), sep=delim)
     df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
@@ -866,22 +883,24 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             "P&L as a percentage of capital deployed and upload as a generic CSV."
         )
 
-    pnl_col = next((c for c in df.columns if any(x in c for x in
-                    ["pnl", "profit", "return", "gain", "pl", "net"])), None)
+    pnl_col = next(
+        (c for c in df.columns if any(x in c for x in ["pnl", "profit", "return", "gain", "pl", "net"])), None
+    )
     if pnl_col is None:
         raise ValueError(
             "Could not find a P&L column in your options CSV. "
             "Expected a column named pnl, profit, return, gain, or pl."
         )
 
-    pnl_vals = pd.to_numeric(df[pnl_col].astype(str).str.replace("%","",regex=False),
-                              errors="coerce")
+    pnl_vals = pd.to_numeric(df[pnl_col].astype(str).str.replace("%", "", regex=False), errors="coerce")
 
-    premium_col = next((c for c in df.columns if any(x in c for x in
-                        ["premium", "entry_price", "open_price", "cost"])), None)
+    premium_col = next(
+        (c for c in df.columns if any(x in c for x in ["premium", "entry_price", "open_price", "cost"])), None
+    )
     if premium_col is not None:
-        premium_vals = pd.to_numeric(df[premium_col].astype(str).str.replace("%","",regex=False),
-                                      errors="coerce")
+        premium_vals = pd.to_numeric(
+            df[premium_col].astype(str).str.replace("%", "", regex=False), errors="coerce"
+        )
         valid_mask = (premium_vals.notna()) & (premium_vals.abs() > 1e-9) & (pnl_vals.notna())
         returns = (pnl_vals[valid_mask] / premium_vals[valid_mask]).clip(-0.99, 0.99)
         norm_method = f"P&L / {premium_col} (per contract return)"
@@ -895,21 +914,20 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     result = pd.DataFrame({"pnl": returns.values})
 
-    date_col = next((c for c in df.columns if any(x in c for x in
-                     ["date", "close_date", "exit_date", "time", "dt"])), None)
-    if date_col:
-        result["date"] = pd.to_datetime(
-            df[date_col].values[:len(returns)], errors="coerce")
-
-    ticker_col = next((c for c in df.columns if any(x in c for x in
-                       ["ticker", "symbol", "underlying", "instrument"])), None)
-    if ticker_col:
-        result["ticker"] = df[ticker_col].values[:len(returns)]
-
-    note = (
-        f"OPTIONS: {len(result)} single-leg trades parsed. "
-        f"Returns normalised as {norm_method}."
+    date_col = next(
+        (c for c in df.columns if any(x in c for x in ["date", "close_date", "exit_date", "time", "dt"])),
+        None,
     )
+    if date_col:
+        result["date"] = pd.to_datetime(df[date_col].values[: len(returns)], errors="coerce")
+
+    ticker_col = next(
+        (c for c in df.columns if any(x in c for x in ["ticker", "symbol", "underlying", "instrument"])), None
+    )
+    if ticker_col:
+        result["ticker"] = df[ticker_col].values[: len(returns)]
+
+    note = f"OPTIONS: {len(result)} single-leg trades parsed. Returns normalised as {norm_method}."
     audit_flags = [
         "OPTIONS DATA: Crash simulations assume linear payoffs ? "
         "options convexity and delta/gamma effects are not modelled. "
@@ -930,6 +948,7 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 # MT5 TRADE HISTORY PARSER
 # =========================================================
 
+
 def _is_mt5_csv(df: pd.DataFrame) -> bool:
     cols = {c.lower().strip().replace(" ", "_").replace("/", "_") for c in df.columns}
     deals_signals = {"deal", "direction", "commission", "swap", "balance"}
@@ -945,26 +964,23 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     sample = raw[:2048]
     counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim  = max(counts, key=counts.get)
+    delim = max(counts, key=counts.get)
 
     if delim == ";":
         raw = raw.replace(",", ".")
 
     try:
-        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str,
-                         on_bad_lines="skip")
+        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str, on_bad_lines="skip")
     except TypeError:
-        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str,
-                         error_bad_lines=False)
+        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str, error_bad_lines=False)
 
     if df.empty:
         raise ValueError("MT5 CSV appears empty after parsing.")
 
-    df.columns = [c.lower().strip().replace(" ", "_").replace("/", "_")
-                  for c in df.columns]
+    df.columns = [c.lower().strip().replace(" ", "_").replace("/", "_") for c in df.columns]
 
     has_direction = "direction" in df.columns
-    has_position  = "position"  in df.columns
+    has_position = "position" in df.columns
 
     if not has_direction and not has_position:
         if "deal" in df.columns:
@@ -978,13 +994,11 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
     def _num(series):
         return pd.to_numeric(
-            series.astype(str).str.replace(",", ".", regex=False)
-                               .str.replace("[^\\d.\\-]", "", regex=True),
-            errors="coerce"
+            series.astype(str).str.replace(",", ".", regex=False).str.replace("[^\\d.\\-]", "", regex=True),
+            errors="coerce",
         )
 
-    for col in ["profit", "volume", "price", "commission", "swap",
-                "balance", "price_2"]:
+    for col in ["profit", "volume", "price", "commission", "swap", "balance", "price_2"]:
         if col in df.columns:
             df[col] = _num(df[col])
 
@@ -996,16 +1010,16 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     for tc in time_cols:
         df[tc] = pd.to_datetime(df[tc], errors="coerce")
 
-    open_time_col  = time_cols[0] if time_cols else None
+    open_time_col = time_cols[0] if time_cols else None
     close_time_col = time_cols[1] if len(time_cols) >= 2 else open_time_col
 
-    symbol_col = next((c for c in df.columns if c in
-                       ["symbol", "instrument", "pair", "asset"]), None)
+    symbol_col = next((c for c in df.columns if c in ["symbol", "instrument", "pair", "asset"]), None)
 
     if "type" in df.columns:
         type_vals = df["type"].astype(str).str.lower().str.strip()
-        trade_mask = type_vals.isin(["buy", "sell", "buy limit", "sell limit",
-                                     "buy stop", "sell stop", "0", "1"])
+        trade_mask = type_vals.isin(
+            ["buy", "sell", "buy limit", "sell limit", "buy stop", "sell stop", "0", "1"]
+        )
         df = df[trade_mask].copy()
 
     if df.empty:
@@ -1015,8 +1029,8 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             "and the report includes completed trades."
         )
 
-    audit_flags  = []
-    trades       = []
+    audit_flags = []
+    trades = []
     orphan_count = 0
 
     if has_direction:
@@ -1027,15 +1041,15 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
         for _, row in df.iterrows():
             direction = str(row.get("direction", "")).lower().strip()
-            symbol    = str(row[symbol_col]) if symbol_col else "UNKNOWN"
-            volume    = float(row.get("volume", 0) or 0)
-            price     = float(row.get("price",  0) or 0)
-            profit    = float(row.get("profit", 0) or 0)
-            commission= float(row.get("commission", 0) or 0)
-            swap      = float(row.get("swap", 0) or 0)
-            balance   = float(row.get("balance", 0) or 0)
-            date      = row[open_time_col] if open_time_col else pd.NaT
-            trade_type= str(row.get("type", "")).lower().strip()
+            symbol = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            volume = float(row.get("volume", 0) or 0)
+            price = float(row.get("price", 0) or 0)
+            profit = float(row.get("profit", 0) or 0)
+            commission = float(row.get("commission", 0) or 0)
+            swap = float(row.get("swap", 0) or 0)
+            balance = float(row.get("balance", 0) or 0)
+            date = row[open_time_col] if open_time_col else pd.NaT
+            trade_type = str(row.get("type", "")).lower().strip()
 
             if direction == "in/out":
                 if lots[symbol]:
@@ -1043,55 +1057,54 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
                     net_profit = profit + commission + swap
                     pnl_pct = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
                     if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                        trades.append({"pnl": round(pnl_pct, 6), "date": date,
-                                       "ticker": symbol})
+                        trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
                 side = "sell" if trade_type in ["sell", "1"] else "buy"
-                lots[symbol].append({"price": price, "volume": volume,
-                                     "date": date, "side": side})
+                lots[symbol].append({"price": price, "volume": volume, "date": date, "side": side})
                 continue
 
             if direction == "in":
-                lots[symbol].append({"price": price, "volume": volume,
-                                     "date": date, "side": trade_type,
-                                     "commission": commission})
+                lots[symbol].append(
+                    {
+                        "price": price,
+                        "volume": volume,
+                        "date": date,
+                        "side": trade_type,
+                        "commission": commission,
+                    }
+                )
             elif direction == "out":
                 if not lots[symbol]:
                     orphan_count += 1
                     continue
                 lot = lots[symbol].pop(0)
                 net_profit = profit + commission + swap + lot.get("commission", 0)
-                pnl_pct    = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
+                pnl_pct = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
                 if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                    trades.append({"pnl": round(pnl_pct, 6), "date": date,
-                                   "ticker": symbol})
+                    trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
 
         open_pos = {s: len(ls) for s, ls in lots.items() if ls}
         if open_pos:
             count = sum(open_pos.values())
-            audit_flags.append(
-                f" {count} MT5 position(s) still open (no closing deal) excluded"
-            )
+            audit_flags.append(f" {count} MT5 position(s) still open (no closing deal) excluded")
 
     else:
-        price_open_col  = next((c for c in df.columns if "price" in c), None)
-        price_close_col = next((c for c in df.columns
-                                if "price" in c and c != price_open_col), None)
+        price_open_col = next((c for c in df.columns if "price" in c), None)
+        next((c for c in df.columns if "price" in c and c != price_open_col), None)
 
         for _, row in df.iterrows():
-            profit    = float(row.get("profit", 0) or 0)
-            commission= float(row.get("commission", 0) or 0)
-            swap      = float(row.get("swap", 0) or 0)
-            volume    = float(row.get("volume", 1) or 1)
+            profit = float(row.get("profit", 0) or 0)
+            commission = float(row.get("commission", 0) or 0)
+            swap = float(row.get("swap", 0) or 0)
+            volume = float(row.get("volume", 1) or 1)
             price_open = float(row[price_open_col] or 0) if price_open_col else 0
-            balance    = 0.0
-            symbol     = str(row[symbol_col]) if symbol_col else "UNKNOWN"
-            date       = row[close_time_col] if close_time_col else pd.NaT
+            balance = 0.0
+            symbol = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            date = row[close_time_col] if close_time_col else pd.NaT
 
             net_profit = profit + commission + swap
-            pnl_pct    = _normalise_pnl(net_profit, price_open, volume, balance)
+            pnl_pct = _normalise_pnl(net_profit, price_open, volume, balance)
             if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                trades.append({"pnl": round(pnl_pct, 6), "date": date,
-                                "ticker": symbol})
+                trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
 
     if not trades:
         raise ValueError(
@@ -1120,8 +1133,7 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
         sample_symbols = [t.get("ticker", "") for t in trades[:10]]
         # Forex pairs are typically 6-8 chars like EURUSD, GBPJPY, XAUUSD
         looks_forex = any(
-            len(str(s)) in (6, 7, 8) and str(s).isalpha()
-            for s in sample_symbols if s and s != "UNKNOWN"
+            len(str(s)) in (6, 7, 8) and str(s).isalpha() for s in sample_symbols if s and s != "UNKNOWN"
         )
         if looks_forex:
             audit_flags.append(
@@ -1143,8 +1155,7 @@ def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     return result, note, audit_flags
 
 
-def _normalise_pnl(net_profit: float, entry_price: float,
-                   volume: float, balance: float) -> float | None:
+def _normalise_pnl(net_profit: float, entry_price: float, volume: float, balance: float) -> float | None:
     """
     Normalise MT5 net profit to a decimal return.
     Returns None when entry_price*volume is zero (corrupt/missing data) so the
@@ -1165,17 +1176,20 @@ def smart_parse_excel(contents: bytes) -> tuple[pd.DataFrame, str]:
     Returns (df, regime_note).
     """
     try:
-        import openpyxl
+        import openpyxl  # noqa: F401 - fail fast with a clear message if missing
+
         df = pd.read_excel(io.BytesIO(contents))
         regime_note = ""
-        
+
         if "date" in df.columns and df["date"].notna().any():
             df, regime_note = assign_regimes(df)
-        
+
         return df, regime_note
-        
+
     except ImportError:
-        raise HTTPException(400, "Excel support requires openpyxl package. Please install with: pip install openpyxl")
+        raise HTTPException(
+            400, "Excel support requires openpyxl package. Please install with: pip install openpyxl"
+        )
     except Exception as e:
         raise HTTPException(400, f"Could not parse Excel file: {str(e)}")
 
@@ -1186,15 +1200,19 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     Returns (df, regime_note).
     """
     # NEW: Detect Excel files by magic bytes
-    if contents.startswith(b'PK\x03\x04') or contents.startswith(b'PK\x05\x06') or contents.startswith(b'PK\x07\x08'):
+    if (
+        contents.startswith(b"PK\x03\x04")
+        or contents.startswith(b"PK\x05\x06")
+        or contents.startswith(b"PK\x07\x08")
+    ):
         return smart_parse_excel(contents)
-    
-    raw         = contents.decode("utf-8", errors="ignore")
+
+    raw = contents.decode("utf-8", errors="ignore")
     regime_note = ""
 
     sample = raw[:4096]
     counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim  = max(counts, key=counts.get)
+    delim = max(counts, key=counts.get)
 
     try:
         _probe = pd.read_csv(io.StringIO(raw), sep=delim, nrows=5, dtype=str)
@@ -1209,7 +1227,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                 if "date" in _df.columns and _df["date"].notna().any():
                     _bm_type_for_regime = get_benchmark_type(_df, None)
                     _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
-                    _note += (" | " + _regime_note if _regime_note else "")
+                    _note += " | " + _regime_note if _regime_note else ""
                 if _flags:
                     _note += " | OPTIONS_FLAGS:" + "||".join(_flags)
                 return _df, _note
@@ -1227,12 +1245,12 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                 # Detect MT5 forex scale warning sentinel — promote to scale_warning
                 _mt5_forex_scale = False
                 if _note.startswith("MT5_FOREX_SCALE_WARN||"):
-                    _note = _note[len("MT5_FOREX_SCALE_WARN||"):]
+                    _note = _note[len("MT5_FOREX_SCALE_WARN||") :]
                     _mt5_forex_scale = True
                 if "date" in _df.columns and _df["date"].notna().any():
                     _bm_type_for_regime = get_benchmark_type(_df, None)
                     _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
-                    _note += (" | " + _regime_note if _regime_note else "")
+                    _note += " | " + _regime_note if _regime_note else ""
                 if _flags:
                     _note += " | MT5_FLAGS:" + "||".join(_flags)
                 if _mt5_forex_scale:
@@ -1250,17 +1268,18 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
                     _df, _regime_note = assign_regimes(_df, "nifty")
-                    _note += (" | " + _regime_note if _regime_note else "")
+                    _note += " | " + _regime_note if _regime_note else ""
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
                 if "ticker" in _df.columns:
-                    _opt_mask = _df["ticker"].astype(str).str.contains(
-                        r'(CE|PE)$', regex=True, na=False)
+                    _opt_mask = _df["ticker"].astype(str).str.contains(r"(CE|PE)$", regex=True, na=False)
                     if _opt_mask.any():
                         _opt_count = int(_opt_mask.sum())
-                        _note += (f" | KITE OPTIONS: {_opt_count} options trades detected "
-                                  f"(CE/PE). P&L used as-is from Kite — premium normalisation "
-                                  f"not applied. Crash sims assume linear payoffs.")
+                        _note += (
+                            f" | KITE OPTIONS: {_opt_count} options trades detected "
+                            f"(CE/PE). P&L used as-is from Kite — premium normalisation "
+                            f"not applied. Crash sims assume linear payoffs."
+                        )
                 return _df, _note
         except Exception as _e:
             raise HTTPException(400, f"Kite TradeBook CSV detected but could not be parsed: {_e}")
@@ -1272,7 +1291,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
                     _df, _regime_note = assign_regimes(_df, "nifty")
-                    _note += (" | " + _regime_note if _regime_note else "")
+                    _note += " | " + _regime_note if _regime_note else ""
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
                 return _df, _note
@@ -1286,7 +1305,7 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
             if len(_df) > 0:
                 if "date" in _df.columns and _df["date"].notna().any():
                     _df, _regime_note = assign_regimes(_df)
-                    _note += (" | " + _regime_note if _regime_note else "")
+                    _note += " | " + _regime_note if _regime_note else ""
                 if _flags:
                     _note += " | " + " | ".join(_flags[:2])
                 return _df, _note
@@ -1318,29 +1337,23 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
                     if _was_divided and _clipped_pct > 0.80:
                         raise ValueError(
                             f"PnL values appear to be dollar amounts or raw prices, not decimal returns. "
-                            f"{int(_clipped_pct*100)}% of values exceed ?50% per trade after normalisation. "
+                            f"{int(_clipped_pct * 100)}% of values exceed ?50% per trade after normalisation. "
                             "Upload decimal returns (e.g. 0.015 = 1.5%, not 1.5 or $15). "
                             "Check your PnL column and re-upload."
                         )
                     result = pd.DataFrame({"pnl": vals.values})
 
-                    date_cols = [c for c in df.columns
-                                 if any(x in c.lower() for x in ["date", "time", "dt"])]
+                    date_cols = [c for c in df.columns if any(x in c.lower() for x in ["date", "time", "dt"])]
                     if date_cols:
-                        result["date"] = pd.to_datetime(
-                            df[date_cols[0]].values[:len(vals)], errors="coerce"
-                        )
+                        result["date"] = pd.to_datetime(df[date_cols[0]].values[: len(vals)], errors="coerce")
 
-                    vol_cols = [c for c in df.columns
-                                if "volume" in c.lower() or "vol" == c.lower()]
+                    vol_cols = [c for c in df.columns if "volume" in c.lower() or "vol" == c.lower()]
                     if vol_cols:
-                        result["volume"] = pd.to_numeric(
-                            df[vol_cols[0]], errors="coerce"
-                        ).values[:len(vals)]
+                        result["volume"] = pd.to_numeric(df[vol_cols[0]], errors="coerce").values[: len(vals)]
 
                     reg_cols = [c for c in df.columns if "regime" in c.lower()]
                     if reg_cols:
-                        result["regime"] = df[reg_cols[0]].values[:len(vals)]
+                        result["regime"] = df[reg_cols[0]].values[: len(vals)]
                     elif "date" in result.columns and result["date"].notna().any():
                         _bm_type_for_regime = get_benchmark_type(result, None)
                         result, regime_note = assign_regimes(result, _bm_type_for_regime)
@@ -1360,8 +1373,8 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
 
     # —? 5. Flexible fallback —————————————————————————————————————————————?
     try:
-        lines    = [l.strip() for l in raw.split("\n") if l.strip()]
-        max_cols = max(len(l.split(delim)) for l in lines[1:] if l)
+        lines = [ln.strip() for ln in raw.split("\n") if ln.strip()]
+        max_cols = max(len(ln.split(delim)) for ln in lines[1:] if ln)
         df = pd.read_csv(
             io.StringIO(raw),
             sep=delim,
@@ -1417,4 +1430,3 @@ def _dedup_trades(df: pd.DataFrame) -> pd.DataFrame:
 # =========================================================
 # ROUTES
 # =========================================================
-

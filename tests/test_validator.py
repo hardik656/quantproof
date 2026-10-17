@@ -52,7 +52,9 @@ def test_max_drawdown_known_value():
 
 
 def test_win_rate():
-    assert v.calculate_win_rate(np.array([1.0, -1.0, 2.0, -0.5])) == pytest.approx(50.0)  # returned as a percentage
+    assert v.calculate_win_rate(np.array([1.0, -1.0, 2.0, -0.5])) == pytest.approx(
+        50.0
+    )  # returned as a percentage
 
 
 def test_sharpe_sign():

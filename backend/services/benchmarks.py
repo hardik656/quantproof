@@ -5,59 +5,112 @@ Extracted verbatim from main.py (behaviour unchanged).
 
 from __future__ import annotations
 
-import io
-import os
-import time
-import asyncio
-import hashlib
-import json
-from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
-from pydantic import BaseModel
 
 # =========================================================
 # SPY REGIME HELPERS
 # =========================================================
 
 SPY_REGIME_LOOKUP: Dict[str, str] = {
-    "2020-01": "BULL",  "2020-02": "BEAR",  "2020-03": "BEAR",
-    "2020-04": "BULL",  "2020-05": "BULL",  "2020-06": "CONSOLIDATION",
-    "2020-07": "BULL",  "2020-08": "BULL",  "2020-09": "BEAR",
-    "2020-10": "BEAR",  "2020-11": "BULL",  "2020-12": "BULL",
-    "2021-01": "CONSOLIDATION", "2021-02": "BULL", "2021-03": "BULL",
-    "2021-04": "BULL",  "2021-05": "CONSOLIDATION", "2021-06": "BULL",
-    "2021-07": "BULL",  "2021-08": "BULL",  "2021-09": "CONSOLIDATION",
-    "2021-10": "BULL",  "2021-11": "BEAR",  "2021-12": "BULL",
-    "2022-01": "BEAR",  "2022-02": "BEAR",  "2022-03": "CONSOLIDATION",
-    "2022-04": "BEAR",  "2022-05": "BEAR",  "2022-06": "BEAR",
-    "2022-07": "BULL",  "2022-08": "BEAR",  "2022-09": "BEAR",
-    "2022-10": "BULL",  "2022-11": "BULL",  "2022-12": "BEAR",
-    "2023-01": "BULL",  "2023-02": "CONSOLIDATION", "2023-03": "BULL",
-    "2023-04": "BULL",  "2023-05": "CONSOLIDATION", "2023-06": "BULL",
-    "2023-07": "BULL",  "2023-08": "BEAR",  "2023-09": "BEAR",
-    "2023-10": "BEAR",  "2023-11": "BULL",  "2023-12": "BULL",
-    "2024-01": "BULL",  "2024-02": "BULL",  "2024-03": "BULL",
-    "2024-04": "BEAR",  "2024-05": "BULL",  "2024-06": "BULL",
-    "2024-07": "CONSOLIDATION", "2024-08": "CONSOLIDATION",
-    "2024-09": "BULL",  "2024-10": "BULL",  "2024-11": "BULL",
+    "2020-01": "BULL",
+    "2020-02": "BEAR",
+    "2020-03": "BEAR",
+    "2020-04": "BULL",
+    "2020-05": "BULL",
+    "2020-06": "CONSOLIDATION",
+    "2020-07": "BULL",
+    "2020-08": "BULL",
+    "2020-09": "BEAR",
+    "2020-10": "BEAR",
+    "2020-11": "BULL",
+    "2020-12": "BULL",
+    "2021-01": "CONSOLIDATION",
+    "2021-02": "BULL",
+    "2021-03": "BULL",
+    "2021-04": "BULL",
+    "2021-05": "CONSOLIDATION",
+    "2021-06": "BULL",
+    "2021-07": "BULL",
+    "2021-08": "BULL",
+    "2021-09": "CONSOLIDATION",
+    "2021-10": "BULL",
+    "2021-11": "BEAR",
+    "2021-12": "BULL",
+    "2022-01": "BEAR",
+    "2022-02": "BEAR",
+    "2022-03": "CONSOLIDATION",
+    "2022-04": "BEAR",
+    "2022-05": "BEAR",
+    "2022-06": "BEAR",
+    "2022-07": "BULL",
+    "2022-08": "BEAR",
+    "2022-09": "BEAR",
+    "2022-10": "BULL",
+    "2022-11": "BULL",
+    "2022-12": "BEAR",
+    "2023-01": "BULL",
+    "2023-02": "CONSOLIDATION",
+    "2023-03": "BULL",
+    "2023-04": "BULL",
+    "2023-05": "CONSOLIDATION",
+    "2023-06": "BULL",
+    "2023-07": "BULL",
+    "2023-08": "BEAR",
+    "2023-09": "BEAR",
+    "2023-10": "BEAR",
+    "2023-11": "BULL",
+    "2023-12": "BULL",
+    "2024-01": "BULL",
+    "2024-02": "BULL",
+    "2024-03": "BULL",
+    "2024-04": "BEAR",
+    "2024-05": "BULL",
+    "2024-06": "BULL",
+    "2024-07": "CONSOLIDATION",
+    "2024-08": "CONSOLIDATION",
+    "2024-09": "BULL",
+    "2024-10": "BULL",
+    "2024-11": "BULL",
     "2024-12": "BEAR",
-    "2025-01": "BULL",  "2025-02": "BULL",  "2025-03": "BEAR",
-    "2025-04": "BEAR",  "2025-05": "BULL",  "2025-06": "BULL",
-    "2025-07": "BULL",  "2025-08": "CONSOLIDATION",
-    "2025-09": "BULL",  "2025-10": "BULL",  "2025-11": "BULL",
+    "2025-01": "BULL",
+    "2025-02": "BULL",
+    "2025-03": "BEAR",
+    "2025-04": "BEAR",
+    "2025-05": "BULL",
+    "2025-06": "BULL",
+    "2025-07": "BULL",
+    "2025-08": "CONSOLIDATION",
+    "2025-09": "BULL",
+    "2025-10": "BULL",
+    "2025-11": "BULL",
     "2025-12": "BULL",
-    "2026-01": "BULL",  "2026-02": "BEAR",  "2026-03": "BEAR",
-    "2026-04": "CONSOLIDATION", "2026-05": "CONSOLIDATION", "2026-06": "CONSOLIDATION",
-    "2026-07": "CONSOLIDATION", "2026-08": "CONSOLIDATION", "2026-09": "CONSOLIDATION",
-    "2026-10": "CONSOLIDATION", "2026-11": "CONSOLIDATION", "2026-12": "CONSOLIDATION",
-    "2027-01": "CONSOLIDATION", "2027-02": "CONSOLIDATION", "2027-03": "CONSOLIDATION",
-    "2027-04": "CONSOLIDATION", "2027-05": "CONSOLIDATION", "2027-06": "CONSOLIDATION",
-    "2027-07": "CONSOLIDATION", "2027-08": "CONSOLIDATION", "2027-09": "CONSOLIDATION",
-    "2027-10": "CONSOLIDATION", "2027-11": "CONSOLIDATION", "2027-12": "CONSOLIDATION",
+    "2026-01": "BULL",
+    "2026-02": "BEAR",
+    "2026-03": "BEAR",
+    "2026-04": "CONSOLIDATION",
+    "2026-05": "CONSOLIDATION",
+    "2026-06": "CONSOLIDATION",
+    "2026-07": "CONSOLIDATION",
+    "2026-08": "CONSOLIDATION",
+    "2026-09": "CONSOLIDATION",
+    "2026-10": "CONSOLIDATION",
+    "2026-11": "CONSOLIDATION",
+    "2026-12": "CONSOLIDATION",
+    "2027-01": "CONSOLIDATION",
+    "2027-02": "CONSOLIDATION",
+    "2027-03": "CONSOLIDATION",
+    "2027-04": "CONSOLIDATION",
+    "2027-05": "CONSOLIDATION",
+    "2027-06": "CONSOLIDATION",
+    "2027-07": "CONSOLIDATION",
+    "2027-08": "CONSOLIDATION",
+    "2027-09": "CONSOLIDATION",
+    "2027-10": "CONSOLIDATION",
+    "2027-11": "CONSOLIDATION",
+    "2027-12": "CONSOLIDATION",
 }
 
 # =========================================================
@@ -65,58 +118,113 @@ SPY_REGIME_LOOKUP: Dict[str, str] = {
 # =========================================================
 NIFTY_REGIME_LOOKUP: Dict[str, str] = {
     # 2020 — COVID crash Mar, recovery Apr onwards
-    "2020-01": "BULL",  "2020-02": "BEAR",  "2020-03": "BEAR",
-    "2020-04": "BULL",  "2020-05": "BULL",  "2020-06": "BULL",
-    "2020-07": "BULL",  "2020-08": "BULL",  "2020-09": "CONSOLIDATION",
-    "2020-10": "BULL",  "2020-11": "BULL",  "2020-12": "BULL",
-
+    "2020-01": "BULL",
+    "2020-02": "BEAR",
+    "2020-03": "BEAR",
+    "2020-04": "BULL",
+    "2020-05": "BULL",
+    "2020-06": "BULL",
+    "2020-07": "BULL",
+    "2020-08": "BULL",
+    "2020-09": "CONSOLIDATION",
+    "2020-10": "BULL",
+    "2020-11": "BULL",
+    "2020-12": "BULL",
     # 2021 — strong bull run all year
-    "2021-01": "BULL",  "2021-02": "BULL",  "2021-03": "BULL",
-    "2021-04": "BEAR",  "2021-05": "BULL",  "2021-06": "BULL",
-    "2021-07": "BULL",  "2021-08": "BULL",  "2021-09": "BULL",
-    "2021-10": "BULL",  "2021-11": "CONSOLIDATION",  "2021-12": "BULL",
-
+    "2021-01": "BULL",
+    "2021-02": "BULL",
+    "2021-03": "BULL",
+    "2021-04": "BEAR",
+    "2021-05": "BULL",
+    "2021-06": "BULL",
+    "2021-07": "BULL",
+    "2021-08": "BULL",
+    "2021-09": "BULL",
+    "2021-10": "BULL",
+    "2021-11": "CONSOLIDATION",
+    "2021-12": "BULL",
     # 2022 — bear year, rate hikes, FII selloff
-    "2022-01": "BEAR",  "2022-02": "BEAR",  "2022-03": "CONSOLIDATION",
-    "2022-04": "BEAR",  "2022-05": "BEAR",  "2022-06": "BEAR",
-    "2022-07": "BULL",  "2022-08": "BULL",  "2022-09": "CONSOLIDATION",
-    "2022-10": "BULL",  "2022-11": "BULL",  "2022-12": "CONSOLIDATION",
-
+    "2022-01": "BEAR",
+    "2022-02": "BEAR",
+    "2022-03": "CONSOLIDATION",
+    "2022-04": "BEAR",
+    "2022-05": "BEAR",
+    "2022-06": "BEAR",
+    "2022-07": "BULL",
+    "2022-08": "BULL",
+    "2022-09": "CONSOLIDATION",
+    "2022-10": "BULL",
+    "2022-11": "BULL",
+    "2022-12": "CONSOLIDATION",
     # 2023 — recovery and bull run
-    "2023-01": "BULL",  "2023-02": "BEAR",  "2023-03": "CONSOLIDATION",
-    "2023-04": "BULL",  "2023-05": "BULL",  "2023-06": "BULL",
-    "2023-07": "BULL",  "2023-08": "CONSOLIDATION",  "2023-09": "CONSOLIDATION",
-    "2023-10": "BULL",  "2023-11": "BULL",  "2023-12": "BULL",
-
+    "2023-01": "BULL",
+    "2023-02": "BEAR",
+    "2023-03": "CONSOLIDATION",
+    "2023-04": "BULL",
+    "2023-05": "BULL",
+    "2023-06": "BULL",
+    "2023-07": "BULL",
+    "2023-08": "CONSOLIDATION",
+    "2023-09": "CONSOLIDATION",
+    "2023-10": "BULL",
+    "2023-11": "BULL",
+    "2023-12": "BULL",
     # 2024 — bull run to Sep, correction Oct onwards
-    "2024-01": "BULL",  "2024-02": "BULL",  "2024-03": "BULL",
-    "2024-04": "CONSOLIDATION",  "2024-05": "BULL",  "2024-06": "BULL",
-    "2024-07": "BULL",  "2024-08": "BULL",  "2024-09": "BULL",
-    "2024-10": "BEAR",  "2024-11": "BEAR",  "2024-12": "BEAR",
-
+    "2024-01": "BULL",
+    "2024-02": "BULL",
+    "2024-03": "BULL",
+    "2024-04": "CONSOLIDATION",
+    "2024-05": "BULL",
+    "2024-06": "BULL",
+    "2024-07": "BULL",
+    "2024-08": "BULL",
+    "2024-09": "BULL",
+    "2024-10": "BEAR",
+    "2024-11": "BEAR",
+    "2024-12": "BEAR",
     # 2025 — correction continues, slow recovery mid-year
-    "2025-01": "BEAR",  "2025-02": "BEAR",  "2025-03": "BEAR",
-    "2025-04": "CONSOLIDATION",  "2025-05": "BULL",  "2025-06": "BULL",
-    "2025-07": "BULL",  "2025-08": "BULL",  "2025-09": "BULL",
-    "2025-10": "BULL",  "2025-11": "CONSOLIDATION",  "2025-12": "BULL",
-
+    "2025-01": "BEAR",
+    "2025-02": "BEAR",
+    "2025-03": "BEAR",
+    "2025-04": "CONSOLIDATION",
+    "2025-05": "BULL",
+    "2025-06": "BULL",
+    "2025-07": "BULL",
+    "2025-08": "BULL",
+    "2025-09": "BULL",
+    "2025-10": "BULL",
+    "2025-11": "CONSOLIDATION",
+    "2025-12": "BULL",
     # 2026 onwards — unknown future, use CONSOLIDATION
-    "2026-01": "CONSOLIDATION", "2026-02": "CONSOLIDATION",
-    "2026-03": "CONSOLIDATION", "2026-04": "CONSOLIDATION",
-    "2026-05": "CONSOLIDATION", "2026-06": "CONSOLIDATION",
-    "2026-07": "CONSOLIDATION", "2026-08": "CONSOLIDATION",
-    "2026-09": "CONSOLIDATION", "2026-10": "CONSOLIDATION",
-    "2026-11": "CONSOLIDATION", "2026-12": "CONSOLIDATION",
-    "2027-01": "CONSOLIDATION", "2027-02": "CONSOLIDATION",
-    "2027-03": "CONSOLIDATION", "2027-04": "CONSOLIDATION",
-    "2027-05": "CONSOLIDATION", "2027-06": "CONSOLIDATION",
-    "2027-07": "CONSOLIDATION", "2027-08": "CONSOLIDATION",
-    "2027-09": "CONSOLIDATION", "2027-10": "CONSOLIDATION",
-    "2027-11": "CONSOLIDATION", "2027-12": "CONSOLIDATION",
+    "2026-01": "CONSOLIDATION",
+    "2026-02": "CONSOLIDATION",
+    "2026-03": "CONSOLIDATION",
+    "2026-04": "CONSOLIDATION",
+    "2026-05": "CONSOLIDATION",
+    "2026-06": "CONSOLIDATION",
+    "2026-07": "CONSOLIDATION",
+    "2026-08": "CONSOLIDATION",
+    "2026-09": "CONSOLIDATION",
+    "2026-10": "CONSOLIDATION",
+    "2026-11": "CONSOLIDATION",
+    "2026-12": "CONSOLIDATION",
+    "2027-01": "CONSOLIDATION",
+    "2027-02": "CONSOLIDATION",
+    "2027-03": "CONSOLIDATION",
+    "2027-04": "CONSOLIDATION",
+    "2027-05": "CONSOLIDATION",
+    "2027-06": "CONSOLIDATION",
+    "2027-07": "CONSOLIDATION",
+    "2027-08": "CONSOLIDATION",
+    "2027-09": "CONSOLIDATION",
+    "2027-10": "CONSOLIDATION",
+    "2027-11": "CONSOLIDATION",
+    "2027-12": "CONSOLIDATION",
 }
 
 _SPY_CACHE: dict = {}
 _SPY_CACHE_MAX = 10
+
 
 def _get_spy_cached(start, end) -> pd.Series | None:
     """Fetch SPY Close with caching. Returns None on any failure."""
@@ -124,15 +232,19 @@ def _get_spy_cached(start, end) -> pd.Series | None:
     if key in _SPY_CACHE:
         return _SPY_CACHE[key]
     try:
-        import yfinance as yf, threading
+        import threading
+
+        import yfinance as yf
+
         result_holder = [None]
+
         def _fetch():
             try:
-                raw = yf.download("SPY", start=start, end=end,
-                                  progress=False, timeout=6)["Close"]
+                raw = yf.download("SPY", start=start, end=end, progress=False, timeout=6)["Close"]
                 result_holder[0] = raw.squeeze()
             except Exception:
                 pass
+
         t = threading.Thread(target=_fetch, daemon=True)
         t.start()
         t.join(timeout=8)
@@ -153,21 +265,26 @@ def _get_spy_cached(start, end) -> pd.Series | None:
 _NIFTY_CACHE: dict = {}
 _NIFTY_CACHE_MAX = 10
 
+
 def _get_nifty_cached(start, end) -> pd.Series | None:
     """Fetch Nifty 50 Close with caching. Returns None on any failure."""
     key = (str(start.date()), str(end.date()))
     if key in _NIFTY_CACHE:
         return _NIFTY_CACHE[key]
     try:
-        import yfinance as yf, threading
+        import threading
+
+        import yfinance as yf
+
         result_holder = [None]
+
         def _fetch():
             try:
-                raw = yf.download("^NSEI", start=start, end=end,
-                                  progress=False, timeout=6)["Close"]
+                raw = yf.download("^NSEI", start=start, end=end, progress=False, timeout=6)["Close"]
                 result_holder[0] = raw.squeeze()
             except Exception:
                 pass
+
         t = threading.Thread(target=_fetch, daemon=True)
         t.start()
         t.join(timeout=8)
@@ -195,15 +312,12 @@ def _is_non_us_strategy(df: pd.DataFrame) -> bool:
     # Indian equities: typically have suffix -EQ or are NSE listed (no $ sign)
     # Crypto: BTC, ETH, BTCUSD, ETHUSD
     non_us_patterns = [
-        lambda t: len(t) == 6 and t.isalpha() and not t.endswith(("SPY","QQQ","IWM","DIA")),
-        lambda t: t.startswith(("XAU","XAG","XTI","XBR","BTC","ETH","LTC","XRP")),
+        lambda t: len(t) == 6 and t.isalpha() and not t.endswith(("SPY", "QQQ", "IWM", "DIA")),
+        lambda t: t.startswith(("XAU", "XAG", "XTI", "XBR", "BTC", "ETH", "LTC", "XRP")),
         lambda t: t.endswith(("-EQ", ".NS", ".BO", "USDT")),
-        lambda t: "USD" in t and len(t) >= 6 and t[:3] not in ("SPY","QQQ","IWM"),
+        lambda t: "USD" in t and len(t) >= 6 and t[:3] not in ("SPY", "QQQ", "IWM"),
     ]
-    non_us_count = sum(
-        1 for t in tickers
-        if any(p(t) for p in non_us_patterns)
-    )
+    non_us_count = sum(1 for t in tickers if any(p(t) for p in non_us_patterns))
     return non_us_count > len(tickers) * 0.5  # majority non-US
 
 
@@ -224,20 +338,20 @@ def _is_indian_strategy(df: pd.DataFrame, currency: str = None) -> bool:
             if len(forex_pairs) > len(tickers) * 0.5:  # majority forex pairs
                 return False
         return True
-    
+
     # Check ticker suffixes for Indian exchanges
     if "ticker" in df.columns:
         tickers = df["ticker"].dropna().astype(str)
         nse_suffixes = [t for t in tickers if t.endswith((".NS", ".BO"))]
         eq_suffixes = [t for t in tickers if t.endswith("-EQ")]
-        
+
         # Exclude forex pairs (3-char currency pairs like USDINR, EURINR)
         forex_pairs = [t for t in tickers if len(t) == 6 and t[:3].isalpha() and t[3:].isalpha()]
-        
+
         indian_indicators = nse_suffixes + eq_suffixes
         if len(indian_indicators) > 0 and len(forex_pairs) <= len(tickers) * 0.5:
             return True
-    
+
     return False
 
 
@@ -268,6 +382,7 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
       from causing a regime flip every 3-4 days in sideways markets
     - Non-US strategy warning when SPY is not a meaningful regime proxy
     """
+
     # Normalise all trade dates to date-only (midnight) before lookup
     # This prevents intraday UTC timestamps crossing calendar boundaries
     def _normalise_date(d):
@@ -281,13 +396,13 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
 
     try:
         start = df["date"].min() - pd.Timedelta(days=35)  # 35 days: 30 warmup + 5 buffer
-        end   = df["date"].max() + pd.Timedelta(days=1)
+        end = df["date"].max() + pd.Timedelta(days=1)
         if benchmark_type == "nifty":
-            spy   = _get_nifty_cached(start, end)
+            spy = _get_nifty_cached(start, end)
             if spy is None:
                 raise ValueError("Nifty data unavailable")
         else:
-            spy   = _get_spy_cached(start, end)
+            spy = _get_spy_cached(start, end)
             if spy is None:
                 raise ValueError("SPY data unavailable")
         sma20 = spy.rolling(20, min_periods=20).mean()
@@ -298,16 +413,23 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
         raw_regimes = {}
         for dt in spy_idx:
             try:
-                dt_naive = pd.Timestamp(dt).tz_localize(None) if getattr(dt, 'tzinfo', None) is None else pd.Timestamp(dt).tz_convert(None)
+                dt_naive = (
+                    pd.Timestamp(dt).tz_localize(None)
+                    if getattr(dt, "tzinfo", None) is None
+                    else pd.Timestamp(dt).tz_convert(None)
+                )
                 price = float(spy.asof(dt_naive))
-                sma   = float(sma20.asof(dt_naive))
+                sma = float(sma20.asof(dt_naive))
                 if np.isnan(price) or np.isnan(sma) or sma == 0:
                     raw_regimes[dt_naive.date()] = "CONSOLIDATION"
                     continue
                 ratio = price / sma
-                if ratio > 1.01:   raw_regimes[dt_naive.date()] = "BULL"
-                elif ratio < 0.99: raw_regimes[dt_naive.date()] = "BEAR"
-                else:              raw_regimes[dt_naive.date()] = "CONSOLIDATION"
+                if ratio > 1.01:
+                    raw_regimes[dt_naive.date()] = "BULL"
+                elif ratio < 0.99:
+                    raw_regimes[dt_naive.date()] = "BEAR"
+                else:
+                    raw_regimes[dt_naive.date()] = "CONSOLIDATION"
             except Exception:
                 pass
 
@@ -317,21 +439,21 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
         sorted_dates = sorted(raw_regimes.keys())
         current_regime = "CONSOLIDATION"
         pending_regime = None
-        pending_count  = 0
+        pending_count = 0
         for dt in sorted_dates:
             raw = raw_regimes[dt]
             if raw == current_regime:
                 pending_regime = None
-                pending_count  = 0
+                pending_count = 0
             elif raw == pending_regime:
                 pending_count += 1
                 if pending_count >= 3:
                     current_regime = pending_regime
                     pending_regime = None
-                    pending_count  = 0
+                    pending_count = 0
             else:
                 pending_regime = raw
-                pending_count  = 1
+                pending_count = 1
             confirmed_regimes[dt] = current_regime
 
         def _regime(d):
@@ -360,9 +482,13 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
             )
 
         benchmark_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
-        return df, f"✓ Regime auto-detected from {benchmark_label} 20-day SMA (3-day confirmation) — {dist}{spy_warning}"
+        return (
+            df,
+            f"✓ Regime auto-detected from {benchmark_label} 20-day SMA (3-day confirmation) — {dist}{spy_warning}",
+        )
 
-    except Exception as e:
+    except Exception:
+
         def _regime_fallback(d):
             try:
                 dt_norm = _normalise_date(d)
@@ -384,11 +510,16 @@ def assign_regimes(df: pd.DataFrame, benchmark_type: str = "spy") -> tuple[pd.Da
         if pd.notna(max_date) and pd.Timestamp(max_date) > lookup_end:
             beyond_note = "Some dates beyond lookup table marked CONSOLIDATION."
         fallback_label = "Nifty 50" if benchmark_type == "nifty" else "SPY"
-        return df, f"Regime from monthly {fallback_label} approximation (live data unavailable) {dist}{beyond_note}"
+        return (
+            df,
+            f"Regime from monthly {fallback_label} approximation (live data unavailable) {dist}{beyond_note}",
+        )
+
 
 # =========================================================
 # SPY BENCHMARK HELPER
 # =========================================================
+
 
 def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
     """
@@ -422,27 +553,31 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
         if spy_series is None:
             try:
                 start = pd.Timestamp(pd.Timestamp(df["date"].min()).date()) - pd.Timedelta(days=10)
-                end   = pd.Timestamp(pd.Timestamp(df["date"].max()).date()) + pd.Timedelta(days=2)
+                end = pd.Timestamp(pd.Timestamp(df["date"].max()).date()) + pd.Timedelta(days=2)
             except Exception:
                 start = df["date"].min() - pd.Timedelta(days=10)
-                end   = df["date"].max() + pd.Timedelta(days=2)
+                end = df["date"].max() + pd.Timedelta(days=2)
             spy_raw = _get_spy_cached(start, end)
             if spy_raw is None:
-                return None, "⚠️ SPY benchmark unavailable (network/yfinance). IR + Beta checks are informational."
+                return (
+                    None,
+                    "⚠️ SPY benchmark unavailable (network/yfinance). IR + Beta checks are informational.",
+                )
         else:
             spy_raw = spy_series
 
         if spy_raw is None or len(spy_raw) < 5:
-            return None, "⚠️ SPY benchmark unavailable (insufficient data). IR + Beta checks are informational."
+            return (
+                None,
+                "⚠️ SPY benchmark unavailable (insufficient data). IR + Beta checks are informational.",
+            )
 
         # —? Compute daily returns ————————————————————————————————————————————?
         spy_ret = spy_raw.pct_change().dropna()
         # Normalise index: strip tz info and time component — only date matters
-        if hasattr(spy_ret.index, 'tz') and spy_ret.index.tz is not None:
+        if hasattr(spy_ret.index, "tz") and spy_ret.index.tz is not None:
             spy_ret.index = spy_ret.index.tz_convert("UTC").tz_localize(None)
-        spy_ret.index = pd.DatetimeIndex(
-            [pd.Timestamp(d.date()) for d in pd.to_datetime(spy_ret.index)]
-        )
+        spy_ret.index = pd.DatetimeIndex([pd.Timestamp(d.date()) for d in pd.to_datetime(spy_ret.index)])
 
         # Build set of valid trading dates for TRUE match_pct
         trading_dates = set(spy_ret.index.date)
@@ -468,8 +603,8 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
             try:
                 # Normalise to date-only midnight — strips intraday UTC offsets
                 d_date = pd.Timestamp(d).date()
-                d_ts   = pd.Timestamp(d_date)
-                val    = float(spy_ret.asof(d_ts))
+                d_ts = pd.Timestamp(d_date)
+                val = float(spy_ret.asof(d_ts))
                 if np.isnan(val) or abs(val) > 0.20:
                     aligned.append(0.0)
                 else:
@@ -513,6 +648,7 @@ def get_spy_benchmark(df: pd.DataFrame, spy_series: pd.Series = None) -> tuple:
 # NIFTY BENCHMARK HELPER
 # =========================================================
 
+
 def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tuple:
     """
     Align Nifty 50 daily returns to strategy trade dates for IR + Beta scoring.
@@ -526,7 +662,7 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
     - NSE trading day calendar (actual NSE trading days from yfinance)
     - Minimum 30% NSE trading day coverage required for meaningful IR/Beta
     """
-    if 'date' not in df.columns:
+    if "date" not in df.columns:
         return None, "Nifty benchmark skipped - no date column in trades."
 
     # Normalise all trade dates to date-only (midnight) before lookup
@@ -541,18 +677,16 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
 
     try:
         start = df["date"].min() - pd.Timedelta(days=35)  # 35 days: 30 warmup + 5 buffer
-        end   = df["date"].max() + pd.Timedelta(days=1)
+        end = df["date"].max() + pd.Timedelta(days=1)
         nifty = _get_nifty_cached(start, end) if nifty_series is None else nifty_series
         if nifty is None:
             raise ValueError("Nifty data unavailable")
         nifty_ret = nifty.pct_change().dropna()
-        
+
         # Normalise timezone to date-only for reliable asof() lookup
-        if hasattr(nifty_ret.index, 'tz') and nifty_ret.index.tz is not None:
+        if hasattr(nifty_ret.index, "tz") and nifty_ret.index.tz is not None:
             nifty_ret.index = nifty_ret.index.tz_convert("UTC").tz_localize(None)
-        nifty_ret.index = pd.DatetimeIndex(
-            [pd.Timestamp(d.date()) for d in pd.to_datetime(nifty_ret.index)]
-        )
+        nifty_ret.index = pd.DatetimeIndex([pd.Timestamp(d.date()) for d in pd.to_datetime(nifty_ret.index)])
 
         # Track true NSE trading day matches
         trading_dates = set(nifty_ret.index.date)
@@ -563,7 +697,7 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
             norm_date = _normalise_date(trade_date)
             if pd.isna(norm_date):
                 continue
-            
+
             val = float(nifty_ret.asof(norm_date))
             if np.isnan(val) or abs(val) > 0.20:
                 aligned.append(0.0)
@@ -584,7 +718,7 @@ def get_nifty_benchmark(df: pd.DataFrame, nifty_series: pd.Series = None) -> tup
         if valid_mask.sum() < 5:
             return None, "Insufficient Nifty 50 overlap for meaningful IR + Beta."
 
-        return benchmark, "Nifty 50 benchmark aligned ({}% of NSE trading days)".format(true_match_pct)
+        return benchmark, f"Nifty 50 benchmark aligned ({true_match_pct}% of NSE trading days)"
 
     except Exception as e:
-        return None, "Nifty 50 benchmark alignment failed: {}".format(str(e)[:100])
+        return None, f"Nifty 50 benchmark alignment failed: {str(e)[:100]}"
