@@ -1,6 +1,6 @@
 """
 QuantProof PDF Report Generator v1.2
-Synced to validator v6.2
+Synced to validator v6.3
 
 v1.2 changes:
   - n_trials depth shown in report header (Standard / Institutional)

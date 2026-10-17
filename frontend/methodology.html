@@ -335,7 +335,7 @@
 
     <p>I built QuantProof because I got tired of backtests that looked great and fell apart in live trading. This page explains every check we run, why it exists, and the research behind it. If you're going to trust a score with real money, you deserve to know exactly how it's calculated.</p>
 
-    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Updated 2026-03-23 &nbsp;·&nbsp; 29 scored checks + 5 crash simulations + portfolio analyser</div>
+    <div class="version-badge"><div class="version-dot"></div>Engine v6.3 &nbsp;·&nbsp; Updated 2026-10-17 &nbsp;·&nbsp; 37 scored checks + 4 plausibility checks + 5 crash simulations + portfolio analyser</div>
 
   </div>
 
@@ -399,7 +399,7 @@
 
     <div class="breakdown-note" style="margin-top:16px;">
 
-      The 29 scored checks feed into five weighted categories. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%). Without dates, they return score=50 informational.<br><br>
+      The 37 scored checks feed into five weighted categories. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are computed on every run but do not affect the score, and are not yet shown in the web report or PDF. Single-Regime detection is applied as a score cap (55) rather than a separate check row. Information Ratio and Beta Exposure are in Overfitting (22%). When no benchmark can be aligned to your trades, they are shown at 50 as informational and excluded from the score.<br><br>
 
       Score caps: no date column → cap 60 · single-regime backtest → cap 55 · institutional compliance failure → cap 60 · Sharpe >10 → cap 30. Plausibility checks (4) flag data integrity issues and can trigger Manual Audit Required — they do not contribute to weighted score.
 
@@ -473,7 +473,7 @@
 
         <div class="cat-title">Overfitting Detection</div>
 
-        <div class="cat-weight">22% of Fundable Score · 8 scored checks</div>
+        <div class="cat-weight">22% of Fundable Score · 11 checks</div>
 
         <div class="cat-desc">This is where most backtests die. Optimise any strategy on historical data and it will look brilliant — that's just mathematics. The question is whether it has real predictive power or just memorised noise. Every check in this category is designed to catch the difference.</div>
 
@@ -691,7 +691,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Information Ratio (vs Benchmark)</div>
 
-        <div class="check-row-desc">When dates are present, SPY is automatically fetched and aligned. Computes OLS beta, Jensen's alpha (annualised), tracking error, and IR. IR > 0.5 = strong alpha. Without dates, returns score=50 informational.</div>
+        <div class="check-row-desc">When dates are present, SPY is automatically fetched and aligned. Computes OLS beta, Jensen's alpha (annualised), tracking error, and IR. IR > 0.5 = strong alpha. Without an aligned benchmark (no dates, non-US/IN assets or no market data) it is informational and not scored.</div>
 
         <div class="check-row-why">A strategy backtested in a bull market with high beta looks good because the market went up, not because of skill.</div>
 
@@ -701,7 +701,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="check-row-name"><span class="check-tag">INFORMATIONAL</span>Beta Exposure (vs Benchmark)</div>
 
-        <div class="check-row-desc">SPY inferred automatically when dates present. Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Informational only without dates.</div>
+        <div class="check-row-desc">SPY inferred automatically when dates present. Beta > 0.8 triggers Manual Audit Required. Beta > 0.6 = high market exposure. Informational and not scored without an aligned benchmark.</div>
 
         <div class="check-row-why">High beta means returns are explained by market direction, not strategy skill.</div>
 
@@ -725,7 +725,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="cat-title">Risk Management</div>
 
-        <div class="cat-weight">38% of Fundable Score · 11 scored checks</div>
+        <div class="cat-weight">38% of Fundable Score · 11 checks</div>
 
         <div class="cat-desc">Risk management gets the highest weight because it's where live accounts actually die. I've seen strategies with beautiful Sharpe ratios blow up accounts in three months because nobody stress-tested the drawdown. Genuine edge isn't enough if you can't survive the variance to collect it.</div>
 
@@ -871,7 +871,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="cat-title">Regime Robustness</div>
 
-        <div class="cat-weight">14% of Fundable Score · 6 scored checks</div>
+        <div class="cat-weight">14% of Fundable Score · 6 checks</div>
 
         <div class="cat-desc">Most retail backtests run from 2019 to 2024. That's almost entirely a bull market interrupted by a 33-day crash that recovered in months. A strategy that looks great over that period hasn't been tested — it's been lucky. These checks look for what happens when the market isn't cooperating.</div>
 
@@ -913,9 +913,9 @@ If rejected, Newey-West HAC correction:
 
       <div class="check-row">
 
-        <div class="check-row-name"><span class="check-tag">CONDITIONAL</span>Single-Regime Backtest Warning</div>
+        <div class="check-row-name"><span class="check-tag">SCORE CAP</span>Single-Regime Backtest Cap</div>
 
-        <div class="check-row-desc">Injected only when detected: if > 85% of dated trades fall within a single market regime, this check appears with a Manual Audit Required flag and triggers a score cap at 55.</div>
+        <div class="check-row-desc">Applied when detected: if > 85% of dated trades fall within a single market regime, the Fundable Score is capped at 55. It works as a cap, not as a separate check row.</div>
 
         <div class="check-row-why">A strategy backtested entirely in one regime has never been tested in other conditions. The score cap prevents these strategies from appearing fundable.</div>
 
@@ -949,7 +949,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="cat-title">Execution Reality</div>
 
-        <div class="cat-weight">11% of Fundable Score · 2 scored checks</div>
+        <div class="cat-weight">11% of Fundable Score · 6 checks</div>
 
         <div class="cat-desc">Backtests lie about execution. They assume you always get filled at the price you wanted, pay no commissions, and never move the market. None of that is true. The gap between backtest and live performance is almost always explained by execution costs — and these checks quantify exactly how much of your edge survives them.</div>
 
@@ -983,7 +983,7 @@ If rejected, Newey-West HAC correction:
 
         <div class="check-row-name">Partial Fill Simulation</div>
 
-        <div class="check-row-desc">Models 80% fill rate — common in illiquid markets and fast sessions.</div>
+        <div class="check-row-desc">Simulates an 80% fill rate on your own trades: each order fills with 80% probability, 500 seeded runs. Passes if the mean return stays positive in at least 90% of runs and the 5th-percentile Sharpe is above zero.</div>
 
         <div class="check-row-why">Most backtests assume 100% fills. In reality, limit orders miss and fast markets leave orders partially unfilled.</div>
 
@@ -1083,7 +1083,7 @@ We compute at 4 AUM levels:
 
         <div class="cat-title">Compliance</div>
 
-        <div class="cat-weight">15% of Fundable Score · 2 scored checks</div>
+        <div class="cat-weight">15% of Fundable Score · 3 checks</div>
 
         <div class="cat-desc">Two very different sets of rules for two very different audiences. Prop firm rules are strict on drawdown because the firm is risking their capital on a 30-day challenge. Institutional rules care more about long-term Sharpe and Calmar because a fund allocator is thinking in years not months. A strategy can pass one and fail the other — knowing which is useful before you pay for a challenge.</div>
 
@@ -1107,7 +1107,7 @@ We compute at 4 AUM levels:
 
         <div class="check-row-name">Prop Firm Compliance (FTMO / Topstep / The5ers / Blue Guardian / Earn2Trade)</div>
 
-        <div class="check-row-desc">Checks five major prop firm challenge rules with firm-specific requirements: FTMO (10% DD, 5% daily loss, 10% profit), Topstep (4% max loss, 8% profit, 50% consistency), The5ers (8% DD, 10% profit, 4-day consistency), Blue Guardian (10% DD, 5% daily loss), Earn2Trade (12% DD, 6% profit). Reports eligibility and specific violations per firm.</div>
+        <div class="check-row-desc">Checks five major prop firm challenge rules with firm-specific requirements: FTMO (10% DD, 5% daily loss, 10% profit), Topstep (4% max loss, 8% profit, 50% consistency), The5ers (8% DD, 10% profit, 4-day consistency), Blue Guardian (10% DD, 5% daily loss), Earn2Trade (12% DD, 6% profit). Reports eligibility and specific violations per firm. Standard validation checks FTMO, Topstep and The5ers; the five-firm analysis runs in enhanced mode.</div>
 
         <div class="check-row-why">Each firm has unique rules and consistency calculations. Knowing which violations to fix for each specific firm saves time and money before paying for challenges.</div>
 
@@ -1227,7 +1227,7 @@ We compute at 4 AUM levels:
 
         <div class="cat-weight" style="color:var(--gold);">Separate product — ₹199 · 2–3 strategies · institutional-grade portfolio construction</div>
 
-        <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 29-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
+        <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 37-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
 
       </div>
 
@@ -1449,7 +1449,7 @@ Interpretation:
 
         <div class="cat-title">Operational Checks</div>
 
-        <div class="cat-weight">Not in weighted score — always appended, always visible</div>
+        <div class="cat-weight">Not in weighted score — computed by the engine, not yet shown in the web report or PDF</div>
 
         <div class="cat-desc">These two checks don't affect your score but I always read them first. Alpha Decay tells you if the strategy is gradually losing its edge over the backtest period — which is often the most honest signal of whether it will work going forward. Symbolic Overfit catches the strategies that look statistically clean but are suspiciously too perfect compared to real noise.</div>
 
@@ -1609,7 +1609,7 @@ Interpretation:
 
       '',
 
-      'Engine v6.2 | 29 scored checks | Updated: 2026-03-23',
+      'Engine v6.3 | 37 scored checks | Updated: 2026-10-17',
 
       '',
 
