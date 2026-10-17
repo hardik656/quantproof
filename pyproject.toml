@@ -1,0 +1,54 @@
+[project]
+name = "quantproof"
+version = "2.7.0"
+description = "Statistical validation API for trading-strategy backtests"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["backend"]
+extend-exclude = ["frontend"]
+
+[tool.ruff.lint]
+# Pragmatic baseline for a legacy codebase: errors, pyflakes, imports, bugbear.
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "BLE"]
+ignore = [
+  "E701", "E702", "E731",   # compact one-liners are used deliberately in places
+  "B008",                   # FastAPI File()/Form()/Header() defaults are idiomatic
+  "B904",                   # raise-from inside except: tracked as follow-up
+  "UP007", "UP006", "UP035", "UP045", # keep typing.Optional/List in Pydantic models for now
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Broad `except Exception` still exists in the large legacy handlers; it is being
+# replaced module by module (services/ are clean). Remove entries as they are fixed.
+"backend/routers/*.py" = ["BLE001"]
+"backend/services/{ai_plans,benchmarks,parsers,sebi,ibkr}.py" = ["BLE001"]
+"backend/{validator,generate_report,prop_firm_compliance,main}.py" = ["BLE001"]
+"tests/*.py" = ["S101", "B017"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "schemas", "services", "routers", "validator", "generate_report", "prop_firm_compliance", "main", "db"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+files = ["backend/config.py", "backend/schemas.py", "backend/services/tokens.py", "backend/services/cache.py", "backend/db.py"]
+mypy_path = "backend"
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::RuntimeWarning", "ignore::UserWarning"]
+
+[tool.coverage.run]
+source = ["backend"]
+omit = ["backend/generate_report.py"]
+
+[tool.coverage.report]
+skip_empty = true
