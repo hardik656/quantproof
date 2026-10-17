@@ -1,0 +1,309 @@
+{
+  "uid": "quantproof-state",
+  "title": "QuantProof: persisted state",
+  "tags": [
+    "quantproof"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Paid report/lite tokens stored",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) AS tokens FROM kv_state WHERE namespace = 'report_tokens'"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active PRO subscriptions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) AS active FROM kv_state WHERE namespace = 'pro_tokens' AND (value::text)::float > extract(epoch FROM now())"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Open TradingView sessions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT count(*) AS sessions FROM kv_state WHERE namespace = 'tv_sessions' AND (value::jsonb->>'expires_at')::float > extract(epoch FROM now())"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "TradingView alerts received",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT coalesce(sum(jsonb_array_length(value::jsonb->'alerts')),0) AS alerts FROM kv_state WHERE namespace = 'tv_sessions'"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Tokens by tier",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT CASE WHEN key LIKE 'PRO-%' THEN 'PRO' WHEN key LIKE 'RPT-%' THEN 'Report' WHEN key LIKE 'PORT-%' THEN 'Portfolio' WHEN key LIKE 'LITE-%' THEN 'Lite' ELSE 'Report (hashed)' END AS tier, count(*) AS tokens FROM kv_state WHERE namespace IN ('report_tokens','pro_tokens') GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "PRO subscriptions: expiry",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT left(key, 8) || '\u2026' AS token, to_timestamp((value::text)::float) AS expires_at, to_timestamp((value::text)::float) > now() AS active FROM kv_state WHERE namespace = 'pro_tokens' ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "TradingView sessions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT left(key, 8) || '\u2026' AS session, jsonb_array_length(value::jsonb->'alerts') AS alerts, to_timestamp((value::jsonb->>'created_at')::float) AS created, to_timestamp((value::jsonb->>'expires_at')::float) AS expires FROM kv_state WHERE namespace = 'tv_sessions' ORDER BY created DESC"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "State rows by namespace (last write)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "qp-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "qp-postgres"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT namespace, count(*) AS rows, max(updated_at) AS last_write FROM kv_state GROUP BY namespace ORDER BY namespace"
+        }
+      ]
+    }
+  ]
+}

@@ -235,7 +235,7 @@ async def generate_portfolio_fix_plan(
             f"WinRate={s['win_rate']}% Trades={s['total_trades']} "
             f"RiskParityWeight={round(w * 100, 1)}% "
             f"CrashSurvived={s.get('crash_survived', '?')}/{s.get('crash_total', '5')} "
-            f"ChecksFailed={s.get('checks_failed', 0)}/{s.get('checks_total', 44)}"
+            f"ChecksFailed={s.get('checks_failed', 0)}/{s.get('checks_total', 29)}"
         )
 
     # Build correlation pairs
