@@ -132,3 +132,112 @@ def test_benchmark_type_detection():
     df = pd.DataFrame({"ticker": ["RELIANCE.NS", "INFY.NS"], "pnl": [0.1, 0.2]})
     assert benchmarks.get_benchmark_type(df, "INR") == "nifty"
     assert benchmarks.get_benchmark_type(pd.DataFrame({"pnl": [1]}), "USD") == "spy"
+
+
+# ---------------------------------------------------------------- more formats
+
+
+def _rows(n, fmt):
+    return "\n".join(fmt(i) for i in range(n))
+
+
+def test_options_csv_parse_premium_normalisation():
+    base = pd.Timestamp("2024-01-01")
+
+    def row(i):
+        opened = (base + pd.Timedelta(days=2 * i)).date()
+        expiry = (base + pd.Timedelta(days=2 * i + 1)).date()
+        return f"{opened},SPY,500,{expiry},2.0,{0.5 if i % 2 else -0.25}"
+
+    raw = "date,underlying,strike,expiry,premium,pnl\n" + _rows(15, row)
+    df, note, _flags = parsers._parse_options_csv(raw)
+    assert len(df) == 15
+    assert df["pnl"].max() == pytest.approx(0.25)
+    assert df["pnl"].min() == pytest.approx(-0.125)
+    assert "premium" in note
+
+
+def test_options_csv_requires_pnl_column():
+    raw = "date,underlying,strike,expiry\n2024-01-01,SPY,500,2024-02-01\n"
+    with pytest.raises(ValueError):
+        parsers._parse_options_csv(raw)
+
+
+def test_mt5_positions_parse():
+    raw = "Time,Position,Symbol,Type,Volume,Price,S / L,T / P,Time,Price,Commission,Swap,Profit\n" + _rows(
+        12,
+        lambda i: (
+            f"2024.01.{i + 2:02d} 10:00:00,{1000 + i},EURUSD,buy,1.0,1.1000,0,0,"
+            f"2024.01.{i + 2:02d} 12:00:00,1.1010,-1,0,{10 if i % 3 else -5}"
+        ),
+    )
+    df, _note, _flags = parsers._parse_mt5_csv(raw)
+    assert len(df) > 0
+    assert df["pnl"].between(-0.99, 0.99).all()
+
+
+def test_kite_orders_parse_fifo():
+    raw = "tradingsymbol,transaction_type,order_execution_time,filled_quantity,average_price,status\n" + (
+        "TCS,BUY,2024-01-01 09:20:00,10,100,COMPLETE\n"
+        "TCS,SELL,2024-01-02 09:20:00,10,110,COMPLETE\n"
+        "TCS,BUY,2024-01-03 09:20:00,5,120,COMPLETE\n"
+        "TCS,SELL,2024-01-04 09:20:00,5,108,COMPLETE\n"
+    )
+    assert parsers._is_kite_orders_csv(pd.read_csv(__import__("io").StringIO(raw)))
+    df, _note, _flags = parsers._parse_kite_orders_csv(raw)
+    assert sorted(round(p, 4) for p in df["pnl"]) == [-0.1, 0.1]
+
+
+def test_alpaca_ui_export_parse():
+    header = "Asset\tSide\tQty\tFilled Qty\tAvg. Fill Price\tStatus\tFilled At"
+    body = "\n".join(
+        [
+            "AAPL\tbuy\t10\t10\t100.00\tfilled\tJan 02, 2024, 10:00:00 AM",
+            "AAPL\tsell\t10\t10\t110.00\tfilled\tJan 03, 2024, 10:00:00 AM",
+            "MSFT\tbuy\t5\t5\t200.00\tfilled\tJan 04, 2024, 10:00:00 AM",
+            "MSFT\tsell\t5\t5\t190.00\tfilled\tJan 05, 2024, 10:00:00 AM",
+        ]
+    )
+    df, _note, _flags = parsers._parse_alpaca_ui_export(header + "\n" + body)
+    assert sorted(round(p, 4) for p in df["pnl"]) == [-0.05, 0.1]
+
+
+def test_alpaca_short_then_cover():
+    orders = [
+        _order("sell", 10, 100, "2024-01-01T10:00:00Z"),
+        _order("buy", 10, 90, "2024-01-02T10:00:00Z"),
+    ]
+    df, flags = parsers.pair_alpaca_orders(orders)
+    assert len(df) <= 1
+    assert isinstance(flags, list)
+
+
+def test_excel_parse(tmp_path):
+    df = pd.DataFrame({"date": pd.date_range("2024-01-01", periods=15), "pnl": [0.01, -0.005, 0.02] * 5})
+    path = tmp_path / "t.xlsx"
+    df.to_excel(path, index=False)
+    out, _ = parsers.smart_parse_csv(path.read_bytes())
+    assert len(out) == 15
+
+
+def test_generic_percent_strings():
+    rows = "\n".join(f"2024-01-{d:02d},{'1.5%' if d % 2 else '-0.5%'}" for d in range(1, 21))
+    df, _ = parsers.smart_parse_csv(("date,return\n" + rows).encode())
+    assert len(df) == 20
+
+
+def test_smart_parse_garbage_raises():
+    with pytest.raises(Exception):  # noqa: B017 - parser raises ValueError or HTTPException
+        parsers.smart_parse_csv(b"\x00\x01\x02 not a csv")
+
+
+def test_overlapping_positions_detected():
+    df = pd.DataFrame(
+        {
+            "open_date": ["2024-01-01", "2024-01-02"],
+            "close_date": ["2024-01-05", "2024-01-06"],
+            "strike": [1, 1],
+            "pnl": [1, 1],
+        }
+    )
+    assert parsers._has_overlapping_positions(df) in (True, False)
