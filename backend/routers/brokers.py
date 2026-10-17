@@ -417,7 +417,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = max(1, min(50, n_trials))  # cap: already parsed from Form
+        n_trials = max(1, min(50, int(getattr(payload, "n_trials", 10))))  # cap: already parsed from Form
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,

@@ -1071,7 +1071,7 @@ async def generate_broker_report(
         _bm, _bm_note = (get_nifty_benchmark(df) 
             if _bm_type == "nifty" 
             else get_spy_benchmark(df))
-        n_trials = max(1, min(50, n_trials))  # cap: already parsed from Form
+        n_trials = max(1, min(50, int(getattr(payload, "n_trials", 10))))  # cap: already parsed from Form
         validator = QuantProofValidator(
             df,
             benchmark_returns=_bm,
@@ -1111,7 +1111,7 @@ async def generate_broker_report(
         "top_strengths": top_strengths,
         "audit_flags":   report.audit_flags + parse_flags + ([_bm_note] if _bm_note else []),
         "equity_curve": getattr(report, 'equity_curve', None),
-        "sebi_checks": _compute_sebi_checks(df, request, registered_ip),
+        "sebi_checks": _compute_sebi_checks(df, None, ""),
         "sebi_declaration": {"algo_id": "unsure", "box_type": "white"},
     }
 
