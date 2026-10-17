@@ -335,7 +335,7 @@
 
     <p>I built QuantProof because I got tired of backtests that looked great and fell apart in live trading. This page explains every check we run, why it exists, and the research behind it. If you're going to trust a score with real money, you deserve to know exactly how it's calculated.</p>
 
-    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Updated 2026-03-23 &nbsp;·&nbsp; 44 scored checks + 5 crash simulations + portfolio analyser</div>
+    <div class="version-badge"><div class="version-dot"></div>Engine v6.2 &nbsp;·&nbsp; Updated 2026-03-23 &nbsp;·&nbsp; 29 scored checks + 5 crash simulations + portfolio analyser</div>
 
   </div>
 
@@ -399,7 +399,7 @@
 
     <div class="breakdown-note" style="margin-top:16px;">
 
-      The 44 scored checks feed into five weighted categories. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%). Without dates, they return score=50 informational.<br><br>
+      The 29 scored checks feed into five weighted categories. Two operational diagnostics (Alpha Decay, Symbolic Overfit) are appended to every report but do not affect category weights. One conditional check (Single-Regime Warning) appears only when detected. Information Ratio and Beta Exposure are in Overfitting (22%). Without dates, they return score=50 informational.<br><br>
 
       Score caps: no date column → cap 60 · single-regime backtest → cap 55 · institutional compliance failure → cap 60 · Sharpe >10 → cap 30. Plausibility checks (4) flag data integrity issues and can trigger Manual Audit Required — they do not contribute to weighted score.
 
@@ -1227,7 +1227,7 @@ We compute at 4 AUM levels:
 
         <div class="cat-weight" style="color:var(--gold);">Separate product — ₹199 · 2–3 strategies · institutional-grade portfolio construction</div>
 
-        <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 44-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
+        <div class="cat-desc">Running three strategies that look different is not the same as running a diversified portfolio. Two momentum strategies on different assets will still crash together in a bear market. This analyser runs the full 29-check validation on each strategy, then measures whether they genuinely diversify each other — using the same methods a quantitative fund would use before allocating capital across multiple strategies.</div>
 
       </div>
 
@@ -1609,7 +1609,7 @@ Interpretation:
 
       '',
 
-      'Engine v6.2 | 44 scored checks | Updated: 2026-03-23',
+      'Engine v6.2 | 29 scored checks | Updated: 2026-03-23',
 
       '',
 

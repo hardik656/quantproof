@@ -57,64 +57,21 @@ flowchart LR
 
 ---
 
-## The 44 Checks — What Gets Tested
+## The 29 Checks — What Gets Tested
 
-**Overfitting Detection (8 checks)**
-- Deflated Sharpe Ratio (Bailey & Lopez de Prado 2012) — adjusts for multiple testing bias
-- Combinatorially Purged Cross-Validation with embargo gaps — the fund standard for walk-forward testing
-- Monte Carlo robustness — n=1 to n=50 bootstrap stability
-- Ljung-Box autocorrelation test — detects serial dependence in returns
-- Hurst exponent — distinguishes genuine edge from random walk
-- Bootstrap Sharpe stability — how much does Sharpe vary across resamples?
-- HMM regime detection — does the strategy behave consistently across market regimes?
-- Backtest overfitting probability
+Every run of `QuantProofValidator.run()` scores exactly these 29 checks (see `backend/validator.py`), plus 5 crash simulations:
 
-**Risk Management (8 checks)**
-- Max drawdown vs prop firm thresholds (FTMO 10%, Topstep 6%, etc.)
-- Daily loss limit compliance
-- CVaR / Expected Shortfall at 95% and 99%
-- Fractional Kelly criterion + ruin probability
-- Sortino ratio
-- Calmar ratio
-- Profit factor
-- Recovery factor
+**Overfitting (8):** Sharpe Ratio Decay, Monte Carlo Robustness, Profit / Loss Concentration, CPCV Path Stability, Bootstrap Stability, Deflated Sharpe Ratio, Sharpe CI Enforcement, Minimum Backtest Length
 
-**Regime Robustness (8 checks)**
-- Performance split across BULL / BEAR / CONSOLIDATION regimes
-- Regime auto-detection via SPY 20-day SMA (yfinance) with 3-day confirmation
-- Nifty 50 benchmark for Indian strategies (auto-detected by currency=INR or .NS/.BO tickers)
-- Strategy vs benchmark: Information Ratio
-- Strategy vs benchmark: Beta Exposure
-- Regime consistency score
-- Drawdown regime analysis
-- Capacity analysis (Almgren-Chriss market impact model)
+**Risk (11):** Max Drawdown, Calmar Ratio, Value at Risk (VaR), CVaR / Expected Shortfall, Sortino Ratio, Max Losing Streak, Recovery Factor, Absolute Sharpe Ratio, Probability of Ruin, Drawdown Duration & Recovery, Ulcer Index
 
-**Execution Reality (8 checks)**
-- Slippage sensitivity
-- Market impact estimation
-- Trade frequency sustainability
-- Hold time analysis
-- Commission drag
-- Spread cost modelling
-- Position sizing consistency
-- Scale warning detection
+**Regime (6):** Bull, Bear and Consolidation performance, Volatility Spike Stress Test, Performance Consistency, Regime Coverage
 
-**Prop Firm Compliance (8 checks)**
-- FTMO rules — 10% max DD, 5% daily loss, profit target
-- Topstep rules — 6% max DD, trailing drawdown
-- The5ers rules
-- Blue Guardian rules
-- Earn2Trade rules
-- CTA / institutional fund standards
-- SEBI algo framework checks (Indian strategies) — OPS threshold, session logout
-- Plausibility checks — flags suspicious return profiles
+**Execution (2):** Slippage Impact (0.1% base), Impact-Adjusted Capacity
 
-**5 Crash Simulations**
-- 2008 Global Financial Crisis
-- 2020 COVID crash
-- 2022 rate hike bear market
-- 2010 Flash Crash
-- 1998 LTCM / Russia default
+**Compliance (2):** Prop Firm Compliance (FTMO / Topstep / The5ers), Institutional Compliance (CTA / fund standard)
+
+The validator also defines further checks (e.g. autocorrelation, information ratio, beta exposure, commission drag) that are not part of the scored set today.
 
 ---
 
@@ -139,7 +96,7 @@ flowchart LR
 ```
 Tier         Price    Token Prefix    What It Unlocks
 ─────────────────────────────────────────────────────────────────────
-Free         ₹0       —               3 validations/day, all 44 checks visible
+Free         ₹0       —               3 validations/day, all 29 checks visible
 Lite         ₹99      LITE-           AI top-3 fix plan in browser, full failed check details
 Full PDF     ₹299     RPT-            PDF report, n=20 forced, full ranked AI plan
 Portfolio    ₹199     PORT-           2-3 strategy correlation matrix, diversification score
