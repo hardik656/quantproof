@@ -34,7 +34,7 @@ flowchart LR
         R2[routers/brokers] --> P
         R5[routers/tradingview] --> P
         P --> B[services/benchmarks<br/>SPY / Nifty regimes]
-        B --> V[validator.py<br/>QuantProofValidator]
+        B --> V[validator.py + qp_engine/<br/>QuantProofValidator]
         R1 --> AI[services/ai_plans<br/>Groq → Claude → OpenAI]
         R3[routers/reports] --> PDF[generate_report.py]
         R3 --> T[services/tokens<br/>tiers · rate limit]
@@ -48,30 +48,32 @@ flowchart LR
 | Layer | Tech |
 |---|---|
 | API | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
-| Engine | NumPy, pandas, SciPy, scikit-learn (`backend/validator.py`) |
+| Engine | NumPy, pandas, SciPy, scikit-learn (`backend/validator.py` orchestration, `backend/qp_engine/` checks) |
 | Persistence | SQLAlchemy 2 + Alembic on Postgres (`DATABASE_URL`), JSON-file fallback |
 | AI fix plans | Groq (Llama 3.3-70B) → Anthropic → OpenAI fallback chain |
 | Payments | Razorpay (India) · Paddle (international), HMAC-verified webhooks |
-| Quality | pytest (85 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
+| Quality | pytest (107 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
 | Deploy | Docker / docker-compose; Render |
 
 ---
 
-## The 29 Checks — What Gets Tested
+## The 37 Checks — What Gets Tested
 
-Every run of `QuantProofValidator.run()` scores exactly these 29 checks (see `backend/validator.py`), plus 5 crash simulations:
+Every run of `QuantProofValidator.run()` scores these 37 checks. It also runs 4 plausibility checks and 5 crash simulations, which are reported but not weighted. Code: `backend/qp_engine/`, one module per category.
 
-**Overfitting (8):** Sharpe Ratio Decay, Monte Carlo Robustness, Profit / Loss Concentration, CPCV Path Stability, Bootstrap Stability, Deflated Sharpe Ratio, Sharpe CI Enforcement, Minimum Backtest Length
+**Overfitting (11), 22%:** Sharpe Ratio Decay, Monte Carlo Robustness, Profit / Loss Concentration, CPCV Path Stability, Bootstrap Stability, Deflated Sharpe Ratio, Sharpe CI Enforcement, Minimum Backtest Length, Autocorrelation (Ljung-Box + Newey-West), Information Ratio and Beta Exposure vs SPY/NIFTY. The last two are informational and not scored when no aligned benchmark is available.
 
-**Risk (11):** Max Drawdown, Calmar Ratio, Value at Risk (VaR), CVaR / Expected Shortfall, Sortino Ratio, Max Losing Streak, Recovery Factor, Absolute Sharpe Ratio, Probability of Ruin, Drawdown Duration & Recovery, Ulcer Index
+**Risk (11), 38%:** Max Drawdown, Calmar Ratio, Value at Risk (VaR), CVaR / Expected Shortfall, Sortino Ratio, Max Losing Streak, Recovery Factor, Absolute Sharpe Ratio, Probability of Ruin, Drawdown Duration & Recovery, Ulcer Index
 
-**Regime (6):** Bull, Bear and Consolidation performance, Volatility Spike Stress Test, Performance Consistency, Regime Coverage
+**Regime (6), 14%:** Bull, Bear and Consolidation performance, Volatility Spike Stress Test, Performance Consistency, Regime Coverage
 
-**Execution (2):** Slippage Impact (0.1% base), Impact-Adjusted Capacity
+**Execution (6), 11%:** Slippage Impact (0.1% and 0.3%), Commission Drag, Partial Fill Simulation (80% fill rate, 500 runs on your trades), Live Trading Gap Estimate, Impact-Adjusted Capacity
 
-**Compliance (2):** Prop Firm Compliance (FTMO / Topstep / The5ers), Institutional Compliance (CTA / fund standard)
+**Compliance (3), 15%:** Prop Firm Compliance Gate (5 gates), Prop Firm Compliance (FTMO / Topstep / The5ers; five firms in enhanced mode), Institutional Compliance (CTA / fund standard)
 
-The validator also defines further checks (e.g. autocorrelation, information ratio, beta exposure, commission drag) that are not part of the scored set today.
+**Plausibility (4, not weighted):** Sharpe, Frequency-Return, Equity Curve Smoothness, Kelly. A "Manual Audit Required" result adds an audit flag and caps the score at 35.
+
+Score shifts from wiring the last 12 checks into `run()` (engine v6.3) are documented with sample data in [`docs/engine-v6.3-score-shift.md`](docs/engine-v6.3-score-shift.md).
 
 ---
 
@@ -96,7 +98,7 @@ The validator also defines further checks (e.g. autocorrelation, information rat
 ```
 Tier         Price    Token Prefix    What It Unlocks
 ─────────────────────────────────────────────────────────────────────
-Free         ₹0       —               3 validations/day, all 29 checks visible
+Free         ₹0       —               3 validations/day, all 37 checks visible
 Lite         ₹99      LITE-           AI top-3 fix plan in browser, full failed check details
 Full PDF     ₹299     RPT-            PDF report, n=20 forced, full ranked AI plan
 Portfolio    ₹199     PORT-           2-3 strategy correlation matrix, diversification score
@@ -188,7 +190,7 @@ The screenshot was taken locally against Postgres plus a standalone Grafana 11.3
 ## Testing & Quality
 
 ```bash
-pytest --cov                  # 85 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
+pytest --cov                  # 107 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
 ruff check . && ruff format --check .
 mypy
 pre-commit install            # ruff + gitleaks secret scan on every commit
@@ -236,7 +238,9 @@ backend/
 │   ├── tokens.py            token tiers, rate limiting
 │   ├── portfolio.py         correlation, risk parity, diversification
 │   ├── sebi.py · ibkr.py · cache.py
-├── validator.py             QuantProofValidator — checks, crash sims, scoring
+├── validator.py             QuantProofValidator — run(), crash sims, scoring, report
+├── qp_engine/               check mixins: overfitting, risk, regime, execution,
+│                            compliance, plausibility (+ core helpers)
 ├── generate_report.py       PDF generation
 └── prop_firm_compliance.py  FTMO/Topstep/The5ers/... rules
 tests/                       pytest suite

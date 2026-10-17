@@ -45,7 +45,7 @@ A weighted average across five categories:
 
 ---
 
-## Category 1 — Overfitting Detection (22%) — 11 checks (9 scored + 2 auto-scored via SPY when dates present)
+## Category 1 — Overfitting Detection (22%) — 11 checks (IR and Beta are informational and unscored when no benchmark can be aligned)
 
 The most common failure mode in backtesting. A strategy optimised on historical data will always look good in-sample. These checks test whether the edge is real or memorised.
 
@@ -159,7 +159,7 @@ Backtests assume perfect fills at the exact price. Reality does not.
 
 **Commission Drag** — Three tiers by frequency: 2bps institutional, 10bps retail equity, 20bps HFT. Measured as a percentage of gross turnover.
 
-**Partial Fill Simulation** — 80% fill rate model. Estimates return reduction from incomplete fills.
+**Partial Fill Simulation** — Each order fills with 80% probability, over 500 seeded runs on your own trades. Passes if the mean return stays positive in at least 90% of runs and the 5th-percentile Sharpe is above zero.
 
 **Live Trading Gap Estimate** — 40% Sharpe degradation from backtest to live, based on empirical research.
 
@@ -176,15 +176,15 @@ Two separate standards for different use cases.
 **Prop Firm Compliance Gate (5-gate quick check)**
 Fast binary gate: positive mean return, Sharpe ≥ 1.0, max drawdown < 20%, win rate > 45%, trades > 50. Requires 4/5 in standard mode, all 5 in strict mode. Quick pre-filter before the detailed per-firm check.
 
-**Prop Firm Compliance (FTMO / Topstep / The5ers)** — Challenge rules: max drawdown ≤10%, profit target ≥6-10%, Sharpe ≥1.0. Reports which firms the strategy is eligible for. Note: only broker-verified validations can be used for actual prop firm compliance submissions.
+**Prop Firm Compliance (FTMO / Topstep / The5ers; five firms in enhanced mode)** — Challenge rules: max drawdown ≤10%, profit target ≥6-10%, Sharpe ≥1.0. Reports which firms the strategy is eligible for. Note: only broker-verified validations can be used for actual prop firm compliance submissions.
 
 **Institutional Compliance (CTA / Fund Standard)** — Sharpe ≥1.0, max drawdown <25%, Calmar ≥1.0. More appropriate than prop firm rules for multi-year backtests.
 
 ---
 
-## Operational Checks (2 checks — appended to every report, not in weighted score)
+## Operational Diagnostics (2, not in weighted score)
 
-Two checks appended at the end of every validation. Appear in results but do not contribute to the five weighted categories.
+Computed on every run (`ValidationReport.alpha_decay`, `ValidationReport.overfit_profile`). They don't contribute to the five weighted categories and are not yet shown in the web report or PDF.
 
 **Alpha Decay (Half-Life)**
 Compares first-half vs second-half Sharpe. Fits exponential decay to autocorrelation function to estimate alpha half-life. Fails if second-half Sharpe decays >60% or goes very negative.
@@ -194,10 +194,9 @@ Compares equity curve characteristics (smoothness, entropy, kurtosis) against 50
 
 ---
 
-## Conditional Check
+## Single-Regime Cap
 
-**Single-Regime Backtest Warning** (Regime category — injected only when detected)
-Triggered when >85% of dated trades fall within one market regime. Triggers Manual Audit Required and caps score at 55. Requires date column to run.
+When >85% of dated trades fall within one market regime, the score is capped at 55. This is a score cap, not a separate check row. Requires a date column.
 
 ---
 
@@ -219,7 +218,7 @@ Strategies without date data receive `[UNCALIBRATED]` labels — market regime c
 
 ## Plausibility Checks (4 checks — informational)
 
-Flag data integrity issues. Can trigger Manual Audit Required, which suppresses Prop Firm Eligible and caps the score at 35.
+Flag data integrity issues. These run on every validation and are reported in the plausibility summary and audit flags, not in the weighted score. A Manual Audit Required result caps the score at 35.
 
 - **Sharpe Plausibility** — Sharpe >10 triggers Manual Audit Required. No documented institutional strategy has sustained Sharpe >3.0 over 5+ years.
 - **Frequency-Return Plausibility** — HFT + extreme annual returns flag impossible liquidity assumptions.
@@ -244,9 +243,11 @@ Only broker-verified validations can be used for prop firm compliance certificat
 
 ## Engine Version
 
-Current: **v6.2** — Methodology date: 2026-03-13
+Current: **v6.3** — Methodology date: 2026-10-17
 
-Key improvements in v6.2:
+v6.3: `run()` executes all 37 scored checks and the 4 plausibility checks described here. Before, 8 of the scored checks and all plausibility checks were defined but not run. Partial fills are simulated on the strategy's own trades. Score shifts: [docs/engine-v6.3-score-shift.md](docs/engine-v6.3-score-shift.md).
+
+v6.2:
 - Information Ratio and Beta Exposure checks (benchmark-supplied)
 - Hardened crash simulation exposure model with AR(1) penalty
 - [UNCALIBRATED] labels for undated crash simulations
@@ -258,4 +259,4 @@ Key improvements in v6.2:
 
 *Not financial advice. Validation of historical backtest properties does not guarantee future performance.*
 
-[→ Validate your strategy](https://quantproof-frontend.onrender.com) &nbsp;|&nbsp; [quantproof@gmail.com](mailto:quantproof@gmail.com)
+[→ Validate your strategy](https://quantproof.net) &nbsp;|&nbsp; [support@quantproof.net](mailto:support@quantproof.net)

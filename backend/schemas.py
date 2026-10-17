@@ -20,6 +20,7 @@ class CheckResultResponse(BaseModel):
     insight: str
     fix: str
     category: str
+    scored: bool = True  # False = informational, excluded from the Fundable Score
 
 
 class CrashSimResponse(BaseModel):

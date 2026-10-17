@@ -26,10 +26,11 @@ ignore = [
 "backend/routers/*.py" = ["BLE001"]
 "backend/services/{ai_plans,benchmarks,parsers,sebi,ibkr}.py" = ["BLE001"]
 "backend/{validator,generate_report,prop_firm_compliance,main}.py" = ["BLE001"]
+"backend/qp_engine/*.py" = ["BLE001"]  # moved verbatim from validator.py
 "tests/*.py" = ["S101", "B017"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "schemas", "services", "routers", "validator", "generate_report", "prop_firm_compliance", "main", "db"]
+known-first-party = ["qp_engine", "config", "schemas", "services", "routers", "validator", "generate_report", "prop_firm_compliance", "main", "db"]
 
 [tool.mypy]
 python_version = "3.11"

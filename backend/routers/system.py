@@ -20,7 +20,7 @@ def root():
     return {
         "status": "QuantProof API is live",
         "version": API_VERSION,
-        "checks": "29 institutional checks + 5 crash simulations",
+        "checks": "37 scored checks + 4 plausibility checks + 5 crash simulations",
         "new_in_v1.4": [
             "Information Ratio (vs Benchmark) - detects beta-capture disguised as alpha",
             "Beta Exposure (vs Benchmark) - flags high market correlation",

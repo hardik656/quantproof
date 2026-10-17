@@ -88,3 +88,44 @@ def test_sortino_cvar_calmar_ulcer_finite():
 def test_convert_numpy_roundtrip():
     out = v.convert_numpy({"a": np.float64(1.5), "b": [np.int64(2)], "c": np.array([1, 2])})
     assert out["a"] == 1.5 and out["b"] == [2]
+
+
+def test_zero_losing_trades_does_not_crash():
+    # Regression: the zero-loss branch of Max Losing Streak built a CheckResult
+    # with a missing argument, so any upload with 30+ trades and no losses 500'd.
+    df = pd.DataFrame({"date": pd.date_range("2022-01-03", periods=60, freq="B"), "pnl": [0.004] * 60})
+    report = QuantProofValidator(df).run()
+    streak = next(c for c in report.checks if c.name == "Max Losing Streak")
+    assert not streak.passed
+    assert "implausible" in streak.value
+
+
+def test_results_identical_across_processes(tmp_path):
+    # Python's hash() is salted per process; seeds must not depend on it.
+    import json
+    import os
+    import subprocess
+    import sys
+
+    csv = tmp_path / "t.csv"
+    rng = np.random.default_rng(3)
+    pd.DataFrame(
+        {"date": pd.date_range("2020-01-01", periods=120, freq="B"), "pnl": rng.normal(0.002, 0.01, 120)}
+    ).to_csv(csv, index=False)
+    backend = os.path.join(os.path.dirname(__file__), "..", "backend")
+    code = (
+        f"import sys, json, io, contextlib, pandas as pd; sys.path.insert(0, {backend!r})\n"
+        "import validator as v\n"
+        "with contextlib.redirect_stdout(io.StringIO()):\n"
+        f"    r = v.QuantProofValidator(pd.read_csv({str(csv)!r})).run()\n"
+        "print(json.dumps([r.score, [round(s.strategy_drop, 8) for s in r.crash_sims],"
+        " [c.score for c in r.checks]]))"
+    )
+    outs = []
+    for seed in ("1", "2"):
+        env = {**os.environ, "PYTHONHASHSEED": seed}
+        res = subprocess.run(
+            [sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True
+        )
+        outs.append(json.loads(res.stdout.strip().splitlines()[-1]))
+    assert outs[0] == outs[1]
