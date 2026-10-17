@@ -901,6 +901,74 @@ async def create_checkout_paddle_pro(payload: dict):
     return _create_paddle_checkout("pro", (payload or {}).get("user_id", "anonymous"))
 
 
+_PADDLE_IPS_URL = "https://api.paddle.com/ips"
+_PADDLE_IP_CACHE: dict = {"nets": None, "fetched": 0.0}
+_PADDLE_IP_TTL_S = 6 * 3600
+
+
+def _paddle_webhook_networks() -> list | None:
+    """Paddle's published webhook source CIDRs (cached). None if unavailable."""
+    import ipaddress
+    import time
+
+    import requests
+
+    now = time.time()
+    if _PADDLE_IP_CACHE["nets"] is not None and now - _PADDLE_IP_CACHE["fetched"] < _PADDLE_IP_TTL_S:
+        return _PADDLE_IP_CACHE["nets"]
+    try:
+        res = requests.get(_PADDLE_IPS_URL, timeout=5)
+        cidrs = res.json()["data"]["ipv4_cidrs"]
+        nets = [ipaddress.ip_network(c, strict=False) for c in cidrs]
+        if not nets:
+            raise ValueError("empty list")
+        _PADDLE_IP_CACHE.update(nets=nets, fetched=now)
+    except Exception as e:  # noqa: BLE001 - never let the allowlist break webhooks
+        print(f"[PADDLE] IP list fetch failed ({type(e).__name__}); relying on signature only")
+        return _PADDLE_IP_CACHE["nets"]  # stale list if we have one, else None
+    return _PADDLE_IP_CACHE["nets"]
+
+
+def _webhook_client_ip(request: Request) -> str:
+    """Client IP behind Render's proxy.
+
+    Render's load balancer appends the address it saw to X-Forwarded-For, so the
+    right-most entry is the one a caller cannot forge (left-most entries can be
+    set by anyone). Set PADDLE_TRUSTED_PROXY_HOPS if more trusted proxies sit in front.
+    """
+    xff = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    hops = max(int(os.environ.get("PADDLE_TRUSTED_PROXY_HOPS", "1") or 1), 1)
+    if len(xff) >= hops:
+        return xff[-hops]
+    return request.client.host if request.client else ""
+
+
+def _paddle_ip_allowed(request: Request) -> bool:
+    """IP allowlist on top of signature verification.
+
+    PADDLE_IP_ALLOWLIST: "log" (default) records mismatches only, "enforce"
+    rejects them, "off" skips the check. If Paddle's IP list can't be fetched
+    the check is skipped; the signature still has to be valid.
+    """
+    import ipaddress
+
+    mode = os.environ.get("PADDLE_IP_ALLOWLIST", "log").strip().lower()
+    if mode == "off":
+        return True
+    nets = _paddle_webhook_networks()
+    if not nets:
+        return True
+    ip = _webhook_client_ip(request)
+    try:
+        ok = any(ipaddress.ip_address(ip) in n for n in nets)
+    except ValueError:
+        ok = False
+    if not ok:
+        print(f"[PADDLE] webhook from non-Paddle IP {ip!r} (mode={mode})")
+        return mode != "enforce"
+    return True
+
+
 def _verify_paddle_signature(body: bytes, header: str, secret: str, tolerance_s: int = 3600) -> bool:
     """Paddle Billing signature: header ``ts=<unix>;h1=<hex hmac-sha256(secret, f"{ts}:{body}")>``."""
     import hmac
@@ -950,6 +1018,8 @@ async def paddle_webhook(request: Request):
     webhook_secret = os.environ.get("PADDLE_WEBHOOK_SECRET", "")
     if not webhook_secret:
         raise HTTPException(status_code=503, detail="Paddle webhook not configured")
+    if not _paddle_ip_allowed(request):
+        raise HTTPException(status_code=403, detail="Forbidden")
     if not _verify_paddle_signature(body, request.headers.get("Paddle-Signature", ""), webhook_secret):
         raise HTTPException(status_code=400, detail="Invalid Paddle signature")
 
