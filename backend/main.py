@@ -11,11 +11,22 @@ The app is assembled from routers (HTTP layer) and services (domain logic):
 Run locally:  uvicorn main:app --reload   (from the backend/ directory)
 """
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import os
+import sys
 
-from config import API_VERSION
-from routers import brokers, reports, system, tradingview, validation
+# Modules inside backend/ import each other flat (``from validator import ...``).
+# Put this directory on sys.path so the app starts both ways:
+#   repo root:   uvicorn backend.main:app   (render.yaml)
+#   backend/:    uvicorn main:app
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+if _BACKEND_DIR not in sys.path:
+    sys.path.insert(0, _BACKEND_DIR)
+
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+from config import API_VERSION  # noqa: E402
+from routers import brokers, reports, system, tradingview, validation  # noqa: E402
 
 app = FastAPI(title="QuantProof API", version=API_VERSION)
 
