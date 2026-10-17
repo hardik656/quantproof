@@ -79,23 +79,32 @@ def _token_tier(token: str) -> str:
     return "none"
 
 
+# Daily validations per tier, as advertised on /pricing. Pro is unlimited.
+TIER_DAILY_LIMITS = {"none": FREE_DAILY_LIMIT, "lite": 3, "report": 5, "portfolio": 10}
+
+
 def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
-    # Pro tokens bypass rate limit entirely AND clear any existing counter for this IP
-    if _is_pro_token(token) or token.startswith(TOKEN_PRO):
-        # Reset counter so they don't get blocked even if they hit limit before setting token
+    """Per-IP daily limit. Returns (allowed, remaining) or (False, seconds_until_reset).
+
+    Only a *valid* token raises the limit: a string that merely starts with
+    ``PRO-`` is not enough.
+    """
+    tier = _token_tier(token) if token else "none"
+    if tier == "pro":
         if ip in _validation_counts:
             _validation_counts[ip]["count"] = 0
         return True, 999
+    limit = TIER_DAILY_LIMITS.get(tier, FREE_DAILY_LIMIT)
     now = time.time()
     rec = _validation_counts[ip]
     if now > rec["reset"]:
         rec["count"] = 0
         rec["reset"] = now + 86400
-    if rec["count"] >= FREE_DAILY_LIMIT:
+    if rec["count"] >= limit:
         remaining_secs = int(rec["reset"] - now)
         return False, remaining_secs
     rec["count"] += 1
-    return True, FREE_DAILY_LIMIT - rec["count"]
+    return True, limit - rec["count"]
 
 
 REPORT_ACCESS_TOKENS: set[str] = set()
