@@ -127,3 +127,81 @@ def test_checkout_provider_error_is_502_without_leaking(client, paddle_env, monk
 def test_checkout_unconfigured_is_503(client, monkeypatch):
     monkeypatch.delenv("PADDLE_API_KEY", raising=False)
     assert client.post("/report/create-checkout-paddle-pro", json={}).status_code == 503
+
+
+# ── IP allowlist ─────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def paddle_ips(monkeypatch):
+    import ipaddress
+
+    from routers import reports
+
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "nets", [ipaddress.ip_network("34.237.3.244/32")])
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "fetched", time.time())
+    return reports
+
+
+def _signed_post(client, txn, xff):
+    body = _event(txn)
+    return client.post(
+        "/report/webhook-paddle",
+        content=body,
+        headers={"Paddle-Signature": _sign(body), "X-Forwarded-For": xff},
+    )
+
+
+def test_enforce_blocks_non_paddle_ip(client, paddle_env, paddle_ips, monkeypatch):
+    monkeypatch.setenv("PADDLE_IP_ALLOWLIST", "enforce")
+    assert _signed_post(client, "txn_" + "f" * 26, "1.2.3.4").status_code == 403
+
+
+def test_enforce_allows_paddle_ip(client, paddle_env, paddle_ips, monkeypatch):
+    monkeypatch.setenv("PADDLE_IP_ALLOWLIST", "enforce")
+    assert _signed_post(client, "txn_" + "g" * 26, "34.237.3.244").status_code == 200
+
+
+def test_spoofed_leftmost_xff_is_ignored(client, paddle_env, paddle_ips, monkeypatch):
+    monkeypatch.setenv("PADDLE_IP_ALLOWLIST", "enforce")
+    # attacker prepends a Paddle IP; Render appends the real one on the right
+    assert _signed_post(client, "txn_" + "h" * 26, "34.237.3.244, 1.2.3.4").status_code == 403
+
+
+def test_log_mode_default_never_blocks(client, paddle_env, paddle_ips, monkeypatch):
+    monkeypatch.delenv("PADDLE_IP_ALLOWLIST", raising=False)
+    assert _signed_post(client, "txn_" + "i" * 26, "1.2.3.4").status_code == 200
+
+
+def test_ip_fetch_failure_fails_open_to_signature(client, paddle_env, monkeypatch):
+    import requests
+
+    from routers import reports
+
+    monkeypatch.setenv("PADDLE_IP_ALLOWLIST", "enforce")
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "nets", None)
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "fetched", 0.0)
+
+    def boom(*a, **k):
+        raise requests.exceptions.ConnectionError("down")
+
+    monkeypatch.setattr(requests, "get", boom)
+    assert _signed_post(client, "txn_" + "j" * 26, "1.2.3.4").status_code == 200
+    # signature is still required
+    r = client.post("/report/webhook-paddle", content=_event(), headers={"X-Forwarded-For": "1.2.3.4"})
+    assert r.status_code == 400
+
+
+def test_ip_list_parses_paddle_format(monkeypatch):
+    import requests
+
+    from routers import reports
+
+    class R:
+        def json(self):
+            return {"data": {"ipv4_cidrs": ["34.237.3.244/32", "52.11.166.252/32"]}}
+
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "nets", None)
+    monkeypatch.setitem(reports._PADDLE_IP_CACHE, "fetched", 0.0)
+    monkeypatch.setattr(requests, "get", lambda *a, **k: R())
+    assert len(reports._paddle_webhook_networks()) == 2
