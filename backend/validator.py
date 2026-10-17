@@ -1,5 +1,11 @@
 """
-QuantProof — Validation Engine v6.2
+QuantProof — Validation Engine v6.3
+
+v6.3 (2026-10-17): run() now executes every check the methodology page describes:
+37 scored checks (Overfitting 11, Risk 11, Regime 6, Execution 6, Compliance 3) plus
+4 plausibility checks (reported, capped, not weighted). Benchmark checks are
+informational (scored=False) when no aligned benchmark is available. Partial fills
+are simulated on the strategy's own returns instead of a constant.
 Institutional Edition — Full Audit Correction
 
 PATCH v6.2 — ADVERSARIAL AUDIT FIXES (delta from v6.1)
@@ -195,8 +201,8 @@ except Exception as e:
     QuantProofValidatorWithPropFirms = None
 
 # ── CONSTANTS ────────────────────────────────────────────────────────────────
-ENGINE_VERSION = "v6.2"
-METHODOLOGY_DATE = "2026-03-13"
+ENGINE_VERSION = "v6.3"
+METHODOLOGY_DATE = "2026-10-17"
 RISK_FREE_DAILY = 0.04 / 252
 EPSILON = 1e-9
 
@@ -204,6 +210,7 @@ MIN_TRADES_STANDARD = 50
 MIN_TRADES_STRICT = 100
 
 # Commission tiers (round-trip)
+PARTIAL_FILL_RATE = 0.80  # methodology: 80% of orders fill, the rest are missed
 COMMISSION_INSTITUTIONAL = 0.0002  # 2 bps  — prime broker
 COMMISSION_RETAIL_EQUITY = 0.0010  # 10 bps — retail equity
 COMMISSION_RETAIL_SPREAD = 0.0020  # 20 bps — HFT / small-cap
@@ -275,6 +282,9 @@ class CheckResult:
     insight: str
     fix: str
     category: str
+    # False for informational results (e.g. benchmark checks with no benchmark).
+    # Informational results are reported but excluded from the weighted score.
+    scored: bool = True
 
 
 @dataclass
@@ -960,6 +970,9 @@ class QuantProofValidator:
             self.n_trials = 1
         self.rng = np.random.default_rng(seed)
         self.benchmark_type = benchmark_type
+        self.benchmark_returns = (
+            None if benchmark_returns is None else np.asarray(benchmark_returns, dtype=float)
+        )
         self.df = self._clean(df)
         self.trades_per_year, self.timeframe_info = self._detect_timeframe()
         self.has_dates = "date" in self.df.columns
@@ -1087,7 +1100,7 @@ class QuantProofValidator:
     def _generate_plausibility_summary(self) -> str:
         pc = [c for c in self.checks if c.category == "Plausibility"]
         manual = sum(1 for c in pc if not c.passed and "Manual Audit Required" in c.value)
-        review = sum(1 for c in pc if not c.passed and "Review Recommended" in c.value)
+        review = sum(1 for c in pc if "Review Recommended" in c.value)
         if manual > 0:
             return f"⚠ {manual} statistical implausibility issues require manual audit"
         if review > 0:
@@ -2067,7 +2080,6 @@ class QuantProofValidator:
         total_comm = len(r) * rate
         gross_turnover = float(np.sum(np.abs(r))) + EPSILON
         drag = total_comm / gross_turnover * 100
-        tpy * rate * 100
         passed = drag < 20
         return CheckResult(
             "Commission Drag",
@@ -2080,15 +2092,36 @@ class QuantProofValidator:
         )
 
     def check_partial_fills(self) -> CheckResult:
-        fill_rate = 0.80 + 0.20 * 0.70
-        impact = abs(1.0 - fill_rate) * 100
+        """
+        Model an 80% fill rate: each trade is filled with probability 0.8 and
+        missed (zero return) otherwise. Over 500 seeded simulations, measure how
+        often the strategy keeps a positive mean return and how much Sharpe it
+        retains. Missed fills are not random in live trading (the best breakouts
+        are the ones you miss), so this is a lower bound on the damage.
+        """
+        r = self.returns
+        n_sims = 500
+        rng = np.random.default_rng(_stable_seed(r.tobytes() + b"partial_fills_v1"))
+        filled = rng.random((n_sims, len(r))) < PARTIAL_FILL_RATE
+        sims = np.where(filled, r, 0.0)
+        means = sims.mean(axis=1)
+        stds = sims.std(axis=1, ddof=1)
+        sharpes = np.where(stds > EPSILON, means / np.maximum(stds, EPSILON), 0.0) * np.sqrt(
+            self.trades_per_year
+        )
+        base_sharpe = calculate_sharpe(r, self.trades_per_year)
+        pct_positive = float(np.mean(means > 0) * 100)
+        p5_sharpe = float(np.percentile(sharpes, 5))
+        median_sharpe = float(np.median(sharpes))
+        passed = pct_positive >= 90 and p5_sharpe > 0
         return CheckResult(
             "Partial Fill Simulation",
-            impact < 10,
-            round(max(0, 100 - impact * 5), 1),
-            f"80% fill rate → {impact:.1f}% return reduction",
-            "Fast markets: incomplete fills.",
-            "Use limit orders.",
+            passed,
+            round(pct_positive, 1),
+            f"80% fill rate, {n_sims} sims: mean return stays positive in {pct_positive:.0f}% | "
+            f"Sharpe {base_sharpe:.2f} → median {median_sharpe:.2f}, 5th pct {p5_sharpe:.2f}",
+            "Backtests assume every order fills. With 1 in 5 orders missed, a thin edge can disappear.",
+            "Use limit orders with realistic fill assumptions, or widen the edge per trade.",
             "Execution",
         )
 
@@ -2159,10 +2192,10 @@ class QuantProofValidator:
         ]
         passed = all(gates) if self.strict_mode else sum(gates) >= 4
         return CheckResult(
-            "Prop Firm Compliance",
+            "Prop Firm Compliance Gate (5-gate)",
             passed,
             100 if passed else 0,
-            "✅ PASSES" if passed else f"❌ NEEDS FIXES ({sum(gates)}/5 gates)",
+            f"✅ PASSES ({sum(gates)}/5 gates)" if passed else f"❌ NEEDS FIXES ({sum(gates)}/5 gates)",
             "FTMO/Topstep reject 90% of strategies.",
             "Fix top 3 failing checks.",
             "Compliance",
@@ -2311,6 +2344,16 @@ class QuantProofValidator:
 
     # ── F1: Market-Neutral Benchmark Checks ──────────────────────────────────
 
+    def _benchmark_usable(self) -> bool:
+        """Benchmark must exist, be aligned 1:1 with trades, and not be constant."""
+        bm = self.benchmark_returns
+        if bm is None:
+            return False
+        bm = np.asarray(bm, dtype=float)
+        if bm.shape != np.shape(self.returns) or not np.all(np.isfinite(bm)):
+            return False
+        return float(np.std(bm, ddof=1)) > EPSILON
+
     def check_information_ratio(self) -> CheckResult:
         """
         F1 — Information Ratio vs benchmark.
@@ -2323,16 +2366,17 @@ class QuantProofValidator:
           - IR < 0.3  → likely beta-capture, FAIL
           - alpha < 0 → negative alpha vs benchmark, FAIL
         """
-        if self.benchmark_returns is None:
+        if not self._benchmark_usable():
             return CheckResult(
                 "Information Ratio (vs Benchmark)",
                 True,
                 50,
-                "No benchmark supplied — informational only",
-                "Pass benchmark_returns= to QuantProofValidator to test "
-                "whether strategy has alpha vs a passive index.",
-                "Recommended: supply SPY/index daily returns matching backtest period.",
+                "No benchmark available — informational only, not scored",
+                "The index benchmark (SPY or NIFTY) needs dated trades, market data for the period "
+                "and a US/Indian equity strategy. Without it, alpha vs a passive index can't be tested.",
+                "Upload dated trades so the benchmark can be aligned.",
                 "Overfitting",
+                scored=False,
             )
 
         r = self.returns
@@ -2395,15 +2439,16 @@ class QuantProofValidator:
         direction. A backtest in a bull market will always look good for
         high-beta strategies. Informational only when no benchmark supplied.
         """
-        if self.benchmark_returns is None:
+        if not self._benchmark_usable():
             return CheckResult(
                 "Beta Exposure (vs Benchmark)",
                 True,
                 50,
-                "No benchmark supplied — informational only",
-                "Pass benchmark_returns= to test market-neutrality.",
-                "Recommended: supply index returns matching backtest period.",
+                "No benchmark available — informational only, not scored",
+                "The index benchmark needs dated trades and market data; market-neutrality can't be tested without it.",
+                "Upload dated trades so the benchmark can be aligned.",
                 "Overfitting",
+                scored=False,
             )
 
         r = self.returns
@@ -2461,13 +2506,13 @@ class QuantProofValidator:
 
     def check_frequency_return_plausibility(self) -> CheckResult:
         mean_r = float(np.mean(self.returns))
-        annual_ret = mean_r * self.trades_per_year
-        implausible = self.trades_per_year > 20_000 and annual_ret > 500
+        annual_ret_pct = mean_r * self.trades_per_year * 100  # simple annualised return, in %
+        implausible = self.trades_per_year > 20_000 and annual_ret_pct > 500
         return CheckResult(
             "Frequency-Return Plausibility",
             not implausible,
             100,
-            f"{self.trades_per_year:.0f} trades/yr → {annual_ret:.0f}% annual {'⚠ Manual Audit Required' if implausible else '✅ Plausible'}",
+            f"{self.trades_per_year:.0f} trades/yr → {annual_ret_pct:.0f}% annual {'⚠ Manual Audit Required' if implausible else '✅ Plausible'}",
             "HFT + extreme returns requires massive liquidity edge." if implausible else "Within bounds.",
             "Verify liquidity assumptions.",
             "Plausibility",
@@ -2645,7 +2690,7 @@ class QuantProofValidator:
         weights = {"Overfitting": 0.22, "Risk": 0.38, "Regime": 0.14, "Execution": 0.11, "Compliance": 0.15}
         category_scores = {}
         for cat in weights:
-            cat_checks = [c for c in checks if c.category == cat]
+            cat_checks = [c for c in checks if c.category == cat and c.scored]
             category_scores[cat] = (
                 float(np.mean([c.score for c in cat_checks]))
                 if cat_checks
@@ -2711,7 +2756,7 @@ class QuantProofValidator:
         inst_compliance = [c for c in checks if c.name == "Institutional Compliance (CTA/Fund Standard)"]
         if inst_compliance and not all(c.passed for c in inst_compliance):
             final = min(final, 60)
-        prop_compliance = [c for c in checks if "Prop Firm Compliance" in c.name]
+        prop_compliance = [c for c in checks if "Prop Firm Compliance" in c.name and "Gate" not in c.name]
         if prop_compliance and not all(c.passed for c in prop_compliance):
             final = min(final, 75)  # soft cap only — prop firm rules ≠ institutional viability
         if "Short backtest" in self.timeframe_info:
@@ -2760,9 +2805,22 @@ class QuantProofValidator:
             self.check_frequency_consistency(),
             self.check_regime_coverage(),
             self.check_slippage_01(),
+            self.check_slippage_03(),
+            self.check_commission_drag(),
+            self.check_partial_fills(),
+            self.check_live_vs_backtest_gap(),
             self.check_impact_adjusted_capacity(),
+            self.check_autocorrelation(),
+            self.check_information_ratio(),
+            self.check_beta_exposure(),
+            self.check_compliance_pass(),
             self.check_prop_firm_compliance(),
             self.check_institutional_compliance(),
+            # Plausibility: reported (audit flags, summary, score caps) but not weighted.
+            self.check_sharpe_plausibility(),
+            self.check_frequency_return_plausibility(),
+            self.check_equity_smoothness_plausibility(),
+            self.check_kelly_plausibility(),
         ]
         self.checks = checks
 

@@ -1259,7 +1259,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     story.append(radar_tbl)
     story.append(Spacer(1, 6 * mm))
 
-    story.append(Paragraph("DETAILED CHECK BREAKDOWN - 29 CHECKS", S["h_section"]))
+    story.append(Paragraph("DETAILED CHECK BREAKDOWN - 37 SCORED CHECKS", S["h_section"]))
     story.append(
         Paragraph(
             "Every check was run against your specific strategy data. "
@@ -2273,7 +2273,7 @@ def generate_pdf_report(vr: dict) -> bytes:
     vh = vr.get("validation_hash", f"QP-{abs(hash(str(score) + grade + str(n))) % 100000:05d}")
     story.append(
         Paragraph(
-            f"Report ID: {vh}  |  Engine: v6.2  |  29 checks  |  5 crash simulations  |  "
+            f"Report ID: {vh}  |  Engine: v6.3  |  37 scored checks  |  5 crash simulations  |  "
             f"Depth: {depth_short}  |  "
             f"Generated: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
             S["footer"],

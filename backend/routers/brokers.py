@@ -567,7 +567,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         fundable_score=min(100.0, round(report.score, 1)),
         grade=report.grade,
         summary=summary,
-        checks=[CheckResultResponse(**vars(c)) for c in report.checks],
+        checks=[CheckResultResponse(**vars(c)) for c in report.checks if c.category != "Plausibility"],
         crash_sims=[
             CrashSimResponse(
                 crash_name=s.crash_name,

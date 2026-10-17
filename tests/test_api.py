@@ -22,7 +22,7 @@ def test_health(client):
 
 
 def test_root_and_ping(client):
-    assert "29" in client.get("/").json()["checks"]
+    assert "37" in client.get("/").json()["checks"]
     assert client.get("/ping").json()["status"] == "alive"
     assert client.head("/ping").status_code == 200
 
