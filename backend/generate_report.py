@@ -831,7 +831,7 @@ def generate_pdf_report(vr: dict) -> bytes:
             "Institutionally Viable",
             f"Passed all critical institutional checks. Sharpe {sharpe:.2f}, "
             f"max drawdown {dd:.1f}%. "
-            f"{'Connect a broker account for a verified compliance certificate.' if not is_verified else 'Eligible for prop firm submission.'}",
+            f"{'Connect a broker account for a broker-verified Prop-Firm Readiness Summary.' if not is_verified else 'Eligible for prop firm submission.'}",
         ),
         "B+": (
             "Prop Firm Ready",

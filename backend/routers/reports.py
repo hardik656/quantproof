@@ -172,11 +172,11 @@ async def generate_report_endpoint(
                 "score": 0,
                 "value": "⚠️ NOT APPLICABLE — CSV Upload",
                 "insight": (
-                    "Prop firm and institutional compliance certificates require "
+                    "Prop-firm readiness summaries require "
                     "broker-verified trade data. CSV uploads cannot be used for "
                     "compliance submissions as the data is self-reported and unverified."
                 ),
-                "fix": "Connect your Alpaca account (or IBKR when available) to generate a verified compliance report.",
+                "fix": "Connect your Alpaca account (or IBKR when available) to generate a broker-verified Prop-Firm Readiness Summary.",
                 "category": c.category,
             }
         return {
