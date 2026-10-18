@@ -108,7 +108,7 @@ async def validate(
     summary = (
         f"QuantProof analyzed {r.total_trades} trades across {check_count} institutional checks "
         f"+ 5 crash simulations. Fundable Score: {r.score}/100 ({r.grade.split('?')[0].strip()}). "
-        f"{'Core risk management needs work ?? see the action plan below.' if r.score < 60 else 'Edge shows statistical promise ?? review execution costs and regime coverage.'}"
+        f"{'Core risk management needs work - see the action plan below.' if r.score < 60 else 'Edge shows statistical promise - review execution costs and regime coverage.'}"
     )
 
     detected_currency = (currency or "USD").upper()
