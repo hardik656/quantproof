@@ -19,7 +19,7 @@ QuantProof takes a trader's backtest or live trade history and runs it through t
 
 Upload a CSV or connect a live broker. Get a 0–100 Fundable Score in under 30 seconds, with every failure ranked, explained, and tied to a specific fix.
 
-**The problem it solves:** 92% of prop firm challenges fail. Most from drawdown violations and overfitted backtests. QuantProof catches both before you pay.
+**The problem it solves:** most prop firm challenges are failed, many through drawdown-rule violations and backtests that were overfitted. QuantProof checks for both before you pay a challenge fee.
 
 ---
 
@@ -52,7 +52,7 @@ flowchart LR
 | Persistence | SQLAlchemy 2 + Alembic on Postgres (`DATABASE_URL`), JSON-file fallback |
 | AI fix plans | Groq (Llama 3.3-70B) → Anthropic → OpenAI fallback chain |
 | Payments | Razorpay (India) · Paddle (international), HMAC-verified webhooks |
-| Quality | pytest (107 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
+| Quality | pytest (126 tests), ruff, mypy, pre-commit + gitleaks, GitHub Actions |
 | Deploy | Docker / docker-compose; Render |
 
 ---
@@ -190,7 +190,7 @@ The screenshot was taken locally against Postgres plus a standalone Grafana 11.3
 ## Testing & Quality
 
 ```bash
-pytest --cov                  # 107 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
+pytest --cov                  # 126 tests, fully offline (yfinance stubbed, throwaway sqlite DB)
 ruff check . && ruff format --check .
 mypy
 pre-commit install            # ruff + gitleaks secret scan on every commit
