@@ -8,7 +8,7 @@
 
 ## What is QuantProof?
 
-QuantProof is a free backtest validator. You upload your strategy's trade results — as a CSV, or connected directly to your Alpaca, IBKR, or Zerodha Kite account — and it runs 40 institutional checks plus 5 historical crash simulations.
+QuantProof is a free backtest validator. You upload your strategy's trade results — as a CSV, or connected directly to your Alpaca, IBKR, or Zerodha Kite account — and it runs 37 scored checks plus 4 plausibility checks and 5 historical crash simulations.
 
 The output is a **Fundable Score** from 0–100 and a letter grade, along with a breakdown of every check showing exactly what passed, what failed, and why.
 
@@ -237,7 +237,7 @@ Flag data integrity issues. These run on every validation and are reported in th
 | Alpaca API (paper or live) | Broker-verified | Yes |
 | Interactive Brokers Flex API | Broker-verified | Yes |
 
-Only broker-verified validations can be used for prop firm compliance certificates. CSV and Kite validations are for methodology analysis only.
+Only broker-verified validations can be used for a Prop-Firm Readiness Summary. CSV and Kite validations are for methodology analysis only.
 
 ---
 
