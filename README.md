@@ -6,7 +6,7 @@
 ![Lint](https://img.shields.io/badge/lint-ruff-informational)
 ![Types](https://img.shields.io/badge/types-mypy-informational)
 
-**Live at [quantproof.net](https://quantproof.net)** · Built solo · Launched on Product Hunt March 2026 · 400+ users
+**Live at [quantproof.net](https://quantproof.net)** · Built solo · Launched on Product Hunt March 2026 · 400+ visitors
 
 > Statistical checks + 5 crash simulations → one 0–100 Fundable Score.
 > Know if your edge is real — before you pay for a prop firm challenge.
