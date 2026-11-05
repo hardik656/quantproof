@@ -15,6 +15,11 @@ from services.tokens import REPORT_ACCESS_TOKENS, _is_pro_token, _token_tier, _v
 router = APIRouter()
 
 
+def _debug_endpoints_enabled() -> bool:
+    """Off unless QP_DEBUG_ENDPOINTS is explicitly set. Production must leave it unset."""
+    return os.getenv("QP_DEBUG_ENDPOINTS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 @router.get("/")
 def root():
     return {
@@ -46,15 +51,11 @@ def health():
     return {"status": "ok", "version": API_VERSION}
 
 
-@router.get("/debug/reset-limit")
+@router.get("/debug/reset-limit", include_in_schema=False)
 def debug_reset_limit(t: str = ""):
     """Dev endpoint — reset rate limit for your IP. Requires valid pro/dev token."""
-    # For testing purposes, allow simple test tokens
-    if t in ("quantproof-test-112211", "test-123", "dev-reset"):
-        cleared = len(_validation_counts)
-        _validation_counts.clear()
-        return {"status": "ok", "cleared_ips": cleared, "message": "All rate limits reset"}
-
+    if not _debug_endpoints_enabled():
+        raise HTTPException(status_code=404, detail="Not found")
     if not _is_pro_token(t):
         raise HTTPException(403, "Valid pro token required as ?t= param")
     cleared = len(_validation_counts)
@@ -62,9 +63,11 @@ def debug_reset_limit(t: str = ""):
     return {"status": "ok", "cleared_ips": cleared, "message": "All rate limits reset"}
 
 
-@router.get("/debug/token")
+@router.get("/debug/token", include_in_schema=False)
 def debug_token(t: str = ""):
     """Dev endpoint — check if a token is valid and what tier it grants."""
+    if not _debug_endpoints_enabled():
+        raise HTTPException(status_code=404, detail="Not found")
     if not t:
         return {"error": "Pass ?t=YOUR_TOKEN"}
     tier = _token_tier(t)

@@ -51,14 +51,50 @@ def test_validate_rate_limit(client):
 def test_token_status_unknown(client):
     r = client.get("/report/token-status", headers={"x-token": "nope"})
     assert r.status_code == 200
+    assert r.json()["valid"] is False
 
 
-def test_debug_token_requires_param(client):
+def test_token_status_pro_shape_used_by_homepage(client, monkeypatch):
+    """The public page restores Pro UI from this payload after debug routes were removed."""
+    monkeypatch.delenv("TEST_REPORT_TOKEN", raising=False)
+    monkeypatch.delenv("ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("DEV_TOKEN", "devtok-restore")
+    r = client.get("/report/token-status", headers={"x-token": "devtok-restore"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tier"] == "pro" and body["valid"] is True
+
+
+def test_debug_endpoints_rejected_unless_enabled(client, monkeypatch):
+    monkeypatch.delenv("QP_DEBUG_ENDPOINTS", raising=False)
+    from services import tokens
+
+    tokens._validation_counts["203.0.113.5"]["count"] = 3
+    assert client.get("/debug/token").status_code == 404
+    assert client.get("/debug/token", params={"t": "not-a-real-token"}).status_code == 404
+    # Former hardcoded bypasses must not clear anyone's limit.
+    for guess in ("quantproof-test-112211", "test-123", "dev-reset", "not-a-real-token"):
+        assert client.get("/debug/reset-limit", params={"t": guess}).status_code == 404
+    assert tokens._validation_counts["203.0.113.5"]["count"] == 3
+    paths = client.get("/openapi.json").json()["paths"]
+    assert "/debug/token" not in paths
+    assert "/debug/reset-limit" not in paths
+
+
+def test_debug_token_requires_param(client, monkeypatch):
+    monkeypatch.setenv("QP_DEBUG_ENDPOINTS", "1")
     assert "error" in client.get("/debug/token").json()
 
 
-def test_debug_reset_requires_pro(client):
+def test_debug_reset_requires_pro(client, monkeypatch):
+    monkeypatch.setenv("QP_DEBUG_ENDPOINTS", "1")
+    from services import tokens
+
+    tokens._validation_counts["203.0.113.6"]["count"] = 2
     assert client.get("/debug/reset-limit?t=bad").status_code == 403
+    for guess in ("quantproof-test-112211", "test-123", "dev-reset"):
+        assert client.get("/debug/reset-limit", params={"t": guess}).status_code == 403
+    assert tokens._validation_counts["203.0.113.6"]["count"] == 2
 
 
 def test_token_tiers(monkeypatch):

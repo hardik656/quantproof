@@ -1360,82 +1360,6 @@
   <div class="results" id="resultsSection" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;"></div>
 </div>
 
-<!-- DEV OVERRIDE PANEL — only visible at ?dev=1 -->
-<div id="devPanel" style="display:none;position:fixed;bottom:16px;right:16px;background:#0d1117;border:1px solid rgba(0,255,136,0.4);padding:16px;z-index:9999;font-family:monospace;font-size:11px;min-width:260px;">
-  <div style="color:#00ff88;margin-bottom:8px;font-weight:700;">// DEV MODE</div>
-  <div style="display:flex;gap:6px;margin-bottom:6px;">
-    <input id="devToken" type="text" placeholder="TEST_REPORT_TOKEN value"
-      style="flex:1;background:#131920;border:1px solid #1e2d3d;color:#e8edf2;padding:5px 8px;font-size:10px;font-family:monospace;">
-    <button onclick="applyDevToken()" style="background:#00ff88;color:#000;border:none;padding:5px 10px;cursor:pointer;font-size:10px;font-weight:700;">SET</button>
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-    <button onclick="devSetTier('lite')"      style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹99</button>
-    <button onclick="devSetTier('report')"    style="background:#1e2d3d;color:#e8edf2;border:none;padding:5px;cursor:pointer;font-size:9px;">Simulate ₹299</button>
-    <button onclick="devSetTier('portfolio')" style="background:#1e2d3d;color:#7B61FF;border:1px solid rgba(123,97,255,0.4);padding:5px;cursor:pointer;font-size:9px;">Simulate ₹199</button>
-    <button onclick="devSetTier('pro')"       style="background:#1e2d3d;color:#ffaa00;border:1px solid rgba(255,170,0,0.3);padding:5px;cursor:pointer;font-size:9px;">Simulate Pro</button>
-    <button onclick="devResetLimit()" style="background:#1e2d3d;color:#ff6b6b;border:1px solid rgba(255,68,68,0.3);padding:5px;cursor:pointer;font-size:9px;grid-column:span 2;">⚡ Reset Rate Limit</button>
-  </div>
-  <div id="devStatus" style="margin-top:6px;font-size:9px;color:#5a7a8a;"></div>
-</div>
-
-<script>
-  // Show dev panel if ?dev=1 in URL
-  if (new URLSearchParams(window.location.search).get('dev') === '1') {
-    document.getElementById('devPanel').style.display = 'block';
-  }
-  async function applyDevToken() {
-    const tok = document.getElementById('devToken').value.trim();
-    if (!tok) return;
-    // Store under every token key so all endpoints see it
-    saveToken('qp_pro_token',    tok);
-    saveToken('qp_port_token',   tok);
-    saveToken('qp_lite_token',   tok);
-    saveToken('qp_report_token', tok);
-    _nTrials = 50;
-    if (typeof unlockInstitutional === 'function') unlockInstitutional();
-    // Pre-fill portfolio token field if visible
-    const pt = document.getElementById('portToken');
-    if (pt) pt.value = tok;
-    document.getElementById('devStatus').textContent = '✓ Token stored — verifying with server...';
-    document.getElementById('devStatus').style.color = '#00ff88';
-    // Auto-verify against server
-    try {
-      const vr = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
-      if (vr.ok) {
-        const vd = await vr.json();
-        if (vd.is_pro) {
-          document.getElementById('devStatus').textContent = `✓ Verified pro access · tier: ${vd.tier}`;
-        } else {
-          document.getElementById('devStatus').textContent = `⚠ Token not recognised by server (tier: ${vd.tier}) — check TEST_REPORT_TOKEN env var on Render`;
-          document.getElementById('devStatus').style.color = '#ffaa00';
-        }
-      }
-    } catch(e) {
-      document.getElementById('devStatus').textContent = '✓ Token stored (server verify failed — check /debug/token manually)';
-    }
-  }
-  function devSetTier(tier) {
-    const tok = loadToken('qp_pro_token') || 'DEV-TOKEN-MISSING';
-    if (tier === 'pro') {
-      saveToken('qp_pro_token',  tok);
-      saveToken('qp_port_token', tok);
-      saveToken('qp_lite_token', tok);
-      _nTrials = 50;
-      if (typeof unlockInstitutional === 'function') unlockInstitutional();
-    } else if (tier === 'portfolio') {
-      saveToken('qp_port_token', tok);
-    } else if (tier === 'report') {
-      saveToken('qp_lite_token', tok);
-    } else if (tier === 'lite') {
-      saveToken('qp_lite_token', tok);
-    }
-    document.getElementById('devStatus').textContent = '✓ Simulating ' + tier + ' tier';
-    document.getElementById('devStatus').style.color = '#ffaa00';
-  }
-
-  // Continue with main JavaScript functions...
-</script>
-
 <footer>
   <div class="container">
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;padding:24px 0 20px;border-bottom:1px solid var(--border);margin-bottom:20px;">
@@ -3535,15 +3459,14 @@
     if (!tok) { statusEl.textContent = 'Enter a token first.'; statusEl.style.color='#ff4444'; return; }
     statusEl.textContent = 'Verifying...'; statusEl.style.color = 'var(--muted)';
     try {
-      const resp = await fetch(`${API_URL}/debug/token?t=${encodeURIComponent(tok)}`);
-      if (!resp.ok) { statusEl.textContent = 'Debug endpoint not available on this server.'; return; }
+      const resp = await fetch(`${API_URL}/report/token-status`, {headers: {'x-token': tok}});
+      if (!resp.ok) { statusEl.textContent = 'Could not verify token.'; return; }
       const data = await resp.json();
-      if (data.is_pro || data.tier === 'pro') {
-        statusEl.textContent = `✓ Valid — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}`;
+      if (data.valid) {
+        statusEl.textContent = '✓ Valid — tier: ' + data.tier;
         statusEl.style.color = 'var(--accent)';
       } else {
-        statusEl.innerHTML = `✗ Not recognised — tier: ${data.tier} · env vars set: ${JSON.stringify(data.env_vars_set)}<br>
-          <span style="opacity:0.7;">Set <code>TEST_REPORT_TOKEN</code> in Render environment to match what you typed above.</span>`;
+        statusEl.textContent = '✗ Not recognised';
         statusEl.style.color = '#ffaa00';
       }
     } catch(e) {
@@ -4167,37 +4090,16 @@
     } catch(e) { alert('Pro plan error: ' + e.message); }
   }
 
-  async function devResetLimit() {
-    const tok = (loadToken('qp_pro_token') || '').trim();
-    const statusEl = document.getElementById('devStatus');
-    if (!tok) { statusEl.textContent = 'Set token first'; statusEl.style.color='#ff4444'; return; }
-    statusEl.textContent = 'Resetting...'; statusEl.style.color='var(--muted)';
-    try {
-      const resp = await fetch(`${API_URL}/debug/reset-limit?t=${encodeURIComponent(tok)}`);
-      const data = await resp.json();
-      if (resp.ok) {
-        statusEl.textContent = `✓ Rate limit reset (${data.cleared_ips} IPs cleared) — validate freely now`;
-        statusEl.style.color = '#00ff88';
-      } else {
-        statusEl.textContent = `✗ ${data.detail || 'Failed'}`;
-        statusEl.style.color = '#ff4444';
-      }
-    } catch(e) {
-      statusEl.textContent = 'Reset failed: ' + e.message;
-      statusEl.style.color = '#ff4444';
-    }
-  }
-
   // ── On load: restore tokens — verify with server before unlocking ────────
   (function restoreTokens() {
     const proTok  = loadToken('qp_pro_token');
     const portTok = loadToken('qp_port_token');
     if (proTok) {
       // Verify token is still valid server-side before unlocking institutional depth
-      fetch(`${API_URL}/debug/token?t=${encodeURIComponent(proTok)}`)
+      fetch(`${API_URL}/report/token-status`, {headers: {'x-token': proTok}})
         .then(r => r.ok ? r.json() : null)
         .then(d => {
-          if (d && d.is_pro) {
+          if (d && d.tier === 'pro' && d.valid) {
             _nTrials = 50;
             if (typeof unlockInstitutional === 'function') unlockInstitutional();
           } else {
@@ -4666,11 +4568,6 @@ window.showLoading = showLoading;
 window.hideLoading = hideLoading;
 window.coldStartWarning = coldStartWarning;
 window.submitIntlWaitlist = submitIntlWaitlist;
-
-// Dev tools - THESE WERE MISSING!
-window.applyDevToken = applyDevToken;
-window.devSetTier = devSetTier;
-window.devResetLimit = devResetLimit;
 
 // Report generation helpers
 window.buildResultsHTML = buildResultsHTML;

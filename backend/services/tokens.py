@@ -40,8 +40,8 @@ _load_pro_tokens()
 def _is_pro_token(token: str) -> bool:
     """
     Returns True if token grants pro-level access.
-    Dev override: set TEST_REPORT_TOKEN env var on Render to any value,
-    then paste that exact value into the dev panel on ?dev=1.
+    Dev override: TEST_REPORT_TOKEN, DEV_TOKEN, or ADMIN_TOKEN, if set,
+    match this token exactly. Leave them unset in production.
     """
     if not token:
         return False

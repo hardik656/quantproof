@@ -213,7 +213,8 @@ PADDLE_PRICE_{LITE,REPORT,PORTFOLIO,PRO}  Paddle price ids
 GROQ_API_KEY             Primary LLM (Llama 3.3-70B)
 ANTHROPIC_API_KEY        Fallback LLM
 OPENAI_API_KEY           Fallback LLM
-TEST_REPORT_TOKEN        Dev override — grants pro access (never set in prod)
+TEST_REPORT_TOKEN        Dev override — grants pro access (leave unset in prod)
+QP_DEBUG_ENDPOINTS       Set to 1 to enable /debug/* (leave unset in prod)
 ```
 
 ## Project Structure
@@ -266,7 +267,7 @@ POST /report/create-checkout      Razorpay order creation
 POST /report/webhook              Razorpay payment verification
 GET  /health                      Health check
 GET  /ping                        Keep-alive (cron-job.org)
-GET  /debug/token                 Token tier inspection (dev)
+GET  /debug/token                 Token inspection (only if QP_DEBUG_ENDPOINTS=1)
 ```
 
 ---
