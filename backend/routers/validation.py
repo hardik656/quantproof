@@ -15,6 +15,7 @@ from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.ai_plans import generate_ai_plan, generate_portfolio_fix_plan
 from services.benchmarks import get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation, _get_cached_validation, _save_validation_cache
+from services.client_ip import client_ip
 from services.parsers import _dedup_trades, smart_parse_csv
 from services.portfolio import (
     PortfolioResponse,
@@ -39,10 +40,8 @@ async def validate(
     request: Request = None,
 ):
     if request:
-        ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or (request.client.host if request.client else "")
-        ) or "unknown"
+        # Right-most X-Forwarded-For hop: the address Render appended, not a client-supplied one.
+        ip = client_ip(request)
         # Accept dev token from either header
         _pro_tok = (
             request.headers.get("x-pro-token", "")
@@ -60,6 +59,8 @@ async def validate(
                     "hours_left": hours_left,
                 },
             )
+        # Released by middleware when the response is an error, so a bad file does not use a try.
+        request.state.rate_limit_key = ip
 
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file")

@@ -18,6 +18,7 @@ from config import extract_n_trials
 from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation, _save_validation_cache
+from services.client_ip import client_ip
 from services.ibkr import parse_ibkr_trade_improved
 from services.parsers import (
     _dedup_trades,
@@ -55,11 +56,7 @@ def _scrub_keys(d: dict) -> dict:
 async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None):
     BROKER_DAILY_LIMIT = 3
     if request:
-        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
-        ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or (request.client.host if request.client else "")
-        ) or "unknown"
+        ip = client_ip(request)
         key_hash = "broker:" + hashlib.sha256(f"broker:{ip}".encode()).hexdigest()[:16]
         rec = _validation_counts[key_hash]
         now = time.time()
@@ -77,6 +74,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
                 },
             )
         rec["count"] += 1
+        request.state.rate_limit_key = key_hash
 
     api_key = payload.api_key.strip()
     secret_key = payload.secret_key.strip()
@@ -381,14 +379,11 @@ class IBKRConnectResponse(BaseModel):
 @router.post("/connect/ibkr", response_model=IBKRConnectResponse)
 async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
     if request:
-        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
-        ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or (request.client.host if request.client else "")
-        ) or "unknown"
+        ip = client_ip(request)
         allowed, _ = check_rate_limit(ip)
         if not allowed:
             raise HTTPException(429, f"Daily limit of {FREE_DAILY_LIMIT} validations reached.")
+        request.state.rate_limit_key = ip
 
     import xml.etree.ElementTree as ET
 
@@ -637,11 +632,7 @@ async def validate_kite(
     Also accepts Kite Orders CSV — smart_parse_csv() handles routing.
     """
     if request:
-        # Prefer X-Forwarded-For (Render proxy passes real user IP here)
-        ip = (
-            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-            or (request.client.host if request.client else "")
-        ) or "unknown"
+        ip = client_ip(request)
         allowed, remaining = check_rate_limit(ip)
         if not allowed:
             hours_left = remaining // 3600
@@ -653,6 +644,7 @@ async def validate_kite(
                     "hours_left": hours_left,
                 },
             )
+        request.state.rate_limit_key = ip
 
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(400, "Please upload a CSV file")

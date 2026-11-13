@@ -28,6 +28,7 @@ from services.cache import (
     _get_cached_validation,
     _save_validation_cache,
 )
+from services.client_ip import client_ip
 from services.parsers import _dedup_trades, pair_alpaca_orders, retry_on_failure, smart_parse_csv
 from services.portfolio import (
     _diversification_score,
@@ -930,17 +931,8 @@ def _paddle_webhook_networks() -> list | None:
 
 
 def _webhook_client_ip(request: Request) -> str:
-    """Client IP behind Render's proxy.
-
-    Render's load balancer appends the address it saw to X-Forwarded-For, so the
-    right-most entry is the one a caller cannot forge (left-most entries can be
-    set by anyone). Set PADDLE_TRUSTED_PROXY_HOPS if more trusted proxies sit in front.
-    """
-    xff = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
-    hops = max(int(os.environ.get("PADDLE_TRUSTED_PROXY_HOPS", "1") or 1), 1)
-    if len(xff) >= hops:
-        return xff[-hops]
-    return request.client.host if request.client else ""
+    """Client IP behind Render's proxy. See ``services.client_ip``."""
+    return client_ip(request)
 
 
 def _paddle_ip_allowed(request: Request) -> bool:

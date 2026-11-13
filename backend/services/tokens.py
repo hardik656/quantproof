@@ -107,6 +107,18 @@ def check_rate_limit(ip: str, token: str = "") -> tuple[bool, int]:
     return True, limit - rec["count"]
 
 
+def release_rate_limit(ip: str) -> None:
+    """Give back a try that was reserved for a request the client never got a result for.
+
+    Rejected uploads (wrong type, empty file, parse error, broker rejection) must
+    not use up the free daily allowance. The count is only decreased, never reset,
+    and a key that was not charged is left alone.
+    """
+    rec = _validation_counts.get(ip)
+    if rec and rec.get("count", 0) > 0:
+        rec["count"] -= 1
+
+
 REPORT_ACCESS_TOKENS: set[str] = set()
 
 
