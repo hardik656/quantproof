@@ -1987,7 +1987,9 @@ def generate_pdf_report(vr: dict) -> bytes:
         def _sebi_row(label, method, status_label, status_ok, detail, warning=""):
             method_col = METHOD_COLORS.get(method, C_DARK)
             status_col = colors.HexColor("#00ff88") if status_ok else colors.HexColor("#ff4444")
-            if "WARNING" in status_label or "NOT CHECKED" in status_label or "UNCONFIRMED" in status_label:
+            if any(
+                word in status_label for word in ("WARNING", "NOT CHECKED", "UNCONFIRMED", "NOT EVALUATED")
+            ):
                 status_col = colors.HexColor("#ffaa00")
             method_str = method.replace("_", " ")
             rows = [
@@ -2035,40 +2037,58 @@ def generate_pdf_report(vr: dict) -> bytes:
         )
         story.append(hdr)
 
-        # OPS threshold
+        def _sebi_status(block: dict, fail_label: str, fail_warning: str):
+            """Missing or failed checks are not rendered as a pass."""
+            status = block.get("status")
+            if status is None:
+                status = "pass" if block.get("passed") is True else "fail"
+            note = block.get("note") or ""
+            if status == "not_evaluated":
+                return (
+                    "NOT EVALUATED",
+                    False,
+                    note or "This check was not completed and is not a pass.",
+                    "",
+                )
+            if status == "pass":
+                return "PASS", True, note or "Within the checked limit.", ""
+            if status == "warning":
+                return "WARNING", False, note or fail_warning, fail_warning
+            return fail_label, False, note or fail_warning, fail_warning
+
+        # OPS threshold. Counting closed trades is a lower bound, not an order count.
         ops = sebi_checks.get("ops_threshold", {})
+        ops_label, ops_ok, ops_detail, ops_warn = _sebi_status(
+            ops,
+            "FAIL",
+            "Closed-trade rate is already at the 10 orders/second registration line.",
+        )
         story.append(
             _sebi_row(
                 "OPS Threshold (<10 orders/second)",
                 "FROM_DATA",
-                "PASS" if ops.get("passed", True) else "FAIL",
-                ops.get("passed", True),
-                f"Max order frequency: {ops.get('value', 'N/A')} orders/second. "
-                + (
-                    "Within SEBI limit."
-                    if ops.get("passed", True)
-                    else "Exceeds 10 OPS â€” mandatory registration required."
-                ),
-                ""
-                if ops.get("passed", True)
-                else "Strategies above 10 OPS require mandatory exchange registration.",
+                ops_label,
+                ops_ok,
+                ops_detail,
+                ops_warn,
             )
         )
 
         # Session logout
         sess = sebi_checks.get("session_logout", {})
+        sess_label, sess_ok, sess_detail, sess_warn = _sebi_status(
+            sess,
+            "WARNING",
+            "SEBI requires automated daily logout before the next trading day.",
+        )
         story.append(
             _sebi_row(
                 "Daily Session Logout",
                 "FROM_DATA",
-                "PASS" if sess.get("passed", True) else "WARNING",
-                sess.get("passed", True),
-                "No orders detected outside NSE market hours."
-                if sess.get("passed", True)
-                else f"{sess.get('value', 0)} order(s) detected outside market hours â€” verify API auto-logout.",
-                ""
-                if sess.get("passed", True)
-                else "SEBI requires automated daily logout before the next trading day.",
+                sess_label,
+                sess_ok,
+                sess_detail,
+                sess_warn,
             )
         )
 

@@ -9,6 +9,8 @@
   gtag('js', new Date());
   gtag('config', 'G-P8ZCZSKQSS');
 </script>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -23,11 +25,11 @@
 <meta name="description" content="QuantProof privacy policy. How we collect, use, and protect your trading data and personal information.">
 <meta name="robots" content="index, follow">
 <meta name="author" content="QuantProof">
-<link rel="canonical" href="https://quantproof.net/privacy-policy/">
+<link rel="canonical" href="https://quantproof.net/privacy-policy">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://quantproof.net/privacy-policy/">
+<meta property="og:url" content="https://quantproof.net/privacy-policy">
 <meta property="og:title" content="Privacy Policy - QuantProof Trading Strategy Validator">
 <meta property="og:description" content="QuantProof privacy policy. How we collect, use, and protect your trading data and personal information.">
 <meta property="og:image" content="https://quantproof.net/og-image.png">
@@ -101,137 +103,134 @@
   </header>
 
   <main>
+    <!--
+      DRAFT replacement, 13 November 2026. The site owner must approve this text
+      before it is treated as the published policy. It describes how the service
+      works today. It is not legal advice.
+    -->
     <section class="hero">
       <h1>Privacy Policy</h1>
-      <p>Last updated: March 26, 2026</p>
+      <p>Last updated: 13 November 2026</p>
     </section>
 
     <div class="policy-content">
       <section class="policy-section">
-        <h2 class="policy-title">1. Information We Collect</h2>
+        <h2 class="policy-title">1. Who we are</h2>
         <div class="policy-text">
-          <p><strong>Trading Data:</strong> When you use QuantProof, we collect trading data you voluntarily provide, including:</p>
+          <p>QuantProof is a trading-strategy validation tool at <a href="https://quantproof.net">https://quantproof.net</a>. There are no user accounts. Paid access is a token stored in your browser. Questions about this policy: <a href="mailto:support@quantproof.net">support@quantproof.net</a>.</p>
+        </div>
+      </section>
+
+      <section class="policy-section">
+        <h2 class="policy-title">2. Information we collect</h2>
+        <div class="policy-text">
+          <p><strong>Files and broker data you send.</strong> When you validate a strategy, the file or the broker credentials you enter are uploaded to our API. The checks do not run only in your browser. That includes:</p>
           <ul>
-            <li>CSV files containing trade history, prices, volumes, and timestamps</li>
-            <li>Live broker data via API connections (with your explicit consent)</li>
-            <li>Strategy parameters and validation settings</li>
+            <li>CSV trade history you upload</li>
+            <li>Alpaca API key and secret, used to pull account and order history for that request</li>
+            <li>An Interactive Brokers Flex token, query id, and account id, used to request a Flex statement for that request</li>
+            <li>Zerodha Kite tradebook or orders exports</li>
+            <li>TradingView alert payloads you send to a webhook session you created</li>
           </ul>
-          <p><strong>Technical Data:</strong> We automatically collect certain technical information:</p>
+          <p><strong>What the server keeps.</strong></p>
           <ul>
-            <li>IP address and browser information for security</li>
-            <li>Usage patterns and feature interactions</li>
-            <li>Performance metrics and error logs</li>
+            <li>The uploaded file itself is read in memory to run the checks. It is not written into the validation cache as a file.</li>
+            <li>The validation result (score, checks, equity curve, and similar figures) is cached in server memory, up to 50 recent runs, so a PDF or an AI plan can be generated for that run. That cache is not written to disk and is dropped when the process restarts.</li>
+            <li>TradingView webhook sessions (session id and the alerts received) are stored for 7 days so alerts can accumulate. Depending on how the server is configured, that store is either a JSON file on the server or a database table.</li>
+            <li>Paid access tokens, and Pro-token expiry times, are stored the same way so a purchase keeps working after a restart.</li>
+            <li>The IP address used for the free daily limit is kept in server memory until the limit resets or the process restarts. It is not written to the database by the rate limiter.</li>
           </ul>
+          <p><strong>Email.</strong> If you submit an address on the site (the results-page signup, or the note when the free limit is reached), that address is sent to Formspree. We do not put it in our own database.</p>
+          <p><strong>Payments.</strong> Card details are collected by Paddle (international orders; Paddle is the merchant of record) or Razorpay (rupee orders). QuantProof does not receive your card number. Paddle may share the buyer details needed to deliver the purchase, such as an email address and a transaction id. Razorpay processes the rupee order and its payment id.</p>
+          <p><strong>Analytics.</strong> Google Analytics 4 (measurement id G-P8ZCZSKQSS) runs on these pages and sets first-party cookies such as <code>_ga</code> and <code>_ga_P8ZCZSKQSS</code>. The site is served through Cloudflare, which may set its own cookies to operate the network.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">2. How We Use Your Information</h2>
+        <h2 class="policy-title">3. How the checks are run</h2>
         <div class="policy-text">
-          <p><strong>Important:</strong> QuantProof processes all data client-side in your browser. We do not store your trading data, strategies, or personal information on our servers.</p>
-          <p>What happens to your data:</p>
+          <p>The validation checks run on our API, hosted on Render (<a href="https://quantproof-backend.onrender.com">quantproof-backend.onrender.com</a>). Your browser sends the file or the broker request there and displays the result.</p>
+          <p>A paid AI fix plan sends a summary of that result — check names, scores, and the written findings — to an AI provider. Providers are tried in this order when their keys are configured: Groq, Anthropic, then OpenAI. The raw uploaded file is not the prompt. If no provider is configured, the plan is not sent.</p>
+          <p>Broker credentials are used to fetch that run’s history. They are not saved as part of the validation result or the access-token store. You can revoke a broker key at the broker.</p>
+        </div>
+      </section>
+
+      <section class="policy-section">
+        <h2 class="policy-title">4. Who else receives data</h2>
+        <div class="policy-text">
+          <p>We use these processors for the product as it works today:</p>
           <ul>
-            <li><strong>Client-Side Processing:</strong> All validation happens in your browser</li>
-            <li><strong>No Data Storage:</strong> Trading data is never stored on our servers</li>
-            <li><strong>Read-Only API Keys:</strong> Broker connections use read-only API keys only</li>
-            <li><strong>Temporary Session:</strong> Data exists only during your browser session</li>
-            <li><strong>No Accounts:</strong> We do not currently offer user accounts or signups</li>
+            <li><strong>Render</strong> hosts the API that runs the checks</li>
+            <li><strong>Cloudflare</strong> sits in front of the website</li>
+            <li><strong>Google Analytics</strong> measures page visits</li>
+            <li><strong>Groq, Anthropic, and OpenAI</strong> may receive a validation summary when you request an AI fix plan</li>
+            <li><strong>Formspree</strong> receives an email address you choose to submit</li>
+            <li><strong>Paddle</strong> is the merchant of record for international checkout and handles that payment and its tax</li>
+            <li><strong>Razorpay</strong> processes rupee checkout</li>
+            <li><strong>Alpaca, Interactive Brokers, or Zerodha</strong> receive the request when you ask us to pull or you upload data from that broker</li>
           </ul>
-          <p>When you close your browser tab, all trading data is permanently deleted from your device's memory.</p>
+          <p>We do not sell trading data. We share it with a processor only to run the feature you used, or if the law requires it.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">3. Data Security and Protection</h2>
+        <h2 class="policy-title">5. Your choices</h2>
         <div class="policy-text">
-          <p>Since all processing happens client-side, your data is inherently secure:</p>
+          <p>There is no account to delete. You can:</p>
           <ul>
-            <li><strong>Client-Side Processing:</strong> Trading data never leaves your browser</li>
-            <li><strong>No Server Storage:</strong> We don't store your data on our servers</li>
-            <li><strong>Read-Only API Keys:</strong> Broker connections are read-only only</li>
-            <li><strong>Session-Based:</strong> Data exists only during your browser session</li>
-            <li><strong>Local Processing:</strong> All 37 validation checks run locally</li>
+            <li>Not upload a file, and not connect a broker</li>
+            <li>Revoke a broker API key at the broker</li>
+            <li>Clear this site’s local storage in your browser, which removes saved access tokens and the currency choice</li>
+            <li>Block or delete Google Analytics cookies in your browser. The validator still works if you do</li>
+            <li>Email <a href="mailto:support@quantproof.net">support@quantproof.net</a> to ask what we still hold (for example a paid token or a TradingView session) and to ask us to delete it. We aim to answer within 30 days</li>
           </ul>
-          <p><strong>Important:</strong> We never store your trading strategies, API keys, or personal information. When you close your browser tab, all data is permanently deleted.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">4. Data Sharing and Third Parties</h2>
+        <h2 class="policy-title">6. Cookies and browser storage</h2>
         <div class="policy-text">
-          <p><strong>We do not share your trading data:</strong></p>
-          <p>Since all processing happens client-side, we don't have your trading data to share. We only share:</p>
+          <p>We do use cookies and browser storage.</p>
           <ul>
-            <li><strong>Anonymous Analytics:</strong> Basic usage statistics (no trading data)</li>
-            <li><strong>Legal Compliance:</strong> Only if legally required (extremely rare)</li>
-            <li><strong>Service Providers:</strong> Only for basic website functionality</li>
+            <li><strong>Google Analytics</strong> sets <code>_ga</code> and <code>_ga_P8ZCZSKQSS</code> to distinguish visits</li>
+            <li><strong>local storage</strong> remembers a currency choice on the pricing page, paid access tokens for 7 days, and whether you dismissed the cookie notice</li>
+            <li><strong>session storage</strong> keeps a copy of an access token for the open tab</li>
           </ul>
-          <p><strong>Broker Connections:</strong> When you connect a broker, we use read-only API keys only. We never store your broker credentials or trading history.</p>
+          <p>A short notice on each page says that analytics cookies are in use. Dismissing it stores that choice in local storage. It does not turn analytics off; use your browser if you want to block the cookies.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">5. Your Rights and Choices</h2>
+        <h2 class="policy-title">7. Requests about your data</h2>
         <div class="policy-text">
-          <p>Since we don't store your data, you have complete control:</p>
-          <ul>
-            <li><strong>No Data Stored:</strong> We don't have your trading data to access or delete</li>
-            <li><strong>Local Control:</strong> Your data exists only in your browser</li>
-            <li><strong>Session Control:</strong> Close browser tab to delete all data</li>
-            <li><strong>API Key Control:</strong> You control all broker API connections</li>
-            <li><strong>No Accounts:</strong> No user accounts to manage or delete</li>
-          </ul>
-          <p>Your trading data never leaves your browser, so you maintain complete privacy and control.</p>
+          <p>Email <a href="mailto:support@quantproof.net">support@quantproof.net</a> to ask what personal data we still hold, or to ask us to correct, export, or delete it. We aim to respond within 30 days. Depending on where you live, that kind of request may be a right under the EU GDPR, the California CCPA, Singapore’s PDPA, or India’s DPDP Act.</p>
+          <p>QuantProof is an analytics tool, not a regulated financial service, and it does not provide investment advice.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">6. Cookies and Tracking</h2>
+        <h2 class="policy-title">8. Where data is processed</h2>
         <div class="policy-text">
-          <p><strong>Current Status:</strong> We do not currently use cookies or tracking technologies.</p>
-          <p>Since all trading validation happens client-side, we don't need to track your activity. We may implement basic analytics in the future, but will never track trading data or personal information.</p>
-          <p><strong>Browser Storage:</strong> Your browser may store temporary data for functionality, but this is deleted when you close the tab.</p>
+          <p>The providers named above process data in the countries where they operate. The API host, the AI providers, Paddle, Formspree, and Google are not limited to India. Razorpay is used for rupee payments. A file you upload can therefore be processed outside your country.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">10. Privacy Laws &amp; Your Rights</h2>
-        <div class="policy-text">
-          <p>We follow GDPR-style data practices and respect user rights under applicable privacy laws, including the EU GDPR, California CCPA, Singapore PDPA and India's Digital Personal Data Protection (DPDP) Act 2023. In practice this means we collect only the data needed to run the Service, use it only for that purpose, and do not sell it.</p>
-          <p>Wherever you are, you can ask us to access, correct, export or delete your personal data by emailing <a href="mailto:support@quantproof.net">support@quantproof.net</a>. We aim to respond within 30 days.</p>
-          <p>QuantProof is an analytics tool, not a regulated financial service, and does not provide investment advice.</p>
-        </div>
-      </section>
-
-      <section class="policy-section">
-        <h2 class="policy-title">11. Cross-Border Data Transfers</h2>
-        <div class="policy-text">
-          <p>Your data may be processed and stored in India and other countries where our service providers operate. We ensure appropriate safeguards are in place for international data transfers.</p>
-        </div>
-      </section>
-
-      <section class="policy-section">
-        <h2 class="policy-title">12. Children's Privacy</h2>
+        <h2 class="policy-title">9. Children's privacy</h2>
         <div class="policy-text">
           <p>QuantProof is not intended for children under 18. We do not knowingly collect personal information from children. If we become aware of such collection, we will delete it immediately.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">13. Changes to This Policy</h2>
+        <h2 class="policy-title">10. Changes to this policy</h2>
         <div class="policy-text">
-          <p>We may update this privacy policy from time to time. We will notify you of significant changes by:</p>
-          <ul>
-            <li>Emailing the address associated with your account</li>
-            <li>Posting a notice on our website</li>
-            <li>Displaying a prominent notice in our service</li>
-          </ul>
-          <p>Your continued use of our service after changes constitutes acceptance of the updated policy.</p>
+          <p>We may update this policy by posting a new version on this page and changing the date above. There is no account email list to notify.</p>
         </div>
       </section>
 
       <section class="policy-section">
-        <h2 class="policy-title">14. Contact Information</h2>
+        <h2 class="policy-title">11. Contact</h2>
         <div class="policy-text">
           <p>If you have questions about this privacy policy or your data rights, please contact us:</p>
           <ul>
@@ -244,7 +243,7 @@
     </div>
 
     <div class="contact-info">
-      <h3 class="contact-title">Data Protection Officer</h3>
+      <h3 class="contact-title">Privacy contact</h3>
       <div class="contact-item">
         <strong>Email:</strong> support@quantproof.net
       </div>
@@ -264,5 +263,6 @@
   </footer>
 </div>
 
+<script src="/cookie-notice.js" defer></script>
 </body>
 </html>

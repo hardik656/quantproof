@@ -53,12 +53,14 @@ def test_token_status_unknown(client):
     assert r.status_code == 200
 
 
-def test_debug_token_requires_param(client):
-    assert "error" in client.get("/debug/token").json()
+def test_debug_token_requires_param(client, monkeypatch):
+    monkeypatch.delenv("DEBUG_ADMIN_TOKEN", raising=False)
+    assert client.get("/debug/token").status_code == 404
 
 
-def test_debug_reset_requires_pro(client):
-    assert client.get("/debug/reset-limit?t=bad").status_code == 403
+def test_debug_reset_requires_pro(client, monkeypatch):
+    monkeypatch.delenv("DEBUG_ADMIN_TOKEN", raising=False)
+    assert client.get("/debug/reset-limit?t=bad").status_code == 404
 
 
 def test_token_tiers(monkeypatch):

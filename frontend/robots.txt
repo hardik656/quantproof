@@ -18,12 +18,5 @@ Disallow: /temp/
 Disallow: /*.json$
 Disallow: /_*
 
-# Block common non-content files
-Disallow: /favicon.ico
-Disallow: /*.txt$
-
 # Sitemap location
 Sitemap: https://quantproof.net/sitemap.xml
-
-# Crawl delay for respectful crawling
-Crawl-delay: 1

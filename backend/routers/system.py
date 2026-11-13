@@ -5,6 +5,7 @@ Extracted verbatim from main.py (behaviour unchanged).
 
 from __future__ import annotations
 
+import hmac
 import os
 
 from fastapi import APIRouter, HTTPException
@@ -46,17 +47,27 @@ def health():
     return {"status": "ok", "version": API_VERSION}
 
 
+def _debug_authorized(provided: str) -> bool:
+    """True only when DEBUG_ADMIN_TOKEN is set and ``provided`` matches it.
+
+    The old hardcoded tokens (dev-reset, test-123, quantproof-test-112211) are
+    not accepted. An unset secret disables the route entirely.
+    """
+    secret = os.getenv("DEBUG_ADMIN_TOKEN", "").strip()
+    token = (provided or "").strip()
+    if not secret or not token:
+        return False
+    secret_b, token_b = secret.encode(), token.encode()
+    if len(secret_b) != len(token_b):
+        return False
+    return hmac.compare_digest(secret_b, token_b)
+
+
 @router.get("/debug/reset-limit")
 def debug_reset_limit(t: str = ""):
-    """Dev endpoint — reset rate limit for your IP. Requires valid pro/dev token."""
-    # For testing purposes, allow simple test tokens
-    if t in ("quantproof-test-112211", "test-123", "dev-reset"):
-        cleared = len(_validation_counts)
-        _validation_counts.clear()
-        return {"status": "ok", "cleared_ips": cleared, "message": "All rate limits reset"}
-
-    if not _is_pro_token(t):
-        raise HTTPException(403, "Valid pro token required as ?t= param")
+    """Reset every in-memory rate-limit counter. Disabled unless DEBUG_ADMIN_TOKEN is set."""
+    if not _debug_authorized(t):
+        raise HTTPException(404, "Not found")
     cleared = len(_validation_counts)
     _validation_counts.clear()
     return {"status": "ok", "cleared_ips": cleared, "message": "All rate limits reset"}
@@ -64,18 +75,15 @@ def debug_reset_limit(t: str = ""):
 
 @router.get("/debug/token")
 def debug_token(t: str = ""):
-    """Dev endpoint — check if a token is valid and what tier it grants."""
-    if not t:
-        return {"error": "Pass ?t=YOUR_TOKEN"}
+    """Check the tier of the admin token. Does not report which secrets are configured."""
+    if not _debug_authorized(t):
+        raise HTTPException(404, "Not found")
     tier = _token_tier(t)
-    is_pro = _is_pro_token(t)
-    env_keys = {k: bool(os.getenv(k, "").strip()) for k in ("TEST_REPORT_TOKEN", "DEV_TOKEN", "ADMIN_TOKEN")}
     return {
         "token_preview": t[:8] + "..." if len(t) > 8 else t,
         "tier": tier,
-        "is_pro": is_pro,
+        "is_pro": _is_pro_token(t),
         "in_token_store": t in REPORT_ACCESS_TOKENS,
-        "env_vars_set": env_keys,
     }
 
 

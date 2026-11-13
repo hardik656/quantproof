@@ -15,6 +15,10 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false          # set manually in Render dashboard
+      # Leave ENABLE_API_DOCS unset so /docs is off.
+      # Leave DEBUG_ADMIN_TOKEN unset so /debug/* stays disabled.
+      # TRUSTED_PROXY_HOPS=1 matches Render appending one address. Raise it only
+      # if another proxy the client cannot bypass sits in front of this service.
 
   - type: static
     name: quantproof-frontend
@@ -24,3 +28,67 @@ services:
       - path: /*
         name: Cache-Control
         value: no-cache
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: geolocation=(), microphone=(), camera=()
+      # Inline scripts and onclick handlers are how these pages are built, so
+      # script-src allows unsafe-inline. unsafe-eval is there for Paddle and
+      # Razorpay checkout. frame-ancestors none stops the site being iframed.
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://formspree.io; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.paddle.com https://*.paddle.com https://public.profitwell.com https://checkout.razorpay.com https://cdn.razorpay.com https://*.razorpay.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://quantproof-backend.onrender.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.paddle.com https://cdn.paddle.com https://public.profitwell.com https://formspree.io https://*.razorpay.com; frame-src https://*.paddle.com https://*.razorpay.com; worker-src 'self' blob:; upgrade-insecure-requests"
+    routes:
+      - type: redirect
+        source: /pricing.html
+        destination: /pricing
+      - type: redirect
+        source: /pricing/
+        destination: /pricing
+      - type: redirect
+        source: /methodology.html
+        destination: /methodology
+      - type: redirect
+        source: /methodology/
+        destination: /methodology
+      - type: redirect
+        source: /faq.html
+        destination: /faq
+      - type: redirect
+        source: /faq/
+        destination: /faq
+      - type: redirect
+        source: /privacy-policy.html
+        destination: /privacy-policy
+      - type: redirect
+        source: /privacy-policy/
+        destination: /privacy-policy
+      - type: redirect
+        source: /terms-of-service.html
+        destination: /terms-of-service
+      - type: redirect
+        source: /terms-of-service/
+        destination: /terms-of-service
+      - type: redirect
+        source: /refund-policy.html
+        destination: /refund-policy
+      - type: redirect
+        source: /refund-policy/
+        destination: /refund-policy
+      - type: redirect
+        source: /ftmo-preparation-guide.html
+        destination: /ftmo-preparation-guide
+      - type: redirect
+        source: /ftmo-preparation-guide/
+        destination: /ftmo-preparation-guide

@@ -8,11 +8,23 @@
     gtag('js', new Date());
     gtag('config', 'G-P8ZCZSKQSS');
   </script>
-  <meta charset="UTF-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing Plans - QuantProof Trading Strategy Validator</title>
   <link rel="canonical" href="https://quantproof.net/pricing">
-  <meta name="description" content="QuantProof pricing plans: Lite (₹99), Portfolio (₹199), Report (₹299), Pro (₹999). Institutional-grade strategy validation for all levels.">
+  <meta name="description" content="QuantProof pricing plans: Lite (₹99), Portfolio (₹199), Report (₹299), Pro (₹999). International checkout is in USD before tax.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://quantproof.net/pricing">
+  <meta property="og:title" content="Pricing Plans - QuantProof Trading Strategy Validator">
+  <meta property="og:description" content="Lite, Portfolio, Report, and Pro. Rupee prices via Razorpay. International prices via Paddle, before tax.">
+  <meta property="og:image" content="https://quantproof.net/og-image.png">
+  <meta property="og:site_name" content="QuantProof">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pricing Plans - QuantProof">
+  <meta name="twitter:description" content="Institutional-grade strategy validation. Taxes are added at checkout on international orders.">
+  <meta name="twitter:image" content="https://quantproof.net/og-image.png">
   <style>
     :root {
       --black: #0d1117;
@@ -206,8 +218,25 @@
       text-align: center;
     }
 
+    .table-scroll {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-hint {
+      display: none;
+      margin-bottom: 8px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
     .comparison-table {
       width: 100%;
+      min-width: 640px;
       border-collapse: collapse;
     }
 
@@ -264,7 +293,8 @@
       .container { padding: 0 16px; }
       h1 { font-size: 32px; }
       .pricing-grid { grid-template-columns: 1fr; }
-      .comparison-section { padding: 24px 16px; }
+      .comparison-section { padding: 20px 12px; }
+      .table-hint { display: block; }
       .comparison-table { font-size: 12px; }
       .comparison-table th,
       .comparison-table td { padding: 12px 8px; }
@@ -287,6 +317,14 @@
         <div style="margin-top: 8px; font-size: 11px; color: var(--muted); font-family: var(--mono);">
           <span id="conversionNote">Prices shown in Indian Rupees (INR)</span>
         </div>
+        <p style="max-width: 720px; margin: 14px auto 0; font-size: 12px; color: var(--muted); line-height: 1.6;">
+          Rupee prices are the Razorpay charge. International checkout is Paddle, in USD, before tax.
+          Tax (GST, VAT, or sales tax) is added at checkout and depends on the billing country.
+          Lite’s Paddle price is $1.27 before tax; an India billing address pays $1.50 after 18% GST.
+          Portfolio ($2.50), Report ($3.99) and Pro ($9.99) are the amounts on the validator’s international buttons.
+          The previous $1.20 / $2.40 / $3.60 / $12.00 figures were approximate rupee conversions, not Paddle prices.
+          Euro amounts on this page are a rough guide only.
+        </p>
       </div>
     </header>
 
@@ -295,7 +333,7 @@
         <!-- Lite Plan -->
         <div class="pricing-card">
           <div class="plan-name">Lite Plan</div>
-          <div class="plan-price" data-inr="₹99" data-usd="$1.20" data-eur="€1.10">₹99</div>
+          <div class="plan-price" data-inr="₹99" data-usd="$1.27" data-eur="€1.10">₹99</div>
           <div class="plan-description">Perfect for getting started with basic validation and AI-powered fixes</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Basic 37-check validation</li>
@@ -305,14 +343,14 @@
             <li><span class="check-icon">✓</span> Basic risk metrics</li>
             <li><span class="check-icon">✓</span> Email support</li>
           </ul>
-          <button class="cta-button" onclick="window.location.href='/?plan=lite'">Choose Lite</button>
+          <button class="cta-button" type="button" onclick="choosePlan('lite')">Choose Lite</button>
         </div>
 
         <!-- Portfolio Plan -->
         <div class="pricing-card featured">
           <div class="plan-badge">Most Popular</div>
           <div class="plan-name">Portfolio Plan</div>
-          <div class="plan-price" data-inr="₹199" data-usd="$2.40" data-eur="€2.20">₹199</div>
+          <div class="plan-price" data-inr="₹199" data-usd="$2.50" data-eur="€2.20">₹199</div>
           <div class="plan-description">Analyze multiple strategies together with diversification metrics</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in Lite</li>
@@ -322,13 +360,13 @@
             <li><span class="check-icon">✓</span> Combined risk metrics</li>
             <li><span class="check-icon">✓</span> Risk parity optimization</li>
           </ul>
-          <button class="cta-button" onclick="window.location.href='/?plan=portfolio'">Choose Portfolio</button>
+          <button class="cta-button" type="button" onclick="choosePlan('portfolio')">Choose Portfolio</button>
         </div>
 
         <!-- Report Plan -->
         <div class="pricing-card">
           <div class="plan-name">Report Plan</div>
-          <div class="plan-price" data-inr="₹299" data-usd="$3.60" data-eur="€3.30">₹299</div>
+          <div class="plan-price" data-inr="₹299" data-usd="$3.99" data-eur="€3.30">₹299</div>
           <div class="plan-description">Comprehensive PDF reports for prop firm applications and documentation</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in Lite</li>
@@ -338,14 +376,14 @@
             <li><span class="check-icon">✓</span> Institutional-grade presentation</li>
             <li><span class="check-icon">✓</span> Downloadable reports</li>
           </ul>
-          <button class="cta-button" onclick="window.location.href='/?plan=report'">Choose Report</button>
+          <button class="cta-button" type="button" onclick="choosePlan('report')">Choose Report</button>
         </div>
 
         <!-- Pro Plan -->
         <div class="pricing-card featured">
           <div class="plan-badge">Professional</div>
           <div class="plan-name">Pro Plan</div>
-          <div class="plan-price" data-inr="₹999" data-usd="$12.00" data-eur="€11.00">₹999</div>
+          <div class="plan-price" data-inr="₹999" data-usd="$9.99" data-eur="€11.00">₹999</div>
           <div class="plan-description">Complete solution with live broker validation and priority support</div>
           <ul class="features-list">
             <li><span class="check-icon">✓</span> Everything in all plans</li>
@@ -355,23 +393,26 @@
             <li><span class="check-icon">✓</span> Priority support (24h)</li>
             <li><span class="check-icon">✓</span> 30-day access</li>
           </ul>
-          <button class="cta-button" onclick="window.location.href='/?plan=pro'">Choose Pro</button>
+          <button class="cta-button" type="button" onclick="choosePlan('pro')">Choose Pro</button>
         </div>
       </div>
 
-      <p style="text-align: center; font-size: 13px; color: var(--muted); margin: 24px 0 0;">By purchasing, you agree to our <a href="/terms-of-service.html" style="color: var(--accent);">Terms of Service</a> and <a href="/refund-policy.html" style="color: var(--accent);">Refund Policy</a>. All purchases include a 30-day money-back guarantee. See also our <a href="/privacy-policy.html" style="color: var(--accent);">Privacy Policy</a>.</p>
+      <p id="checkoutStatus" style="text-align: center; font-size: 13px; color: var(--muted); margin: 16px 0 0; min-height: 1.2em;"></p>
+      <p style="text-align: center; font-size: 13px; color: var(--muted); margin: 12px 0 0;">By purchasing, you agree to our <a href="/terms-of-service.html" style="color: var(--accent);">Terms of Service</a> and <a href="/refund-policy.html" style="color: var(--accent);">Refund Policy</a>. All purchases include a 30-day money-back guarantee. See also our <a href="/privacy-policy.html" style="color: var(--accent);">Privacy Policy</a>.</p>
 
       <!-- Comparison Table -->
       <section class="comparison-section">
         <h2 class="comparison-title">Feature Comparison</h2>
+        <p class="table-hint">Swipe sideways to compare plans</p>
+        <div class="table-scroll">
         <table class="comparison-table">
           <thead>
             <tr>
               <th>Feature</th>
-              <th class="currency-header" data-inr="Lite ₹99" data-usd="Lite $1.20" data-eur="Lite €1.10">Lite ₹99</th>
-              <th class="currency-header" data-inr="Portfolio ₹199" data-usd="Portfolio $2.40" data-eur="Portfolio €2.20">Portfolio ₹199</th>
-              <th class="currency-header" data-inr="Report ₹299" data-usd="Report $3.60" data-eur="Report €3.30">Report ₹299</th>
-              <th class="currency-header" data-inr="Pro ₹999" data-usd="Pro $12.00" data-eur="Pro €11.00">Pro ₹999</th>
+              <th class="currency-header" data-inr="Lite ₹99" data-usd="Lite $1.27" data-eur="Lite €1.10">Lite ₹99</th>
+              <th class="currency-header" data-inr="Portfolio ₹199" data-usd="Portfolio $2.50" data-eur="Portfolio €2.20">Portfolio ₹199</th>
+              <th class="currency-header" data-inr="Report ₹299" data-usd="Report $3.99" data-eur="Report €3.30">Report ₹299</th>
+              <th class="currency-header" data-inr="Pro ₹999" data-usd="Pro $9.99" data-eur="Pro €11.00">Pro ₹999</th>
             </tr>
           </thead>
           <tbody>
@@ -433,6 +474,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </section>
     </main>
 
@@ -449,7 +491,51 @@
     </footer>
   </div>
 
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
+  var PADDLE_PLAN = {
+    lite: '/report/create-checkout-paddle-lite',
+    portfolio: '/report/create-checkout-paddle-portfolio',
+    report: '/report/create-checkout-paddle-report',
+    pro: '/report/create-checkout-paddle-pro'
+  };
+
+  window.addEventListener('load', function () {
+    if (typeof Paddle === 'undefined') return;
+    try {
+      Paddle.Initialize({ token: 'live_f1e8b2ee02aafeef303d87d53fb' });
+    } catch (e) {
+      console.error('Paddle init failed', e);
+    }
+  });
+
+  async function choosePlan(plan) {
+    var status = document.getElementById('checkoutStatus');
+    var path = PADDLE_PLAN[plan];
+    if (!path) return;
+    if (status) status.textContent = 'Opening checkout…';
+    try {
+      var res = await fetch('https://quantproof-backend.onrender.com' + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      var data = await res.json();
+      if (data && data.transaction_id && typeof Paddle !== 'undefined' && Paddle.Checkout) {
+        Paddle.Checkout.open({ transactionId: data.transaction_id });
+        if (status) status.textContent = 'Checkout opened. Tax is added by Paddle for your billing country.';
+        return;
+      }
+      if (data && data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      if (status) status.textContent = 'International checkout is unavailable right now. Email support@quantproof.net.';
+    } catch (e) {
+      if (status) status.textContent = 'Could not open checkout. Please try again.';
+    }
+  }
+
   // Currency Management
   let currentCurrency = 'INR';
   
@@ -488,9 +574,9 @@
     
     // Update note
     const notes = {
-      'INR': 'Prices shown in Indian Rupees (INR)',
-      'USD': 'Prices shown in US Dollars (USD)', 
-      'EUR': 'Prices shown in Euros (EUR)'
+      'INR': 'Rupee prices are the Razorpay charge.',
+      'USD': 'USD prices are before tax. Paddle adds tax at checkout.',
+      'EUR': 'Euro figures are a rough guide. Paddle converts the price and adds VAT at checkout.'
     };
     document.getElementById('conversionNote').textContent = notes[currency];
   }
@@ -515,6 +601,7 @@
   });
 </script>
 
+<script src="/cookie-notice.js" defer></script>
 </body>
 </html>
 
