@@ -756,7 +756,7 @@
             </svg>
           </div>
           <div class="drop-main">Drop your CSV here</div>
-          <div class="drop-sub">or click to browse &nbsp;·&nbsp; Kite · Alpaca · MT5 · TradingView · Generic</div>
+          <div class="drop-sub">or click to browse &nbsp;·&nbsp; Kite · Alpaca · MT5 · TradingView · IBKR Flex · Generic</div>
           <div class="drop-cta">✓ FREE · NO ACCOUNT · RESULTS IN 30s</div>
         </div>
       </div>
@@ -1062,7 +1062,7 @@
         <div class="mode-tag">// UPLOAD CSV — START HERE</div>
         <div class="mode-icon">📊</div>
         <div class="mode-title">Any CSV</div>
-        <div class="mode-desc">Backtest or live trade history. Auto-detects Kite, Alpaca, MT5, Options. Upload once — find every failure before you pay for a challenge.</div>
+        <div class="mode-desc">Backtest or live trade history. Auto-detects Kite, Alpaca, MT5, Options, and IBKR Flex XML/CSV. Upload once — find every failure before you pay for a challenge.</div>
         <div class="mode-limits">
           <span class="mode-limit-item">3 free / day</span>
           <span class="mode-limit-item">37 checks</span>
@@ -1078,8 +1078,8 @@
             <option value="KRW">🇰🇷 KRW</option><option value="TRY">🇹🇷 TRY</option><option value="MXN">🇲🇽 MXN</option>
           </select>
         </div>
-        <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('fileInput').click()">SELECT CSV FILE</button>
-        <input type="file" id="fileInput" accept=".csv">
+        <button class="upload-btn" style="width:100%;margin-top:8px;" onclick="document.getElementById('fileInput').click()">SELECT CSV OR IBKR XML</button>
+        <input type="file" id="fileInput" accept=".csv,.xml">
         <div style="margin:12px 0;">
           <label style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--text);cursor:pointer;">
             <input type="checkbox" id="csvEnhancedValidation" style="cursor:pointer;">
@@ -1090,7 +1090,8 @@
           ⚠ Options detected — single-leg supported, multi-leg not modelled
         </div>
         <div style="margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.7;opacity:0.7;">
-          pnl column: decimal (0.015 = 1.5%) · date + ticker optional
+          pnl column: decimal (0.015 = 1.5%) · date + ticker optional<br>
+          IBKR: Activity Flex or Trade Confirmation XML/CSV. Activity Statements and TWS logs are rejected.
         </div>
       </div>
 
@@ -1981,7 +1982,8 @@
   }
 
   async function handleFile(file) {
-    if(!file.name.endsWith('.csv')) { alert('Please upload a CSV file'); return; }
+    const _uploadName = (file.name || '').toLowerCase();
+    if(!_uploadName.endsWith('.csv') && !_uploadName.endsWith('.xml')) { alert('Please upload a CSV file or an IBKR Flex XML file'); return; }
     _lastValidatedFile = file; _validationMode = 'csv'; _brokerSource = '';
     _isSampleRun = false;
     
@@ -3342,10 +3344,12 @@
       <div style="font-family:var(--mono);font-size:11px;color:var(--text);line-height:2.0;margin-bottom:18px;">
         1. Log into <a href="https://clientportal.ibkr.com" target="_blank" style="color:var(--accent)">IBKR Client Portal</a><br>
         2. Go to: Performance &amp; Reports → Flex Queries → Create<br>
-        3. Choose "Trade Confirmation Flex Query"<br>
-        4. Select fields: <span style="color:var(--accent3)">TradeDate, Symbol, Quantity, Price, NetCash, OpenCloseIndicator, FifoPnlRealized, Currency</span><br>
-        5. Save → note the <b>Query ID</b><br>
-        6. Settings → Flex Web Service → Generate Token → copy your <b>Flex Token</b>
+        3. Create an <b>Activity Flex Query</b> (recommended). A <b>Trade Confirmation Flex Query</b> also works.<br>
+        4. Activity Flex: add the Trades section and set <b>Level of Detail = Executions only</b> (do not also add Symbol Summary — extra levels double-count). Include <span style="color:var(--accent3)">TradeDate, TradeTime, Symbol, Quantity, TradePrice, Buy/Sell, Open/CloseIndicator, FifoPnlRealized, CostBasis, Multiplier, Currency, FXRateToBase, NetCash, LevelOfDetail</span><br>
+        5. Trade Confirmation: include <span style="color:var(--accent3)">TradeDate, DateTime, Symbol, Quantity, Price, Buy/Sell, Code, Proceeds, Commission, Multiplier, Currency, FXRateToBase</span>. Mark opens <b>O</b> and closes <b>C</b>. Position flips <b>C;O</b> and <b>O;C</b> are supported.<br>
+        6. Save → note the <b>Query ID</b><br>
+        7. Settings → Flex Web Service → Generate Token → copy your <b>Flex Token</b><br>
+        8. QuantProof requests the last 365 days. You can also download that query as <b>XML or CSV</b> and upload it on the CSV card. Activity Statement CSVs and TWS trade logs are not imported.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         <div>

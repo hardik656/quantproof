@@ -62,8 +62,12 @@ async def validate(
         # Released by middleware when the response is an error, so a bad file does not use a try.
         request.state.rate_limit_key = ip
 
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Please upload a CSV file")
+    filename = file.filename or ""
+    if not (filename.endswith(".csv") or filename.lower().endswith(".xml")):
+        raise HTTPException(
+            status_code=400,
+            detail="Please upload a CSV file or an IBKR Flex XML file",
+        )
 
     contents = await file.read()
     if len(contents) > 5_000_000:

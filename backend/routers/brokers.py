@@ -19,7 +19,7 @@ from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation, _save_validation_cache
 from services.client_ip import client_ip
-from services.ibkr import parse_ibkr_trade_improved
+from services.ibkr import IBKRServiceError, download_flex_statement, parse_flex_statement, period_days
 from services.parsers import (
     _dedup_trades,
     _is_kite_csv,
@@ -385,80 +385,30 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             raise HTTPException(429, f"Daily limit of {FREE_DAILY_LIMIT} validations reached.")
         request.state.rate_limit_key = ip
 
-    import xml.etree.ElementTree as ET
-
-    import httpx
-
-    request_url = (
-        f"https://gdcdyn.interactivebrokers.com/Universal/servlet/FlexStatementService.SendRequest"
-        f"?t={payload.flex_token}&q={payload.query_id}&v=3"
-    )
+    period = period_days(payload.days_back)
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(request_url)
-        resp.raise_for_status()
-        root = ET.fromstring(resp.text)
-        status = root.findtext("Status")
-        if status != "Success":
-            raise HTTPException(
-                400, f"IBKR Flex request failed: {root.findtext('ErrorMessage') or 'Unknown error'}"
+        report_root = await download_flex_statement(payload.flex_token, payload.query_id, period)
+    except IBKRServiceError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+
+    trades, parse_notes, acct_currency = parse_flex_statement(report_root, payload.account_id)
+    audit_flags_ibkr = list(parse_notes)
+    try:
+        if int(payload.days_back) > 365:
+            audit_flags_ibkr.append(
+                "IBKR Flex lookback is capped at 365 days; the requested days_back was reduced to 365."
             )
-        reference_code = root.findtext("ReferenceCode")
-        base_url = root.findtext("Url")
-    except ET.ParseError:
-        raise HTTPException(400, "Could not parse IBKR response.")
-    except httpx.HTTPError as e:
-        raise HTTPException(503, f"Could not reach IBKR servers: {str(e)}")
-
-    import asyncio
-
-    await asyncio.sleep(5)
-
-    retrieve_url = f"{base_url}?t={payload.flex_token}&q={reference_code}&v=3"
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp2 = await client.get(retrieve_url)
-        resp2.raise_for_status()
-        report_root = ET.fromstring(resp2.text)
-    except Exception as e:
-        raise HTTPException(503, f"Could not retrieve IBKR report: {str(e)}")
-
-    trades = []
-    audit_flags_ibkr = []
-    open_skipped = 0
-    acct_currency = "USD"
-
-    for stmt in report_root.iter("FlexStatement"):
-        acct = stmt.get("accountId", "")
-        stmt_currency = stmt.get("currency", "") or stmt.get("Currency", "")
-        if stmt_currency:
-            acct_currency = stmt_currency.upper()
-        if payload.account_id and acct != payload.account_id:
-            continue
-        for trade in stmt.iter("Trade"):
-            try:
-                # Use improved parser
-                trade_data, skip_reason = parse_ibkr_trade_improved(trade)
-                if trade_data is None:
-                    if skip_reason == "opening_position":
-                        open_skipped += 1
-                    continue
-                trades.append(trade_data)
-            except (ValueError, ZeroDivisionError):
-                continue
-
-    if open_skipped > 0:
-        audit_flags_ibkr.append(
-            f"— {open_skipped} opening trade leg(s) skipped — only closed trades contribute to P&L"
-        )
+    except (TypeError, ValueError):
+        pass
 
     if len(trades) < 10:
         raise HTTPException(
             400,
             f"Only {len(trades)} closed trade(s) found in IBKR export. Need at least 10. "
-            "Make sure your Flex Query includes: openCloseIndicator, fifoPnlRealized, "
-            "netCash, quantity, tradePrice, symbol, tradeDate. "
-            "Also check your date range covers enough completed trades.",
+            "Use an Activity Flex Query (Trades section, Level of Detail = Executions, with "
+            "openCloseIndicator and fifoPnlRealized) or a Trade Confirmation Flex Query "
+            "(Code O on opens and C on closes; C;O and O;C flips are supported). "
+            f"Opening fills are skipped. This request covered the last {period} days.",
         )
 
     df = pd.DataFrame(trades)
@@ -592,9 +542,11 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         currency=acct_currency,
         assumptions=report.assumptions
         + [
-            "Trade data sourced from IBKR Flex Web Service",
-            "Only closing trades included — opening legs excluded (no realised P&L)",
-            "P&L uses fifoPnlRealized when available, netCash/cost-basis as fallback",
+            "Trade data sourced from IBKR Flex Web Service (Activity Trade rows or TradeConfirm rows)",
+            "Only closing trades are included. Position flips (C;O and O;C) keep the closed portion",
+            "P&L is fifoPnlRealized divided by opening cost (price × quantity × multiplier), converted with fxRateToBase",
+            "Trade Confirmation fills without fifoPnlRealized are matched FIFO. Break-even closes are kept",
+            "When several Levels of Detail are present, only the finest (Executions, else Orders) is used",
         ],
         dashboard=None,
         ai_plan=None,

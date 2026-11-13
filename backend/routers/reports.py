@@ -119,8 +119,9 @@ async def generate_report_endpoint(
             },
         )
 
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(400, "Please upload a CSV file")
+    filename = file.filename or ""
+    if not (filename.endswith(".csv") or filename.lower().endswith(".xml")):
+        raise HTTPException(400, "Please upload a CSV file or an IBKR Flex XML file")
 
     contents = await file.read()
     if len(contents) > 5_000_000:

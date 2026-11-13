@@ -16,6 +16,7 @@ import pandas as pd
 from fastapi import HTTPException
 
 from services.benchmarks import assign_regimes, get_benchmark_type
+from services.ibkr import classify_ibkr_bytes, parse_ibkr_upload
 
 # =========================================================
 # KITE TRADEBOOK PARSER
@@ -1206,6 +1207,20 @@ def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
         or contents.startswith(b"PK\x07\x08")
     ):
         return smart_parse_excel(contents)
+
+    # IBKR Flex XML/CSV is parsed here. Activity Statements and TWS logs are
+    # rejected with a clear error so dollar P&L is never clipped into a return.
+    if classify_ibkr_bytes(contents) != "not_ibkr":
+        try:
+            _df, _note = parse_ibkr_upload(contents)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if "date" in _df.columns and _df["date"].notna().any():
+            _bm_type_for_regime = get_benchmark_type(_df, None)
+            _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
+            if _regime_note:
+                _note = f"{_note} | {_regime_note}"
+        return _df, _note
 
     raw = contents.decode("utf-8", errors="ignore")
     regime_note = ""
