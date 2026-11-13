@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import io
 import re as _re
-from collections import defaultdict
 from functools import wraps
 
 import numpy as np
@@ -16,7 +15,105 @@ import pandas as pd
 from fastapi import HTTPException
 
 from services.benchmarks import assign_regimes, get_benchmark_type
+from services.csv_util import (
+    Fill,
+    apply_aliases,
+    decode_upload,
+    describe_open,
+    excel_to_csv_text,
+    match_fills,
+    normalize_header,
+    parse_datetimes,
+    parse_number,
+    parse_numbers,
+    pnl_column_rank,
+    read_delimited,
+    trades_frame,
+)
 from services.ibkr import classify_ibkr_bytes, parse_ibkr_upload
+from services.limits import MAX_TRADES_PER_RUN, TradeImportError
+
+_KITE_FO_SEGMENTS = {"FO", "F&O", "FUTURES", "OPTIONS", "CDS", "MF", "NFO", "BCD", "MCX", "NCO"}
+_KITE_FO_EXCHANGES = {"NFO", "BFO", "MCX", "CDS", "BCD", "NCO", "NCDEX"}
+_FEE_COLUMNS = (
+    "brokerage",
+    "charges",
+    "total_charges",
+    "stt",
+    "gst",
+    "stamp_duty",
+    "sebi_charges",
+    "transaction_charges",
+    "exchange_charges",
+    "fee",
+)
+
+
+def _columns(df: pd.DataFrame) -> set[str]:
+    return {normalize_header(column) for column in df.columns}
+
+
+def _prepared(raw: str):
+    table = read_delimited(raw)
+    _unused, frame = _prepared_frame(table.frame)
+    return table, frame
+
+
+def _kite_timestamps(df: pd.DataFrame, *, dayfirst: bool) -> tuple[pd.Series, str]:
+    """Prefer the fill clock. Fall back to the trade date when the clock is blank."""
+    notes = []
+    times = pd.Series(pd.NaT, index=df.index)
+    dates = pd.Series(pd.NaT, index=df.index)
+    if "order_execution_time" in df.columns:
+        times, note = parse_datetimes(df["order_execution_time"], dayfirst=dayfirst)
+        if note:
+            notes.append(note)
+    if "trade_date" in df.columns:
+        dates, note = parse_datetimes(df["trade_date"], dayfirst=dayfirst)
+        if note:
+            notes.append(note)
+    if "order_execution_time" in df.columns:
+        when = times.fillna(dates) if "trade_date" in df.columns else times
+    else:
+        when = dates
+    return when, " ".join(notes)
+
+
+def _row_fee(row: pd.Series, decimal_comma: bool) -> float:
+    total = 0.0
+    found = False
+    for column in _FEE_COLUMNS:
+        if column not in row.index:
+            continue
+        number, _percent = parse_numbers(pd.Series([row[column]]), decimal_comma=decimal_comma)
+        if pd.notna(number.iloc[0]):
+            total += abs(float(number.iloc[0]))
+            found = True
+    return total if found else 0.0
+
+
+def _is_fo_row(row: pd.Series, symbol: str) -> bool:
+    segment = (
+        str(row["segment"]).upper().strip() if "segment" in row.index and pd.notna(row.get("segment")) else ""
+    )
+    exchange = (
+        str(row["exchange"]).upper().strip()
+        if "exchange" in row.index and pd.notna(row.get("exchange"))
+        else ""
+    )
+    series = (
+        str(row["series"]).upper().strip() if "series" in row.index and pd.notna(row.get("series")) else ""
+    )
+    if segment in _KITE_FO_SEGMENTS or exchange in _KITE_FO_EXCHANGES or series in {"FO", "CD"}:
+        return True
+    return symbol.upper().endswith(("CE", "PE", "FUT"))
+
+
+def _stamp(value) -> pd.Timestamp:
+    if value is None or pd.isna(value):
+        return pd.NaT
+    return pd.Timestamp(value)
+
 
 # =========================================================
 # KITE TRADEBOOK PARSER
@@ -24,169 +121,176 @@ from services.ibkr import classify_ibkr_bytes, parse_ibkr_upload
 
 
 def _is_kite_csv(df: pd.DataFrame) -> bool:
-    cols = {c.lower().strip() for c in df.columns}
+    _table, frame = _prepared_frame(df)
+    cols = set(frame.columns)
     required = {"trade_date", "trade_type", "quantity", "price"}
-    kite_signals = {"trade_time", "settlement_id", "series", "order_id", "trade_id"}
+    kite_signals = {
+        "trade_time",
+        "settlement_id",
+        "series",
+        "order_id",
+        "trade_id",
+        "isin",
+        "order_execution_time",
+        "auction",
+    }
     return required.issubset(cols) and bool(kite_signals & cols)
+
+
+def _prepared_frame(df: pd.DataFrame) -> tuple[None, pd.DataFrame]:
+    frame = df.copy()
+    frame.columns = [normalize_header(column) for column in frame.columns]
+    frame = apply_aliases(
+        frame,
+        [
+            ("symbol", ("tradingsymbol", "trading_symbol", "instrument", "scrip")),
+            (
+                "order_execution_time",
+                ("order_timestamp", "exchange_timestamp", "exchange_update_timestamp", "order_time"),
+            ),
+            ("filled_quantity", ("filled_qty",)),
+            ("average_price", ("avg_price", "averageprice")),
+            ("trade_date", ("date",)),
+        ],
+    )
+    return None, frame
 
 
 def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     """
-    Convert Zerodha Kite TradeBook CSV into QuantProof trades.
+    Convert Zerodha Console Tradebook CSV into QuantProof trades.
+
+    Current Console export (Reports → Tradebook → CSV) is one row per fill:
+    symbol, isin, trade_date, exchange, segment, series, trade_type, auction,
+    quantity, price, trade_id, order_id, order_execution_time.
+    Dates are ISO. Slash dates, when a file has them, are read day-first.
     """
-    df = pd.read_csv(io.StringIO(raw))
-    df.columns = [c.lower().strip() for c in df.columns]
+    table, df = _prepared(raw)
 
     required = {"trade_date", "trade_type", "quantity", "price"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Kite CSV missing required columns: {missing}. "
-            "Please export from Zerodha Console → TradeBook → Download CSV. "
-            "Make sure you are downloading the TradeBook, not Positions or Holdings."
+            "Export from Zerodha Console → Reports → Tradebook → CSV. "
+            "Download the Tradebook, not the P&L, Positions, or Holdings report."
         )
 
-    ticker_col = None
-    # NOTE: 'series' is excluded — it's a segment identifier (EQ/FO/CDS),
-    # not an instrument name. Using it as a ticker key buckets ALL equity
-    # trades under 'EQ' and ALL F&O trades under 'FO', breaking FIFO matching.
-    for candidate in ["tradingsymbol", "symbol", "instrument", "scrip"]:
-        if candidate in df.columns:
-            ticker_col = candidate
-            break
+    # 'series' is a segment code (EQ/FO), not an instrument. Aliases above
+    # never map it onto the symbol, or every equity fill would share one book.
+    decimal_comma = table.delimiter == ";"
+    quantities, _qty_pct = parse_numbers(df["quantity"], decimal_comma=decimal_comma)
+    prices, _price_pct = parse_numbers(df["price"], decimal_comma=decimal_comma)
+    when, date_note = _kite_timestamps(df, dayfirst=True)
+    audit_flags = list(table.notes)
+    if date_note:
+        audit_flags.append(date_note)
 
-    df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
-    df = df.dropna(subset=["trade_date"])
-
-    sort_cols = [ticker_col, "trade_date"] if ticker_col and ticker_col in df.columns else ["trade_date"]
-    df = df.sort_values(sort_cols).reset_index(drop=True)
-
-    lots = defaultdict(list)
-    trades = []
-    audit_flags = []
-    orphan_sells = []
-
-    for _, row in df.iterrows():
-        symbol = str(row[ticker_col]) if ticker_col and ticker_col in row else "UNKNOWN"
-        qty = float(row["quantity"])
-        price = float(row["price"])
-        trade_type = str(row["trade_type"]).upper().strip()
-        date = row["trade_date"]
-        segment = str(row.get("segment", "EQ")).upper().strip()
-        is_fo = segment in (
-            "FO",
-            "F&O",
-            "FUTURES",
-            "OPTIONS",
-            "CDS",
-            "MF",
-            "NFO",
-            "BCD",
-            "MCX",
-            "NCO",
-        ) or str(row.get("series", "")).upper().strip() in ("FO", "CD")
-
-        # FIX: skip zero/negative qty rows — prevents phantom trades and div-by-zero
-        if qty <= 0 or price <= 0:
+    if "trade_id" in df.columns:
+        trade_ids = df["trade_id"].astype(str).str.strip()
+        real_id = ~trade_ids.str.lower().isin({"", "nan", "none"})
+        duplicate = real_id & trade_ids.duplicated(keep="first")
+        if int(duplicate.sum()):
             audit_flags.append(
-                f"⚠️ Skipped row: {symbol} {trade_type} qty={qty} price={price} "
-                f"on {date.date() if hasattr(date, 'date') else date} invalid qty/price"
+                f"Skipped {int(duplicate.sum())} duplicate trade_id row(s). "
+                "The same fill was in the file more than once and was counted once."
             )
-            continue
+            keep = ~duplicate
+            df = df.loc[keep].copy()
+            quantities = quantities.loc[keep]
+            prices = prices.loc[keep]
+            when = when.loc[keep]
 
-        if trade_type == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                remaining_qty = qty
-                while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot = lots[symbol][0]
-                    close_qty = min(remaining_qty, lot["qty"])
-                    try:
-                        pnl_pct = (lot["price"] - price) / lot["price"]
-                    except ZeroDivisionError:
-                        lots[symbol].pop(0)
-                        continue
-                    trades.append(
-                        {
-                            "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                            "ticker": symbol,
-                            "side": "short",
-                            "date": date,
-                        }
-                    )
-                    lot["qty"] -= close_qty
-                    remaining_qty -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                if remaining_qty > 0:
-                    lots[symbol].append({"qty": remaining_qty, "price": price, "date": date, "side": "long"})
-            else:
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
-
-        elif trade_type == "SELL":
-            if not lots[symbol]:
-                if is_fo:
-                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                else:
-                    orphan_sells.append(
-                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no open position - predates history window)"
-                    )
-                continue
-
-            remaining_qty = qty
-            while remaining_qty > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot = lots[symbol][0]
-                close_qty = min(remaining_qty, lot["qty"])
-                try:
-                    pnl_pct = (price - lot["price"]) / lot["price"]
-                except ZeroDivisionError:
-                    lots[symbol].pop(0)
-                    continue
-                trades.append(
-                    {
-                        "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                        "ticker": symbol,
-                        "side": "long",
-                        "date": date,
-                    }
-                )
-                lot["qty"] -= close_qty
-                remaining_qty -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
-
-        elif trade_type not in ("BUY", "SELL"):
-            # FIX: flag unknown trade types instead of silently dropping
+    fills: list[Fill] = []
+    fo_rows = 0
+    seen_rows = 0
+    for seq, (idx, row) in enumerate(df.iterrows()):
+        symbol = (
+            str(row["symbol"]).strip()
+            if "symbol" in df.columns and pd.notna(row.get("symbol"))
+            else "UNKNOWN"
+        )
+        if symbol.lower() in {"", "nan", "none"}:
+            symbol = "UNKNOWN"
+        trade_type = str(row["trade_type"]).upper().strip()
+        qty = float(quantities.loc[idx]) if pd.notna(quantities.loc[idx]) else float("nan")
+        price = float(prices.loc[idx]) if pd.notna(prices.loc[idx]) else float("nan")
+        date = _stamp(when.loc[idx]) if idx in when.index else pd.NaT
+        seen_rows += 1
+        if trade_type not in {"BUY", "SELL"}:
             audit_flags.append(
                 f"⚠️ Skipped unknown trade_type '{trade_type}' for {symbol} "
-                f"on {date.date() if hasattr(date, 'date') else date}"
+                f"on {date.date() if pd.notna(date) else date}"
             )
+            continue
+        if not np.isfinite(qty) or not np.isfinite(price) or qty <= 0 or price <= 0 or pd.isna(date):
+            audit_flags.append(
+                f"⚠️ Skipped row: {symbol} {trade_type} qty={qty} price={price} "
+                f"on {date.date() if pd.notna(date) else date} invalid qty/price"
+            )
+            continue
+        allow_short = _is_fo_row(row, symbol)
+        fo_rows += int(allow_short)
+        fills.append(
+            Fill(
+                symbol=symbol,
+                side=trade_type.lower(),
+                qty=qty,
+                price=price,
+                date=date,
+                allow_short=allow_short,
+                fee=_row_fee(row, decimal_comma),
+                seq=seq,
+            )
+        )
 
+    result = match_fills(fills)
+    orphan_sells = [item for item in result.orphans if item["kind"] in {"unmatched_sell", "excess_sell"}]
     if orphan_sells:
         audit_flags.append(
             f"⚠️ {len(orphan_sells)} sell(s) had no matching buy "
             f"(position predates TradeBook history) excluded"
         )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
-
-    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
+        for item in orphan_sells[:3]:
+            when_text = (
+                item["date"].date()
+                if hasattr(item["date"], "date") and pd.notna(item["date"])
+                else item["date"]
+            )
+            kind = (
+                "exceeded the open long"
+                if item["kind"] == "excess_sell"
+                else "no open position - predates history window"
+            )
+            audit_flags.append(
+                f"   └ {item['symbol']} SELL {item['qty']:.0f}@{item['price']:.2f} on {when_text} ({kind})"
+            )
+    if result.open_qty:
+        audit_flags.append(describe_open(result.open_qty))
+    if fo_rows:
         audit_flags.append(
-            f" {len(open_positions)} position(s) still open (no closing trade yet): {sym_list}"
+            f"F&O: {fo_rows} fill(s) matched per contract symbol (CE/PE/FUT are not merged). "
+            "Returns are premium price returns, gross of brokerage, STT, GST, and stamp duty. "
+            "The Console tradebook does not include those charges."
+        )
+    elif seen_rows:
+        audit_flags.append(
+            "Returns are price returns, gross of brokerage and statutory charges. "
+            "Zerodha's tradebook does not include them."
         )
 
+    trades = result.trades
     if not trades:
         return pd.DataFrame(), "No completed trades found in Kite TradeBook", audit_flags
 
-    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
     note = (
         f"📊 Parsed {len(trades)} completed trade(s) from Zerodha Kite TradeBook "
         f"({len(orphan_sells)} orphan sell(s) excluded, "
-        f"{len(open_positions)} position(s) still open)"
+        f"{len(result.open_qty)} position(s) still open)"
     )
-    return result, note, audit_flags
+    if any(fill.fee for fill in fills):
+        note += " Charges listed on each fill were deducted from that fill's return."
+    return trades_frame(trades), note, audit_flags
 
 
 # =========================================================
@@ -195,22 +299,25 @@ def _parse_kite_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
 
 def _is_kite_orders_csv(df: pd.DataFrame) -> bool:
-    cols = {c.lower().strip() for c in df.columns}
-    required = {"transaction_type", "order_execution_time", "tradingsymbol", "filled_quantity"}
-    return required.issubset(cols)
+    _unused, frame = _prepared_frame(df)
+    cols = set(frame.columns)
+    return {"transaction_type", "order_execution_time", "symbol", "filled_quantity"}.issubset(cols)
 
 
 def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     """
-    Convert Zerodha Kite Orders CSV into QuantProof trades.
+    Convert a Kite Connect order export into QuantProof trades.
+
+    Console does not download an orders CSV; this is the order-book shape
+    (transaction_type, tradingsymbol, filled_quantity, average_price, and
+    order_execution_time or order_timestamp). Status other than COMPLETE is ignored.
     """
-    df = pd.read_csv(io.StringIO(raw))
-    df.columns = [c.lower().strip() for c in df.columns]
+    table, df = _prepared(raw)
 
     required = {
         "transaction_type",
         "order_execution_time",
-        "tradingsymbol",
+        "symbol",
         "filled_quantity",
         "average_price",
     }
@@ -218,131 +325,71 @@ def _parse_kite_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
     if missing:
         raise ValueError(
             f"Kite Orders CSV missing required columns: {missing}. "
-            "Export from Kite Console → Orders → Download CSV."
+            "Export filled orders with tradingsymbol, transaction_type, filled_quantity, "
+            "average_price, and order_timestamp (or order_execution_time)."
         )
 
-    df["status"] = df.get("status", pd.Series(["COMPLETE"] * len(df))).str.upper().str.strip()
-    df = df[df["status"] == "COMPLETE"].copy()
-
-    df["filled_quantity"] = pd.to_numeric(df["filled_quantity"], errors="coerce")
-    df["average_price"] = pd.to_numeric(df["average_price"], errors="coerce")
-    df = df.dropna(subset=["filled_quantity", "average_price"])
-    df = df[(df["filled_quantity"] > 0) & (df["average_price"] > 0)]
-
-    df["order_execution_time"] = pd.to_datetime(df["order_execution_time"], errors="coerce")
-    df = df.dropna(subset=["order_execution_time"])
-
-    df["transaction_type"] = df["transaction_type"].str.upper().str.strip()
-    df = df[df["transaction_type"].isin(["BUY", "SELL"])]
-
+    decimal_comma = table.delimiter == ";"
+    if "status" not in df.columns:
+        df["status"] = "COMPLETE"
+    df["status"] = df["status"].astype(str).str.upper().str.strip()
+    df = df[df["status"].isin(["COMPLETE", "FILLED"])].copy()
     if df.empty:
         return pd.DataFrame(), "No COMPLETE orders found in Kite Orders CSV", []
 
-    df = df.sort_values(["tradingsymbol", "order_execution_time"]).reset_index(drop=True)
-    df["segment"] = df.get("segment", pd.Series(["EQ"] * len(df))).str.upper().str.strip()
+    quantities, _q = parse_numbers(df["filled_quantity"], decimal_comma=decimal_comma)
+    prices, _p = parse_numbers(df["average_price"], decimal_comma=decimal_comma)
+    when, _date_note = _kite_timestamps(df, dayfirst=True)
+    df = df.assign(_qty=quantities, _price=prices, _when=when)
+    df["transaction_type"] = df["transaction_type"].astype(str).str.upper().str.strip()
+    df = df[df["transaction_type"].isin(["BUY", "SELL"])]
+    df = df[df["_qty"].gt(0) & df["_price"].gt(0) & df["_when"].notna()]
+    if df.empty:
+        return pd.DataFrame(), "No COMPLETE orders found in Kite Orders CSV", []
 
-    lots = defaultdict(list)
-    trades = []
-    audit_flags = []
-    orphan_sells = []
-
-    for _, row in df.iterrows():
-        symbol = str(row["tradingsymbol"])
-        side = row["transaction_type"]
-        qty = float(row["filled_quantity"])
-        price = float(row["average_price"])
-        date = row["order_execution_time"]
-        is_fo = row["segment"] in ("FO", "F&O", "FUTURES", "OPTIONS", "CDS")
-
-        if side == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                remaining = qty
-                while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot = lots[symbol][0]
-                    close_qty = min(remaining, lot["qty"])
-                    try:
-                        pnl_pct = (lot["price"] - price) / lot["price"]
-                    except ZeroDivisionError:
-                        lots[symbol].pop(0)
-                        continue
-                    trades.append(
-                        {
-                            "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                            "ticker": symbol,
-                            "side": "short",
-                            "date": date,
-                        }
-                    )
-                    lot["qty"] -= close_qty
-                    remaining -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                if remaining > 0:
-                    lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
-            else:
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
-
-        elif side == "SELL":
-            if not lots[symbol]:
-                if is_fo:
-                    lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                else:
-                    orphan_sells.append(
-                        f"{symbol} SELL {qty:.0f}@{price:.2f} on {date.date()} "
-                        f"(no matching BUY - predates history window)"
-                    )
-                continue
-
-            remaining = qty
-            while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot = lots[symbol][0]
-                close_qty = min(remaining, lot["qty"])
-                try:
-                    pnl_pct = (price - lot["price"]) / lot["price"]
-                except ZeroDivisionError:
-                    lots[symbol].pop(0)
-                    continue
-                trades.append(
-                    {
-                        "pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6),
-                        "ticker": symbol,
-                        "side": "long",
-                        "date": date,
-                    }
-                )
-                lot["qty"] -= close_qty
-                remaining -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
-
+    audit_flags = list(table.notes)
+    fills = []
+    for seq, (_idx, row) in enumerate(df.iterrows()):
+        symbol = str(row["symbol"]).strip()
+        allow_short = _is_fo_row(row, symbol)
+        fills.append(
+            Fill(
+                symbol=symbol,
+                side=str(row["transaction_type"]).lower(),
+                qty=float(row["_qty"]),
+                price=float(row["_price"]),
+                date=_stamp(row["_when"]),
+                allow_short=allow_short,
+                fee=_row_fee(row, decimal_comma),
+                seq=seq,
+            )
+        )
+    result = match_fills(fills)
+    orphan_sells = [item for item in result.orphans if item["kind"] in {"unmatched_sell", "excess_sell"}]
     if orphan_sells:
         audit_flags.append(
             f"⚠️ {len(orphan_sells)} sell(s) had no matching BUY (position predates Orders history) excluded"
         )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
-
-    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
-        audit_flags.append(
-            f" {len(open_positions)} position(s) still open (no closing trade yet): {sym_list}"
-        )
-
-    if not trades:
-        return (
-            pd.DataFrame(),
-            "No completed round-trip trades found in Kite Orders CSV",
-            audit_flags,
-        )
-
-    result = pd.DataFrame(trades).sort_values("date").reset_index(drop=True)
+        for item in orphan_sells[:3]:
+            when_text = (
+                item["date"].date()
+                if hasattr(item["date"], "date") and pd.notna(item["date"])
+                else item["date"]
+            )
+            audit_flags.append(
+                f"   └ {item['symbol']} SELL {item['qty']:.0f}@{item['price']:.2f} on {when_text} "
+                "(no matching BUY - predates history window)"
+            )
+    if result.open_qty:
+        audit_flags.append(describe_open(result.open_qty))
+    if not result.trades:
+        return pd.DataFrame(), "No completed round-trip trades found in Kite Orders CSV", audit_flags
     note = (
-        f"Parsed {len(trades)} completed trade(s) from Zerodha Kite Orders CSV "
+        f"Parsed {len(result.trades)} completed trade(s) from Zerodha Kite Orders CSV "
         f"({len(orphan_sells)} orphan sell(s) excluded, "
-        f"{len(open_positions)} position(s) still open)"
+        f"{len(result.open_qty)} position(s) still open)"
     )
-    return result, note, audit_flags
+    return trades_frame(result.trades), note, audit_flags
 
 
 # =========================================================
@@ -379,207 +426,225 @@ def retry_on_failure(max_retries=3, delay=1.0):
 # ALPACA UI EXPORT PARSER
 # =========================================================
 
+_ALPACA_FILLED = {"filled", "partially_filled"}
+_ALPACA_PARTIAL_OK = {"canceled", "cancelled", "expired"}
+
 
 def _is_alpaca_ui_export(df: pd.DataFrame) -> bool:
-    cols = {c.lower().strip().replace(".", "") for c in df.columns}
-    return ("avg fill price" in cols or "avg  fill price" in cols) and "filled at" in cols and "side" in cols
+    cols = _columns(df)
+    return "avg_fill_price" in cols and "filled_at" in cols and "side" in cols
+
+
+def _is_alpaca_orders_csv(df: pd.DataFrame) -> bool:
+    """Order rows from GET /v2/orders saved as CSV (symbol, filled_qty, filled_avg_price)."""
+    cols = _columns(df)
+    return {"symbol", "side", "filled_qty", "filled_avg_price"}.issubset(cols) and (
+        "filled_at" in cols or "submitted_at" in cols
+    )
+
+
+def _is_alpaca_activities_csv(df: pd.DataFrame) -> bool:
+    """Account activities of type FILL: one row per execution."""
+    cols = _columns(df)
+    return "activity_type" in cols and {"symbol", "side", "qty", "price", "transaction_time"}.issubset(cols)
 
 
 def _parse_alpaca_ui_date(s) -> pd.Timestamp | None:
-    if not s or str(s).strip() in ("-", "", "nan", "None"):
+    if s is None or str(s).strip() in ("-", "", "nan", "None"):
         return None
-    try:
-        return pd.to_datetime(str(s).strip(), errors="coerce")
-    except Exception:
+    parsed, _note = parse_datetimes(pd.Series([s]), dayfirst=False)
+    value = parsed.iloc[0]
+    if pd.isna(value):
         return None
+    return pd.Timestamp(value)
+
+
+def _alpaca_intent(value: object) -> str | None:
+    text = str(value or "").strip().lower().replace(" ", "_")
+    if text in {"buy_to_open", "sell_to_open", "open"}:
+        return "open"
+    if text in {"buy_to_close", "sell_to_close", "close"}:
+        return "close"
+    return None
+
+
+def _clean_alpaca_symbol(raw) -> str:
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return "UNKNOWN"
+    token = str(raw).strip().split()
+    if not token:
+        return "UNKNOWN"
+    return token[0].upper()
+
+
+def _order_to_fill(order: dict, seq: int) -> Fill | None:
+    status = str(order.get("status", "filled")).lower().strip()
+    qty_raw = order.get("filled_qty")
+    if qty_raw in (None, "", "-"):
+        qty_raw = order.get("qty") or order.get("quantity") or 0
+    qty, _pct = parse_numbers(pd.Series([qty_raw]), decimal_comma=False)
+    qty_value = float(qty.iloc[0]) if pd.notna(qty.iloc[0]) else float("nan")
+    price_raw = order.get("filled_avg_price")
+    if price_raw in (None, "", "-"):
+        price_raw = order.get("avg_fill_price") or order.get("price") or 0
+    price, _pct = parse_numbers(pd.Series([price_raw]), decimal_comma=False)
+    price_value = float(price.iloc[0]) if pd.notna(price.iloc[0]) else float("nan")
+    if not np.isfinite(qty_value) or not np.isfinite(price_value) or qty_value <= 0 or price_value <= 0:
+        return None
+    if status in _ALPACA_FILLED or (status in _ALPACA_PARTIAL_OK and qty_value > 0):
+        pass
+    else:
+        return None
+    side = str(order.get("side", "")).lower().strip()
+    if side not in {"buy", "sell"}:
+        return None
+    ts_raw = order.get("filled_at") or order.get("transaction_time") or order.get("submitted_at") or ""
+    if isinstance(ts_raw, pd.Timestamp):
+        ts = ts_raw.tz_convert("UTC").tz_localize(None) if ts_raw.tzinfo else ts_raw
+    else:
+        ts = _parse_alpaca_ui_date(ts_raw)
+        if ts is None:
+            return None
+    symbol = _clean_alpaca_symbol(order.get("symbol") or order.get("asset") or order.get("symbol_raw"))
+    intent = _alpaca_intent(order.get("position_intent"))
+    # A stated close must not invent the opposite position. An unstated side still
+    # follows Alpaca's stock account: a sell with no long opens a short.
+    allow_short = intent != "close"
+    if intent == "open" and side == "sell":
+        allow_short = True
+    fee_raw = order.get("commission") or order.get("fee") or 0
+    fee, _pct = parse_numbers(pd.Series([fee_raw]), decimal_comma=False)
+    fee_value = float(fee.iloc[0]) if pd.notna(fee.iloc[0]) else 0.0
+    return Fill(
+        symbol=symbol,
+        side=side,
+        qty=qty_value,
+        price=price_value,
+        date=ts,
+        allow_short=allow_short,
+        intent=intent,
+        fee=abs(fee_value),
+        seq=seq,
+    )
+
+
+def _alpaca_flags(result) -> list[str]:
+    flags = []
+    if result.short_opens:
+        flags.append(
+            f"{result.short_opens} sell(s) treated as short entries "
+            "(buy predates history window - sell price used as cost basis)"
+        )
+        flags.append("short entry - buy predates history, using sell price as cost basis")
+    unmatched = [item for item in result.orphans if item["kind"] != "excess_sell"]
+    excess = [item for item in result.orphans if item["kind"] == "excess_sell"]
+    if unmatched:
+        flags.append(
+            f"{len(unmatched)} order(s) were closes with no matching open in this file and were excluded"
+        )
+    if excess:
+        flags.append(
+            f"{len(excess)} sell(s) were larger than the open long and the extra shares were not left as a short "
+            "because the order was marked to close"
+        )
+    if result.open_qty:
+        shown = ", ".join(f"{symbol}({int(round(qty))})" for symbol, qty in list(result.open_qty.items())[:6])
+        flags.append(f" {len(result.open_qty)} open position(s) not included (no closing trade yet): {shown}")
+    return flags
+
+
+def _finish_alpaca(fills: list[Fill], *, assign: bool) -> tuple[pd.DataFrame, list]:
+    if not fills:
+        return pd.DataFrame(), ["No filled orders found"]
+    result = match_fills(fills)
+    flags = _alpaca_flags(result)
+    if not result.trades:
+        return pd.DataFrame(), flags + [
+            "No completed round-trip trades found. "
+            "All positions may still be open, or all sells predate the history window."
+        ]
+    frame = trades_frame(result.trades)
+    if assign:
+        frame, regime_note = assign_regimes(frame)
+        if regime_note:
+            flags.append(regime_note)
+    return frame, flags
 
 
 def _parse_alpaca_ui_export(raw: str) -> tuple[pd.DataFrame, str, list]:
     """
-    Convert Alpaca UI order export (tab-separated) into QuantProof trades.
+    Convert an Alpaca dashboard orders export into QuantProof trades.
+
+    The orders table downloads (or pastes) as CSV/TSV with Asset or Symbol,
+    Side, Filled Qty, Avg. Fill Price, Status, and Filled At. Position Intent,
+    when present, is buy_to_open / sell_to_close / sell_to_open / buy_to_close.
+    A canceled order that filled some shares is kept for the filled quantity.
     """
-    audit_flags = []
-
-    sample = raw[:4096]
-    delim = "\t" if sample.count("\t") > sample.count(",") else ","
-
-    try:
-        df = pd.read_csv(io.StringIO(raw), sep=delim, dtype=str)
-    except Exception as e:
-        raise ValueError(f"Could not parse Alpaca UI export: {e}")
-
-    def _norm_col(c):
-        return c.lower().strip().replace(".", "").replace("  ", " ")
-
-    df.columns = [_norm_col(c) for c in df.columns]
-
-    col_map = {
-        "asset": "symbol_raw",
-        "side": "side",
-        "qty": "qty",
-        "filled qty": "filled_qty",
-        "avg fill price": "avg_fill_price",
-        "status": "status",
-        "filled at": "filled_at",
-        "submitted at": "submitted_at",
-    }
-    df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
-
-    required = {"symbol_raw", "side", "filled_qty", "avg_fill_price", "status", "filled_at"}
+    table = read_delimited(raw)
+    df = table.frame
+    if "symbol" not in df.columns and "asset" in df.columns:
+        df = df.rename(columns={"asset": "symbol"})
+    required = {"symbol", "side", "avg_fill_price", "filled_at"}
+    if "filled_qty" not in df.columns and "qty" not in df.columns:
+        required = required | {"filled_qty"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(
             f"Alpaca UI export missing columns: {missing}. "
-            "Export from Alpaca dashboard → Orders → copy/download table."
+            "Export from the Alpaca dashboard orders table (Asset or Symbol, Side, "
+            "Filled Qty, Avg. Fill Price, Status, Filled At)."
         )
-
-    df["status"] = df["status"].str.lower().str.strip()
-    df = df[df["status"] == "filled"].copy()
-
-    df["filled_qty"] = pd.to_numeric(df["filled_qty"], errors="coerce")
-    df["avg_fill_price"] = pd.to_numeric(df["avg_fill_price"], errors="coerce")
-    df = df.dropna(subset=["filled_qty", "avg_fill_price"])
-    df = df[(df["filled_qty"] > 0) & (df["avg_fill_price"] > 0)]
-
-    df["filled_at"] = df["filled_at"].apply(_parse_alpaca_ui_date)
-    df = df.dropna(subset=["filled_at"])
-
-    def _clean_ticker(raw_val):
-        if pd.isna(raw_val):
-            return "UNKNOWN"
-        s = str(raw_val).strip()
-        m = _re.match(r"([A-Z]{1,6})", s.upper())
-        return m.group(1) if m else s.split()[0]
-
-    df["symbol"] = df["symbol_raw"].apply(_clean_ticker)
-    df["side"] = df["side"].str.lower().str.strip()
-    df = df[df["side"].isin(["buy", "sell"])]
-
-    if df.empty:
-        return (
-            pd.DataFrame(),
-            "No filled orders found in Alpaca UI export",
-            ["No filled orders after filtering"],
-        )
-
-    df = df.sort_values("filled_at").reset_index(drop=True)
-
-    lots = defaultdict(list)
-    completed = []
-    orphan_sells = []
-
+    orders = []
     for _, row in df.iterrows():
-        sym = row["symbol"]
-        side = row["side"]
-        qty = float(row["filled_qty"])
-        price = float(row["avg_fill_price"])
-        ts = row["filled_at"]
-
-        if side == "buy":
-            if lots[sym] and lots[sym][0]["side"] == "short":
-                remaining = qty
-                while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
-                    lot = lots[sym][0]
-                    close_qty = min(remaining, lot["qty"])
-                    try:
-                        pnl_pct = (lot["price"] - price) / lot["price"]
-                    except ZeroDivisionError:
-                        lots[sym].pop(0)
-                        continue
-                    completed.append(
-                        {
-                            "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                            "date": ts,
-                            "entry_date": lot["entry_date"],
-                            "ticker": sym,
-                            "buy_price": price,
-                            "sell_price": lot["price"],
-                            "qty": close_qty,
-                            "hold_days": max(0, (ts - lot["entry_date"]).days),
-                            "side": "short",
-                        }
-                    )
-                    lot["qty"] -= close_qty
-                    remaining -= close_qty
-                    if lot["qty"] == 0:
-                        lots[sym].pop(0)
-                if remaining > 0:
-                    lots[sym].append({"price": price, "qty": remaining, "entry_date": ts, "side": "long"})
-            else:
-                lots[sym].append({"price": price, "qty": qty, "entry_date": ts, "side": "long"})
-
-        elif side == "sell":
-            if not lots[sym]:
-                orphan_sells.append(
-                    f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(no matching buy - position predates history window)"
-                )
-                continue
-
-            remaining = qty
-            while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
-                lot = lots[sym][0]
-                close_qty = min(remaining, lot["qty"])
-                try:
-                    pnl_pct = (price - lot["price"]) / lot["price"]
-                except ZeroDivisionError:
-                    lots[sym].pop(0)
-                    continue
-                completed.append(
-                    {
-                        "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                        "date": ts,
-                        "entry_date": lot["entry_date"],
-                        "ticker": sym,
-                        "buy_price": lot["price"],
-                        "sell_price": price,
-                        "qty": close_qty,
-                        "hold_days": max(0, (ts - lot["entry_date"]).days),
-                        "side": "long",
-                    }
-                )
-                lot["qty"] -= close_qty
-                remaining -= close_qty
-                if lot["qty"] == 0:
-                    lots[sym].pop(0)
-
-    if orphan_sells:
-        audit_flags.append(
-            f"⚠️ {len(orphan_sells)} sell(s) had no matching buy (position predates window) excluded"
+        orders.append(
+            {
+                "symbol": row.get("symbol"),
+                "side": row.get("side"),
+                "filled_qty": row["filled_qty"] if "filled_qty" in df.columns else row.get("qty"),
+                "avg_fill_price": row.get("avg_fill_price"),
+                "status": row.get("status", "filled"),
+                "filled_at": row.get("filled_at"),
+                "position_intent": row.get("position_intent"),
+                "commission": row.get("commission", 0),
+            }
         )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f"   └ {s}")
-
-    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
-        audit_flags.append(
-            f" {len(open_positions)} open position(s) not included (no closing trade yet): {sym_list}"
-        )
-
-    if not completed:
+    fills = [fill for seq, order in enumerate(orders) if (fill := _order_to_fill(order, seq))]
+    frame, flags = _finish_alpaca(fills, assign=False)
+    if frame.empty:
         return (
-            pd.DataFrame(),
-            "No completed round-trip trades found in Alpaca UI export.",
-            audit_flags
-            + ["All sells may predate the visible order history, or all positions are still open."],
+            frame,
+            "No filled orders found in Alpaca UI export"
+            if not fills
+            else ("No completed round-trip trades found in Alpaca UI export."),
+            flags,
         )
-
-    result_df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
-
-    total_filled = len(df)
-    paired_trades = len(completed)
     note = (
-        f"📊 Parsed {paired_trades} completed trade(s) from Alpaca UI export "
-        f"({total_filled} filled order-sides ?+ {paired_trades} round-trips, "
-        f"{len(orphan_sells)} orphan sell(s) excluded)"
+        f"Parsed {len(frame)} completed trade(s) from Alpaca orders "
+        f"({len(fills)} filled order(s) → {len(frame)} round-trips). "
+        "Returns are price returns. Equity commission is zero at Alpaca; a commission column, when present, is deducted."
     )
-    return result_df, note, audit_flags
+    return frame, note, flags + table.notes
 
 
-# =========================================================
-# ALPACA ORDER PAIRING — position-state tracker
-# =========================================================
+def _parse_alpaca_orders_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """CSV saved from the Alpaca orders API or from account FILL activities."""
+    table = read_delimited(raw)
+    df = table.frame
+    orders = []
+    for _, row in df.iterrows():
+        if "activity_type" in df.columns and str(row.get("activity_type", "")).upper() not in {
+            "",
+            "FILL",
+            "NAN",
+        }:
+            continue
+        orders.append(row.to_dict())
+    fills = [fill for seq, order in enumerate(orders) if (fill := _order_to_fill(order, seq))]
+    frame, flags = _finish_alpaca(fills, assign=False)
+    if frame.empty:
+        return frame, "No completed round-trip trades found in the Alpaca export.", flags
+    note = f"Parsed {len(frame)} completed trade(s) from Alpaca order history ({len(fills)} filled row(s))."
+    return frame, note, flags + table.notes
 
 
 def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
@@ -587,201 +652,8 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
     Converts raw Alpaca orders into a trades DataFrame.
     Accepts both REST API JSON and UI export dict shapes.
     """
-    audit_flags = []
-
-    def _norm_order(o: dict) -> dict | None:
-        status = str(o.get("status", "")).lower().strip()
-        if status != "filled":
-            return None
-
-        qty_raw = o.get("filled_qty") or o.get("qty") or 0
-        try:
-            qty = float(qty_raw)
-        except (ValueError, TypeError):
-            return None
-        if qty <= 0:
-            return None
-
-        price_raw = o.get("filled_avg_price") or o.get("avg_fill_price") or o.get("price") or 0
-        try:
-            price_str = str(price_raw).replace(",", ".").strip()
-            if price_str in ("-", "", "nan", "None"):
-                return None
-            price = float(price_str)
-        except (ValueError, TypeError):
-            return None
-        if price <= 0:
-            return None
-
-        side = str(o.get("side", "")).lower().strip()
-        if side not in ("buy", "sell"):
-            return None
-
-        ts_raw = o.get("filled_at") or o.get("updated_at") or ""
-        if isinstance(ts_raw, pd.Timestamp):
-            ts = ts_raw.tz_localize(None) if ts_raw.tzinfo else ts_raw
-        else:
-            ts_str = str(ts_raw).strip()
-            if ts_str in ("-", "", "nan", "None"):
-                return None
-            try:
-                ts_parsed = pd.to_datetime(ts_str, utc=True)
-                ts = ts_parsed.tz_localize(None)
-            except Exception:
-                try:
-                    ts = pd.to_datetime(ts_str, errors="coerce")
-                    if pd.isna(ts):
-                        return None
-                    if hasattr(ts, "tzinfo") and ts.tzinfo:
-                        ts = ts.tz_convert("UTC").tz_localize(None)
-                except Exception:
-                    return None
-
-        symbol_raw = str(o.get("symbol", "UNKNOWN")).strip()
-        m = _re.match(r"([A-Z]{1,6})", symbol_raw.upper())
-        symbol = m.group(1) if m else symbol_raw.split()[0]
-
-        return {"symbol": symbol, "side": side, "qty": qty, "price": price, "filled_at": ts}
-
-    filled = []
-    for o in orders:
-        normed = _norm_order(o)
-        if normed:
-            filled.append(normed)
-
-    if not filled:
-        return pd.DataFrame(), ["No filled orders found"]
-
-    df_orders = pd.DataFrame(filled).sort_values("filled_at").reset_index(drop=True)
-
-    lots = defaultdict(list)
-    completed = []
-    orphan_sells = []
-
-    for _, row in df_orders.iterrows():
-        sym = row["symbol"]
-        side = row["side"]
-        qty = row["qty"]
-        price = row["price"]
-        ts = row["filled_at"]
-
-        if side == "buy":
-            if lots[sym] and lots[sym][0]["side"] == "short":
-                remaining = qty
-                while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "short":
-                    lot = lots[sym][0]
-                    close_qty = min(remaining, lot["qty"])
-                    try:
-                        pnl_pct = (lot["price"] - price) / lot["price"]
-                    except ZeroDivisionError:
-                        lots[sym].pop(0)
-                        continue
-                    completed.append(
-                        {
-                            "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                            "date": ts,
-                            "entry_date": lot["entry_date"],
-                            "ticker": sym,
-                            "buy_price": price,
-                            "sell_price": lot["price"],
-                            "qty": close_qty,
-                            "hold_days": max(0, (ts - lot["entry_date"]).days),
-                            "side": "short",
-                        }
-                    )
-                    lot["qty"] -= close_qty
-                    remaining -= close_qty
-                    if lot["qty"] == 0:
-                        lots[sym].pop(0)
-                if remaining > 0:
-                    lots[sym].append({"price": price, "qty": remaining, "entry_date": ts, "side": "long"})
-            else:
-                lots[sym].append({"price": price, "qty": qty, "entry_date": ts, "side": "long"})
-
-        elif side == "sell":
-            if not lots[sym]:
-                # No open long position — this SELL opens a short position
-                lots[sym].append(
-                    {
-                        "price": price,
-                        "qty": qty,
-                        "entry_date": ts,
-                        "side": "short",
-                    }
-                )
-                # FIX: message now accurately describes behaviour (short entry, not excluded)
-                orphan_sells.append(
-                    f"{sym} sell@{price:.2f} on {ts.date()} "
-                    f"(short entry - buy predates history, using sell price as cost basis)"
-                )
-                continue
-
-            if lots[sym] and lots[sym][0]["side"] == "short":
-                lots[sym].append(
-                    {
-                        "price": price,
-                        "qty": qty,
-                        "entry_date": ts,
-                        "side": "short",
-                    }
-                )
-                continue
-
-            remaining = qty
-            while remaining > 0 and lots[sym] and lots[sym][0]["side"] == "long":
-                lot = lots[sym][0]
-                close_qty = min(remaining, lot["qty"])
-                try:
-                    pnl_pct = (price - lot["price"]) / lot["price"]
-                except ZeroDivisionError:
-                    lots[sym].pop(0)
-                    continue
-                completed.append(
-                    {
-                        "pnl": round(np.clip(float(pnl_pct), -0.99, 0.99), 6),
-                        "date": ts,
-                        "entry_date": lot["entry_date"],
-                        "ticker": sym,
-                        "buy_price": lot["price"],
-                        "sell_price": price,
-                        "qty": close_qty,
-                        "hold_days": max(0, (ts - lot["entry_date"]).days),
-                        "side": "long",
-                    }
-                )
-                lot["qty"] -= close_qty
-                remaining -= close_qty
-                if lot["qty"] == 0:
-                    lots[sym].pop(0)
-
-    if orphan_sells:
-        # FIX: message now accurately describes behaviour (short entries, not excluded)
-        audit_flags.append(
-            f"{len(orphan_sells)} sell(s) treated as short entries "
-            f"(buy predates history window - sell price used as cost basis)"
-        )
-        for s in orphan_sells[:3]:
-            audit_flags.append(f'   "{s}"')
-
-    open_positions = {s: sum(lot["qty"] for lot in ls) for s, ls in lots.items() if ls}
-    if open_positions:
-        sym_list = ", ".join(f"{s}({int(q)})" for s, q in list(open_positions.items())[:6])
-        audit_flags.append(
-            f" {len(open_positions)} open position(s) not included (no closing trade yet): {sym_list}"
-        )
-
-    if not completed:
-        return pd.DataFrame(), audit_flags + [
-            "No completed round-trip trades found. "
-            "All positions may still be open, or all sells predate the history window."
-        ]
-
-    df = pd.DataFrame(completed).sort_values("date").reset_index(drop=True)
-
-    df, regime_note = assign_regimes(df)
-    audit_flags.append(regime_note)
-
-    return df, audit_flags
+    fills = [fill for seq, order in enumerate(orders) if (fill := _order_to_fill(order, seq))]
+    return _finish_alpaca(fills, assign=True)
 
 
 # =========================================================
@@ -790,8 +662,9 @@ def pair_alpaca_orders(orders: list) -> tuple[pd.DataFrame, list]:
 
 
 def _is_options_csv(df: pd.DataFrame) -> bool:
-    cols = [c.lower().strip().replace(" ", "_") for c in df.columns]
-    options_signals = [
+    """Token match only. 'iv' must not fire on dividend/delivery, and 'pl' must not fire on multiplier."""
+    cols = _columns(df)
+    signals = {
         "strike",
         "expiry",
         "expiration",
@@ -805,8 +678,15 @@ def _is_options_csv(df: pd.DataFrame) -> bool:
         "delta",
         "gamma",
         "theta",
-    ]
-    return sum(1 for s in options_signals if any(s in c for c in cols)) >= 2
+    }
+    hits = 0
+    for signal in signals:
+        if any(
+            column == signal or column.endswith("_" + signal) or column.startswith(signal + "_")
+            for column in cols
+        ):
+            hits += 1
+    return hits >= 2
 
 
 def _has_overlapping_positions(df: pd.DataFrame) -> bool:
@@ -844,10 +724,7 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
         if opens.min().year < 2000 or closes.min().year < 2000:
             return False
 
-        # O(n log n) sweep-line: sort all events, track active open count
-        # Two positions overlap iff a new open starts before any prior close
-        if len(opens) > 500:
-            return False  # guard: too many rows to check, assume non-overlapping
+        # Two positions overlap iff a new open starts before any prior close.
         opens_sorted = opens.sort_values().reset_index(drop=True)
         closes_sorted = closes.sort_values().reset_index(drop=True)
 
@@ -865,15 +742,17 @@ def _has_overlapping_positions(df: pd.DataFrame) -> bool:
         return False
 
 
+def _named_column(columns, names: tuple[str, ...]) -> str | None:
+    for name in names:
+        for column in columns:
+            if column == name or column.endswith("_" + name):
+                return column
+    return None
+
+
 def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
-    import io as _io
-
-    sample = raw[:2048]
-    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim = max(counts, key=counts.get)
-
-    df = pd.read_csv(_io.StringIO(raw), sep=delim)
-    df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+    table = read_delimited(raw)
+    df = table.frame
 
     if _has_overlapping_positions(df):
         raise ValueError(
@@ -884,49 +763,44 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
             "P&L as a percentage of capital deployed and upload as a generic CSV."
         )
 
-    pnl_col = next(
-        (c for c in df.columns if any(x in c for x in ["pnl", "profit", "return", "gain", "pl", "net"])), None
-    )
+    ranked = [
+        (pnl_column_rank(column), column) for column in df.columns if pnl_column_rank(column) is not None
+    ]
+    pnl_col = min(ranked)[1] if ranked else None
     if pnl_col is None:
         raise ValueError(
             "Could not find a P&L column in your options CSV. "
-            "Expected a column named pnl, profit, return, gain, or pl."
+            "Expected a column named pnl, profit, return, gain, or pl. "
+            f"Columns found: {', '.join(df.columns)}."
         )
 
-    pnl_vals = pd.to_numeric(df[pnl_col].astype(str).str.replace("%", "", regex=False), errors="coerce")
-
-    premium_col = next(
-        (c for c in df.columns if any(x in c for x in ["premium", "entry_price", "open_price", "cost"])), None
-    )
+    decimal_comma = table.delimiter == ";"
+    pnl_vals, pnl_was_percent = parse_numbers(df[pnl_col], decimal_comma=decimal_comma)
+    premium_col = _named_column(df.columns, ("premium", "entry_price", "open_price"))
     if premium_col is not None:
-        premium_vals = pd.to_numeric(
-            df[premium_col].astype(str).str.replace("%", "", regex=False), errors="coerce"
-        )
-        valid_mask = (premium_vals.notna()) & (premium_vals.abs() > 1e-9) & (pnl_vals.notna())
+        premium_vals, _prem_pct = parse_numbers(df[premium_col], decimal_comma=decimal_comma)
+        valid_mask = premium_vals.notna() & premium_vals.abs().gt(1e-9) & pnl_vals.notna()
         returns = (pnl_vals[valid_mask] / premium_vals[valid_mask]).clip(-0.99, 0.99)
         norm_method = f"P&L / {premium_col} (per contract return)"
     else:
         valid_mask = pnl_vals.notna()
         returns = pnl_vals[valid_mask]
-        if returns.abs().mean() > 1.0:
+        if pnl_was_percent or (len(returns) and returns.abs().mean() > 1.0):
             returns = returns / 100.0
         returns = returns.clip(-0.99, 0.99)
         norm_method = "pnl column treated as fractional return"
 
-    result = pd.DataFrame({"pnl": returns.values})
+    kept = df.loc[valid_mask]
+    result = pd.DataFrame({"pnl": returns.to_numpy(), "match_id": range(1, int(valid_mask.sum()) + 1)})
 
-    date_col = next(
-        (c for c in df.columns if any(x in c for x in ["date", "close_date", "exit_date", "time", "dt"])),
-        None,
-    )
+    date_col = _named_column(kept.columns, ("close_date", "exit_date", "date", "trade_date"))
     if date_col:
-        result["date"] = pd.to_datetime(df[date_col].values[: len(returns)], errors="coerce")
+        parsed_dates, _date_note = parse_datetimes(kept[date_col], dayfirst=False)
+        result["date"] = parsed_dates.to_numpy()
 
-    ticker_col = next(
-        (c for c in df.columns if any(x in c for x in ["ticker", "symbol", "underlying", "instrument"])), None
-    )
+    ticker_col = _named_column(kept.columns, ("ticker", "symbol", "underlying", "instrument"))
     if ticker_col:
-        result["ticker"] = df[ticker_col].values[: len(returns)]
+        result["ticker"] = kept[ticker_col].to_numpy()
 
     note = f"OPTIONS: {len(result)} single-leg trades parsed. Returns normalised as {norm_method}."
     audit_flags = [
@@ -951,497 +825,703 @@ def _parse_options_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
 
 
 def _is_mt5_csv(df: pd.DataFrame) -> bool:
-    cols = {c.lower().strip().replace(" ", "_").replace("/", "_") for c in df.columns}
+    cols = _columns(df)
+    # Pandas renames a second Time/Price column Time.1 → time_1.
+    if any(column in {"s_l", "s___l"} for column in cols):
+        cols.add("s_l")
     deals_signals = {"deal", "direction", "commission", "swap", "balance"}
     deals_hit = len(deals_signals & cols)
     pos_signals = {"position", "s_l", "t_p", "commission", "swap"}
-    time_cols = [c for c in cols if "time" in c]
+    time_cols = [column for column in cols if "time" in column]
     pos_hit = len(pos_signals & cols) + (1 if len(time_cols) >= 2 else 0)
     return deals_hit >= 3 or pos_hit >= 3
 
 
+def _mt5_contract(symbol: str) -> float:
+    """Standard contract size used only to turn commission and swap into a return.
+
+    The price return itself does not depend on it. FX is 100,000 base units per lot,
+    gold 100 oz, silver 5,000 oz. Everything else is treated as 1 unit per lot.
+    """
+    cleaned = _re.sub(r"[^A-Z]", "", str(symbol).upper())
+    if cleaned.startswith(("XAU", "GOLD")):
+        return 100.0
+    if cleaned.startswith(("XAG", "SILVER")):
+        return 5_000.0
+    if _re.fullmatch(r"[A-Z]{6}", cleaned):
+        return 100_000.0
+    return 1.0
+
+
+def _mt5_side(value: object) -> str | None:
+    text = str(value).lower().strip()
+    if text in {"buy", "0", "buy limit", "buy stop"}:
+        return "long"
+    if text in {"sell", "1", "sell limit", "sell stop"}:
+        return "short"
+    return None
+
+
+def _mt5_direction(value: object) -> str:
+    text = str(value).lower().strip().replace(" ", "")
+    return {
+        "in": "in",
+        "entry": "in",
+        "0": "in",
+        "out": "out",
+        "exit": "out",
+        "1": "out",
+        "in/out": "in/out",
+        "inout": "in/out",
+        "2": "in/out",
+        "out/in": "out/in",
+        "outin": "out/in",
+        "3": "out/in",
+    }.get(text, "")
+
+
+def _mt5_price_return(
+    side: str, entry: float, exit_price: float, cost: float, volume: float, contract: float
+):
+    if entry <= 0 or exit_price <= 0 or volume <= 0:
+        return None
+    gross = (exit_price - entry) / entry if side == "long" else (entry - exit_price) / entry
+    denom = entry * volume * contract
+    net = gross + (cost / denom if abs(denom) > 1e-12 else 0.0)
+    from services.csv_util import clip_return
+
+    return round(clip_return(float(net)), 6)
+
+
 def _parse_mt5_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
-    import io as _io
+    """MT5 history.
 
-    sample = raw[:2048]
-    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim = max(counts, key=counts.get)
-
-    if delim == ";":
-        raw = raw.replace(",", ".")
-
-    try:
-        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str, on_bad_lines="skip")
-    except TypeError:
-        df = pd.read_csv(_io.StringIO(raw), sep=delim, dtype=str, error_bad_lines=False)
-
+    Deals view: one row per execution, Direction in/out, matched FIFO.
+    A Position column (hedging accounts) keeps concurrent tickets apart.
+    Positions view: one row per round trip, two Time columns and two Price columns.
+    The return is the price return. Commission, swap, and fee are deducted using a
+    standard contract size; they are not guessed from the Profit column, which is
+    in account currency and is wrong by ~100,000x if divided by price × lots.
+    """
+    table = read_delimited(raw)
+    df = table.frame
     if df.empty:
         raise ValueError("MT5 CSV appears empty after parsing.")
-
-    df.columns = [c.lower().strip().replace(" ", "_").replace("/", "_") for c in df.columns]
-
+    if "direction" not in df.columns and "entry" in df.columns:
+        df["direction"] = df["entry"]
     has_direction = "direction" in df.columns
     has_position = "position" in df.columns
-
     if not has_direction and not has_position:
-        if "deal" in df.columns:
-            has_direction = True
-        else:
-            raise ValueError(
-                "Could not identify MT5 report format. "
-                "Please export from MT5 Terminal → Account History → "
-                "right-click → Save as Detailed Report."
-            )
-
-    def _num(series):
-        return pd.to_numeric(
-            series.astype(str).str.replace(",", ".", regex=False).str.replace("[^\\d.\\-]", "", regex=True),
-            errors="coerce",
+        raise ValueError(
+            "Could not identify MT5 report format. "
+            "In the terminal open Toolbox → History, choose Deals or Positions, "
+            "right-click, and save the report. Activity statements from other platforms are not MT5 history."
         )
 
-    for col in ["profit", "volume", "price", "commission", "swap", "balance", "price_2"]:
-        if col in df.columns:
-            df[col] = _num(df[col])
+    decimal_comma = table.delimiter == ";"
+    for column in list(df.columns):
+        if any(
+            token in column for token in ("price", "volume", "profit", "commission", "swap", "fee", "balance")
+        ):
+            numbers, _pct = parse_numbers(df[column], decimal_comma=decimal_comma)
+            df[column] = numbers
 
-    price_cols = [c for c in df.columns if "price" in c]
-    for pc in price_cols:
-        df[pc] = _num(df[pc])
-
-    time_cols = [c for c in df.columns if "time" in c]
-    for tc in time_cols:
-        df[tc] = pd.to_datetime(df[tc], errors="coerce")
-
+    time_cols = [column for column in df.columns if "time" in column]
+    for column in time_cols:
+        parsed, _note = parse_datetimes(df[column], dayfirst=False)
+        df[column] = parsed
     open_time_col = time_cols[0] if time_cols else None
     close_time_col = time_cols[1] if len(time_cols) >= 2 else open_time_col
-
-    symbol_col = next((c for c in df.columns if c in ["symbol", "instrument", "pair", "asset"]), None)
+    symbol_col = next(
+        (column for column in df.columns if column in {"symbol", "instrument", "pair", "asset"}), None
+    )
+    price_cols = [column for column in df.columns if "price" in column]
 
     if "type" in df.columns:
-        type_vals = df["type"].astype(str).str.lower().str.strip()
-        trade_mask = type_vals.isin(
-            ["buy", "sell", "buy limit", "sell limit", "buy stop", "sell stop", "0", "1"]
-        )
-        df = df[trade_mask].copy()
-
+        sides = df["type"].map(_mt5_side)
+        df = df.loc[sides.notna()].copy()
     if df.empty:
         raise ValueError(
             "No trade rows found in MT5 export after filtering. "
-            "Make sure you exported Account History (not just open positions) "
-            "and the report includes completed trades."
+            "Balance, credit, and deposit rows are ignored. "
+            "Export closed trades from Account History, not only the current open positions."
         )
 
-    audit_flags = []
+    audit_flags = list(table.notes)
     trades = []
     orphan_count = 0
+    assumed_contract = False
+
+    def _num(row, column, default=0.0) -> float:
+        if column not in row.index:
+            return default
+        value = row[column]
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return default
+        if number != number:
+            return default
+        return number
 
     if has_direction:
-        df["direction"] = df["direction"].astype(str).str.lower().str.strip()
+        from collections import defaultdict, deque
+
+        books: dict[str, deque] = defaultdict(deque)
         df = df.sort_values(open_time_col) if open_time_col else df
 
-        lots = defaultdict(list)
+        def _key(row) -> str:
+            symbol = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            if (
+                has_position
+                and pd.notna(row.get("position"))
+                and str(row.get("position")).strip() not in {"", "nan"}
+            ):
+                return f"{symbol}|{row['position']}"
+            return symbol
+
+        def _close(book, qty, exit_price, date, cost, symbol):
+            nonlocal orphan_count
+            remaining = qty
+            closed = 0.0
+            while remaining > 1e-9 and book:
+                lot = book[0]
+                close_qty = min(remaining, lot["qty"])
+                entry_cost = lot["cost"] * (close_qty / lot["orig"]) if lot["orig"] else 0.0
+                lot["cost"] -= entry_cost
+                slice_cost = entry_cost + cost * (close_qty / qty if qty else 0.0)
+                pnl = _mt5_price_return(
+                    lot["side"], lot["price"], exit_price, slice_cost, close_qty, _mt5_contract(symbol)
+                )
+                if pnl is not None:
+                    trades.append(
+                        {
+                            "pnl": pnl,
+                            "date": date,
+                            "ticker": symbol,
+                            "side": lot["side"],
+                            "match_id": len(trades) + 1,
+                        }
+                    )
+                    closed += close_qty
+                lot["qty"] -= close_qty
+                remaining -= close_qty
+                if lot["qty"] <= 1e-8:
+                    book.popleft()
+            if remaining > 1e-6 and closed <= 0:
+                orphan_count += 1
+            return remaining
 
         for _, row in df.iterrows():
-            direction = str(row.get("direction", "")).lower().strip()
+            direction = _mt5_direction(row.get("direction"))
             symbol = str(row[symbol_col]) if symbol_col else "UNKNOWN"
-            volume = float(row.get("volume", 0) or 0)
-            price = float(row.get("price", 0) or 0)
-            profit = float(row.get("profit", 0) or 0)
-            commission = float(row.get("commission", 0) or 0)
-            swap = float(row.get("swap", 0) or 0)
-            balance = float(row.get("balance", 0) or 0)
+            if _mt5_contract(symbol) != 1.0:
+                assumed_contract = True
+            side = _mt5_side(row.get("type")) or "long"
+            volume = _num(row, "volume")
+            price = _num(row, price_cols[0]) if price_cols else 0.0
+            cost = _num(row, "commission") + _num(row, "swap") + _num(row, "fee")
             date = row[open_time_col] if open_time_col else pd.NaT
-            trade_type = str(row.get("type", "")).lower().strip()
-
-            if direction == "in/out":
-                if lots[symbol]:
-                    lot = lots[symbol].pop(0)
-                    net_profit = profit + commission + swap
-                    pnl_pct = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
-                    if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                        trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
-                side = "sell" if trade_type in ["sell", "1"] else "buy"
-                lots[symbol].append({"price": price, "volume": volume, "date": date, "side": side})
+            book = books[_key(row)]
+            if direction in {"in/out", "out/in"}:
+                leftover = _close(book, volume, price, date, cost, symbol)
+                if leftover > 1e-8:
+                    book.append(
+                        {"qty": leftover, "orig": leftover, "price": price, "side": side, "cost": 0.0}
+                    )
                 continue
-
             if direction == "in":
-                lots[symbol].append(
-                    {
-                        "price": price,
-                        "volume": volume,
-                        "date": date,
-                        "side": trade_type,
-                        "commission": commission,
-                    }
-                )
-            elif direction == "out":
-                if not lots[symbol]:
+                book.append({"qty": volume, "orig": volume, "price": price, "side": side, "cost": cost})
+                continue
+            if direction == "out":
+                if not book:
                     orphan_count += 1
                     continue
-                lot = lots[symbol].pop(0)
-                net_profit = profit + commission + swap + lot.get("commission", 0)
-                pnl_pct = _normalise_pnl(net_profit, lot["price"], lot["volume"], balance)
-                if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                    trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
-
-        open_pos = {s: len(ls) for s, ls in lots.items() if ls}
-        if open_pos:
-            count = sum(open_pos.values())
-            audit_flags.append(f" {count} MT5 position(s) still open (no closing deal) excluded")
-
+                _close(book, volume, price, date, cost, symbol)
+        open_count = sum(len(book) for book in books.values() if book)
+        if open_count:
+            audit_flags.append(f" {open_count} MT5 position(s) still open (no closing deal) excluded")
     else:
-        price_open_col = next((c for c in df.columns if "price" in c), None)
-        next((c for c in df.columns if "price" in c and c != price_open_col), None)
-
+        open_price_col = price_cols[0] if price_cols else None
+        close_price_col = price_cols[1] if len(price_cols) > 1 else None
         for _, row in df.iterrows():
-            profit = float(row.get("profit", 0) or 0)
-            commission = float(row.get("commission", 0) or 0)
-            swap = float(row.get("swap", 0) or 0)
-            volume = float(row.get("volume", 1) or 1)
-            price_open = float(row[price_open_col] or 0) if price_open_col else 0
-            balance = 0.0
             symbol = str(row[symbol_col]) if symbol_col else "UNKNOWN"
+            if _mt5_contract(symbol) != 1.0:
+                assumed_contract = True
+            side = _mt5_side(row.get("type")) or "long"
+            volume = _num(row, "volume", 1.0) or 1.0
+            entry = _num(row, open_price_col) if open_price_col else 0.0
+            exit_price = _num(row, close_price_col) if close_price_col else 0.0
+            cost = _num(row, "commission") + _num(row, "swap") + _num(row, "fee")
             date = row[close_time_col] if close_time_col else pd.NaT
-
-            net_profit = profit + commission + swap
-            pnl_pct = _normalise_pnl(net_profit, price_open, volume, balance)
-            if pnl_pct is not None and abs(pnl_pct) <= 0.99:
-                trades.append({"pnl": round(pnl_pct, 6), "date": date, "ticker": symbol})
+            if exit_price > 0 and entry > 0:
+                pnl = _mt5_price_return(side, entry, exit_price, cost, volume, _mt5_contract(symbol))
+            else:
+                pnl_raw = _normalise_pnl(
+                    _num(row, "profit") + cost, entry, volume, 0.0, contract=_mt5_contract(symbol)
+                )
+                pnl = None if pnl_raw is None else round(float(pnl_raw), 6)
+            if pnl is not None:
+                trades.append(
+                    {"pnl": pnl, "date": date, "ticker": symbol, "side": side, "match_id": len(trades) + 1}
+                )
 
     if not trades:
         raise ValueError(
             "No completed trades could be extracted from the MT5 export. "
-            "Make sure your report includes closed trades and has Profit column."
+            "The report needs closed trades, with a Price column and either a Direction column (deals) "
+            "or two Price columns (positions)."
         )
-
-    result = pd.DataFrame(trades)
-    if "date" in result.columns:
-        result = result.sort_values("date").reset_index(drop=True)
-
+    result = trades_frame(trades)
     if orphan_count:
         audit_flags.append(
             f"⚠️ {orphan_count} MT5 closing deal(s) had no matching open "
-            f" excluded (position predates history window)"
+            " excluded (position predates history window)"
         )
-
     audit_flags.append(
-        "MT5 DATA: Returns normalised as net profit / (entry_price * volume). "
-        "Crash simulations assume linear payoffs - leverage and margin effects not modelled. "
-        "For accurate capacity analysis, ensure Volume column reflects lot sizes."
+        "MT5 DATA: Returns are price returns, (exit - entry) / entry for longs and the reverse for shorts. "
+        "Commission, swap, and fee are deducted using a standard contract size "
+        "(100,000 units for a 6-letter FX pair, 100 oz for gold, 1 unit otherwise). "
+        "A broker with a different contract size mis-states the fee, not the price return. "
+        "Times are the broker server clock, not converted to your timezone."
     )
-    # FIX: warn forex/CFD users that contract size is not applied
-    _forex_scale_warn = False
-    if symbol_col and len(trades) > 0:
-        sample_symbols = [t.get("ticker", "") for t in trades[:10]]
-        # Forex pairs are typically 6-8 chars like EURUSD, GBPJPY, XAUUSD
-        looks_forex = any(
-            len(str(s)) in (6, 7, 8) and str(s).isalpha() for s in sample_symbols if s and s != "UNKNOWN"
+    if assumed_contract:
+        audit_flags.append(
+            "MT5 contract size was assumed for the fee term on FX or metal symbols. "
+            "Confirm it against the symbol specification if those charges are large relative to the price move."
         )
-        if looks_forex:
-            audit_flags.append(
-                "⚠️ MT5 FOREX WARNING: Contract size (100,000 units/lot) is NOT applied. "
-                "Returns are normalised as profit/(price*lots) not profit/(price*lots*100000). "
-                "All forex PnL values are approximately 1000x overstated and will clip to ?0.99. "
-                "To fix: pre-calculate per-trade % return and upload as a generic CSV instead."
-            )
-            # Embed sentinel so smart_parse_csv can set scale_warning for frontend banner
-            _forex_scale_warn = True
-
     report = "deals" if has_direction else "positions"
-    note = (
-        f"📊 MT5: {len(trades)} completed trade(s) parsed from {report} report "
-        f"({orphan_count} orphan(s) excluded)"
-    )
-    if _forex_scale_warn:
-        note = "MT5_FOREX_SCALE_WARN||" + note
+    note = f"📊 MT5: {len(trades)} completed trade(s) parsed from {report} report ({orphan_count} orphan(s) excluded)"
     return result, note, audit_flags
 
 
-def _normalise_pnl(net_profit: float, entry_price: float, volume: float, balance: float) -> float | None:
+def _normalise_pnl(
+    net_profit: float, entry_price: float, volume: float, balance: float, contract: float = 1.0
+) -> float | None:
     """
-    Normalise MT5 net profit to a decimal return.
-    Returns None when entry_price*volume is zero (corrupt/missing data) so the
-    trade is silently skipped rather than inventing a meaningless number via
-    balance-ratio or /1000 fallbacks — those two paths produced values with no
-    consistent financial meaning and have been removed.
+    Normalise an MT5 profit figure to a decimal return.
+
+    ``contract`` is the units per lot (100,000 for FX). Returns None when the
+    denominator is zero so a missing price is skipped instead of invented.
+    ``balance`` is unused; it used to feed a ratio that was not a return.
     """
-    if abs(entry_price * volume) > 1e-6:
-        pnl = net_profit / (entry_price * volume)
+    del balance
+    denom = entry_price * volume * (contract or 1.0)
+    if abs(denom) > 1e-6:
+        pnl = net_profit / denom
         return float(np.clip(pnl, -0.99, 0.99))
-    # entry_price or volume is zero — data is corrupt, skip this trade
     return None
 
 
-def smart_parse_excel(contents: bytes) -> tuple[pd.DataFrame, str]:
+def _is_tradingview_csv(df: pd.DataFrame) -> bool:
+    """List of Trades, old and current. Entry and exit rows share a trade number."""
+    frame = df.copy()
+    frame.columns = [normalize_header(column) for column in frame.columns]
+    if "type" not in frame.columns:
+        return False
+    if not ({"trade", "trade_number", "trade_no", "signal"} & set(frame.columns)):
+        return False
+    kinds = frame["type"].astype(str).str.lower()
+    return bool(kinds.str.contains(r"\b(?:entry|exit)\b", regex=True).any())
+
+
+def _tv_percent_column(columns) -> str | None:
+    preferred = ("return_pct", "net_pnl_pct", "net_p_and_l_pct", "profit_pct", "net_profit_pct")
+    for name in preferred:
+        if name in columns:
+            return name
+    for column in columns:
+        if not str(column).endswith("_pct"):
+            continue
+        if any(
+            skip in column for skip in ("cumul", "favorable", "adverse", "run_up", "drawdown", "excursion")
+        ):
+            continue
+        return column
+    return None
+
+
+def _parse_tradingview_csv(raw: str) -> tuple[pd.DataFrame, str, list]:
+    """TradingView Strategy Tester → Trades tab → download.
+
+    Each closed trade is an entry row and an exit row. The currency P&L column
+    is dollars; the percentage column is the return. Using both rows, or the
+    dollar column, double-counts trades and clips them toward ±99%.
     """
-    Parses Excel files (.xlsx, .xls) into a trades DataFrame for QuantProofValidator.
-    Returns (df, regime_note).
-    """
-    try:
-        import openpyxl  # noqa: F401 - fail fast with a clear message if missing
-
-        df = pd.read_excel(io.BytesIO(contents))
-        regime_note = ""
-
-        if "date" in df.columns and df["date"].notna().any():
-            df, regime_note = assign_regimes(df)
-
-        return df, regime_note
-
-    except ImportError:
-        raise HTTPException(
-            400, "Excel support requires openpyxl package. Please install with: pip install openpyxl"
+    table = read_delimited(raw)
+    df = table.frame
+    percent_col = _tv_percent_column(df.columns)
+    if percent_col is None:
+        raise TradeImportError(
+            "This TradingView List of Trades has no percentage column (Profit %, Net PnL %, or Return %). "
+            "The currency P&L column is dollars, and treating dollars as returns clips every trade toward ±99%. "
+            "On the Trades tab, include the percentage column and download the CSV again."
         )
-    except Exception as e:
-        raise HTTPException(400, f"Could not parse Excel file: {str(e)}")
+    id_col = next((name for name in ("trade", "trade_number", "trade_no") if name in df.columns), None)
+    kinds = df["type"].astype(str)
+    exits = kinds.str.lower().str.contains(r"\bexit\b", regex=True)
+    entries = kinds.str.lower().str.contains(r"\bentry\b", regex=True)
+    if exits.any():
+        chosen = df.loc[exits].copy()
+    elif not entries.any():
+        chosen = df.copy()
+    else:
+        raise TradeImportError(
+            "This TradingView file has entry rows but no exit rows, so nothing has closed. "
+            "Download the List of Trades after the strategy has closed trades."
+        )
+    decimal_comma = table.delimiter == ";"
+    numbers, _was_percent = parse_numbers(chosen[percent_col], decimal_comma=decimal_comma)
+    bad = []
+    for raw_cell in chosen[percent_col].tolist():
+        text = "" if raw_cell is None else str(raw_cell).strip()
+        if text == "":
+            continue
+        number, _percent = parse_number(text, decimal_comma=decimal_comma)
+        if text.lower() in {"nan", "inf", "-inf", "+inf", "infinity"} or not np.isfinite(number):
+            bad.append(text)
+    if bad:
+        shown = ", ".join(repr(value) for value in bad[:5])
+        raise TradeImportError(
+            f"TradingView column '{percent_col}' contains non-numeric values ({shown}). "
+            "inf, nan, and text are not returns."
+        )
+    mask = numbers.notna() & np.isfinite(numbers)
+    kept = chosen.loc[mask]
+    returns = (numbers[mask] / 100.0).clip(-0.99, 0.99)
+    result = pd.DataFrame(
+        {
+            "pnl": returns.to_numpy(),
+            "match_id": np.arange(1, int(mask.sum()) + 1),
+            "side": ["short" if "short" in str(value).lower() else "long" for value in kept["type"].tolist()],
+        }
+    )
+    date_col = next(
+        (name for name in ("date_and_time", "date_time", "date", "time") if name in kept.columns),
+        None,
+    )
+    flags = list(table.notes)
+    if date_col:
+        parsed, date_note = parse_datetimes(kept[date_col], dayfirst=False)
+        result["date"] = parsed.to_numpy()
+        if date_note:
+            flags.append(date_note)
+        flags.append("TradingView times are the chart timezone and were not converted.")
+    if id_col and entries.any() and exits.any():
+        open_ids = set(df.loc[entries, id_col].astype(str)) - set(df.loc[exits, id_col].astype(str))
+        if open_ids:
+            flags.append(f" {len(open_ids)} TradingView trade(s) still open (entry without an exit) excluded")
+    if result.empty:
+        raise TradeImportError(
+            "No closed TradingView trades were found. Exit rows need a numeric percentage return."
+        )
+    note = (
+        f"Parsed {len(result)} closed trade(s) from TradingView List of Trades. "
+        f"Entry rows were not counted again. Returns were taken from {percent_col}, not the currency P&L column."
+    )
+    return result, note, flags
+
+
+def _date_sanity_note(df: pd.DataFrame) -> str:
+    if "date" not in df.columns:
+        return ""
+    years = pd.to_datetime(df["date"], errors="coerce").dt.year
+    notes = []
+    future = years[years > pd.Timestamp.utcnow().year + 1]
+    if not future.empty:
+        shown = ", ".join(str(year) for year in sorted(set(int(year) for year in future.dropna()))[:4])
+        notes.append(
+            f"Warning: {int(future.shape[0])} trade date(s) are in {shown}, which is after a backtest "
+            "should have ended. Check the date column before trusting the score."
+        )
+    ancient = years[(years < 1990) & years.notna()]
+    if not ancient.empty:
+        notes.append(
+            f"Warning: {int(ancient.shape[0])} trade date(s) are before 1990. "
+            "That usually means a date was read as a Unix timestamp or the year and day were swapped."
+        )
+    return " | ".join(notes)
+
+
+def _guard_trades(df: pd.DataFrame, note: str) -> tuple[pd.DataFrame, str]:
+    if len(df) > MAX_TRADES_PER_RUN:
+        raise TradeImportError(
+            f"This file contains {len(df)} closed trades. QuantProof scores at most "
+            f"{MAX_TRADES_PER_RUN} trades per run — the partial-fill and Monte Carlo checks "
+            "copy the whole series hundreds of times and exhaust the server. "
+            f"Export a shorter date range (the most recent {MAX_TRADES_PER_RUN} trades is enough) "
+            "and upload that file."
+        )
+    if "pnl" in df.columns:
+        values = pd.to_numeric(df["pnl"], errors="coerce")
+        if len(values) and not np.isfinite(values.to_numpy(dtype=float)).all():
+            raise TradeImportError(
+                "The parsed returns contain inf or nan. Delete those cells or replace them with a decimal return."
+            )
+    warning = _date_sanity_note(df)
+    if warning:
+        note = f"{note} | {warning}" if note else warning
+    return df, note
+
+
+def _finish_parsed(
+    df: pd.DataFrame, note: str, flags: list, benchmark: str | None
+) -> tuple[pd.DataFrame, str]:
+    if df is None or len(df) == 0:
+        detail = note or "No completed trades in this file."
+        if flags:
+            detail = detail + " " + " | ".join(str(flag) for flag in flags[:6])
+        raise TradeImportError(detail)
+    df, note = _guard_trades(df, note)
+    if flags:
+        if benchmark == "options":
+            note += " | OPTIONS_FLAGS:" + "||".join(str(flag) for flag in flags)
+        elif benchmark == "mt5":
+            note += " | MT5_FLAGS:" + "||".join(str(flag) for flag in flags)
+        else:
+            note += " | " + " | ".join(str(flag) for flag in flags[:4])
+    regime_key = None if benchmark in {None, "options", "mt5"} else benchmark
+    if "date" in df.columns and df["date"].notna().any():
+        bm_type = regime_key or get_benchmark_type(df, None)
+        df, regime_note = assign_regimes(df, bm_type)
+        if regime_note:
+            note += " | " + regime_note
+    return df, note
+
+
+def _call_parser(parser, raw: str, label: str):
+    try:
+        return parser(raw)
+    except TradeImportError:
+        raise
+    except ValueError as exc:
+        raise TradeImportError(str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise TradeImportError(f"{label} was detected but could not be parsed: {exc}") from exc
+
+
+def _screen_return_column(series: pd.Series, *, decimal_comma: bool) -> None:
+    bad: list[str] = []
+    for raw in series.tolist():
+        text = "" if raw is None else str(raw).strip()
+        if text == "" or text.lower() in {"none", "null"}:
+            continue
+        number, _percent = parse_number(text, decimal_comma=decimal_comma)
+        if text.lower() in {"nan", "inf", "-inf", "+inf", "infinity", "-infinity"} or not np.isfinite(number):
+            bad.append(text)
+            if len(bad) >= 5:
+                break
+    if bad:
+        shown = ", ".join(repr(value) for value in bad)
+        raise TradeImportError(
+            f"The return column contains values that are not numbers ({shown}). "
+            "inf, nan, and text such as 'abc' are not returns, and they are not dropped quietly. "
+            "Delete those rows or replace them with a decimal (0.015) or a percent (1.5%)."
+        )
+
+
+def _parse_generic_frame(table) -> tuple[pd.DataFrame, str, list]:
+    df = table.frame
+    decimal_comma = table.delimiter == ";"
+    ranked = [(rank, column) for column in df.columns if (rank := pnl_column_rank(column)) is not None]
+    if not ranked:
+        cols = ", ".join(list(df.columns)[:12]) or "(none)"
+        lowered = " ".join(df.columns)
+        if "profit_factor" in df.columns or ("gross_profit" in lowered and "net_profit" in lowered):
+            raise TradeImportError(
+                "This looks like a TradingView performance summary, not the List of Trades. "
+                "Open the Strategy Tester, switch to the Trades tab, and download that CSV."
+            )
+        raise TradeImportError(
+            f"No return column found. Columns seen: {cols}. "
+            "QuantProof reads a Zerodha Console tradebook, a Kite orders export, an Alpaca orders export, "
+            "an MT5 deals or positions report, a TradingView List of Trades (Trades tab, not the performance summary), "
+            "an IBKR Flex file, or a CSV with date and pnl columns. "
+            "Rename your return column to pnl if this is your own spreadsheet."
+        )
+    column = min(ranked)[1]
+    _screen_return_column(df[column], decimal_comma=decimal_comma)
+    numbers, was_percent = parse_numbers(df[column], decimal_comma=decimal_comma)
+    mask = numbers.notna() & np.isfinite(numbers)
+    skipped = int((~mask).sum())
+    values = numbers[mask]
+    if values.empty:
+        raise TradeImportError(
+            f"Column '{column}' has no numeric returns. "
+            "A score needs at least 10 closed trades; this file has none."
+        )
+    notes = list(table.notes)
+    if column.endswith("_pct") or was_percent:
+        values = values / 100.0
+        notes.append(f"Column {column} was read as a percentage, so 1.5 means 1.5% (0.015).")
+    else:
+        divided = bool(values.abs().mean() > 1.0)
+        if divided:
+            values = values / 100.0
+        clipped_pct = float((values.abs() > 0.50).mean())
+        if divided and clipped_pct > 0.80:
+            raise TradeImportError(
+                "PnL values look like dollar amounts or prices, not decimal returns. "
+                f"{int(clipped_pct * 100)}% of them are still larger than 50% after dividing by 100. "
+                "Upload decimals (0.015 = 1.5%) or a percent column such as '1.5%'."
+            )
+        if clipped_pct > 0.50:
+            notes.append(
+                "Many returns were clipped to ±0.99. The validator cannot score a single trade above 99%. "
+                "If these are dollar amounts, upload a percentage column instead."
+            )
+    values = values.clip(-0.99, 0.99)
+    result = pd.DataFrame({"pnl": values.to_numpy(), "match_id": np.arange(1, len(values) + 1)})
+    date_col = next(
+        (
+            name
+            for name in (
+                "date",
+                "close_date",
+                "exit_date",
+                "trade_date",
+                "date_time",
+                "date_and_time",
+                "time",
+            )
+            if name in df.columns
+        ),
+        None,
+    )
+    if date_col:
+        parsed, date_note = parse_datetimes(df.loc[mask, date_col], dayfirst=decimal_comma)
+        result["date"] = parsed.to_numpy()
+        if date_note:
+            notes.append(date_note)
+    if skipped:
+        notes.append(f"Skipped {skipped} blank return cell(s). The other rows were kept.")
+    return result, "", notes
+
+
+def _headerless_returns(text: str) -> tuple[pd.DataFrame, str]:
+    """A file with no header is accepted only when the numbers already look like returns."""
+    table_text = text
+    try:
+        frame = pd.read_csv(io.StringIO(table_text), header=None, dtype=str, on_bad_lines="skip")
+    except Exception as exc:
+        raise TradeImportError(f"Could not parse this file: {exc}") from exc
+    for column in frame.columns:
+        numbers, was_percent = parse_numbers(frame[column], decimal_comma=False)
+        values = numbers.dropna()
+        if len(values) < 1 or not np.isfinite(values).all():
+            continue
+        if was_percent:
+            values = values / 100.0
+        elif float(values.abs().mean()) > 1.0 and (values < 0).any():
+            values = values / 100.0
+        if (values > 0).any() and (values < 0).any() and float(values.abs().median()) <= 1.0:
+            clipped = values.clip(-0.99, 0.99)
+            result = pd.DataFrame({"pnl": clipped.to_numpy(), "match_id": np.arange(1, len(clipped) + 1)})
+            return _guard_trades(
+                result,
+                "No header was found. The numeric column was read as returns. "
+                "Add a header row named date,pnl if that is not what the file contains.",
+            )
+    raise TradeImportError(
+        "No header row and no return column were found. "
+        "Add a header with a pnl column (decimals or percents), or export a broker file "
+        "QuantProof recognises (Zerodha tradebook, Alpaca, MT5, TradingView List of Trades, IBKR Flex)."
+    )
+
+
+def smart_parse_excel(contents: bytes) -> tuple[pd.DataFrame, str]:
+    """Excel workbooks use the same detection as CSV uploads."""
+    return smart_parse_csv(contents)
 
 
 def smart_parse_csv(contents: bytes) -> tuple[pd.DataFrame, str]:
     """
-    Parses CSV/TSV/Excel into a trades DataFrame for QuantProofValidator.
-    Returns (df, regime_note).
+    Parse a broker export or a generic return file into closed trades.
+
+    A format that is recognised and then yields no closed trades is rejected.
+    It is not handed to the generic parser, which used to read prices as returns.
     """
-    # NEW: Detect Excel files by magic bytes
-    if (
-        contents.startswith(b"PK\x03\x04")
-        or contents.startswith(b"PK\x05\x06")
-        or contents.startswith(b"PK\x07\x08")
-    ):
-        return smart_parse_excel(contents)
-
-    # IBKR Flex XML/CSV is parsed here. Activity Statements and TWS logs are
-    # rejected with a clear error so dollar P&L is never clipped into a return.
-    if classify_ibkr_bytes(contents) != "not_ibkr":
+    if not contents or not contents.strip(b"\x00 \t\r\n"):
+        raise TradeImportError("The file is empty. Export a trade history and upload that file.")
+    if contents.startswith(b"\xd0\xcf\x11\xe0"):
+        raise TradeImportError("This is an old Excel .xls file. Save it as .xlsx or CSV and upload that.")
+    if contents.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
         try:
-            _df, _note = parse_ibkr_upload(contents)
+            text = excel_to_csv_text(contents)
         except ValueError as exc:
-            raise HTTPException(400, str(exc)) from exc
-        if "date" in _df.columns and _df["date"].notna().any():
-            _bm_type_for_regime = get_benchmark_type(_df, None)
-            _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
-            if _regime_note:
-                _note = f"{_note} | {_regime_note}"
-        return _df, _note
-
-    raw = contents.decode("utf-8", errors="ignore")
-    regime_note = ""
-
-    sample = raw[:4096]
-    counts = {"\t": sample.count("\t"), ";": sample.count(";"), ",": sample.count(",")}
-    delim = max(counts, key=counts.get)
+            raise TradeImportError(str(exc)) from exc
+    elif classify_ibkr_bytes(contents) != "not_ibkr":
+        try:
+            frame, note = parse_ibkr_upload(contents)
+        except ValueError as exc:
+            raise TradeImportError(str(exc)) from exc
+        return _finish_parsed(frame, note, [], None)
+    else:
+        try:
+            text = decode_upload(contents)
+        except ValueError as exc:
+            raise TradeImportError(str(exc)) from exc
 
     try:
-        _probe = pd.read_csv(io.StringIO(raw), sep=delim, nrows=5, dtype=str)
-    except Exception:
-        _probe = pd.DataFrame()
+        table = read_delimited(text)
+    except ValueError as exc:
+        raise TradeImportError(str(exc)) from exc
+    if not table.header_found:
+        return _headerless_returns(text)
 
-    # —? 0. Options CSV ——————————————————————————————————————————————————?
-    if not _probe.empty and _is_options_csv(_probe):
-        try:
-            _df, _note, _flags = _parse_options_csv(raw)
-            if len(_df) > 0:
-                if "date" in _df.columns and _df["date"].notna().any():
-                    _bm_type_for_regime = get_benchmark_type(_df, None)
-                    _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
-                    _note += " | " + _regime_note if _regime_note else ""
-                if _flags:
-                    _note += " | OPTIONS_FLAGS:" + "||".join(_flags)
-                return _df, _note
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        except Exception as _e:
-            # Parser was positively identified — crash means bad data, not wrong parser
-            raise HTTPException(400, f"Options CSV detected but could not be parsed: {_e}")
-
-    # —? 0.5. MT5 Trade History ——————————————————————————————————————————?
-    if not _probe.empty and _is_mt5_csv(_probe):
-        try:
-            _df, _note, _flags = _parse_mt5_csv(raw)
-            if len(_df) > 0:
-                # Detect MT5 forex scale warning sentinel — promote to scale_warning
-                _mt5_forex_scale = False
-                if _note.startswith("MT5_FOREX_SCALE_WARN||"):
-                    _note = _note[len("MT5_FOREX_SCALE_WARN||") :]
-                    _mt5_forex_scale = True
-                if "date" in _df.columns and _df["date"].notna().any():
-                    _bm_type_for_regime = get_benchmark_type(_df, None)
-                    _df, _regime_note = assign_regimes(_df, _bm_type_for_regime)
-                    _note += " | " + _regime_note if _regime_note else ""
-                if _flags:
-                    _note += " | MT5_FLAGS:" + "||".join(_flags)
-                if _mt5_forex_scale:
-                    _note += " | MT5_SCALE_WARNING"
-                return _df, _note
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        except Exception as _e:
-            raise HTTPException(400, f"MT5 CSV detected but could not be parsed: {_e}")
-
-    # —? 1. Kite TradeBook ————————————————————————————————————————————————?
-    if not _probe.empty and _is_kite_csv(_probe):
-        try:
-            _df, _note, _flags = _parse_kite_csv(raw)
-            if len(_df) > 0:
-                if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df, "nifty")
-                    _note += " | " + _regime_note if _regime_note else ""
-                if _flags:
-                    _note += " | " + " | ".join(_flags[:2])
-                if "ticker" in _df.columns:
-                    _opt_mask = _df["ticker"].astype(str).str.contains(r"(CE|PE)$", regex=True, na=False)
-                    if _opt_mask.any():
-                        _opt_count = int(_opt_mask.sum())
-                        _note += (
-                            f" | KITE OPTIONS: {_opt_count} options trades detected "
-                            f"(CE/PE). P&L used as-is from Kite — premium normalisation "
-                            f"not applied. Crash sims assume linear payoffs."
-                        )
-                return _df, _note
-        except Exception as _e:
-            raise HTTPException(400, f"Kite TradeBook CSV detected but could not be parsed: {_e}")
-
-    # —? 2. Kite Orders CSV ———————————————————————————————————————————————?
-    if not _probe.empty and _is_kite_orders_csv(_probe):
-        try:
-            _df, _note, _flags = _parse_kite_orders_csv(raw)
-            if len(_df) > 0:
-                if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df, "nifty")
-                    _note += " | " + _regime_note if _regime_note else ""
-                if _flags:
-                    _note += " | " + " | ".join(_flags[:2])
-                return _df, _note
-        except Exception as _e:
-            raise HTTPException(400, f"Kite Orders CSV detected but could not be parsed: {_e}")
-
-    # —? 3. Alpaca UI export ——————————————————————————————————————————————?
-    if not _probe.empty and _is_alpaca_ui_export(_probe):
-        try:
-            _df, _note, _flags = _parse_alpaca_ui_export(raw)
-            if len(_df) > 0:
-                if "date" in _df.columns and _df["date"].notna().any():
-                    _df, _regime_note = assign_regimes(_df)
-                    _note += " | " + _regime_note if _regime_note else ""
-                if _flags:
-                    _note += " | " + " | ".join(_flags[:2])
-                return _df, _note
-        except Exception as _e:
-            raise HTTPException(400, f"Alpaca UI CSV detected but could not be parsed: {_e}")
-
-    # —? 4. Generic PnL CSV ———————————————————————————————————————————————?
-    try:
-        df = pd.read_csv(io.StringIO(raw), sep=delim)
-        pnl_names = ["pnl", "profit", "return", "gain", "pl", "p&l"]
-        for col in df.columns:
-            if any(p in col.lower() for p in pnl_names):
-                raw_vals = df[col].astype(str).str.replace("%", "", regex=False).str.strip()
-                vals = pd.to_numeric(raw_vals, errors="coerce").dropna()
-                if len(vals) >= 5:
-                    _was_divided = vals.abs().mean() > 1.0
-                    if _was_divided:
-                        vals = vals / 100.0
-                    # Detection threshold stays at 0.50 — dollar PnL detector
-                    _clipped_pct = (vals.abs() > 0.50).mean()
-                    # FIX: clip to ?0.99 to match validator guard (was ?0.50)
-                    vals = vals.clip(-0.99, 0.99)
-                    _dollar_pnl_warning = _clipped_pct > 0.50
-                    # HARD REJECT: only fires when values required /100 normalization
-                    # AND still have >80% clipping — meaning they were dollar amounts
-                    # (e.g. $450) not valid high-return decimals (e.g. 0.95 = 95% gain).
-                    # Without _was_divided gate: a valid 70-95% return strategy
-                    # (mean=0.85) would be incorrectly rejected as dollar amounts.
-                    if _was_divided and _clipped_pct > 0.80:
-                        raise ValueError(
-                            f"PnL values appear to be dollar amounts or raw prices, not decimal returns. "
-                            f"{int(_clipped_pct * 100)}% of values exceed ?50% per trade after normalisation. "
-                            "Upload decimal returns (e.g. 0.015 = 1.5%, not 1.5 or $15). "
-                            "Check your PnL column and re-upload."
-                        )
-                    result = pd.DataFrame({"pnl": vals.values})
-
-                    date_cols = [c for c in df.columns if any(x in c.lower() for x in ["date", "time", "dt"])]
-                    if date_cols:
-                        result["date"] = pd.to_datetime(df[date_cols[0]].values[: len(vals)], errors="coerce")
-
-                    vol_cols = [c for c in df.columns if "volume" in c.lower() or "vol" == c.lower()]
-                    if vol_cols:
-                        result["volume"] = pd.to_numeric(df[vol_cols[0]], errors="coerce").values[: len(vals)]
-
-                    reg_cols = [c for c in df.columns if "regime" in c.lower()]
-                    if reg_cols:
-                        result["regime"] = df[reg_cols[0]].values[: len(vals)]
-                    elif "date" in result.columns and result["date"].notna().any():
-                        _bm_type_for_regime = get_benchmark_type(result, None)
-                        result, regime_note = assign_regimes(result, _bm_type_for_regime)
-
-                    if _dollar_pnl_warning:
-                        regime_note = (
-                            ("⚠️ " + regime_note + " | " if regime_note else "⚠️ ")
-                            + "PnL values appear to be dollar amounts, not decimal returns "
-                            "? clipped to 0.99. Upload a column with decimal returns (e.g. 0.015 = 1.5%)."
-                        )
-
-                    return result, regime_note
-    except ValueError:
-        raise
-    except Exception:
-        pass
-
-    # —? 5. Flexible fallback —————————————————————————————————————————————?
-    try:
-        lines = [ln.strip() for ln in raw.split("\n") if ln.strip()]
-        max_cols = max(len(ln.split(delim)) for ln in lines[1:] if ln)
-        df = pd.read_csv(
-            io.StringIO(raw),
-            sep=delim,
-            names=[f"col_{i}" for i in range(max_cols)],
-            skiprows=1,
-            on_bad_lines="skip",
-            engine="python",
-        )
-        for col in df.columns:
-            vals = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(vals) >= 5 and (vals > 0).any() and (vals < 0).any():
-                if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
-                # FIX: clip to ?0.99 to match validator guard (was ?0.50)
-                vals = vals.clip(-0.99, 0.99)
-                return pd.DataFrame({"pnl": vals.values}), ""
-        for col in df.columns:
-            vals = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(vals) >= 5 and vals.std() > 0:
-                if vals.abs().mean() > 1.0:
-                    vals = vals / 100.0
-                # FIX: clip to ?0.99 to match validator guard (was ?0.50)
-                vals = vals.clip(-0.99, 0.99)
-                return pd.DataFrame({"pnl": vals.values}), ""
-    except Exception as e:
-        raise ValueError(f"Could not parse CSV: {str(e)}")
-
-    raise ValueError(
-        "No valid PnL column found. Make sure your CSV has a 'pnl' or 'profit' column, "
-        "or upload a Kite TradeBook, Kite Orders CSV, or Alpaca export."
+    probe = table.frame
+    routes = (
+        (_is_tradingview_csv, _parse_tradingview_csv, "TradingView List of Trades", None),
+        (_is_options_csv, _parse_options_csv, "Options CSV", "options"),
+        (_is_mt5_csv, _parse_mt5_csv, "MT5 report", "mt5"),
+        (_is_kite_csv, _parse_kite_csv, "Zerodha tradebook", "nifty"),
+        (_is_kite_orders_csv, _parse_kite_orders_csv, "Kite orders", "nifty"),
+        (_is_alpaca_ui_export, _parse_alpaca_ui_export, "Alpaca orders", None),
+        (_is_alpaca_orders_csv, _parse_alpaca_orders_csv, "Alpaca orders", None),
+        (_is_alpaca_activities_csv, _parse_alpaca_orders_csv, "Alpaca fills", None),
     )
+    for detect, parser, label, benchmark in routes:
+        if detect(probe):
+            frame, note, flags = _call_parser(parser, text, label)
+            return _finish_parsed(frame, note, flags, benchmark)
+
+    head = "\n".join(text.splitlines()[:8]).lower()
+    for name in ("upstox", "groww", "angel one", "angel broking", "dhan"):
+        if name in head and pnl_column_rank(next(iter(probe.columns), "")) is None:
+            if not any(pnl_column_rank(column) is not None for column in probe.columns):
+                raise TradeImportError(
+                    f"This looks like a {name.title()} export. QuantProof does not parse {name.title()} yet. "
+                    "Upload a Zerodha Console tradebook, or a CSV with date and pnl columns."
+                )
+    frame, note, flags = _parse_generic_frame(table)
+    return _finish_parsed(frame, note, flags, None)
 
 
 def _dedup_trades(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop a repeated upload of the same dated trades.
+
+    Rows with no date are kept even when the return is identical: two trades
+    can both make 1%, and a dateless file has nothing else to tell them apart.
+    ``match_id`` keeps same-day round trips that really did happen twice.
     """
-    Remove exact duplicate rows (same date + ticker + pnl) that arise when
-    a user uploads the same file twice or a broker export contains duplicate entries.
-    Only deduplicates on columns that are present — pnl is always checked.
-    """
-    if df.empty:
+    if df.empty or "pnl" not in df.columns:
         return df
-    key_cols = [c for c in ["date", "ticker", "pnl", "side"] if c in df.columns]
-    if not key_cols:
+    if "match_id" in df.columns:
+        keys = [column for column in ("match_id", "date", "ticker", "pnl", "side") if column in df.columns]
+    elif "date" in df.columns and df["date"].notna().any():
+        keys = [column for column in ("date", "ticker", "pnl", "side") if column in df.columns]
+        dated = df["date"].notna()
+        if not bool(dated.all()):
+            kept = df.loc[dated].drop_duplicates(subset=keys).reset_index(drop=True)
+            undated = df.loc[~dated].reset_index(drop=True)
+            return pd.concat([kept, undated], ignore_index=True)
+    else:
         return df
     before = len(df)
-    df = df.drop_duplicates(subset=key_cols).reset_index(drop=True)
+    df = df.drop_duplicates(subset=keys).reset_index(drop=True)
     removed = before - len(df)
     if removed > 0:
         print(f"[dedup] Removed {removed} duplicate trade row(s)")
     return df
-
-
-# =========================================================
-# ROUTES
-# =========================================================

@@ -539,11 +539,11 @@ def test_activity_statement_and_tws_logs_are_rejected():
         (ACTIVITY_STATEMENT, "Activity Statement"),
         (TWS_LOG, "TWS"),
     ):
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises((HTTPException, parsers.TradeImportError)) as exc:
             parsers.smart_parse_csv(payload.encode())
-        assert exc.value.status_code == 400
-        assert marker in str(exc.value.detail)
-        assert "Flex" in str(exc.value.detail)
+        detail = exc.value.detail if isinstance(exc.value, HTTPException) else str(exc.value)
+        assert marker in str(detail)
+        assert "Flex" in str(detail)
 
 
 def test_generic_and_kite_csv_are_not_treated_as_ibkr():

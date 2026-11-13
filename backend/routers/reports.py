@@ -29,6 +29,7 @@ from services.cache import (
     _save_validation_cache,
 )
 from services.client_ip import client_ip
+from services.limits import TradeImportError
 from services.parsers import _dedup_trades, pair_alpaca_orders, retry_on_failure, smart_parse_csv
 from services.portfolio import (
     _diversification_score,
@@ -119,9 +120,13 @@ async def generate_report_endpoint(
             },
         )
 
-    filename = file.filename or ""
-    if not (filename.endswith(".csv") or filename.lower().endswith(".xml")):
-        raise HTTPException(400, "Please upload a CSV file or an IBKR Flex XML file")
+    filename = (file.filename or "").lower()
+    if filename.endswith(".xls") and not filename.endswith(".xlsx"):
+        raise HTTPException(
+            400, "Old Excel .xls files are not supported. Save as .xlsx or CSV and upload that."
+        )
+    if not filename.endswith((".csv", ".xml", ".xlsx")):
+        raise HTTPException(400, "Upload a CSV, an Excel .xlsx workbook, or an IBKR Flex XML file.")
 
     contents = await file.read()
     if len(contents) > 5_000_000:
@@ -134,7 +139,11 @@ async def generate_report_endpoint(
         raise HTTPException(400, str(e))
 
     if len(df) < 10:
-        raise HTTPException(400, f"Only {len(df)} trades found. Need at least 10.")
+        raise HTTPException(
+            400,
+            f"Only found {len(df)} closed trade(s). Need at least 10 before a score means anything. "
+            "Open orders and blank rows are not counted.",
+        )
 
     try:
         _bm_type = get_benchmark_type(df, currency)
@@ -149,6 +158,8 @@ async def generate_report_endpoint(
             df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials, enable_prop_firm=enhanced
         )
         report = validator.run(enhanced=enhanced)
+    except TradeImportError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
@@ -461,8 +472,8 @@ async def generate_portfolio_report_endpoint(
     _n = 20 if _tier == "pro" else 10
 
     for i, file in enumerate(files):
-        if not file.filename.lower().endswith(".csv"):
-            raise HTTPException(400, f"File {i + 1} must be a CSV.")
+        if not file.filename.lower().endswith((".csv", ".xlsx")):
+            raise HTTPException(400, f"File {i + 1} must be a CSV or an Excel .xlsx workbook.")
         contents = await file.read()
         if len(contents) > 5_000_000:
             raise HTTPException(
@@ -481,6 +492,8 @@ async def generate_portfolio_report_endpoint(
             _bm, _bm_note = get_nifty_benchmark(df) if _bm_type == "nifty" else get_spy_benchmark(df)
             validator = QuantProofValidator(df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=_n)
             report = validator.run()
+        except TradeImportError as exc:
+            raise HTTPException(400, f"Strategy {i + 1}: {exc}") from exc
         except Exception as e:
             raise HTTPException(500, f"Validation failed for strategy {i + 1}: {str(e)}")
 
@@ -1321,6 +1334,8 @@ async def generate_broker_report(
         n_trials = max(1, min(50, int(getattr(payload, "n_trials", 10))))  # cap: already parsed from Form
         validator = QuantProofValidator(df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials)
         report = validator.run()
+    except TradeImportError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 

@@ -16,6 +16,7 @@ from services.ai_plans import generate_ai_plan, generate_portfolio_fix_plan
 from services.benchmarks import get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation, _get_cached_validation, _save_validation_cache
 from services.client_ip import client_ip
+from services.limits import TradeImportError
 from services.parsers import _dedup_trades, smart_parse_csv
 from services.portfolio import (
     PortfolioResponse,
@@ -62,11 +63,16 @@ async def validate(
         # Released by middleware when the response is an error, so a bad file does not use a try.
         request.state.rate_limit_key = ip
 
-    filename = file.filename or ""
-    if not (filename.endswith(".csv") or filename.lower().endswith(".xml")):
+    filename = (file.filename or "").lower()
+    if filename.endswith(".xls") and not filename.endswith(".xlsx"):
         raise HTTPException(
             status_code=400,
-            detail="Please upload a CSV file or an IBKR Flex XML file",
+            detail="Old Excel .xls files are not supported. Save as .xlsx or CSV and upload that.",
+        )
+    if not filename.endswith((".csv", ".xml", ".xlsx")):
+        raise HTTPException(
+            status_code=400,
+            detail="Upload a CSV, an Excel .xlsx workbook, or an IBKR Flex XML file.",
         )
 
     contents = await file.read()
@@ -83,7 +89,14 @@ async def validate(
     df = _dedup_trades(df)
     n_trials = max(1, min(50, n_trials))  # cap: prevent runaway requests
     if len(df) < 10:
-        raise HTTPException(status_code=400, detail=f"Only found {len(df)} valid trades. Need at least 10.")
+        hint = f" {regime_note}" if regime_note else ""
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Only found {len(df)} closed trade(s). Need at least 10 before a score means anything. "
+                "Open orders and blank rows are not counted." + hint
+            ),
+        )
 
     try:
         _bm_type = get_benchmark_type(df, currency)
@@ -94,6 +107,8 @@ async def validate(
             df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials, enable_prop_firm=enhanced
         )
         report = validator.run(enhanced=enhanced)
+    except TradeImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
 
@@ -404,8 +419,8 @@ async def validate_portfolio(
     sharpes = []
 
     for i, file in enumerate(files):
-        if not file.filename.lower().endswith(".csv"):
-            raise HTTPException(400, f"File {i + 1} must be a CSV.")
+        if not file.filename.lower().endswith((".csv", ".xlsx")):
+            raise HTTPException(400, f"File {i + 1} must be a CSV or an Excel .xlsx workbook.")
         contents = await file.read()
         if len(contents) > 5_000_000:
             raise HTTPException(
@@ -430,6 +445,8 @@ async def validate_portfolio(
                 df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=10, enable_prop_firm=enhanced
             )
             report = validator.run(enhanced=enhanced)
+        except TradeImportError as exc:
+            raise HTTPException(400, f"Strategy {i + 1} ({names_list[i]}): {exc}") from exc
         except Exception as e:
             raise HTTPException(500, f"Validation failed for strategy {i + 1}: {str(e)}")
 

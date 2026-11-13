@@ -72,21 +72,25 @@ class OverfittingChecks:
             abs(calculate_max_drawdown(self.rng.permutation(r))) - abs(original_dd) < 0.10 for _ in range(200)
         ]
         sequence_pct = float(np.mean(seq_sims) * 100)
-        perms = [self.rng.permutation(r) for _ in range(500)]
-        equity_sims = [np.prod(1 + p) for p in perms]
-
-        # Generate full equity curve paths for frontend Monte Carlo display
-        base_equity = 10000  # Starting equity
+        # One permutation at a time. Holding 500 copies, then 200 Python lists of
+        # every trade, was about 40 KB per trade and exhausted a 512 MB server
+        # on a few thousand rows. The RNG sequence is unchanged: 500 permutations
+        # after the 200 sequence-check permutations above.
+        equity_sims = np.empty(500)
+        drawdowns = np.empty(500)
         equity_curve_paths = []
-        for perm in perms[:200]:  # Limit for performance
-            equity_path = [base_equity]
-            cumulative = base_equity
-            for ret in perm:
-                cumulative *= 1 + ret
-                equity_path.append(cumulative)
-            # Normalize to start at 100 for frontend compatibility
-            normalized_path = [float(100 * (x / base_equity)) for x in equity_path]
-            equity_curve_paths.append(normalized_path)
+        max_points = 400
+        for i in range(500):
+            perm = self.rng.permutation(r)
+            equity_sims[i] = np.prod(1.0 + perm)
+            drawdowns[i] = abs(calculate_max_drawdown(perm))
+            if i < 200:
+                curve = np.cumprod(1.0 + perm)
+                curve = np.concatenate(([1.0], curve))
+                if len(curve) > max_points:
+                    index = np.linspace(0, len(curve) - 1, max_points).astype(int)
+                    curve = curve[index]
+                equity_curve_paths.append([float(100.0 * point) for point in curve])
 
         # Store Monte Carlo data for frontend - ensure all types are JSON serializable
         self._last_monte_carlo_sims = {
@@ -103,7 +107,7 @@ class OverfittingChecks:
         print(f"  - First path sample: {equity_curve_paths[0][:5] if equity_curve_paths else 'None'}")
         print(f"  - _last_monte_carlo_sims keys: {list(self._last_monte_carlo_sims.keys())}")
 
-        worst_5pct = np.percentile(equity_sims, 5)
+        worst_5pct = float(np.percentile(equity_sims, 5))
         if not self.has_dates:
             worst_5pct_val = (worst_5pct - 1) * 100
         else:
@@ -112,7 +116,7 @@ class OverfittingChecks:
             if "Short backtest" in self.timeframe_info:
                 tsy = 1.0
             worst_5pct_val = (worst_5pct ** (1 / tsy) - 1) * 100
-        worst_5pct_dd = np.percentile([abs(calculate_max_drawdown(p)) for p in perms], 95) * 100
+        worst_5pct_dd = float(np.percentile(drawdowns, 95) * 100)
         equity_score = min(100, max(0, 100 + worst_5pct_val * 2 - worst_5pct_dd))
         combined = mean_pct * 0.4 + sequence_pct * 0.3 + equity_score * 0.3
         passed = combined > (70 if self.strict_mode else 60)

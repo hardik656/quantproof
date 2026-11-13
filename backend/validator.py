@@ -304,6 +304,23 @@ class QuantProofValidator(
         n = len(self.returns)
         min_required = MIN_TRADES_STRICT if strict_mode else MIN_TRADES_STANDARD
 
+        from services.limits import MAX_TRADES_PER_RUN, TradeImportError
+
+        if n > MAX_TRADES_PER_RUN:
+            raise TradeImportError(
+                f"This file contains {n} closed trades. QuantProof scores at most "
+                f"{MAX_TRADES_PER_RUN} trades per run — the partial-fill and Monte Carlo "
+                "checks keep a copy of the whole series hundreds of times and exhaust the server. "
+                f"Export a shorter date range (the most recent {MAX_TRADES_PER_RUN} trades is enough) "
+                "and upload that file."
+            )
+        finite = np.isfinite(self.returns)
+        if not finite.all():
+            raise TradeImportError(
+                f"{int((~finite).sum())} return(s) are inf or nan. "
+                "Those cells cannot be scored. Delete them or replace them with a decimal return "
+                "(0.015 for 1.5%). Text such as 'abc' is not a return."
+            )
         if n < 10:
             raise ValueError(f"Insufficient data: {n} trades. Minimum 10 trades required.")
         self._low_sample_warning = n < min_required

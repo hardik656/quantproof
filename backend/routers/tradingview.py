@@ -9,10 +9,8 @@ import logging
 import os
 import time
 import uuid
-from collections import defaultdict
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Form, HTTPException, Request
 from pydantic import BaseModel
@@ -22,6 +20,8 @@ from db import store
 from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation
+from services.csv_util import Fill, match_fills
+from services.limits import TradeImportError
 from validator import QuantProofValidator
 
 log = logging.getLogger("quantproof.tradingview")
@@ -101,91 +101,40 @@ def _tv_pair_alerts(alerts: list) -> tuple[list, list]:
 
     sorted_alerts = sorted(alerts, key=lambda x: _parse_ts(x.get("timestamp")))
 
-    lots = defaultdict(list)
-    trades = []
     audit_flags = []
-
-    for alert in sorted_alerts:
+    fills = []
+    for seq, alert in enumerate(sorted_alerts):
         symbol = str(alert.get("symbol", "UNKNOWN"))
         action = str(alert.get("action", "")).upper().strip()
-        price = float(alert.get("price", 0))
-        qty = float(alert.get("quantity", 1))
-        ts = _parse_ts(alert.get("timestamp"))
-        date = _ts_to_datetime(ts)
-
-        if price <= 0:
+        try:
+            price = float(alert.get("price", 0))
+            qty = float(alert.get("quantity", 1))
+        except (TypeError, ValueError):
+            audit_flags.append(f"Skipped alert for {symbol}: price or quantity is not a number")
             continue
-
+        date = _ts_to_datetime(_parse_ts(alert.get("timestamp")))
+        if price <= 0 or qty <= 0:
+            continue
         if action == "BUY":
-            if lots[symbol] and lots[symbol][0]["side"] == "short":
-                remaining = qty
-                while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "short":
-                    lot = lots[symbol][0]
-                    close_qty = min(remaining, lot["qty"])
-                    try:
-                        pnl_pct = (lot["price"] - price) / lot["price"]
-                    except ZeroDivisionError:
-                        lots[symbol].pop(0)
-                        continue
-                    row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": "short"}
-                    if date:
-                        row["date"] = date
-                    trades.append(row)
-                    lot["qty"] -= close_qty
-                    remaining -= close_qty
-                    if lot["qty"] == 0:
-                        lots[symbol].pop(0)
-                if remaining > 0:
-                    lots[symbol].append({"qty": remaining, "price": price, "date": date, "side": "long"})
-            else:
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "long"})
-
+            side = "buy"
         elif action == "SELL":
-            if not lots[symbol]:
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                continue
-
-            if lots[symbol][0]["side"] == "short":
-                lots[symbol].append({"qty": qty, "price": price, "date": date, "side": "short"})
-                continue
-
-            remaining = qty
-            while remaining > 0 and lots[symbol] and lots[symbol][0]["side"] == "long":
-                lot = lots[symbol][0]
-                close_qty = min(remaining, lot["qty"])
-                try:
-                    pnl_pct = (price - lot["price"]) / lot["price"]
-                except ZeroDivisionError:
-                    lots[symbol].pop(0)
-                    continue
-                row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": "long"}
-                if date:
-                    row["date"] = date
-                trades.append(row)
-                lot["qty"] -= close_qty
-                remaining -= close_qty
-                if lot["qty"] == 0:
-                    lots[symbol].pop(0)
-
-        elif action in ("CLOSE", "EXIT", "FLAT"):
-            if lots[symbol]:
-                lot = lots[symbol][0]
-                try:
-                    pnl_pct = (
-                        (price - lot["price"]) / lot["price"]
-                        if lot["side"] == "long"
-                        else (lot["price"] - price) / lot["price"]
-                    )
-                except ZeroDivisionError:
-                    lots[symbol].clear()
-                    continue
-                row = {"pnl": round(np.clip(pnl_pct, -0.99, 0.99), 6), "ticker": symbol, "side": lot["side"]}
-                if date:
-                    row["date"] = date
-                trades.append(row)
-                lots[symbol].clear()
-
-    open_positions = {s: (sum(lot["qty"] for lot in ls), ls[0]["side"]) for s, ls in lots.items() if ls}
+            side = "sell"
+        elif action in {"CLOSE", "EXIT", "FLAT"}:
+            side = "close"
+        else:
+            audit_flags.append(f"Skipped unknown TradingView action '{action}' for {symbol}")
+            continue
+        fills.append(
+            Fill(symbol=symbol, side=side, qty=qty, price=price, date=date, allow_short=True, seq=seq)
+        )
+    matched = match_fills(fills)
+    trades = []
+    for row in matched.trades:
+        item = {"pnl": row["pnl"], "ticker": row["ticker"], "side": row["side"], "match_id": row["match_id"]}
+        if row.get("date") is not None:
+            item["date"] = row["date"]
+        trades.append(item)
+    open_positions = {symbol: (qty, "open") for symbol, qty in matched.open_qty.items()}
     if open_positions:
         sym_list = ", ".join(f"{s}({int(q)} {side})" for s, (q, side) in list(open_positions.items())[:6])
         audit_flags.append(
@@ -332,6 +281,8 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         validator = QuantProofValidator(
             df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials, enable_prop_firm=enhanced
         )
+    except TradeImportError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except ValueError as e:
         raise HTTPException(400, str(e))
 
