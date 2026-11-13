@@ -14,7 +14,7 @@ import csv
 import io
 import re
 from datetime import datetime
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from xml.etree import ElementTree as ET
 
 import numpy as np
@@ -1017,7 +1017,13 @@ async def fetch_flex_statement(
     ``days_back`` is sent as the Flex ``p`` period and capped at 365.
     """
     period = period_days(days_back)
-    send_url = FLEX_SEND_URL + "?" + urlencode({"t": token, "q": query_id, "v": "3", "p": str(period)})
+    # quote, not quote_plus: '+' '/' '=' '&' in a Flex token must be percent-encoded.
+    # quote_plus would turn a space into '+', which is already a legal token character.
+    send_url = (
+        FLEX_SEND_URL
+        + "?"
+        + urlencode({"t": token, "q": query_id, "v": "3", "p": str(period)}, quote_via=quote)
+    )
     try:
         send_text = await get(send_url)
     except IBKRServiceError:
@@ -1039,7 +1045,7 @@ async def fetch_flex_statement(
     base_url = (root.findtext("Url") or "").strip()
     if not reference or not base_url:
         raise IBKRServiceError("IBKR did not return a statement reference.", 400)
-    retrieve_url = base_url + "?" + urlencode({"t": token, "q": reference, "v": "3"})
+    retrieve_url = base_url + "?" + urlencode({"t": token, "q": reference, "v": "3"}, quote_via=quote)
     last_message = "Statement generation in progress. Please try again shortly."
     for attempt in range(max_attempts):
         await sleep(initial_delay if attempt == 0 else retry_delay)

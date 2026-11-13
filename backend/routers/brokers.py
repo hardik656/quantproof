@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import io
 import time
 
 import pandas as pd
@@ -19,7 +18,9 @@ from schemas import CheckResultResponse, CrashSimResponse, ValidationResponse
 from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_benchmark, get_spy_benchmark
 from services.cache import _cache_validation, _save_validation_cache
 from services.client_ip import client_ip
+from services.csv_util import read_delimited, upload_to_text
 from services.ibkr import IBKRServiceError, download_flex_statement, parse_flex_statement, period_days
+from services.limits import TradeImportError
 from services.parsers import (
     _dedup_trades,
     _is_kite_csv,
@@ -196,13 +197,16 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
         _bm_type = get_benchmark_type(df, None)
         _bm, _bm_note = get_nifty_benchmark(df) if _bm_type == "nifty" else get_spy_benchmark(df)
         n_trials = extract_n_trials(request)
-        validator = QuantProofValidator(
-            df,
-            benchmark_returns=_bm,
-            benchmark_type=_bm_type,
-            n_trials=n_trials,
-            enable_prop_firm=payload.enhanced,
-        )
+        try:
+            validator = QuantProofValidator(
+                df,
+                benchmark_returns=_bm,
+                benchmark_type=_bm_type,
+                n_trials=n_trials,
+                enable_prop_firm=payload.enhanced,
+            )
+        except TradeImportError as exc:
+            raise HTTPException(400, str(exc)) from exc
         try:
             loop = asyncio.get_event_loop()
             report = await asyncio.wait_for(
@@ -432,6 +436,8 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
             enable_prop_firm=payload.enhanced,
         )
         report = validator.run(enhanced=payload.enhanced)
+    except TradeImportError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
@@ -598,53 +604,28 @@ async def validate_kite(
             )
         request.state.rate_limit_key = ip
 
-    if not file.filename.lower().endswith(".csv"):
-        raise HTTPException(400, "Please upload a CSV file")
+    if not file.filename.lower().endswith((".csv", ".xlsx")):
+        raise HTTPException(400, "Upload a Zerodha Console tradebook as CSV or .xlsx.")
 
     contents = await file.read()
     if len(contents) > 5_000_000:
         raise HTTPException(
             400, f"File too large ({len(contents) // 1024}KB). Max 5MB — a real trade CSV is never larger."
         )
-    raw = contents.decode("utf-8", errors="ignore")
-
     try:
-        df_probe = pd.read_csv(io.StringIO(raw), nrows=5)
-        is_tradebook = _is_kite_csv(df_probe)
-        is_orders = _is_kite_orders_csv(df_probe)
-        if not is_tradebook and not is_orders:
-            raise HTTPException(
-                400,
-                "Invalid Kite CSV format. "
-                "Please export from Zerodha Kite → Console → TradeBook or Orders → Download.",
-            )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(400, f"Could not read CSV: {str(e)}")
-
-    if _is_kite_csv(df_probe):
-        try:
-            df_fo_check = pd.read_csv(io.StringIO(raw))
-            df_fo_check.columns = [c.lower().strip() for c in df_fo_check.columns]
-            if "segment" in df_fo_check.columns:
-                segments = df_fo_check["segment"].str.upper().str.strip()
-                fo_count = (segments.isin(["FO", "F&O", "OPTIONS", "FUTURES"])).sum()
-                total = len(df_fo_check)
-                fo_pct = fo_count / max(total, 1)
-                if fo_pct > 0.30:
-                    raise HTTPException(
-                        400,
-                        f"⚠️ {fo_count} of {total} trades ({fo_pct * 100:.0f}%) are F&O segment. "
-                        "QuantProof calculates P&L as (exit_price - entry_price) / entry_price, "
-                        "which is not accurate for options (premiums, lot sizes, and expiry affect real P&L). "
-                        "For options analysis, export only your equity trades, or manually calculate "
-                        "per-trade P&L as a percentage and upload as a generic CSV.",
-                    )
-        except HTTPException:
-            raise
-        except Exception:
-            pass
+        raw = upload_to_text(contents)
+        df_probe = read_delimited(raw).frame
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    is_tradebook = _is_kite_csv(df_probe)
+    is_orders = _is_kite_orders_csv(df_probe)
+    if not is_tradebook and not is_orders:
+        raise HTTPException(
+            400,
+            "This is not a Zerodha Console tradebook or a Kite orders export. "
+            "Console → Reports → Tradebook → CSV. Expected columns include symbol, trade_date, "
+            "trade_type, quantity, and price. Upstox, Groww, and Angel One files are not read here.",
+        )
 
     try:
         if _is_kite_orders_csv(df_probe):
@@ -684,6 +665,8 @@ async def validate_kite(
             df, benchmark_returns=_bm, benchmark_type=_bm_type, n_trials=n_trials, enable_prop_firm=enhanced
         )
         report = validator.run(enhanced=enhanced)
+    except TradeImportError as exc:
+        raise HTTPException(400, str(exc)) from exc
     except Exception as e:
         raise HTTPException(500, f"Validation failed: {str(e)}")
 
