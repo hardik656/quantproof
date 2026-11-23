@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from config import API_VERSION
 from services.tokens import REPORT_ACCESS_TOKENS, _is_pro_token, _token_tier, _validation_counts
+from services.usage import summary as usage_summary
 
 router = APIRouter()
 
@@ -85,6 +86,17 @@ def debug_token(t: str = ""):
         "is_pro": _is_pro_token(t),
         "in_token_store": t in REPORT_ACCESS_TOKENS,
     }
+
+
+@router.get("/debug/usage")
+def debug_usage(t: str = ""):
+    """Aggregated validation counts. Disabled unless DEBUG_ADMIN_TOKEN is set.
+
+    Returns totals only: no client hashes, IP addresses, or upload contents.
+    """
+    if not _debug_authorized(t):
+        raise HTTPException(404, "Not found")
+    return usage_summary()
 
 
 @router.api_route("/ping", methods=["GET", "HEAD"])

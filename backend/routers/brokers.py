@@ -32,6 +32,7 @@ from services.parsers import (
 )
 from services.sebi import _compute_sebi_checks
 from services.tokens import FREE_DAILY_LIMIT, _validation_counts, check_rate_limit
+from services.usage import mark_usage
 from validator import QuantProofValidator, ValidationDashboard
 
 router = APIRouter()
@@ -297,6 +298,7 @@ async def validate_alpaca(payload: AlpacaConnectRequest, request: Request = None
 
         _cache_validation(r.validation_hash, _vr_cache)
         _save_validation_cache()
+        mark_usage(request, fmt="alpaca", score=r.score)
 
         return ValidationResponse(
             fundable_score=min(100.0, round(r.score, 1)),
@@ -560,6 +562,7 @@ async def connect_ibkr(payload: IBKRConnectRequest, request: Request = None):
         prop_firm_compliance=getattr(report, "prop_firm_compliance", None),
     )
 
+    mark_usage(request, fmt="ibkr", score=report.score)
     return IBKRConnectResponse(
         source="IBKR_FLEX",
         account_id=payload.account_id,
@@ -741,6 +744,7 @@ async def validate_kite(
 
     _cache_validation(report.validation_hash + "-KITE", _vr_cache)
     _save_validation_cache()
+    mark_usage(request, fmt="kite", score=report.score)
 
     return ValidationResponse(
         fundable_score=report.score,

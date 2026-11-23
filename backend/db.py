@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-from sqlalchemy import JSON, DateTime, String, create_engine, delete, select
+from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -40,6 +40,24 @@ class KVState(Base):
     updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
+
+
+class ValidationUsage(Base):
+    """One row per validation attempt.
+
+    Stores a timestamp, outcome, file/broker kind, and an optional salted hash.
+    Never a raw IP, a browser id, or anything from the uploaded file.
+    """
+
+    __tablename__ = "validation_usage"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    client_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    id_source: Mapped[str] = mapped_column(String(16), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    format: Mapped[str] = mapped_column(String(32), nullable=False)
+    score_bucket: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class StateStore(Protocol):

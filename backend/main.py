@@ -98,6 +98,17 @@ class _SecurityAndRateLimitMiddleware:
         key = _reserved_rate_key(scope)
         if key and status_code >= 400:
             release_rate_limit(key)
+        _record_usage(scope, status_code)
+
+
+def _record_usage(scope, status_code: int) -> None:
+    """Count the attempt after the response is already decided. Never fails the request."""
+    try:
+        from services.usage import record_http
+
+        record_http(scope, status_code)
+    except Exception:
+        return
 
 
 app.add_middleware(
