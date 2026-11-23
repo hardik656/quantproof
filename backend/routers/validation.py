@@ -27,6 +27,7 @@ from services.portfolio import (
     _risk_parity_weights,
 )
 from services.tokens import FREE_DAILY_LIMIT, _is_pro_token, _token_tier, check_rate_limit
+from services.usage import format_from_upload, mark_usage
 from validator import QuantProofValidator, ValidationDashboard
 
 router = APIRouter()
@@ -74,6 +75,7 @@ async def validate(
             status_code=400,
             detail="Upload a CSV, an Excel .xlsx workbook, or an IBKR Flex XML file.",
         )
+    mark_usage(request, fmt=format_from_upload(filename))
 
     contents = await file.read()
     if len(contents) > 5_000_000:
@@ -85,6 +87,7 @@ async def validate(
         df, regime_note = smart_parse_csv(contents)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    mark_usage(request, fmt=format_from_upload(filename, regime_note))
 
     df = _dedup_trades(df)
     n_trials = max(1, min(50, n_trials))  # cap: prevent runaway requests
@@ -223,6 +226,7 @@ async def validate(
 
     _cache_validation(r.validation_hash, _vr_cache)
     _save_validation_cache()
+    mark_usage(request, score=r.score)
 
     return ValidationResponse(
         fundable_score=min(100.0, round(r.score, 1)),
@@ -701,6 +705,7 @@ async def validate_portfolio(
         blurred_combined_equity = [float(v) for v in combined_equity[:200]]
         blurred_plan = portfolio_plan
 
+    mark_usage(request, fmt="portfolio")
     return PortfolioResponse(
         strategies=strategy_summaries,
         correlation_matrix=[[float(v) for v in row] for row in corr_mat.tolist()],

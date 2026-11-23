@@ -22,6 +22,7 @@ from services.benchmarks import assign_regimes, get_benchmark_type, get_nifty_be
 from services.cache import _cache_validation
 from services.csv_util import Fill, match_fills
 from services.limits import TradeImportError
+from services.usage import mark_usage
 from validator import QuantProofValidator
 
 log = logging.getLogger("quantproof.tradingview")
@@ -316,6 +317,7 @@ def validate_tv_alerts(session_id: str, enhanced: bool = Form(False), request: R
         f" | {regime_note}" if regime_note else ""
     )
     extra_tv_flags = [f for f in tv_flags if f.strip() not in audit_note]
+    mark_usage(request, fmt="tradingview", score=report.score)
 
     return ValidationResponse(
         fundable_score=report.score,

@@ -1527,6 +1527,79 @@
     sessionStorage.removeItem(key);
   }
 
+  // First-party counter so a repeat validation in this browser can be measured.
+  // The id is random. It is not derived from the file, and it is not sent to Google.
+  function qpRandomUuid() {
+    var bytes = new Uint8Array(16);
+    if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
+    else for (var i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    var hex = [];
+    for (var j = 0; j < 16; j++) hex.push((bytes[j] + 0x100).toString(16).slice(1));
+    return hex.slice(0, 4).join('') + '-' + hex.slice(4, 6).join('') + '-' +
+      hex.slice(6, 8).join('') + '-' + hex.slice(8, 10).join('') + '-' + hex.slice(10).join('');
+  }
+  function qpClientId() {
+    var key = 'qp_client_id';
+    try {
+      var existing = localStorage.getItem(key) || '';
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) return existing;
+      var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : qpRandomUuid();
+      localStorage.setItem(key, id);
+      return id;
+    } catch (e) { return ''; }
+  }
+  function qpClientHeaders(headers, opts) {
+    var h = {};
+    if (headers) Object.keys(headers).forEach(function (k) { h[k] = headers[k]; });
+    var id = qpClientId();
+    if (id) h['X-QP-Client'] = id;
+    if (opts && opts.sample) h['X-QP-Sample'] = '1';
+    return h;
+  }
+  function qpScoreBucket(score) {
+    var n = Number(score);
+    if (!isFinite(n)) return 'unknown';
+    if (n < 40) return '0-39';
+    if (n < 60) return '40-59';
+    if (n < 80) return '60-79';
+    return '80-100';
+  }
+  function qpTrackValidation(phase, opts) {
+    try {
+      var sample = !!(opts && opts.sample);
+      var format = String((opts && opts.format) || 'unknown').replace(/[^a-z0-9_]/gi, '').slice(0, 32) || 'unknown';
+      var count = 0;
+      try {
+        count = parseInt(localStorage.getItem('qp_validation_count') || '0', 10);
+        if (!isFinite(count) || count < 0) count = 0;
+      } catch (e) { count = 0; }
+      var number = 0;
+      if (!sample) {
+        number = Math.min(count + 1, 10000);
+        if (phase === 'completed') {
+          try { localStorage.setItem('qp_validation_count', String(number)); } catch (e) {}
+        }
+      }
+      var params = { format: format, validation_number: number, sample: sample ? 'yes' : 'no' };
+      if (phase === 'completed' && opts && opts.score != null && isFinite(Number(opts.score))) {
+        params.score_bucket = qpScoreBucket(opts.score);
+      }
+      if (typeof gtag === 'function') {
+        gtag('event', phase === 'started' ? 'validation_started' : 'validation_completed', params);
+        if (phase === 'completed' && !sample && number > 1) {
+          gtag('event', 'repeat_validation', {
+            format: format,
+            validation_number: number,
+            score_bucket: params.score_bucket || 'unknown',
+            sample: 'no'
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
   const API_URL = 'https://quantproof-backend.onrender.com';
   const API_URL_REPORT = 'https://quantproof-backend.onrender.com';
 
@@ -1750,7 +1823,8 @@
     try {
       const _tok = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
       const _h = _tok ? {'x-pro-token':_tok,'x-report-token':_tok,'x-lite-token':_tok} : {};
-      const resp = await fetch(API_URL + '/validate', { method: 'POST', body: fd, headers: _h });
+      qpTrackValidation('started', {format: 'csv', sample: true});
+      const resp = await fetch(API_URL + '/validate', { method: 'POST', body: fd, headers: qpClientHeaders(_h, {sample: true}) });
       if (cst) clearTimeout(cst);
       if (!resp.ok) {
         const err = await resp.json();
@@ -1764,6 +1838,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
+      qpTrackValidation('completed', {format: 'csv', sample: true, score: data.fundable_score});
       if (data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data, true); }, 3200);
     } catch(err) {
@@ -2010,7 +2085,9 @@
       const _devHeaders = {};
       if (_proH)  { _devHeaders['x-pro-token'] = _proH; _devHeaders['x-report-token'] = _proH; }
       if (_liteH) { _devHeaders['x-lite-token'] = _liteH; }
-      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: _devHeaders});
+      const _fmt = _uploadName.endsWith('.xml') ? 'ibkr_flex' : 'csv';
+      qpTrackValidation('started', {format: _fmt});
+      const resp = await fetch(`${API_URL}/validate`, {method:'POST', body:fd, headers: qpClientHeaders(_devHeaders)});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -2018,6 +2095,7 @@
         throw new Error(detail.message || detail || 'Validation failed');
       }
       const data = await resp.json();
+      qpTrackValidation('completed', {format: _fmt, score: data.fundable_score});
       if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       setTimeout(() => { hideLoading(); renderResults(data); }, 3200);
     } catch(err) { if (cst) clearTimeout(cst); hideLoading(true); alert(`Error: ${err.message}`); }
@@ -2134,7 +2212,8 @@
     try {
       const _proHk = loadToken('qp_pro_token') || loadToken('qp_report_token') || loadToken('qp_lite_token') || '';
       const _kiteHeaders = _proHk ? {'x-pro-token': _proHk, 'x-report-token': _proHk, 'x-lite-token': _proHk} : {};
-      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: _kiteHeaders});
+      qpTrackValidation('started', {format: 'kite'});
+      const resp = await fetch(`${API_URL}/validate/kite`, {method:'POST', body:fd, headers: qpClientHeaders(_kiteHeaders)});
       if (cst) clearTimeout(cst);
       if(!resp.ok) {
         const err = await resp.json(); const detail = err.detail || err;
@@ -2145,6 +2224,7 @@
         throw new Error(detail.message || detail || 'Kite validation failed');
       }
       const data = await resp.json();
+      qpTrackValidation('completed', {format: 'kite', score: data.fundable_score});
       if(data.validation_hash) saveToken('qp_validation_hash', data.validation_hash);
       // Attach SEBI declaration to data for rendering
       if (window._sebiDeclaration) data._sebi = window._sebiDeclaration;
@@ -3397,7 +3477,8 @@
         days_back: 365,
         enhanced: enhancedValidation ? enhancedValidation.checked : false
       };
-      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      qpTrackValidation('started', {format: 'ibkr'});
+      const resp = await fetch(`${API_URL}/connect/ibkr`,{method:'POST',headers:qpClientHeaders({'Content-Type':'application/json'}),body:JSON.stringify(requestBody)});
       if (!resp.ok) {
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -3406,6 +3487,7 @@
         return;
       }
       const result=await resp.json(); const data=result.validation;
+      qpTrackValidation('completed', {format: 'ibkr', score: data && data.fundable_score});
       if(data.validation_hash) { 
         saveToken('qp_validation_hash',data.validation_hash); 
         sessionStorage.setItem('qp_ibkr_validation_data', JSON.stringify(data)); 
@@ -3434,7 +3516,8 @@
         mode,
         enhanced: enhancedValidation ? enhancedValidation.checked : false
       };
-      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      qpTrackValidation('started', {format: 'alpaca'});
+      const resp=await fetch(`${API_URL}/validate/alpaca`,{method:'POST',headers:qpClientHeaders({'Content-Type':'application/json'}),body:JSON.stringify(requestBody)});
       if (cst) clearTimeout(cst);
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
@@ -3455,6 +3538,7 @@
         throw new Error((detail&&detail.message)||detail||'Alpaca connection failed');
       }
       const data=await resp.json();
+      qpTrackValidation('completed', {format: 'alpaca', score: data.fundable_score});
       if(data.validation_hash) saveToken('qp_validation_hash',data.validation_hash);
       setTimeout(()=>{hideLoading();renderResults(data);},2500);
     } catch(err){if (cst) clearTimeout(cst);hideLoading(true);document.getElementById('alpacaPanel').style.display='block';status.innerText='Error: '+err.message;status.style.color='#ff4444';}
@@ -3504,7 +3588,8 @@
       const requestBody = {
         enhanced: enhancedValidation ? enhancedValidation.checked : false
       };
-      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody)});
+      qpTrackValidation('started', {format: 'tradingview'});
+      const resp=await fetch(`${API_URL}/webhook/tradingview/${sessionId}/validate`,{method:'POST',headers:qpClientHeaders({'Content-Type':'application/json'}),body:JSON.stringify(requestBody)});
       if(!resp.ok){
         const err=await resp.json(); const detail=err.detail||err;
         hideLoading(true);
@@ -3516,6 +3601,7 @@
         return;
       }
       const data=await resp.json();
+      qpTrackValidation('completed', {format: 'tradingview', score: data.fundable_score});
       if(data.validation_hash) { 
         saveToken('qp_validation_hash',data.validation_hash); 
         sessionStorage.setItem('qp_tv_validation_data', JSON.stringify(data)); 
@@ -3602,9 +3688,10 @@
     try {
       showLoading();
       hidePortfolioPanel();
+      qpTrackValidation('started', {format: 'portfolio'});
       const resp = await fetch(`${API_URL}/validate/portfolio`, {
         method: 'POST',
-        headers: {},
+        headers: qpClientHeaders({}),
         body: fd
       });
       if (!resp.ok) {
@@ -3621,6 +3708,7 @@
         return;
       }
       const data = await resp.json();
+      qpTrackValidation('completed', {format: 'portfolio'});
       setTimeout(() => { hideLoading(); renderPortfolioResults(data); }, 2000);
     } catch(e) {
       hideLoading(true);

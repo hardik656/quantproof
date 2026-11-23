@@ -110,7 +110,7 @@
     -->
     <section class="hero">
       <h1>Privacy Policy</h1>
-      <p>Last updated: 13 November 2026</p>
+      <p>Last updated: 23 November 2026</p>
     </section>
 
     <div class="policy-content">
@@ -138,11 +138,12 @@
             <li>The validation result (score, checks, equity curve, and similar figures) is cached in server memory, up to 50 recent runs, so a PDF or an AI plan can be generated for that run. That cache is not written to disk and is dropped when the process restarts.</li>
             <li>TradingView webhook sessions (session id and the alerts received) are stored for 7 days so alerts can accumulate. Depending on how the server is configured, that store is either a JSON file on the server or a database table.</li>
             <li>Paid access tokens, and Pro-token expiry times, are stored the same way so a purchase keeps working after a restart.</li>
-            <li>The IP address used for the free daily limit is kept in server memory until the limit resets or the process restarts. It is not written to the database by the rate limiter.</li>
+            <li>The IP address used for the free daily limit is kept in server memory until the limit resets or the process restarts. The rate limiter does not write that address to the database.</li>
+            <li>A usage counter records each validation request: the time, whether it succeeded, the kind of file or broker (for example csv or kite), and a score band such as 60–79. It does not record the file or the trades. When a database is configured, that counter is a table. The row may include a hash of a random id stored in this browser. If that id is missing and a server salt is set, the row includes a salted hash of the IP address instead. The address itself is not stored. With no database, the same facts are counted in server memory and written to the server log without the hash, and they are dropped when the process restarts.</li>
           </ul>
           <p><strong>Email.</strong> If you submit an address on the site (the results-page signup, or the note when the free limit is reached), that address is sent to Formspree. We do not put it in our own database.</p>
           <p><strong>Payments.</strong> Card details are collected by Paddle (international orders; Paddle is the merchant of record) or Razorpay (rupee orders). QuantProof does not receive your card number. Paddle may share the buyer details needed to deliver the purchase, such as an email address and a transaction id. Razorpay processes the rupee order and its payment id.</p>
-          <p><strong>Analytics.</strong> Google Analytics 4 (measurement id G-P8ZCZSKQSS) runs on these pages and sets first-party cookies such as <code>_ga</code> and <code>_ga_P8ZCZSKQSS</code>. The site is served through Cloudflare, which may set its own cookies to operate the network.</p>
+          <p><strong>Analytics.</strong> Google Analytics 4 (measurement id G-P8ZCZSKQSS) runs on these pages and sets first-party cookies such as <code>_ga</code> and <code>_ga_P8ZCZSKQSS</code>. When you start or finish a validation, the page also sends Google Analytics an event named <code>validation_started</code>, <code>validation_completed</code>, or, from the second successful run in that browser, <code>repeat_validation</code>. The event carries the kind of validation, a score band, whether it was the built-in sample, and how many successful validations this browser has completed. It does not include the file, the trades, or the random id. The site is served through Cloudflare, which may set its own cookies to operate the network.</p>
         </div>
       </section>
 
@@ -162,7 +163,7 @@
           <ul>
             <li><strong>Render</strong> hosts the API that runs the checks</li>
             <li><strong>Cloudflare</strong> sits in front of the website</li>
-            <li><strong>Google Analytics</strong> measures page visits</li>
+            <li><strong>Google Analytics</strong> measures page visits and validation events (a run starting, a run finishing, and a later run in the same browser)</li>
             <li><strong>Groq, Anthropic, and OpenAI</strong> may receive a validation summary when you request an AI fix plan</li>
             <li><strong>Formspree</strong> receives an email address you choose to submit</li>
             <li><strong>Paddle</strong> is the merchant of record for international checkout and handles that payment and its tax</li>
@@ -180,7 +181,7 @@
           <ul>
             <li>Not upload a file, and not connect a broker</li>
             <li>Revoke a broker API key at the broker</li>
-            <li>Clear this site’s local storage in your browser, which removes saved access tokens and the currency choice</li>
+            <li>Clear this site’s local storage in your browser, which removes saved access tokens, the currency choice, the random validation id, and the validation count</li>
             <li>Block or delete Google Analytics cookies in your browser. The validator still works if you do</li>
             <li>Email <a href="mailto:support@quantproof.net">support@quantproof.net</a> to ask what we still hold (for example a paid token or a TradingView session) and to ask us to delete it. We aim to answer within 30 days</li>
           </ul>
@@ -193,7 +194,7 @@
           <p>We do use cookies and browser storage.</p>
           <ul>
             <li><strong>Google Analytics</strong> sets <code>_ga</code> and <code>_ga_P8ZCZSKQSS</code> to distinguish visits</li>
-            <li><strong>local storage</strong> remembers a currency choice on the pricing page, paid access tokens for 7 days, and whether you dismissed the cookie notice</li>
+            <li><strong>local storage</strong> remembers a currency choice on the pricing page, paid access tokens for 7 days, whether you dismissed the cookie notice, a random id used only to count repeat validations (<code>qp_client_id</code>), and how many validations this browser has completed (<code>qp_validation_count</code>)</li>
             <li><strong>session storage</strong> keeps a copy of an access token for the open tab</li>
           </ul>
           <p>A short notice on each page says that analytics cookies are in use. Dismissing it stores that choice in local storage. It does not turn analytics off; use your browser if you want to block the cookies.</p>
